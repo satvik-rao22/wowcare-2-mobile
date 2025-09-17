@@ -1,0 +1,880 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Forte Pay Button Demo</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #6F8CFF 0%, #9C84FF 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #payment-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    #loading-text {
+      color: #5978F7;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(111, 140, 255, 0.2);
+      border-top: 4px solid #5978F7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .payment-info {
+      background: linear-gradient(135deg, #5978F7 0%, #9C84FF 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 15px;
+      margin: 20px 0;
+      box-shadow: 0 8px 20px rgba(89, 120, 247, 0.3);
+    }
+
+    .payment-info h3 {
+      font-size: 16px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .payment-info .amount {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .payment-info .order-number {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      
+      #payment-container {
+        padding: 30px 20px;
+        border-radius: 15px;
+      }
+      
+      .payment-info {
+        padding: 15px;
+        border-radius: 12px;
+      }
+      
+      .payment-info .amount {
+        font-size: 20px;
+      }
+    }
+
+    /* Forte modal improvements */
+    .forte-modal {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+      background: rgba(0, 0, 0, 0.8) !important;
+    }
+
+    .forte-modal iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+
+    /* Ensure Forte modal covers full screen on mobile */
+    @media (max-width: 768px) {
+      .forte-modal {
+        transform: scale(1) !important;
+        transform-origin: center center !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="payment-container">
+    <div class="loading-spinner"></div>
+    <p id="loading-text">Preparing your payment...</p>
+    <div class="payment-info" id="payment-details" style="display: none;">
+      <h3>Payment Summary</h3>
+      <div class="amount" id="display-amount">$0.00</div>
+      <div class="order-number" id="display-order">Order: -</div>
+    </div>
+  </div>
+
+  <script>
+    // Get parameters from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Forte credentials from API response or fallback to demo values
+    const apiAccessId = urlParams.get('apiAccessId') || 'f29ca937b3722c05dc882436edcba2b9';
+    const secureApiKey = urlParams.get('secureApiKey') || 'f0b7d55c3294e457a99213e388a83c67';
+    const organizationId = urlParams.get('organizationId') || '498415';
+    const locationId = urlParams.get('locationId') || '399718';
+    const amount = urlParams.get('totalAmount') || urlParams.get('amount') || '101.00';
+    const signature = urlParams.get('signature') || '';
+    const method = urlParams.get('method') || 'sale';
+    const allowedMethods = urlParams.get('allowedMethods') || 'echeck,visa';
+    const versionNumber = urlParams.get('versionNumber') || '2.0';
+    const utcTime = urlParams.get('utcTime') || '';
+    const orderNumber = urlParams.get('orderNumber') || '';
+    const callback = urlParams.get('callback') || 'oncallback';
+    const hashMethod = urlParams.get('hashMethod') || 'sha256';
+    const xdata1 = urlParams.get('xdata1') || '';
+    const xdata2 = urlParams.get('xdata2') || '';
+
+    // Update payment details display
+    function updatePaymentDisplay() {
+      const displayAmount = document.getElementById('display-amount');
+      const displayOrder = document.getElementById('display-order');
+      const paymentDetails = document.getElementById('payment-details');
+      
+      if (displayAmount) displayAmount.textContent = `$${parseFloat(amount).toFixed(2)}`;
+      if (displayOrder) displayOrder.textContent = `Order: ${orderNumber || 'Processing...'}`;
+      if (paymentDetails) paymentDetails.style.display = 'block';
+    }
+
+    // Fetch UTC time from Forte (JSONP)
+    function fetchUtcTimeAndGenerateSignature() {
+      const url = 'https://sandbox.forte.net/checkout/getUTC?callback=forteUtcCallback';
+      const script = document.createElement('script');
+      script.src = url;
+      document.body.appendChild(script);
+    }
+
+    // Forte UTC callback (JSONP)
+    window.forteUtcCallback = function(utc) {
+      // Use UTC time and order number from API response if available
+      const finalUtcTime = utcTime || utc;
+      const finalOrderNumber = orderNumber || 'INV-' + finalUtcTime;
+      
+      // Use signature from API response if available, otherwise generate one
+      let finalSignature = signature;
+      if (!finalSignature) {
+        const stringToSign = apiAccessId + '|' + method + '|' + versionNumber + '|' + amount + '|' + finalUtcTime + '|' + finalOrderNumber + '||';
+        const hash = CryptoJS.HmacSHA256(stringToSign, secureApiKey);
+        finalSignature = hash.toString(CryptoJS.enc.Hex);
+      }
+
+      // Update display with payment details
+      updatePaymentDisplay();
+
+      renderPayButton({
+        apiAccessId,
+        organizationId,
+        locationId,
+        amount,
+        orderNumber: finalOrderNumber,
+        utcTime: finalUtcTime,
+        signature: finalSignature
+      });
+    };
+
+    // Render the Forte Pay button
+    function renderPayButton(params) {
+      const container = document.getElementById('payment-container');
+      container.innerHTML = `
+        <div class="payment-info">
+          <h3>Opening Payment Gateway</h3>
+          <div class="amount">$${parseFloat(params.amount).toFixed(2)}</div>
+          <div class="order-number">Order: ${params.orderNumber}</div>
+        </div>
+      `;
+
+      // Load Forte checkout script
+      const forteScript = document.createElement('script');
+      forteScript.src = 'https://sandbox.forte.net/checkout/v2/js';
+      forteScript.onload = function() {
+        console.log('✅ Forte checkout script loaded successfully');
+        console.log('💰 Payment form is ready. Opening Forte payment modal directly...');
+        
+        // Create a hidden button to trigger the payment modal
+        const hiddenButton = document.createElement('button');
+        hiddenButton.setAttribute('data-forte-checkout-button', '');
+        hiddenButton.setAttribute('api_access_id', params.apiAccessId);
+        hiddenButton.setAttribute('method', method);
+        hiddenButton.setAttribute('version_number', versionNumber);
+        hiddenButton.setAttribute('organization_id', params.organizationId);
+        hiddenButton.setAttribute('location_id', params.locationId);
+        hiddenButton.setAttribute('total_amount', params.amount);
+        hiddenButton.setAttribute('order_number', params.orderNumber);
+        hiddenButton.setAttribute('utc_time', params.utcTime);
+        hiddenButton.setAttribute('signature', params.signature);
+        hiddenButton.setAttribute('hash_method', hashMethod);
+        hiddenButton.setAttribute('allowed_methods', allowedMethods);
+        hiddenButton.setAttribute('callback', callback);
+        if (xdata1) hiddenButton.setAttribute('xdata1', xdata1);
+        if (xdata2) hiddenButton.setAttribute('xdata2', xdata2);
+        hiddenButton.style.display = 'none';
+        hiddenButton.id = 'hidden-pay-btn';
+
+        container.appendChild(hiddenButton);
+
+        // Automatically trigger the payment modal
+        setTimeout(() => {
+          hiddenButton.click();
+          
+          // Apply mobile optimizations to Forte modal
+          setTimeout(() => {
+            const forteModal = document.querySelector('[data-forte-checkout-modal]') || 
+                             document.querySelector('.forte-modal') ||
+                             document.querySelector('[class*="forte"]');
+            if (forteModal) {
+              forteModal.classList.add('forte-modal');
+              forteModal.style.position = 'fixed';
+              forteModal.style.top = '0';
+              forteModal.style.left = '0';
+              forteModal.style.width = '100vw';
+              forteModal.style.height = '100vh';
+              forteModal.style.zIndex = '9999';
+              forteModal.style.background = 'rgba(0, 0, 0, 0.8)';
+            }
+          }, 500);
+        }, 100);
+      };
+      document.body.appendChild(forteScript);
+    }
+
+    // Forte callback handler
+    window.oncallback = function(event) {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        console.log('Forte Callback Response:', data);
+
+        // Send data back to Flutter app with better error handling
+        let sentToFlutter = false;
+        
+        if (window.flutter_inappwebview) {
+          try {
+            console.log('📱 Sending to Flutter via InAppWebView...');
+            window.flutter_inappwebview.callHandler('paymentCallback', data);
+            sentToFlutter = true;
+            console.log('✅ Successfully sent to Flutter via InAppWebView');
+          } catch (e) {
+            console.error('❌ InAppWebView error:', e);
+          }
+        }
+        
+        if (!sentToFlutter && window.webkit && window.webkit.messageHandlers) {
+          try {
+            console.log('📱 Sending to Flutter via WKWebView...');
+            window.webkit.messageHandlers.paymentCallback.postMessage(data);
+            sentToFlutter = true;
+            console.log('✅ Successfully sent to Flutter via WKWebView');
+          } catch (e) {
+            console.error('❌ WKWebView error:', e);
+          }
+        }
+        
+        if (!sentToFlutter) {
+          try {
+            console.log('📱 Sending to Flutter via postMessage...');
+            window.parent.postMessage({
+              type: 'paymentCallback',
+              data: data
+            }, '*');
+            sentToFlutter = true;
+            console.log('✅ Successfully sent to Flutter via postMessage');
+          } catch (e) {
+            console.error('❌ postMessage error:', e);
+          }
+        }
+        
+        if (!sentToFlutter) {
+          console.error('❌ Failed to send data to Flutter via any method');
+        }
+
+        if (data.response_code === "A01") {
+          // Enhanced console logging for successful payment
+          console.log('⏳ PAYMENT IN-PROCESS! ⏳');
+          console.log('=====================================');
+          console.log('Transaction Details:');
+          console.log('  Response Code:', data.response_code);
+          console.log('  Response Text:', data.response_text);
+          console.log('  Total Amount:', data.total_amount);
+          console.log('  Order Number:', data.order_number);
+          console.log('  Transaction ID:', data.transaction_id);
+          console.log('  Authorization Code:', data.authorization_code);
+          console.log('  Date/Time:', new Date().toISOString());
+          console.log('=====================================');
+          
+          // Also log the full response object for debugging
+          console.log('Full Response Object:', JSON.stringify(data, null, 2));
+          
+          // Show processing message with app styling
+          showMessage("Payment in-process! $" + data.total_amount, 'processing');
+        } else {
+          // Enhanced console logging for failed payment
+          console.log('❌ PAYMENT FAILED ❌');
+          console.log('=====================================');
+          console.log('Error Details:');
+          console.log('  Response Code:', data.response_code);
+          console.log('  Response Text:', data.response_text);
+          console.log('  Error Message:', data.error_message || 'No error message');
+          console.log('  Date/Time:', new Date().toISOString());
+          console.log('=====================================');
+          
+          // Also log the full response object for debugging
+          console.log('Full Error Response:', JSON.stringify(data, null, 2));
+          
+          showMessage("Payment failed: " + data.response_text, 'error');
+        }
+      } catch (err) {
+        console.error('❌ Callback parsing error:', err);
+        console.error('Raw event data:', event.data);
+      }
+    };
+
+    // Show styled message
+    function showMessage(message, type) {
+      const container = document.getElementById('payment-container');
+      const bgColor = type === 'success' ? 'linear-gradient(135deg, #38A169 0%, #48BB78 100%)' : 'linear-gradient(135deg, #E53E3E 0%, #F56565 100%)';
+      
+      container.innerHTML = `
+        <div class="payment-info" style="background: ${bgColor};">
+          <h3>${type === 'success' ? '✅ Payment Successful' : '❌ Payment Failed'}</h3>
+          <div class="amount" style="font-size: 18px;">${message}</div>
+        </div>
+      `;
+    }
+
+    // Start the process
+    fetchUtcTimeAndGenerateSignature();
+  </script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Forte Pay Button Demo</title>
+  <!-- No client-side signature generation -->
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #6F8CFF 0%, #9C84FF 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #payment-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    #loading-text {
+      color: #5978F7;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(111, 140, 255, 0.2);
+      border-top: 4px solid #5978F7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .payment-info {
+      background: linear-gradient(135deg, #5978F7 0%, #9C84FF 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 15px;
+      margin: 20px 0;
+      box-shadow: 0 8px 20px rgba(89, 120, 247, 0.3);
+    }
+
+    .payment-info h3 {
+      font-size: 16px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .payment-info .amount {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .payment-info .order-number {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      
+      #payment-container {
+        padding: 30px 20px;
+        border-radius: 15px;
+      }
+      
+      .payment-info {
+        padding: 15px;
+        border-radius: 12px;
+      }
+      
+      .payment-info .amount {
+        font-size: 20px;
+      }
+    }
+
+    /* Forte modal improvements */
+    .forte-modal {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+      background: rgba(0, 0, 0, 0.8) !important;
+    }
+
+    .forte-modal iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+
+    /* Ensure Forte modal covers full screen on mobile */
+    @media (max-width: 768px) {
+      .forte-modal {
+        transform: scale(1) !important;
+        transform-origin: center center !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="payment-container">
+    <div class="payment-info" id="payment-details">
+      <h3>Payment Summary</h3>
+      <div class="amount" id="display-amount">$0.00</div>
+      <div class="order-number" id="display-order">Order: Processing...</div>
+      <div class="loading-spinner" style="margin-top: 20px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // Get parameters from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Forte credentials from API response or URL parameters (no fallbacks)
+    const apiAccessId = urlParams.get('apiAccessId');
+    const organizationId = urlParams.get('organizationId');
+    const locationId = urlParams.get('locationId');
+    const amount = urlParams.get('totalAmount') || urlParams.get('amount');
+    const signature = urlParams.get('signature');
+    const method = urlParams.get('method');
+    const paymentMethod = urlParams.get('paymentMethod');
+    // If backend didn't provide allowedMethods, default to the selected paymentMethod
+    const allowedMethods = (function() {
+      const fromUrl = urlParams.get('allowedMethods');
+      if (fromUrl && fromUrl.trim().length > 0) return fromUrl;
+      if (paymentMethod && paymentMethod.trim().length > 0) return paymentMethod; // enforce selected method only
+      return null;
+    })();
+    const versionNumber = urlParams.get('versionNumber');
+    const utcTime = urlParams.get('utcTime');
+    const orderNumber = urlParams.get('orderNumber');
+    // Ensure a valid Forte callback function name
+    const callback = (function() {
+      const c = urlParams.get('callback');
+      return (c && c.trim().length > 0) ? c : 'oncallback';
+    })();
+    const hashMethod = urlParams.get('hashMethod');
+    const xdata1 = urlParams.get('xdata1');
+    const xdata2 = urlParams.get('xdata2');
+    // Tokens supplied by backend/create-transaction
+    const customerToken = urlParams.get('customerToken');
+    const paymentToken = urlParams.get('paymentToken');
+
+    // Update payment details display
+    function updatePaymentDisplay() {
+      const displayAmount = document.getElementById('display-amount');
+      const displayOrder = document.getElementById('display-order');
+      
+      if (displayAmount) displayAmount.textContent = `$${parseFloat(amount).toFixed(2)}`;
+      if (displayOrder) displayOrder.textContent = `Order: ${orderNumber || 'Processing...'}`;
+    }
+
+    // Fetch UTC time from Forte (JSONP)
+    function fetchUtcTimeAndGenerateSignature() {
+      const url = 'https://checkout.forte.net/getUTC?callback=forteUtcCallback';
+       //const url = 'https://sandbox.forte.net/checkout/getUTC?callback=forteUtcCallback';
+      const script = document.createElement('script');
+      script.src = url;
+      document.body.appendChild(script);
+    }
+
+    // Forte UTC callback (JSONP)
+    window.forteUtcCallback = function(utc) {
+      // Use UTC time and order number from API response if available
+      const finalUtcTime = utcTime || utc;
+      const finalOrderNumber = orderNumber || 'INV-' + finalUtcTime;
+      
+      // Require signature from backend; do not generate on frontend
+      const finalSignature = signature;
+      if (!finalSignature) {
+        console.error('Missing signature from backend. Aborting checkout.');
+        showMessage('Missing signature from backend. Please retry.', 'error');
+        return;
+      }
+
+      // Debug: log exact values and the string that must be signed (for backend parity)
+      try {
+        // Backend signs with: api_access_id|method|version_number|total_amount|utc_time|order_number|customer_token|paymethod_token
+        const debugStringToSign = `${apiAccessId}|${method}|${versionNumber}|${amount}|${finalUtcTime}|${finalOrderNumber}|${customerToken ?? ''}|${paymentToken ?? ''}`;
+        console.log('🔐 Forte Signing Debug');
+        console.log('  api_access_id:', apiAccessId);
+        console.log('  method:', method);
+        console.log('  version_number:', versionNumber);
+        console.log('  total_amount:', amount);
+        console.log('  utc_time:', finalUtcTime);
+        console.log('  order_number:', finalOrderNumber);
+        console.log('  customer_token:', customerToken);
+        console.log('  paymethod_token:', paymentToken);
+        console.log('  string_to_sign:', debugStringToSign);
+        console.log('  signature (from backend):', finalSignature);
+      } catch (e) {
+        console.warn('Signing debug log failed:', e);
+      }
+
+      // Update display with payment details
+      updatePaymentDisplay();
+
+      renderPayButton({
+        apiAccessId,
+        organizationId,
+        locationId,
+        amount,
+        orderNumber: finalOrderNumber,
+        utcTime: finalUtcTime,
+        signature: finalSignature
+      });
+    };
+
+    // Render the Forte Pay button
+    function renderPayButton(params) {
+      const container = document.getElementById('payment-container');
+      container.innerHTML = `
+        <div class="payment-info">
+          <h3>Opening Payment Gateway</h3>
+          <div class="amount">$${parseFloat(params.amount).toFixed(2)}</div>
+          <div class="order-number">Order: ${params.orderNumber}</div>
+          <div class="loading-spinner" style="margin-top: 20px;"></div>
+        </div>
+      `;
+
+      // Load Forte checkout script
+      const forteScript = document.createElement('script');
+      forteScript.src = 'https://checkout.forte.net/v1/js';
+      // forteScript.src = 'https://sandbox.forte.net/checkout/v2/js';
+      forteScript.onload = function() {
+        console.log('✅ Forte checkout script loaded successfully');
+        console.log('💰 Payment form is ready. Opening Forte payment modal directly...');
+        
+        // Create a hidden button to trigger the payment modal
+        const hiddenButton = document.createElement('button');
+        hiddenButton.setAttribute('data-forte-checkout-button', '');
+        if (params.apiAccessId) hiddenButton.setAttribute('api_access_id', params.apiAccessId);
+        if (method) hiddenButton.setAttribute('method', method);
+        if (versionNumber) hiddenButton.setAttribute('version_number', versionNumber);
+        if (params.organizationId) hiddenButton.setAttribute('organization_id', params.organizationId);
+        if (params.locationId) hiddenButton.setAttribute('location_id', params.locationId);
+        if (params.amount) hiddenButton.setAttribute('total_amount', params.amount);
+        if (params.orderNumber) hiddenButton.setAttribute('order_number', params.orderNumber);
+        if (params.utcTime) hiddenButton.setAttribute('utc_time', params.utcTime);
+        if (params.signature) hiddenButton.setAttribute('signature', params.signature);
+        if (customerToken) hiddenButton.setAttribute('customer_token', customerToken);
+        if (paymentToken) hiddenButton.setAttribute('paymethod_token', paymentToken);
+        if (hashMethod) hiddenButton.setAttribute('hash_method', hashMethod);
+        if (allowedMethods) hiddenButton.setAttribute('allowed_methods', allowedMethods);
+        // Always set a callback (defaults to 'oncallback') so Forte invokes our handler
+        hiddenButton.setAttribute('callback', callback);
+        // Explicitly disable saving customer/payment tokens
+        // hiddenButton.setAttribute('save_token', 'false');
+        hiddenButton.setAttribute('save_token', 'true');
+        if (xdata1) hiddenButton.setAttribute('xdata1', xdata1);
+        if (xdata2) hiddenButton.setAttribute('xdata2', xdata2);
+        hiddenButton.style.display = 'none';
+        hiddenButton.id = 'hidden-pay-btn';
+
+        container.appendChild(hiddenButton);
+
+        // Automatically trigger the payment modal
+        setTimeout(() => {
+          hiddenButton.click();
+          
+          // Apply mobile optimizations to Forte modal
+          setTimeout(() => {
+            const forteModal = document.querySelector('[data-forte-checkout-modal]') || 
+                             document.querySelector('.forte-modal') ||
+                             document.querySelector('[class*="forte"]');
+            if (forteModal) {
+              forteModal.classList.add('forte-modal');
+              forteModal.style.position = 'fixed';
+              forteModal.style.top = '0';
+              forteModal.style.left = '0';
+              forteModal.style.width = '100vw';
+              forteModal.style.height = '100vh';
+              forteModal.style.zIndex = '9999';
+              forteModal.style.background = 'rgba(0, 0, 0, 0.8)';
+            }
+          }, 500);
+        }, 100);
+      };
+      document.body.appendChild(forteScript);
+    }
+
+    // Forte callback handler
+    window.oncallback = function(event) {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        console.log('Forte Callback Response:', data);
+
+        // Normalize event to ensure terminal states are detectable in Flutter
+        try {
+          const rc = data.response_code || data.responseCode;
+          if (!data.event || (typeof data.event === 'string' && data.event.trim().length === 0)) {
+            if (rc === 'A01') {
+              data.event = 'success';
+            } else if (typeof rc === 'string' && rc.length > 0) {
+              data.event = 'failure';
+            }
+          }
+        } catch (e) {
+          console.warn('Could not normalize callback event:', e);
+        }
+
+        // Show immediate payment status in HTML
+        showPaymentStatus(data);
+
+        // Send data back to Flutter app with better error handling
+        let sentToFlutter = false;
+        
+        if (window.flutter_inappwebview) {
+          try {
+            console.log('📱 Sending to Flutter via InAppWebView...');
+            window.flutter_inappwebview.callHandler('paymentCallback', data);
+            sentToFlutter = true;
+            console.log('✅ Successfully sent to Flutter via InAppWebView');
+          } catch (e) {
+            console.error('❌ InAppWebView error:', e);
+          }
+        }
+        
+        if (!sentToFlutter && window.webkit && window.webkit.messageHandlers) {
+          try {
+            console.log('📱 Sending to Flutter via WKWebView...');
+            window.webkit.messageHandlers.paymentCallback.postMessage(data);
+            sentToFlutter = true;
+            console.log('✅ Successfully sent to Flutter via WKWebView');
+          } catch (e) {
+            console.error('❌ WKWebView error:', e);
+          }
+        }
+        
+        if (!sentToFlutter) {
+          try {
+            console.log('📱 Sending to Flutter via postMessage...');
+            window.parent.postMessage({
+              type: 'paymentCallback',
+              data: data
+            }, '*');
+            sentToFlutter = true;
+            console.log('✅ Successfully sent to Flutter via postMessage');
+          } catch (e) {
+            console.error('❌ postMessage error:', e);
+          }
+        }
+        
+        if (!sentToFlutter) {
+          console.error('❌ Failed to send data to Flutter via any method');
+        }
+
+        console.log('📱 Payment callback sent to Flutter app for processing');
+        
+      } catch (err) {
+        console.error('❌ Callback parsing error:', err);
+        console.error('Raw event data:', event.data);
+      }
+    };
+
+    // Show payment status based on callback data
+    function showPaymentStatus(data) {
+      const container = document.getElementById('payment-container');
+      const responseCode = data.response_code || data.responseCode;
+      const event = data.event;
+      const totalAmount = data.total_amount || data.totalAmount;
+      const orderNumber = data.order_number || data.orderNumber;
+      const methodUsed = data.method_used || data.methodUsed;
+      
+      // Debug logging
+      console.log('🔍 Payment Status Debug:');
+      console.log('  event:', event);
+      console.log('  responseCode:', responseCode);
+      console.log('  response_description:', data.response_description);
+      console.log('  responseText:', data.responseText);
+      
+      let status, message, bgColor, icon, title;
+      
+      if (event === 'begin') {
+        status = 'processing';
+        message = 'Payment is being processed...';
+        bgColor = 'linear-gradient(135deg, #5978F7 0%, #9C84FF 100%)';
+        icon = '⏳';
+        title = 'Processing Payment';
+      } else if (event === 'failed' || event === 'failure') {
+        status = 'failed';
+        message = data.response_description || data.responseText || 'Payment was not successful';
+        bgColor = 'linear-gradient(135deg, #E53E3E 0%, #F56565 100%)';
+        icon = '❌';
+        title = 'Payment Failed';
+      } else if (responseCode === 'A01') {
+        status = 'processing';
+        message = `Payment of $${totalAmount} is being processed...`;
+        bgColor = 'linear-gradient(135deg, #5978F7 0%, #9C84FF 100%)';
+        icon = '⏳';
+        title = 'Payment In-Process';
+      } else {
+        status = 'processing';
+        message = data.response_description || data.responseText || 'Payment is being processed...';
+        bgColor = 'linear-gradient(135deg, #5978F7 0%, #9C84FF 100%)';
+        icon = '⏳';
+        title = 'Processing Payment';
+      }
+      
+      container.innerHTML = `
+        <div class="payment-info" style="background: ${bgColor};">
+          <h3>${icon} ${title}</h3>
+          <div class="amount" style="font-size: 16px; line-height: 1.4; margin-top: 10px;">${message}</div>
+          <div style="font-size: 12px; opacity: 0.8; margin-top: 15px;">
+            ${orderNumber ? `Order: ${orderNumber}` : ''}
+            ${methodUsed ? ` | Method: ${methodUsed.toUpperCase()}` : ''}
+          </div>
+          <div style="font-size: 11px; opacity: 0.7; margin-top: 8px;">
+            ${status === 'processing' ? 'Please wait while we process your payment...' : 
+              'Please try again or contact support if the issue persists.'}
+          </div>
+        </div>
+      `;
+    }
+
+    // Show styled message
+    function showMessage(message, type) {
+      const container = document.getElementById('payment-container');
+      let bgColor, icon, title, statusMessage;
+      
+      if (type === 'success') {
+        bgColor = 'linear-gradient(135deg, #38A169 0%, #48BB78 100%)';
+        icon = '✅';
+        title = 'Payment Successful';
+        statusMessage = 'Your payment has been processed successfully!';
+      } else if (type === 'processing') {
+        bgColor = 'linear-gradient(135deg, #5978F7 0%, #9C84FF 100%)';
+        icon = '⏳';
+        title = 'Payment In-Process';
+        statusMessage = 'Please wait while we process your payment...';
+      } else {
+        bgColor = 'linear-gradient(135deg, #E53E3E 0%, #F56565 100%)';
+        icon = '❌';
+        title = 'Payment Failed';
+        statusMessage = 'Please try again or contact support if the issue persists.';
+      }
+      
+      container.innerHTML = `
+        <div class="payment-info" style="background: ${bgColor};">
+          <h3>${icon} ${title}</h3>
+          <div class="amount" style="font-size: 16px; line-height: 1.4; margin-top: 10px;">${message}</div>
+          <div style="font-size: 12px; opacity: 0.8; margin-top: 15px;">
+            ${statusMessage}
+          </div>
+        </div>
+      `;
+    }
+
+    // Debug logging for payment method
+    console.log('🔍 Payment Method Debug:');
+    console.log('  paymentMethod from URL:', paymentMethod);
+    console.log('  allowedMethods from URL:', urlParams.get('allowedMethods'));
+    console.log('  final allowedMethods:', allowedMethods);
+    
+    // Start the process
+    fetchUtcTimeAndGenerateSignature();
+  </script>
+</body>
+</html>

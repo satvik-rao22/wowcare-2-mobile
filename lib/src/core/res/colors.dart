@@ -1,0 +1,76 @@
+import 'package:flutter/material.dart';
+
+class AppColors {
+  const AppColors._();
+
+  static const themeColor = Color.fromRGBO(89, 120, 247, 1);
+
+  static const primaryColor = Color.fromRGBO(87, 51, 83, 1);
+  static const secondaryColor = Color.fromRGBO(27, 35, 126, 1);
+
+  static const cardColor = Colors.white;
+  static final cardBorderColor = AppColors.primaryColor.withValues(alpha: 0.15);
+
+  static const fieldBackgroundColor = Color.fromRGBO(177, 175, 233, 0.1);
+
+  static const accentColor = Color.fromRGBO(220, 156, 19, 1);
+  static const errorColor = Color.fromRGBO(211, 47, 47, 1);
+  static const warningColor = Color.fromRGBO(255, 160, 0, 1);
+  static const successColor = Color.fromRGBO(56, 142, 60, 1);
+
+  static const dividerColor = Color.fromRGBO(189, 189, 189, 1);
+
+  static const classroomStudentTabColor = Color.fromRGBO(44, 99, 226, 0.1);
+  static const classroomStaffTabColor = Color.fromRGBO(203, 246, 255, 0.4);
+  static const classroomNotesTabColor = Color.fromRGBO(217, 255, 203, 0.4);
+
+  static const Color lightBlueProgressBar = Color.fromRGBO(155, 232, 255, 1);
+  static const Color mustardProgressBar = Color.fromRGBO(253, 205, 22, 1);
+  static const Color lightGreenProgressBar = Color.fromRGBO(151, 242, 148, 1);
+  static const Color redProgressBar = Color.fromRGBO(240, 111, 111, 1);
+
+  static const List<Color> scaffoldGradientColors = [
+    Color.fromRGBO(255, 255, 255, 1),
+    Color.fromRGBO(251, 238, 250, 1),
+  ];
+
+  static const List<Color> primaryGradientColors = [
+    Color.fromRGBO(111, 140, 255, 1),
+    Color.fromRGBO(156, 132, 255, 1),
+  ];
+
+  static const List<Color> secondaryGradientColors = [
+    Color.fromRGBO(89, 120, 247, 1),
+    Color.fromRGBO(156, 132, 255, 1),
+  ];
+
+  static var chipBackground;
+
+  static LinearGradient buildScaffoldGradient() => const LinearGradient(
+        colors: scaffoldGradientColors,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      );
+
+  static LinearGradient buildPrimaryGradient({
+    List<Color> colors = primaryGradientColors,
+    Alignment begin = Alignment.centerLeft,
+    Alignment end = Alignment.centerRight,
+  }) =>
+      LinearGradient(
+        colors: colors,
+        begin: begin,
+        end: end,
+      );
+
+  static LinearGradient buildSecondaryGradient({
+    List<Color> colors = secondaryGradientColors,
+    Alignment begin = Alignment.centerLeft,
+    Alignment end = Alignment.centerRight,
+  }) =>
+      LinearGradient(
+        colors: colors,
+        begin: begin,
+        end: end,
+      );
+}
