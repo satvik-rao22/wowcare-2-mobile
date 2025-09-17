@@ -1,8 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:wowcare/core/extentions/context_extentions.dart';
-import 'package:wowcare/core/res/colors.dart';
-import 'package:wowcare/core/res/media_res.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 
 class ComingSoonScreen extends StatelessWidget {
   const ComingSoonScreen({super.key});
@@ -18,9 +17,9 @@ class ComingSoonScreen extends StatelessWidget {
           children: [
             Lottie.asset(
               MediaRes.comingSoonLottie,
-              width: context.width * 0.8,
+              width: MediaQuery.of(context).size.width * 0.8,
             ),
-            SizedBox(height: context.height * 0.1),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.1),
             GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(

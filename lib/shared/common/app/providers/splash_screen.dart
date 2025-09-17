@@ -1,5 +1,5 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:wowcare/presentation/common/widgets/animation_slide_widgets.dart';
+import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/src/app_router.dart';
 

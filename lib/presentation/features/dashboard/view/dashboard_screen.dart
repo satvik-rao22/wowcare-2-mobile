@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/presentation/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

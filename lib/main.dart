@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/common/app/providers/theme_providers.dart';
+import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 
 import 'src/app_router.dart';
-import 'presentation/common/app/providers/splash_screen.dart';
+import 'shared/common/app/providers/splash_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Create a global instance of NotificationService that will be initialized later

@@ -165,10 +165,10 @@
 
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/presentation/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/presentation/common/widgets/custom_drawer.dart';
-import 'package:wowcare/presentation/common/widgets/custom_navigation_bar.dart';
-import 'package:wowcare/presentation/common/widgets/gradient_background.dart';
+import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
+import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
+import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 
 class GlobalScaffold extends StatelessWidget {
   const GlobalScaffold({
