@@ -8,7 +8,7 @@ import '../../res/colors.dart';
 import '../../res/fonts.dart';
 import '../../res/media_res.dart';
 import '../app/providers/nav_bar_providers.dart';
-import 'package:wowcare/src/presentation/screens/dashboard/admin_dashboard.dart';
+import 'package:wowcare/src/presentation/features/dashboard/admin_dashboard.dart';
 
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});

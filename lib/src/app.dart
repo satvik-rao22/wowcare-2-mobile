@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'core/Common/app/providers/splash_screen.dart';
 import 'core/common/views/page_under_construction.dart';
-import 'presentation/screens/auth-views/sign_in_screen.dart';
-import 'presentation/screens/dashboard/admin_dashboard.dart';
-import 'presentation/screens/on_boarding/presentation/views/onboarding_screen.dart';
+import 'presentation/features/auth-views/sign_in_screen.dart';
+import 'presentation/features/dashboard/admin_dashboard.dart';
+import 'presentation/features/on_boarding/presentation/views/onboarding_screen.dart';
 
 Route<dynamic> generateRoute(RouteSettings settings) {
   switch (settings.name) {

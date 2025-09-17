@@ -10,7 +10,7 @@ import 'package:wowcare/src/core/common/app/bloc/theme_providers.dart';
 
 import 'src/app.dart';
 import 'src/core/Common/app/providers/splash_screen.dart';
-import 'src/presentation/screens/auth-views/sign_in_screen.dart';
+import 'src/presentation/features/auth-views/sign_in_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Create a global instance of NotificationService that will be initialized later
