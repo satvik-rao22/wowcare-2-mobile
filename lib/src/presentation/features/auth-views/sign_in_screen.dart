@@ -8,7 +8,7 @@ import '../../../core/res/colors.dart';
 import '../../../core/res/media_res.dart';
 import '../../../core/util/constants.dart';
 import '../../common_widgets/auth-common-widget/sign_in_form.dart';
-import '../dashboard/presentation/views/admin_dashboard.dart';
+import '../dashboard/admin_dashboard.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({Key? key}) : super(key: key);
