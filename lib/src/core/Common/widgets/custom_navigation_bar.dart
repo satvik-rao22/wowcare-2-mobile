@@ -3,12 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/src/core/extentions/context_extentions.dart';
 
 import '../../res/colors.dart';
 import '../../res/fonts.dart';
 import '../../res/media_res.dart';
 import '../app/providers/nav_bar_providers.dart';
+import 'package:wowcare/src/presentation/screens/dashboard/presentation/views/admin_dashboard.dart';
 
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
@@ -20,7 +20,7 @@ class CustomNavigationBar extends StatefulWidget {
       navBarKey.currentState?._navBarHeight ?? 0.0;
 
   @override
-  _CustomNavigationBarState createState() => _CustomNavigationBarState();
+  State<CustomNavigationBar> createState() => _CustomNavigationBarState();
 }
 
 class _CustomNavigationBarState extends State<CustomNavigationBar> {
@@ -29,11 +29,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   double _navBarHeight = 0.0;
   bool _hasMeasured = false;
 
-  static const List<String> dashboardRoutes = [
-    // AdminDashboard.routeName,
-    // StaffDashboard.routeName,
-    // ParentDashboard.routeName,
-  ];
+  static const List<String> dashboardRoutes = [AdminDashboard.routeName];
 
   @override
   void initState() {
@@ -68,31 +64,16 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   Widget _buildNavItem({
     required String icon,
     required String label,
-    required List<String> routeNames,
-    required bool isDashboardItem,
+    required String routeName,
   }) {
-    final bool isActive = isDashboardItem
-        ? dashboardRoutes.contains(_currentRoute)
-        : routeNames.contains(_currentRoute);
+    final bool isActive = _currentRoute == routeName;
 
     return Expanded(
       child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () {
-          if (label == 'Attendance') {
-            // AttendancePopupManager.showAttendancePopup(context);
-            return;
-          }
-
-          if (isActive) return;
-
-          if (isDashboardItem) {
-            Navigator.of(context).popUntil(
-              (route) =>
-                  dashboardRoutes.contains(route.settings.name) ||
-                  route.isFirst,
-            );
-          } else {
-            Navigator.pushNamed(context, routeNames.first);
+          if (!isActive) {
+            Navigator.pushNamed(context, routeName);
           }
         },
         child: Container(
@@ -107,14 +88,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
             fit: BoxFit.scaleDown,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SvgPicture.asset(
                   icon,
+                  height: 24, // ✅ same height as others
+                  width: 24, // ✅ enforce equal width for consistency
                   colorFilter: isActive
-                      ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
+                      ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
                       : null,
-                  height: 24,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -140,7 +121,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      top: false, // only respect bottom safe area
+      top: false,
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         child: Container(
@@ -152,53 +133,28 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
               _buildNavItem(
                 icon: MediaRes.dashboardIcon,
                 label: 'Dashboard',
-                routeNames: dashboardRoutes,
-                isDashboardItem: true,
+                routeName: AdminDashboard.routeName,
               ),
-              // if (context.isPersonnel)
               _buildNavItem(
                 icon: MediaRes.attendanceIcon,
                 label: 'Attendance',
-                routeNames: [],
-                isDashboardItem: false,
+                routeName: '/attendance',
               ),
-              // if (context.isPersonnel)
               _buildNavItem(
                 icon: MediaRes.classroomIcon,
                 label: 'Classrooms',
-                routeNames: [
-                  // ClassroomScreen.routeName,
-                  // ClassroomInfoScreen.routeName,
-                  // ClassroomOverviewScreen.routeName,
-                ],
-                isDashboardItem: false,
+                routeName: '/classrooms',
               ),
               _buildNavItem(
                 icon: MediaRes.activitesIcon,
                 label: 'Activities',
-                routeNames: [
-                  // if (context.isGuardian) GuardianActivityScreen.routeName,
-                  // ActivityScreen.routeName,
-                ],
-                isDashboardItem: false,
+                routeName: '/activities',
               ),
-              // _buildNavItem(
-              //   icon: MediaRes.communicationIcon,
-              //   // label: context.isPersonnel ? 'Messaging' : 'Communication',
-              //   routeNames: [
-              //     // if (context.isGuardian) StudentConversationScreen.routeName,
-              //     // CommunicationScreen.routeName,
-              //     // StaffConversationScreen.routeName,
-              //   ],
-              //   isDashboardItem: false,
-              // ),
-              // if (context.isGuardian)
-              // _buildNavItem(
-              //   icon: MediaRes.billing_drawer_icon,
-              //   label: 'Billing',
-              //   routeNames: [BillingScreen.routeName],
-              //   isDashboardItem: false,
-              // ),
+              _buildNavItem(
+                icon: MediaRes.communicationIcon, // ✅ now matches others
+                label: 'Communication',
+                routeName: '/communication',
+              ),
             ],
           ),
         ),

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/src/core/extentions/context_extentions.dart';
 import '../../../../../core/res/colors.dart';
+import '../../../auth-views/sign_in_screen.dart';
 import '../../domain/entities/page_content.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -165,13 +166,21 @@ class OnboardingBody extends StatelessWidget {
                   vertical: 14,
                 ),
               ),
-              onPressed: () {
+
+              onPressed: () async {
                 if (isLastPage) {
-                  // context.read<OnBoardingCubit>().cacheFirstTimer();
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('onboarding_complete', true);
+
+                  Navigator.pushReplacementNamed(
+                    context,
+                    SignInScreen.routeName, // now defined in generateRoute
+                  );
                 } else {
                   onNextPressed?.call();
                 }
               },
+
               child: isLastPage
                   ? Text(
                       'Get Started',

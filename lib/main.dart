@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/src/core/common/app/bloc/theme_providers.dart';
 
 import 'src/app.dart';
 import 'src/core/Common/app/providers/splash_screen.dart';
+import 'src/presentation/screens/auth-views/sign_in_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Create a global instance of NotificationService that will be initialized later
@@ -173,8 +175,16 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
+
+    final prefs = await SharedPreferences.getInstance();
+    final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+
     if (mounted) {
-      Navigator.pushReplacementNamed(context, '/first-screen');
+      if (onboardingComplete) {
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      } else {
+        Navigator.pushReplacementNamed(context, '/first-screen'); // Onboarding
+      }
     }
   }
 

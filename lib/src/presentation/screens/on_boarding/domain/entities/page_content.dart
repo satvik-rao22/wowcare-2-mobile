@@ -12,9 +12,9 @@ class PageContent extends Equatable {
   const PageContent.first()
     : this(
         image: MediaRes.onboardingimage11,
-        title: 'Welcome to Wow! Care',
+        title: 'Welcome to WowCare',
         description:
-            "Simplify preschool management with Wow! Care. From admissions to daily progress tracking, we've got you covered.",
+            "Simplify preschool management with WowCare. From admissions to daily progress tracking, we've got you covered.",
       );
 
   const PageContent.second()
