@@ -2,11 +2,6 @@
 
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:schoolerp/core/res/media_res.dart';
-// import 'package:schoolerp/core/util/color_utils.dart';
-// import 'package:schoolerp/core/util/string_utils.dart';
-// import 'package:schoolerp/core/util/typedefs.dart';
-// import 'package:schoolerp/src/documents/presentation/bloc/document_bloc.dart';
 // import 'package:shimmer/shimmer.dart';
 
 // class DocumentImageWidget extends StatefulWidget {

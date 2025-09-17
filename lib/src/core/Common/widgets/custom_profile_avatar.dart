@@ -1,11 +1,11 @@
 // import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart';
-// import 'package:schoolerp/core/common/app/providers/profile_photo_provider.dart';
-// import 'package:schoolerp/core/common/widgets/simmer_loader.dart';
-// import 'package:schoolerp/core/extentions/context_extentions.dart';
-// import 'package:schoolerp/core/res/decorations.dart';
-// import 'package:schoolerp/core/util/color_utils.dart';
-// import 'package:schoolerp/core/util/string_utils.dart';
+// import 'package:wowcare/src/core/extentions/context_extentions.dart';
+
+// import '../../res/decorations.dart';
+// import '../../util/color_utils.dart';
+// import '../../util/string_utils.dart';
+// import 'simmer_loader.dart';
 
 // class CustomProfileAvatar extends StatelessWidget {
 //   const CustomProfileAvatar({
@@ -31,7 +31,7 @@
 
 //   @override
 //   Widget build(BuildContext context) {
-//     return Consumer<ProfilePhotoProvider>(
+//     return Consumer(
 //       builder: (context, photoProvider, _) {
 //         final shimmerLoader = ShimmerLoaderCard(
 //           borderRadius: BorderRadius.circular(1000),
@@ -43,11 +43,12 @@
 //           ),
 //         );
 
-//         if (photoProvider.isLoading) {
-//           return shimmerLoader;
-//         }
+//         // if (photoProvider.isLoading) {
+//         //   return shimmerLoader;
+//         // }
 
-//         final bool showStatus = context.isPersonnel &&
+//         final bool showStatus =
+//             context.isPersonnel &&
 //             hasStatus &&
 //             (context.currentStaff!.isSignedIn ||
 //                 context.currentStaff!.isAbsent ||
@@ -68,11 +69,11 @@
 //                         height: radius * 2,
 //                         frameBuilder:
 //                             (context, child, frame, wasSynchronouslyLoaded) {
-//                           if (wasSynchronouslyLoaded || frame != null) {
-//                             return child;
-//                           }
-//                           return shimmerLoader;
-//                         },
+//                               if (wasSynchronouslyLoaded || frame != null) {
+//                                 return child;
+//                               }
+//                               return shimmerLoader;
+//                             },
 //                       ),
 //                     )
 //                   : CircleAvatar(
@@ -105,10 +106,10 @@
 //                       color: context.currentStaff!.profileStatus == 'Upcoming'
 //                           ? const Color.fromARGB(255, 253, 205, 22)
 //                           : context.currentStaff!.isSignedIn
-//                               ? const Color.fromRGBO(0, 177, 21, 1)
-//                               : context.currentStaff!.isAbsent
-//                                   ? const Color.fromRGBO(200, 32, 32, 1)
-//                                   : null,
+//                           ? const Color.fromRGBO(0, 177, 21, 1)
+//                           : context.currentStaff!.isAbsent
+//                           ? const Color.fromRGBO(200, 32, 32, 1)
+//                           : null,
 //                       borderRadius: BorderRadius.circular(100),
 //                       border: Border.all(
 //                         color: Colors.white,

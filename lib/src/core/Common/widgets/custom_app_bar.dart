@@ -3,23 +3,7 @@
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:flutter_svg/svg.dart';
 // import 'package:http/http.dart' as http;
-// import 'package:schoolerp/core/common/app/providers/auth_providers.dart';
-// import 'package:schoolerp/core/common/widgets/custom_profile_avatar.dart';
-// import 'package:schoolerp/core/common/widgets/reusable_log_out_model_sheet.dart';
-// import 'package:schoolerp/core/extentions/context_extentions.dart';
-// import 'package:schoolerp/core/res/colors.dart';
-// import 'package:schoolerp/core/res/media_res.dart';
-// import 'package:schoolerp/core/services/injection_container.dart';
-// import 'package:schoolerp/core/util/constants.dart';
-// import 'package:schoolerp/core/util/core_utils.dart';
-// import 'package:schoolerp/core/util/typedefs.dart';
-// import 'package:schoolerp/features/schoolData/presentation/cubit/school_data_cubit.dart';
-// import 'package:schoolerp/src/communication/presentation/messaging/widgets/message_notification_icon.dart';
-// import 'package:schoolerp/src/documents/presentation/bloc/document_bloc.dart';
-// import 'package:schoolerp/src/firebase_messaging/firebase_services/bell_icon_notification_service.dart';
-// import 'package:schoolerp/src/firebase_messaging/notification_screens/notifications_screen.dart';
-// import 'package:schoolerp/src/guardian_profile/guardian_user_profile_screen.dart';
-// import 'package:schoolerp/src/user_profile/views/screens/user_profile_screen.dart';
+
 // import 'package:url_launcher/url_launcher.dart';
 
 // class PopupItem extends StatelessWidget {
@@ -564,3 +548,213 @@
 //     debugPrint('Password reset error: $e');
 //   }
 // }
+
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:http/http.dart' as http;
+
+class PopupItem extends StatelessWidget {
+  final String title;
+  final Icon icon;
+
+  const PopupItem({required this.title, required this.icon, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [icon, const SizedBox(width: 12), Text(title)]);
+  }
+}
+
+class TabBarStyle {
+  final TabAlignment? tabAlignment;
+  final Decoration? indicator;
+  final EdgeInsetsGeometry? indicatorPadding;
+  final TextStyle? labelStyle;
+  final TextStyle? unselectedLabelStyle;
+  final Color? labelColor;
+  final Color? unselectedLabelColor;
+  final double? indicatorWeight;
+  final TabBarIndicatorSize? indicatorSize;
+  final bool? isScrollable;
+
+  const TabBarStyle({
+    this.tabAlignment,
+    this.indicator,
+    this.indicatorPadding,
+    this.labelStyle,
+    this.unselectedLabelStyle,
+    this.labelColor,
+    this.unselectedLabelColor,
+    this.indicatorWeight,
+    this.indicatorSize,
+    this.isScrollable,
+  });
+}
+
+class CustomAppBar extends StatefulWidget {
+  const CustomAppBar({
+    this.hasBackButton = false,
+    this.tabs,
+    this.tabController,
+    this.tabBarStyle,
+    super.key,
+  });
+
+  final bool hasBackButton;
+  final List<Tab>? tabs;
+  final TabController? tabController;
+  final TabBarStyle? tabBarStyle;
+
+  @override
+  State<CustomAppBar> createState() => _CustomAppBarState();
+}
+
+class _CustomAppBarState extends State<CustomAppBar> {
+  Uint8List? profileImage;
+  int _unreadCount = 0; // static unread count
+
+  PreferredSizeWidget? _buildTabBar() {
+    if (widget.tabs == null || widget.tabController == null) return null;
+
+    return TabBar(
+      controller: widget.tabController!,
+      tabAlignment: widget.tabBarStyle?.tabAlignment ?? TabAlignment.center,
+      indicator: widget.tabBarStyle?.indicator,
+      indicatorPadding: widget.tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
+      isScrollable: widget.tabBarStyle?.isScrollable ?? false,
+      labelColor: widget.tabBarStyle?.labelColor,
+      unselectedLabelColor: widget.tabBarStyle?.unselectedLabelColor,
+      indicatorWeight: widget.tabBarStyle?.indicatorWeight ?? 2,
+      indicatorSize: widget.tabBarStyle?.indicatorSize,
+      splashFactory: NoSplash.splashFactory,
+      labelStyle: widget.tabBarStyle?.labelStyle,
+      unselectedLabelStyle: widget.tabBarStyle?.unselectedLabelStyle,
+      tabs: widget.tabs!,
+    );
+  }
+
+  Widget _buildActionIconButton({
+    required VoidCallback onPressed,
+    required String icon,
+    required int count,
+  }) => Stack(
+    children: [
+      IconButton(onPressed: onPressed, icon: SvgPicture.asset(icon)),
+      if (count > 0)
+        Positioned(
+          right: 6,
+          top: 6,
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: const Color.fromRGBO(179, 38, 30, 1),
+            ),
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            child: Text(
+              count > 99 ? '99+' : count.toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      pinned: true,
+      floating: true,
+      snap: true,
+      stretch: true,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.white,
+      bottom: _buildTabBar() != null
+          ? PreferredSize(
+              preferredSize: Size.fromHeight(
+                (_buildTabBar()?.preferredSize.height ?? 0) + 1.5,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      border: const Border(
+                        bottom: BorderSide(
+                          width: 1.5,
+                          color: Colors.transparent,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildTabBar()!,
+                ],
+              ),
+            )
+          : PreferredSize(
+              preferredSize: const Size.fromHeight(1.5),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: const Border(
+                    bottom: BorderSide(width: 1.5, color: Colors.transparent),
+                  ),
+                ),
+              ),
+            ),
+      leading: widget.hasBackButton
+          ? IconButton(
+              onPressed: () {},
+              icon: SvgPicture.asset('assets/icons/back.svg'),
+            )
+          : IconButton(
+              onPressed: () {},
+              icon: SvgPicture.asset('assets/icons/menu.svg'),
+            ),
+      actions: [
+        _buildActionIconButton(
+          onPressed: () {},
+          icon: 'assets/icons/notification.svg',
+          count: _unreadCount,
+        ),
+        PopupMenuButton(
+          icon: SvgPicture.asset('assets/icons/menu_vertical.svg'),
+          offset: const Offset(0, 50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          itemBuilder: (_) => [
+            PopupMenuItem<void>(
+              child: const PopupItem(
+                title: 'My Profile',
+                icon: Icon(Icons.person, color: Colors.blue),
+              ),
+            ),
+            PopupMenuItem<void>(
+              child: const PopupItem(
+                title: 'Change Password',
+                icon: Icon(Icons.lock_outline, color: Colors.blue),
+              ),
+            ),
+            PopupMenuItem<void>(
+              child: const PopupItem(
+                title: 'Help',
+                icon: Icon(Icons.help, color: Colors.blue),
+              ),
+            ),
+            PopupMenuItem<void>(
+              child: const PopupItem(
+                title: 'Logout',
+                icon: Icon(Icons.logout, color: Colors.blue),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

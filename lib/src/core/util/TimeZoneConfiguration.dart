@@ -2,8 +2,6 @@
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:intl/intl.dart';
-// import 'package:schoolerp/core/common/app/providers/auth_providers.dart';
-// import 'package:schoolerp/features/school/data/model/schoolDataModel.dart';
 // import 'package:timezone/data/latest.dart' as tz;
 // import 'package:timezone/timezone.dart' as tz;
 
@@ -18,7 +16,9 @@
 // }
 
 // Future<String> convertUtcToLocal(
-//     String utcDateTimeString, BuildContext context) async {
+//   String utcDateTimeString,
+//   BuildContext context,
+// ) async {
 //   tz.initializeTimeZones();
 
 //   SchoolDataModel school = context.read<AuthProvider>().getUserSchool();
@@ -59,7 +59,9 @@
 // }
 
 // String convertUTCtoLocalZoneTime(
-//     String utcDateTimeString, BuildContext context) {
+//   String utcDateTimeString,
+//   BuildContext context,
+// ) {
 //   tz.initializeTimeZones();
 
 //   SchoolDataModel school = context.read<AuthProvider>().getUserSchool();
@@ -79,9 +81,7 @@
 //   return formattedLocalDateTime;
 // }
 
-// String convertDateTimeToIsoString(
-//   DateTime dateTime,
-// ) {
+// String convertDateTimeToIsoString(DateTime dateTime) {
 //   String formattedDateTime =
 //       DateFormat('yyyy-MM-ddTHH:mm:ss.SSS').format(dateTime) + 'Z';
 
@@ -89,13 +89,16 @@
 // }
 
 // TimeOfDay parseTimeOfDayFromString(String timeWithSecondsAmPm) {
-//   final DateTime parsedTime =
-//       DateFormat('hh:mm:ss a').parse(timeWithSecondsAmPm);
+//   final DateTime parsedTime = DateFormat(
+//     'hh:mm:ss a',
+//   ).parse(timeWithSecondsAmPm);
 //   return TimeOfDay(hour: parsedTime.hour, minute: parsedTime.minute);
 // }
 
 // String convertUtcTimeofDayToLocalTimeOfDay(
-//     String timeOfDay, BuildContext context) {
+//   String timeOfDay,
+//   BuildContext context,
+// ) {
 //   tz.initializeTimeZones();
 //   final parts = timeOfDay.split(':');
 
@@ -105,8 +108,14 @@
 //   SchoolDataModel school = context.read<AuthProvider>().getUserSchool();
 //   String localTimeZone = school.timeZone;
 //   final now = DateTime.now().toUtc();
-//   final utcDateTime =
-//       DateTime.utc(now.year, now.month, now.day, hour, minute, second);
+//   final utcDateTime = DateTime.utc(
+//     now.year,
+//     now.month,
+//     now.day,
+//     hour,
+//     minute,
+//     second,
+//   );
 
 //   final location = tz.getLocation(localTimeZone);
 //   final localDateTime = tz.TZDateTime.from(utcDateTime, location);
@@ -119,7 +128,9 @@
 // }
 
 // String convertLocalTimeOfDayToUtcTimeOfDay(
-//     String localTime, BuildContext context) {
+//   String localTime,
+//   BuildContext context,
+// ) {
 //   tz.initializeTimeZones();
 //   final parts = localTime.split(':');
 //   int hour = int.parse(parts[0]);
@@ -133,7 +144,14 @@
 
 //   final now = DateTime.now();
 //   final localDateTime = tz.TZDateTime(
-//       location, now.year, now.month, now.day, hour, minute, second);
+//     location,
+//     now.year,
+//     now.month,
+//     now.day,
+//     hour,
+//     minute,
+//     second,
+//   );
 
 //   final utcDateTime = localDateTime.toUtc();
 
@@ -149,10 +167,7 @@
 //   return utcTimestamp.millisecondsSinceEpoch;
 // }
 
-// String convertUtcTimestampToIsoInTimeZone(
-//   int timestamp,
-//   BuildContext context,
-// ) {
+// String convertUtcTimestampToIsoInTimeZone(int timestamp, BuildContext context) {
 //   tz.initializeTimeZones();
 //   SchoolDataModel school = context.read<AuthProvider>().getUserSchool();
 

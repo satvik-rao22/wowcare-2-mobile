@@ -1,11 +1,11 @@
 // import 'package:flutter/material.dart';
 // import 'package:flutter_svg/svg.dart';
-// import 'package:schoolerp/core/res/colors.dart';
-// import 'package:schoolerp/core/res/media_res.dart';
-// import 'package:schoolerp/core/util/TimeZoneConfiguration.dart';
-// import 'package:schoolerp/src/classroom/presentation/forms/date_picker_normal.dart';
-// import 'package:schoolerp/core/util/date_utils.dart';
-// import 'package:schoolerp/core/common/widgets/calendar_responsive_helper.dart';
+
+// import '../../res/colors.dart';
+// import '../../res/media_res.dart';
+// import '../../util/TimeZoneConfiguration.dart';
+// import '../../util/date_utils.dart';
+// import 'calendar_responsive_helper.dart';
 
 // class CustomDateTimeField extends StatefulWidget {
 //   const CustomDateTimeField({
@@ -110,7 +110,7 @@
 //     }
 //   }
 
-// // Modified to return Future so we can await it
+//   // Modified to return Future so we can await it
 
 //   Future<void> setCurrentDateTime() async {
 //     String dateformated = await convertDateTimeNowToTimeZoneOne(context);
@@ -195,7 +195,8 @@
 //               fontWeight: FontWeight.w400,
 //             ),
 //           ),
-//         if (widget.hasLabel && widget.label != null) SizedBox(height: calHelper.calendarPadding * 0.75),
+//         if (widget.hasLabel && widget.label != null)
+//           SizedBox(height: calHelper.calendarPadding * 0.75),
 //         GestureDetector(
 //           onTap: () async {
 //             if (widget.isDisabled == true) {
@@ -215,9 +216,12 @@
 //               setState(() {
 //                 if (widget.isRangePicker) {
 //                   // Handle range selection
-//                   if (result['startDate'] != null && result['startDate'] is DateTime) {
+//                   if (result['startDate'] != null &&
+//                       result['startDate'] is DateTime) {
 //                     selectedDate = result['startDate'];
-//                     rangeEndDate = result['endDate'] is DateTime ? result['endDate'] : null;
+//                     rangeEndDate = result['endDate'] is DateTime
+//                         ? result['endDate']
+//                         : null;
 //                     widget.onRangeSelected?.call(selectedDate!, rangeEndDate);
 //                   }
 //                 } else if (widget.isTime) {
@@ -243,7 +247,9 @@
 //           },
 //           child: Container(
 //             constraints: BoxConstraints(minHeight: calHelper.dayCellSize * 1.2),
-//             padding: EdgeInsets.symmetric(horizontal: calHelper.calendarPadding),
+//             padding: EdgeInsets.symmetric(
+//               horizontal: calHelper.calendarPadding,
+//             ),
 //             decoration: BoxDecoration(
 //               borderRadius: BorderRadius.circular(10),
 //               color: widget.isDisabled == true
@@ -259,8 +265,8 @@
 //                         (widget.isTime
 //                             ? 'Select Time'
 //                             : widget.isRangePicker
-//                                 ? 'Select Date Range'
-//                                 : 'Select Date'),
+//                             ? 'Select Date Range'
+//                             : 'Select Date'),
 //                     style: TextStyle(
 //                       color: AppColors.primaryColor,
 //                       fontSize: calHelper.dayFontSize,

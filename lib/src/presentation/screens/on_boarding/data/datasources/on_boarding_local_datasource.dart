@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../../core/Common/errors/exceptions.dart';
+import '../../../../../core/errors/exceptions.dart';
 
 abstract class OnBoardingLocalDatasource {
   const OnBoardingLocalDatasource();

@@ -53,7 +53,11 @@
 //     return SafeArea(
 //       bottom: false,
 //       child: Padding(
-//         padding: const EdgeInsets.only(left: 16, top: 16, bottom: 4),
+//         padding: const EdgeInsets.only(
+//           left: 16,
+//           top: 16,
+//           bottom: 4,
+//         ),
 //         child: Row(
 //           crossAxisAlignment: CrossAxisAlignment.start,
 //           children: [
@@ -116,16 +120,16 @@
 //   Widget build(BuildContext context) {
 //     final currentRoute = ModalRoute.of(context)?.settings.name;
 //     // Debug print to check current route and dashboardRoutes
-//     print(
-//       'DEBUG: currentRoute = '
-//       ' [33m$currentRoute [0m, dashboardRoutes = $dashboardRoutes',
-//     );
+//     print('DEBUG: currentRoute = '
+//         ' [33m$currentRoute [0m, dashboardRoutes = $dashboardRoutes');
 
 //     return Drawer(
 //       width: context.width * 2 / 3,
 //       child: Container(
 //         padding: const EdgeInsets.symmetric(horizontal: 8),
-//         decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
+//         decoration: BoxDecoration(
+//           gradient: AppColors.buildPrimaryGradient(),
+//         ),
 //         child: Column(
 //           children: [
 //             BlocConsumer<DocumentBloc, DocumentState>(
@@ -166,13 +170,9 @@
 //                         onTap: () {
 //                           Navigator.pop(context);
 //                           if (!isDashboardRoute(currentRoute)) {
-//                             Navigator.of(context).popUntil(
-//                               (route) =>
-//                                   dashboardRoutes.contains(
-//                                     route.settings.name,
-//                                   ) ||
-//                                   route.isFirst,
-//                             );
+//                             Navigator.of(context).popUntil((route) =>
+//                                 dashboardRoutes.contains(route.settings.name) ||
+//                                 route.isFirst);
 //                           }
 //                         },
 //                       ),
@@ -201,9 +201,7 @@
 //                             onTap: () {
 //                               Navigator.pop(context);
 //                               Navigator.pushNamed(
-//                                 context,
-//                                 AllStaffScreen.routeName,
-//                               );
+//                                   context, AllStaffScreen.routeName);
 //                             },
 //                           ),
 //                         ],
@@ -235,8 +233,7 @@
 //                                 } else {
 //                                   // For other users, show the attendance popup
 //                                   AttendancePopupManager.showAttendancePopup(
-//                                     context,
-//                                   );
+//                                       context);
 //                                 }
 //                               },
 //                             ),
@@ -289,10 +286,8 @@
 //                             children: [
 //                               DrawerListTile(
 //                                 title: 'Accounting',
-//                                 leading: Icon(
-//                                   Icons.account_balance_wallet,
-//                                   color: AppColors.themeColor,
-//                                 ),
+//                                 leading: Icon(Icons.account_balance_wallet,
+//                                     color: AppColors.themeColor),
 //                                 onTap: () {
 //                                   Navigator.pop(context);
 //                                   Navigator.push(
@@ -306,10 +301,8 @@
 //                               ),
 //                               DrawerListTile(
 //                                 title: 'Recurring Plans',
-//                                 leading: Icon(
-//                                   Icons.repeat,
-//                                   color: AppColors.themeColor,
-//                                 ),
+//                                 leading: Icon(Icons.repeat,
+//                                     color: AppColors.themeColor),
 //                                 onTap: () {
 //                                   Navigator.pop(context);
 //                                   Navigator.push(
@@ -323,10 +316,8 @@
 //                               ),
 //                               DrawerListTile(
 //                                 title: 'Transactions',
-//                                 leading: Icon(
-//                                   Icons.swap_horiz,
-//                                   color: AppColors.themeColor,
-//                                 ),
+//                                 leading: Icon(Icons.swap_horiz,
+//                                     color: AppColors.themeColor),
 //                                 onTap: () {
 //                                   Navigator.pop(context);
 //                                   Navigator.push(
@@ -422,8 +413,7 @@
 //                           title: 'Communication',
 //                           icon: MediaRes.communicationIcon,
 //                           isExpansionEnabled: true,
-//                           isCurrentRoute:
-//                               currentRoute ==
+//                           isCurrentRoute: currentRoute ==
 //                               StudentConversationScreen.routeName,
 //                           children: [
 //                             DrawerListTile(
@@ -524,7 +514,7 @@
 //                                 const LogOutModelBottomSheet(),
 //                           );
 //                         },
-//                       ),
+//                       )
 //                     ],
 //                   ),
 //                 ),
@@ -535,7 +525,9 @@
 //               textAlign: TextAlign.center,
 //               style: TextStyle(color: Colors.white),
 //             ),
-//             const SizedBox(height: 20),
+//             const SizedBox(
+//               height: 20,
+//             )
 //           ],
 //         ),
 //       ),
@@ -647,7 +639,9 @@
 //                 title: Text(
 //                   widget.title,
 //                   maxLines: 1,
-//                   style: TextStyle(color: _getTextColor()),
+//                   style: TextStyle(
+//                     color: _getTextColor(),
+//                   ),
 //                 ),
 //                 children: widget.children,
 //                 trailing: const Icon(Icons.keyboard_arrow_down),
@@ -672,8 +666,8 @@
 //                 tileColor: (widget.isDashboard && widget.isCurrentRoute)
 //                     ? Colors.white
 //                     : (!widget.isDashboard && widget.isCurrentRoute)
-//                     ? Colors.white
-//                     : Colors.transparent,
+//                         ? Colors.white
+//                         : Colors.transparent,
 //                 selected: widget.isCurrentRoute,
 //                 selectedTileColor: Colors.white,
 //               ),
@@ -704,7 +698,332 @@
 //       onTap: onTap,
 //       horizontalTitleGap: horizontalTitleGap,
 //       leading: leading,
-//       title: Text(title, maxLines: 1, style: TextStyle(color: textColor)),
+//       title: Text(
+//         title,
+//         maxLines: 1,
+//         style: TextStyle(color: textColor),
+//       ),
 //     );
 //   }
 // }
+
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../res/colors.dart';
+import '../../res/media_res.dart';
+import 'reusable_log_out_model_sheet.dart';
+
+class CustomDrawer extends StatelessWidget {
+  const CustomDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      width: MediaQuery.of(context).size.width * 2 / 3,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
+        child: Column(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16, top: 16, bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 28,
+                      backgroundImage: AssetImage(MediaRes.logo_wow),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          SizedBox(height: 14),
+                          Text(
+                            'WowCare',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Your School Name',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(
+              color: Colors.white,
+              thickness: 0.3,
+              indent: 8,
+              endIndent: 8,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(top: 4),
+                child: Column(
+                  children: [
+                    // Dashboard
+                    const _CustomExpansionTile(
+                      title: 'Dashboard',
+                      icon: MediaRes.dashboardIcon,
+                    ),
+
+                    const _CustomExpansionTile(
+                      title: 'Classrooms',
+                      icon: MediaRes.classroom_drawer_icon,
+                    ),
+
+                    const _CustomExpansionTile(
+                      title: 'Students',
+                      icon: MediaRes.students_drawer_icon,
+                    ),
+
+                    const _CustomExpansionTile(
+                      title: 'Staff',
+                      icon: MediaRes.staffs_drawer_icon,
+                    ),
+
+                    _CustomExpansionTile(
+                      title: 'Attendance',
+                      icon: MediaRes.attendanceIcon,
+                      isExpansionEnabled: true,
+                      children: [
+                        DrawerListTile(
+                          title: 'Student Attendance',
+                          leading: const Icon(
+                            Icons.school,
+                            color: AppColors.themeColor,
+                          ),
+                          onTap: () {},
+                        ),
+                        DrawerListTile(
+                          title: 'Staff Attendance',
+                          leading: const Icon(
+                            Icons.people,
+                            color: AppColors.themeColor,
+                          ),
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+
+                    const _CustomExpansionTile(
+                      title: 'Activities',
+                      icon: MediaRes.activitesIcon,
+                    ),
+
+                    _CustomExpansionTile(
+                      title: 'Communication',
+                      icon: MediaRes.communicationIcon,
+                      isExpansionEnabled: true,
+                      children: [
+                        DrawerListTile(
+                          title: 'Messaging',
+                          leading: const Icon(
+                            Icons.message,
+                            color: AppColors.themeColor,
+                          ),
+                          onTap: () {},
+                        ),
+                        DrawerListTile(
+                          title: 'Newsletter',
+                          leading: const Icon(
+                            Icons.newspaper,
+                            color: AppColors.themeColor,
+                          ),
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+
+                    // Settings
+                    _CustomExpansionTile(
+                      title: 'Settings',
+                      icon: MediaRes.settings_drawer_Blue,
+                      isExpansionEnabled: true,
+                      children: [
+                        DrawerListTile(
+                          title: 'Privacy Policy',
+                          leading: const Icon(
+                            Icons.privacy_tip,
+                            color: AppColors.themeColor,
+                          ),
+                          onTap: () {},
+                        ),
+                        DrawerListTile(
+                          title: 'Terms & Conditions',
+                          leading: const Icon(
+                            Icons.description,
+                            color: AppColors.themeColor,
+                          ),
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+
+                    // Logout
+                    _CustomExpansionTile(
+                      title: 'Logout',
+                      icon: MediaRes.logout,
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
+                          ),
+                          builder: (context) => const LogOutModelBottomSheet(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Text(
+              "Version : 1.2.6",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------- _CustomExpansionTile ----------------------
+class _CustomExpansionTile extends StatefulWidget {
+  final String title;
+  final String icon;
+  final List<Widget> children;
+  final bool isExpansionEnabled;
+  final VoidCallback? onTap;
+
+  const _CustomExpansionTile({
+    required this.title,
+    required this.icon,
+    this.children = const [],
+    this.isExpansionEnabled = false,
+    this.onTap,
+  });
+
+  @override
+  State<_CustomExpansionTile> createState() => _CustomExpansionTileState();
+}
+
+class _CustomExpansionTileState extends State<_CustomExpansionTile> {
+  bool _isExpanded = false;
+
+  void _handleTap() {
+    if (widget.onTap != null) {
+      widget.onTap!();
+      return;
+    }
+    if (!widget.isExpansionEnabled) return;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _handleTap,
+      child: widget.isExpansionEnabled
+          ? ExpansionTile(
+              backgroundColor: Colors.white,
+              collapsedBackgroundColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              collapsedShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              maintainState: true,
+              onExpansionChanged: (expanded) {
+                setState(() {
+                  _isExpanded = expanded;
+                });
+              },
+              leading: SvgPicture.asset(
+                widget.icon,
+                colorFilter: ColorFilter.mode(
+                  _isExpanded ? AppColors.themeColor : Colors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
+              iconColor: AppColors.themeColor,
+              collapsedIconColor: Colors.white,
+              title: Text(
+                widget.title,
+                style: TextStyle(
+                  color: _isExpanded ? AppColors.themeColor : Colors.white,
+                ),
+              ),
+              children: widget.children,
+              trailing: const Icon(Icons.keyboard_arrow_down),
+            )
+          : ListTile(
+              leading: SvgPicture.asset(
+                widget.icon,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
+              title: Text(
+                widget.title,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+    );
+  }
+}
+
+// ---------------------- DrawerListTile ----------------------
+class DrawerListTile extends StatelessWidget {
+  final String title;
+  final Widget leading;
+  final VoidCallback onTap;
+
+  const DrawerListTile({
+    super.key,
+    required this.title,
+    required this.leading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      horizontalTitleGap: 16,
+      leading: leading,
+      title: Text(
+        title,
+        maxLines: 1,
+        style: const TextStyle(color: Colors.white),
+      ),
+    );
+  }
+}

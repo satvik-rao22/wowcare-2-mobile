@@ -1,54 +1,55 @@
-// import 'package:flutter/material.dart';
-// import 'package:schoolerp/core/common/widgets/custom_cancel_button.dart';
-// import 'package:schoolerp/core/common/widgets/custom_confirm_button.dart';
-// import 'package:schoolerp/core/res/colors.dart';
+import 'package:flutter/material.dart';
 
-// class CustomButtonLayout extends StatelessWidget {
-//   const CustomButtonLayout({
-//     required this.confirmButtonLabel,
-//     required this.onPressedConfirm,
-//     this.cancelButtonLabel,
-//     this.onPressedCancel,
-//     this.showCancelButton = true,
-//     this.isForm = true,
-//     super.key,
-//   });
+import '../../res/colors.dart';
+import 'custom_cancel_button.dart';
+import 'custom_confirm_button.dart';
 
-//   final String confirmButtonLabel;
-//   final String? cancelButtonLabel;
-//   final void Function()? onPressedConfirm;
-//   final void Function()? onPressedCancel;
-//   final bool showCancelButton;
-//   final bool isForm;
+class CustomButtonLayout extends StatelessWidget {
+  const CustomButtonLayout({
+    required this.confirmButtonLabel,
+    required this.onPressedConfirm,
+    this.cancelButtonLabel,
+    this.onPressedCancel,
+    this.showCancelButton = true,
+    this.isForm = true,
+    super.key,
+  });
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       decoration: isForm
-//           ? BoxDecoration(
-//               borderRadius: BorderRadius.circular(20),
-//               color: AppColors.cardColor,
-//             )
-//           : null,
-//       padding: isForm ? const EdgeInsets.all(20) : null,
-//       child: Row(
-//         children: [
-//           if (showCancelButton)
-//             Expanded(
-//               child: CustomCancelButton(
-//                 cancelButtonLabel: cancelButtonLabel,
-//                 onPressedCancel: onPressedCancel,
-//               ),
-//             ),
-//           if (showCancelButton) const SizedBox(width: 16),
-//           Expanded(
-//             child: CustomConfirmButton(
-//               label: confirmButtonLabel,
-//               onPressed: onPressedConfirm,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
+  final String confirmButtonLabel;
+  final String? cancelButtonLabel;
+  final void Function()? onPressedConfirm;
+  final void Function()? onPressedCancel;
+  final bool showCancelButton;
+  final bool isForm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: isForm
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: AppColors.cardColor,
+            )
+          : null,
+      padding: isForm ? const EdgeInsets.all(20) : null,
+      child: Row(
+        children: [
+          if (showCancelButton)
+            Expanded(
+              child: CustomCancelButton(
+                cancelButtonLabel: cancelButtonLabel,
+                onPressedCancel: onPressedCancel,
+              ),
+            ),
+          if (showCancelButton) const SizedBox(width: 16),
+          Expanded(
+            child: CustomConfirmButton(
+              label: confirmButtonLabel,
+              onPressed: onPressedConfirm,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

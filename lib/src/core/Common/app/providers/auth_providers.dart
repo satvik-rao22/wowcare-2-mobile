@@ -4,22 +4,11 @@
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:http/http.dart' as http;
-// import 'package:schoolerp/core/errors/exceptions.dart';
-// import 'package:schoolerp/core/errors/failure.dart';
-// import 'package:schoolerp/core/util/constants.dart';
-// import 'package:schoolerp/core/util/typedefs.dart';
-// import 'package:schoolerp/features/authentication/domain/entities/user.dart';
-// import 'package:schoolerp/features/authentication/presentation/cubit/cubit/access_cubit.dart';
-// import 'package:schoolerp/features/guardian/data/model/guardianDataModel.dart';
-// import 'package:schoolerp/features/guardian/domain/entities/guardianData.dart';
-// import 'package:schoolerp/features/school/data/model/schoolDataModel.dart';
-// import 'package:schoolerp/features/user/data/model/staffModel.dart';
-// import 'package:schoolerp/features/user/domain/entities/staff.dart';
-// import 'package:schoolerp/main.dart';
-// import 'package:schoolerp/src/auth/data/Models/user_model.dart';
-// import 'package:schoolerp/src/auth/presentation/views/auth_screen.dart';
+
 // import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:schoolerp/core/util/geofencing_service.dart'; // For LocationService
+
+// import '../../../../../main.dart';
+// import '../../../errors/exceptions.dart';
 
 // class AuthProvider extends ChangeNotifier {
 //   static AccessUser accessUser = AccessUser.empty();
@@ -64,7 +53,8 @@
 //     targetLatitude = schoolDataModel.latitude;
 //     targetLongitude = schoolDataModel.longitude;
 //     print(
-//         "This is the Lat :- ${targetLatitude} and Long :- ${targetLongitude}");
+//       "This is the Lat :- ${targetLatitude} and Long :- ${targetLongitude}",
+//     );
 //     // NEW: Update LocationService with new coordinates
 //     LocationService().setTargetLocation(targetLatitude, targetLongitude);
 //     notifyListeners();
@@ -138,13 +128,17 @@
 //   }
 
 //   ResultFuture<AccessUser> refreshTokenIfExpired(
-//       BuildContext context, AccessCubit accessCubit) async {
+//     BuildContext context,
+//     AccessCubit accessCubit,
+//   ) async {
 //     final authProvider = context.read<AuthProvider>();
 
 //     if (await authProvider.isAccessTokenExpired()) {
 //       try {
 //         final newToken = await accessCubit.getAccesseUser(
-//             username: username, password: password);
+//           username: username,
+//           password: password,
+//         );
 //         print(newToken);
 //         print(username);
 //         print(password);
@@ -186,9 +180,7 @@
 //         return true;
 //       } else {
 //         navigatorKey.currentState?.pushAndRemoveUntil(
-//           MaterialPageRoute(
-//             builder: (context) => const AuthScreen(),
-//           ),
+//           MaterialPageRoute(builder: (context) => const AuthScreen()),
 //           (route) => false,
 //         );
 //         return false;
@@ -196,8 +188,9 @@
 //     } catch (e) {
 //       print('Error: $e');
 //       throw ApiException(
-//           message: 'Exception occurred while refreshing token: $e',
-//           statusCode: 500);
+//         message: 'Exception occurred while refreshing token: $e',
+//         statusCode: 500,
+//       );
 //     }
 //   }
 // }

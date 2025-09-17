@@ -1,8 +1,14 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../res/colors.dart';
-import '../app/providers/nav_bar_providers.dart';
+import '../common/app/providers/employee_provider.dart';
+import '../common/app/providers/guardian_provider.dart';
+import '../common/app/providers/nav_bar_providers.dart';
+import '../common/app/providers/profile_photo_provider.dart';
+import '../common/app/providers/staff_provider.dart';
+import '../common/app/providers/tab_navigator.dart';
+import '../common/app/providers/user_providers.dart';
+import '../res/colors.dart';
 
 extension ContextExtentions on BuildContext {
   ThemeData get theme => Theme.of(this);
@@ -54,11 +60,11 @@ extension ContextExtentions on BuildContext {
 
   // bool get isGuardian => currentUser!.refTable == 'Guardian';
 
-  // TabNavigator get tabNavigator => read<TabNavigator>();
+  TabNavigator get tabNavigator => read<TabNavigator>();
 
-  // void pop() => tabNavigator.pop();
+  void pop() => tabNavigator.pop();
 
-  // void push(Widget page) => tabNavigator.push(TabItem(child: page));
+  void push(Widget page) => tabNavigator.push(TabItem(child: page));
 
   Future<T?> showBottomSheet<T>({
     required Widget child,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:wowcare/src/core/Common/extentions/context_extentions.dart';
+import 'package:wowcare/src/core/extentions/context_extentions.dart';
 import '../../../../../core/res/colors.dart';
 import '../../domain/entities/page_content.dart';
 

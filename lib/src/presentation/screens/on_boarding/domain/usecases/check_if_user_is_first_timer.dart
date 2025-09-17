@@ -1,4 +1,4 @@
-import '../../../../../core/Common/usecases/usecases.dart';
+import '../../../../../core/usecases/usecases.dart';
 import '../../../../../core/util/typedefs.dart';
 import '../repository/on_boarding_repo.dart';
 

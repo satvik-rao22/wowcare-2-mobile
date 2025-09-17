@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/src/core/Common/extentions/context_extentions.dart';
-import 'package:wowcare/src/presentation/screens/on_boarding/presentation/cubit/cubit/on_boarding_cubit.dart';
-
+import 'package:wowcare/src/core/extentions/context_extentions.dart';
 import '../../../../../core/res/colors.dart';
 import '../../domain/entities/page_content.dart';
 

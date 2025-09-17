@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 
-import '../Common/errors/failures.dart';
+import '../errors/failure.dart';
 
 typedef ResultFuture<T> = Future<Either<Failure, T>>;
 

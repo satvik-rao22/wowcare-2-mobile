@@ -1,26 +1,27 @@
-// import 'package:flutter/material.dart';
-// import 'package:schoolerp/core/res/colors.dart';
+import 'package:flutter/material.dart';
 
-// class CustomRefreshIndicator extends StatelessWidget {
-//   const CustomRefreshIndicator({
-//     super.key,
-//     required this.onRefresh,
-//     required this.child,
-//     this.displacement,
-//   });
+import '../../res/colors.dart';
 
-//   final Future<void> Function() onRefresh;
-//   final Widget child;
-//   final double? displacement;
+class CustomRefreshIndicator extends StatelessWidget {
+  const CustomRefreshIndicator({
+    super.key,
+    required this.onRefresh,
+    required this.child,
+    this.displacement,
+  });
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return RefreshIndicator(
-//       backgroundColor: AppColors.themeColor,
-//       color: Colors.white,
-//       displacement: displacement ?? 24,
-//       onRefresh: onRefresh,
-//       child: child,
-//     );
-//   }
-// }
+  final Future<void> Function() onRefresh;
+  final Widget child;
+  final double? displacement;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      backgroundColor: AppColors.themeColor,
+      color: Colors.white,
+      displacement: displacement ?? 24,
+      onRefresh: onRefresh,
+      child: child,
+    );
+  }
+}

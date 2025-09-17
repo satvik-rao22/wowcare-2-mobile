@@ -1,5 +1,6 @@
 // import 'package:flutter/material.dart';
 // import 'package:intl/intl.dart';
+// import 'package:schoolerp/core/common/app/providers/auth_providers.dart';
 
 // class DateUtilsNew {
 //   /// Formats a [DateTime] object into the format "MMM dd, yyyy".
@@ -34,30 +35,12 @@
 //     DateTime end = DateFormat('hh:mm:ss a').parse(endTime);
 
 //     // Add the base date
-//     checkTime = DateTime(
-//       baseDate.year,
-//       baseDate.month,
-//       baseDate.day,
-//       checkTime.hour,
-//       checkTime.minute,
-//       checkTime.second,
-//     );
-//     start = DateTime(
-//       baseDate.year,
-//       baseDate.month,
-//       baseDate.day,
-//       start.hour,
-//       start.minute,
-//       start.second,
-//     );
-//     end = DateTime(
-//       baseDate.year,
-//       baseDate.month,
-//       baseDate.day,
-//       end.hour,
-//       end.minute,
-//       end.second,
-//     );
+//     checkTime = DateTime(baseDate.year, baseDate.month, baseDate.day,
+//         checkTime.hour, checkTime.minute, checkTime.second);
+//     start = DateTime(baseDate.year, baseDate.month, baseDate.day, start.hour,
+//         start.minute, start.second);
+//     end = DateTime(baseDate.year, baseDate.month, baseDate.day, end.hour,
+//         end.minute, end.second);
 
 //     // Handle overnight shifts if end time is before start time
 //     if (end.isBefore(start)) {
@@ -75,9 +58,8 @@
 
 //     // Format the DateTime object to the desired date and time format
 //     String formattedDate = DateFormat('dd-MMM-yyyy').format(dateTime);
-//     String formattedTime = DateFormat(
-//       'hh:mm a',
-//     ).format(dateTime); // 12-hour format
+//     String formattedTime =
+//         DateFormat('hh:mm a').format(dateTime); // 12-hour format
 
 //     // Combine date and time
 //     // return '$formattedDate   $formattedTime';

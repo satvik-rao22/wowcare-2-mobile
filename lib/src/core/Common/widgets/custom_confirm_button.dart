@@ -1,90 +1,89 @@
-// import 'package:flutter/material.dart';
-// import 'dart:async';
-// import 'package:schoolerp/core/res/colors.dart';
+import 'package:flutter/material.dart';
+import 'dart:async';
 
-// class CustomConfirmButton extends StatefulWidget {
-//   const CustomConfirmButton({
-//     required this.label,
-//     required this.onPressed,
-//     this.widget,
-//     super.key,
-//   });
+import '../../res/colors.dart';
 
-//   final String label;
-//   final Widget? widget;
-//   final FutureOr<void> Function()? onPressed;
+class CustomConfirmButton extends StatefulWidget {
+  const CustomConfirmButton({
+    required this.label,
+    required this.onPressed,
+    this.widget,
+    super.key,
+  });
 
-//   @override
-//   State<CustomConfirmButton> createState() => _CustomConfirmButtonState();
-// }
+  final String label;
+  final Widget? widget;
+  final FutureOr<void> Function()? onPressed;
 
-// class _CustomConfirmButtonState extends State<CustomConfirmButton> {
-//   bool _isLoading = false;
+  @override
+  State<CustomConfirmButton> createState() => _CustomConfirmButtonState();
+}
 
-//   Future<void> _handlePress() async {
-//     if (widget.onPressed == null || _isLoading) return;
+class _CustomConfirmButtonState extends State<CustomConfirmButton> {
+  bool _isLoading = false;
 
-//     setState(() {
-//       _isLoading = true;
-//     });
+  Future<void> _handlePress() async {
+    if (widget.onPressed == null || _isLoading) return;
 
-//     try {
-//       final result = widget.onPressed!.call();
-//       if (result is Future) {
-//         await result;
-//       }
-//     } finally {
-//       if (mounted) {
-//         setState(() {
-//           _isLoading = false;
-//         });
-//       }
-//     }
-//   }
+    setState(() {
+      _isLoading = true;
+    });
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       decoration: BoxDecoration(
-//         borderRadius: BorderRadius.circular(8),
-//         gradient: AppColors.buildSecondaryGradient(),
-//       ),
-//       child: ElevatedButton(
-//         style: ElevatedButton.styleFrom(
-//           backgroundColor: Colors.transparent,
-//           padding: const EdgeInsets.symmetric(vertical: 10),
-//           shadowColor: Colors.transparent,
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(8),
-//           ),
-//         ),
-//         onPressed: widget.onPressed != null ? _handlePress : null,
-//         child: _isLoading
-//             ? const SizedBox(
-//                 height: 20,
-//                 width: 20,
-//                 child: CircularProgressIndicator(
-//                   strokeWidth: 2,
-//                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-//                 ),
-//               )
-//             : Row(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   if (widget.widget != null) widget.widget!,
-//                   if (widget.widget != null) const SizedBox(width: 4),
-//                   Text(
-//                     widget.label,
-//                     style: const TextStyle(
-//                       color: Colors.white,
-//                       fontSize: 16,
-//                       fontWeight: FontWeight.w700,
-//                       letterSpacing: 16 * (-3 / 100),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//       ),
-//     );
-//   }
-// }
+    try {
+      final result = widget.onPressed!.call();
+      if (result is Future) {
+        await result;
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: AppColors.buildSecondaryGradient(),
+      ),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: widget.onPressed != null ? _handlePress : null,
+        child: _isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (widget.widget != null) widget.widget!,
+                  if (widget.widget != null) const SizedBox(width: 4),
+                  Text(
+                    widget.label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 16 * (-3 / 100),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}

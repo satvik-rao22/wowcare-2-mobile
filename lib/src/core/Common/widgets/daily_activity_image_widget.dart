@@ -4,11 +4,7 @@
 
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:schoolerp/core/res/media_res.dart';
-// import 'package:schoolerp/core/util/typedefs.dart';
-// import 'package:schoolerp/src/documents/presentation/bloc/document_bloc.dart';
 // import 'package:shimmer/shimmer.dart';
-
 
 // class RectangularDocumentWidget extends StatefulWidget {
 //   final String fileUuid;
@@ -37,7 +33,8 @@
 //   }) : super(key: key);
 
 //   @override
-//   State<RectangularDocumentWidget> createState() => _RectangularDocumentWidgetState();
+//   State<RectangularDocumentWidget> createState() =>
+//       _RectangularDocumentWidgetState();
 // }
 
 // class _RectangularDocumentWidgetState extends State<RectangularDocumentWidget> {
@@ -60,7 +57,7 @@
 //   void _fetchDocument() {
 //     DataMap parameters = {
 //       'fileUuid.equals': widget.fileUuid,
-//       'status.equals': 'A'
+//       'status.equals': 'A',
 //     };
 //     context.read<DocumentBloc>().add(DownloadDocument(parameters));
 //   }
@@ -74,7 +71,7 @@
 //           if (state is DocumentDownloaded) {
 //             Uint8List? imageData = state.fileData;
 
-//                 debugPrint('imageData: $imageData');
+//             debugPrint('imageData: $imageData');
 
 //             if (imageData.isNotEmpty) {
 //               return _buildContainer(
@@ -115,7 +112,8 @@
 //   }
 
 //   Widget _buildPlaceholder() {
-//     final placeholder = widget.errorWidget ??
+//     final placeholder =
+//         widget.errorWidget ??
 //         (widget.placeholderAsset != null
 //             ? Image.asset(
 //                 widget.placeholderAsset!,

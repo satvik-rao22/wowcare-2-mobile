@@ -1,31 +1,32 @@
-// import 'package:flutter/material.dart';
-// import 'package:schoolerp/core/res/colors.dart';
-// import 'package:schoolerp/core/res/media_res.dart';
+import 'package:flutter/material.dart';
 
-// class GradientBackground extends StatelessWidget {
-//   GradientBackground({
-//     super.key,
-//     required this.child,
-//     this.image,
-//     this.gradient,
-//   });
+import '../../res/colors.dart';
+import '../../res/media_res.dart';
 
-//   final Widget child;
-//   final String? image;
-//   final LinearGradient? gradient;
+class GradientBackground extends StatelessWidget {
+  GradientBackground({
+    super.key,
+    required this.child,
+    this.image,
+    this.gradient,
+  });
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       constraints: const BoxConstraints.expand(),
-//       decoration: BoxDecoration(
-//         gradient: gradient ?? AppColors.buildScaffoldGradient(),
-//         image: DecorationImage(
-//           image: AssetImage(image ?? MediaRes.wowcareMobileBg),
-//           fit: BoxFit.cover,
-//         ),
-//       ),
-//       child: child,
-//     );
-//   }
-// }
+  final Widget child;
+  final String? image;
+  final LinearGradient? gradient;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints.expand(),
+      decoration: BoxDecoration(
+        gradient: gradient ?? AppColors.buildScaffoldGradient(),
+        image: DecorationImage(
+          image: AssetImage(image ?? MediaRes.wowcareMobileBg),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: child,
+    );
+  }
+}

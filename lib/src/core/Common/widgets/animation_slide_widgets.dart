@@ -112,9 +112,6 @@ class _SlideAnimationWrapperState extends State<SlideAnimationWrapper>
   }
 }
 
-
-
-
 // Copy// With any widget
 // SlideAnimationWrapper(
 //   direction: SlideDirection.bottom,
@@ -135,9 +132,6 @@ class _SlideAnimationWrapperState extends State<SlideAnimationWrapper>
 //   fadeEffect: false,
 //   child: YourWidget(),
 // )
-
-
-
 
 enum AnimationType {
   slide,
