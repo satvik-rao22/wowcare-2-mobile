@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class PressEffectWrapper extends StatefulWidget {
   final Widget child;
@@ -50,4 +50,3 @@ class _PressEffectWrapperState extends State<PressEffectWrapper> {
     );
   }
 }
-

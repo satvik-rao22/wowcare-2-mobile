@@ -1,27 +1,9 @@
-﻿// custom_navigation_bar.dart
-
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/presentation/common/app/providers/nav_bar_providers.dart';
-import 'package:wowcare/core/extentions/context_extentions.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/src/activity/presentation/views/activity_screen.dart';
-import 'package:wowcare/src/attendance/presentation/widgets/attendance_popup.dart';
-import 'package:wowcare/src/billing/presentation/screen/billing_screen.dart';
-import 'package:wowcare/src/classroom/presentation/views/screens/classroom_info_screen.dart';
-import 'package:wowcare/src/classroom/presentation/views/screens/classroom_overview_screen.dart';
-import 'package:wowcare/src/classroom/presentation/views/screens/classroom_screen.dart';
-import 'package:wowcare/src/communication/presentation/messaging/views/communication_screen.dart';
-import 'package:wowcare/src/communication/presentation/messaging/views/staff_conversation_screen.dart';
-import 'package:wowcare/src/communication/presentation/student_messaging/student_conversation_screen.dart';
-// Import the persona-specific dashboards
-import 'package:wowcare/src/dashboard/presentation/views/admin_dashboard.dart';
-import 'package:wowcare/src/dashboard/presentation/views/parent_dashboard.dart';
-import 'package:wowcare/src/dashboard/presentation/views/staff_dashboard.dart';
-import 'package:wowcare/src/guardian_profile/guardian_activity_screen.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/theme/fonts.dart';
+
 
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
@@ -29,24 +11,17 @@ class CustomNavigationBar extends StatefulWidget {
   static final GlobalKey<_CustomNavigationBarState> navBarKey =
       GlobalKey<_CustomNavigationBarState>();
 
-  static double get navBarHeight =>
-      navBarKey.currentState?._navBarHeight ?? 0.0;
+  static double get navBarHeight => navBarKey.currentState?._navBarHeight ?? 0.0;
 
   @override
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
 }
 
 class _CustomNavigationBarState extends State<CustomNavigationBar> {
-  String _currentRoute = '';
   final GlobalKey _containerKey = GlobalKey();
   double _navBarHeight = 0.0;
   bool _hasMeasured = false;
-
-  static const List<String> dashboardRoutes = [
-    AdminDashboard.routeName,
-    StaffDashboard.routeName,
-    ParentDashboard.routeName,
-  ];
+  int _index = 0;
 
   @override
   void initState() {
@@ -54,57 +29,34 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _currentRoute = ModalRoute.of(context)?.settings.name ?? '';
-  }
-
   void _measureHeight() {
     if (_hasMeasured) return;
-
     final RenderBox? renderBox =
         _containerKey.currentContext?.findRenderObject() as RenderBox?;
-
-    if (renderBox != null && mounted) {
-      final bottomInset = MediaQuery.of(context).padding.bottom;
-      final height = renderBox.size.height + bottomInset;
-      setState(() {
-        _navBarHeight = height;
-        _hasMeasured = true;
-      });
-
-      context.read<NavBarHeightProvider>().height = height;
+    if (renderBox != null) {
+      _navBarHeight = renderBox.size.height;
+      _hasMeasured = true;
+      setState(() {});
     }
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _index = index;
+    });
+    // TODO: Hook up navigation when routes are ready
   }
 
   Widget _buildNavItem({
     required String icon,
     required String label,
-    required List<String> routeNames,
-    required bool isDashboardItem,
+    required int index,
   }) {
-    final bool isActive = isDashboardItem
-        ? dashboardRoutes.contains(_currentRoute)
-        : routeNames.contains(_currentRoute);
+    final bool isActive = _index == index;
 
     return Expanded(
       child: InkWell(
-        onTap: () {
-          if (label == 'Attendance') {
-            AttendancePopupManager.showAttendancePopup(context);
-            return;
-          }
-
-          if (isActive) return;
-
-          if (isDashboardItem) {
-            Navigator.of(context).popUntil((route) =>
-                dashboardRoutes.contains(route.settings.name) || route.isFirst);
-          } else {
-            Navigator.pushNamed(context, routeNames.first);
-          }
-        },
+        onTap: () => _onItemTapped(index),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           decoration: isActive
@@ -119,15 +71,16 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Use SVG for vector icons
                 SvgPicture.asset(
                   icon,
+                  height: 24,
                   colorFilter: isActive
                       ? const ColorFilter.mode(
                           Colors.white,
                           BlendMode.dstIn,
                         )
                       : null,
-                  height: 24,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -153,7 +106,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      top: false, // only respect bottom safe area
+      top: false,
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         child: Container(
@@ -161,59 +114,41 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             gradient: AppColors.buildPrimaryGradient(),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 12,
+                offset: const Offset(0, -6),
+              ),
+            ],
           ),
           child: Row(
             children: [
               _buildNavItem(
                 icon: MediaRes.dashboardIcon,
                 label: 'Dashboard',
-                routeNames: dashboardRoutes,
-                isDashboardItem: true,
+                index: 0,
               ),
-              if (context.isPersonnel)
-                _buildNavItem(
-                  icon: MediaRes.attendanceIcon,
-                  label: 'Attendance',
-                  routeNames: [],
-                  isDashboardItem: false,
-                ),
-              if (context.isPersonnel)
-                _buildNavItem(
-                  icon: MediaRes.classroomIcon,
-                  label: 'Classrooms',
-                  routeNames: [
-                    ClassroomScreen.routeName,
-                    ClassroomInfoScreen.routeName,
-                    ClassroomOverviewScreen.routeName,
-                  ],
-                  isDashboardItem: false,
-                ),
+              _buildNavItem(
+                icon: MediaRes.attendanceIcon,
+                label: 'Attendance',
+                index: 1,
+              ),
+              _buildNavItem(
+                icon: MediaRes.classroomIcon,
+                label: 'Classrooms',
+                index: 2,
+              ),
               _buildNavItem(
                 icon: MediaRes.activitesIcon,
                 label: 'Activities',
-                routeNames: [
-                  if (context.isGuardian) GuardianActivityScreen.routeName,
-                  ActivityScreen.routeName,
-                ],
-                isDashboardItem: false,
+                index: 3,
               ),
               _buildNavItem(
                 icon: MediaRes.communicationIcon,
-                label: context.isPersonnel ? 'Messaging' : 'Communication',
-                routeNames: [
-                  if (context.isGuardian) StudentConversationScreen.routeName,
-                  CommunicationScreen.routeName,
-                  StaffConversationScreen.routeName,
-                ],
-                isDashboardItem: false,
+                label: 'Messages',
+                index: 4,
               ),
-              if (context.isGuardian)
-                _buildNavItem(
-                  icon: MediaRes.billing_drawer_icon,
-                  label: 'Billing',
-                  routeNames: [BillingScreen.routeName],
-                  isDashboardItem: false,
-                ),
             ],
           ),
         ),
@@ -221,4 +156,3 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     );
   }
 }
-

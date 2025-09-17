@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class CustomCancelButton extends StatelessWidget {
   const CustomCancelButton({
@@ -29,21 +29,15 @@ class CustomCancelButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
         ),
-        child: ShaderMask(
-          shaderCallback: (Rect bounds) =>
-              AppColors.buildSecondaryGradient().createShader(bounds),
-          blendMode: BlendMode.srcIn,
-          child: Text(
-            cancelButtonLabel ?? 'Cancel',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 16 * (-3 / 100),
-            ),
+        child: Text(
+          cancelButtonLabel ?? 'Cancel',
+          style: const TextStyle(
+            color: AppColors.themeColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
     );
   }
 }
-

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 class CustomRefreshIndicator extends StatelessWidget {
@@ -24,4 +24,3 @@ class CustomRefreshIndicator extends StatelessWidget {
     );
   }
 }
-

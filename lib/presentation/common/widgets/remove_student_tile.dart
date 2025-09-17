@@ -1,12 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/core/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/res/colors.dart';
-import 'package:wowcare/core/res/media_res.dart';
-import 'package:wowcare/core/services/injection_container.dart';
-import 'package:wowcare/features/student/domain/entities/studentData.dart';
-import 'package:wowcare/src/documents/presentation/bloc/document_bloc.dart';
+import 'package:schoolerp/core/common/widgets/profile_show_widget.dart';
+import 'package:schoolerp/core/res/colors.dart';
+import 'package:schoolerp/core/res/media_res.dart';
+import 'package:schoolerp/core/services/injection_container.dart';
+import 'package:schoolerp/features/student/domain/entities/studentData.dart';
+import 'package:schoolerp/src/documents/presentation/bloc/document_bloc.dart';
 
 class RemoveStudentTile extends StatelessWidget {
   final StudentEntity student;
@@ -73,4 +73,3 @@ class RemoveStudentTile extends StatelessWidget {
     );
   }
 }
-

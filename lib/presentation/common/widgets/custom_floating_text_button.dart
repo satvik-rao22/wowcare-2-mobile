@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:flutter/material.dart';
+import 'package:schoolerp/core/res/colors.dart';
 
 class CustomFloatingTextButton extends StatelessWidget {
   const CustomFloatingTextButton({
@@ -84,4 +84,3 @@ class CustomFloatingTextButton extends StatelessWidget {
     return _buildFilledButton();
   }
 }
-

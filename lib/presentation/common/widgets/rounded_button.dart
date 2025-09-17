@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class RoundedButton extends StatefulWidget {
   final String lable;
@@ -61,4 +61,3 @@ class _RoundedButtonState extends State<RoundedButton> {
     );
   }
 }
-

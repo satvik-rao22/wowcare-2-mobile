@@ -1,6 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class CustomConfirmButton extends StatefulWidget {
   const CustomConfirmButton({
@@ -29,10 +29,7 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
     });
 
     try {
-      final result = widget.onPressed!.call();
-      if (result is Future) {
-        await result;
-      }
+      await widget.onPressed!();
     } finally {
       if (mounted) {
         setState(() {
@@ -44,21 +41,19 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: AppColors.buildSecondaryGradient(),
-      ),
+    return SizedBox(
+      width: double.infinity,
       child: ElevatedButton(
+        onPressed: _isLoading ? null : _handlePress,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          shadowColor: Colors.transparent,
+          backgroundColor: AppColors.themeColor,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
+          elevation: 2,
         ),
-        onPressed: widget.onPressed != null ? _handlePress : null,
         child: _isLoading
             ? const SizedBox(
                 height: 20,
@@ -68,24 +63,8 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (widget.widget != null) widget.widget!,
-                  if (widget.widget != null) const SizedBox(width: 4),
-                  Text(
-                    widget.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 16 * (-3 / 100),
-                    ),
-                  ),
-                ],
-              ),
+            : widget.widget ?? Text(widget.label),
       ),
     );
   }
 }
-

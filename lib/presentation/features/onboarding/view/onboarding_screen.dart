@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/domain/features/onboarding/entities/page_content.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 // Removed missing context extensions and PageContent; using inline content for now
 
 import '../../../../app/theme/colors.dart';
@@ -183,7 +184,10 @@ class OnboardingBody extends StatelessWidget {
               ),
               onPressed: () {
                 if (isLastPage) {
-                  // context.read<OnBoardingCubit>().cacheFirstTimer();
+                  Navigator.pushReplacementNamed(
+                    context,
+                    DashboardScreen.routeName,
+                  );
                 } else {
                   onNextPressed?.call();
                 }

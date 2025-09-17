@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class CustomChip extends StatefulWidget {
   const CustomChip({
@@ -48,4 +48,3 @@ class _CustomChipState extends State<CustomChip> {
     );
   }
 }
-

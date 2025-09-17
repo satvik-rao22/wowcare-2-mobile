@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
-// Using a simple Scaffold for now to avoid unresolved widget dependencies
+import 'package:wowcare/presentation/common/widgets/custom_scaffold.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   static const String routeName = '/dashboard';
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
-      body: const Center(
-        child: Text(
+    return GlobalScaffold(
+      body: Center(
+        child: const Text(
           'Dashboard module goes here',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
       ),
+      showCustomNavigationBar: true,
     );
   }
 }

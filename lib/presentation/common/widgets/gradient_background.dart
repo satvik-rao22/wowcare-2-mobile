@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 
@@ -29,4 +29,3 @@ class GradientBackground extends StatelessWidget {
     );
   }
 }
-

@@ -1,7 +1,7 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:schoolerp/core/common/widgets/custom_checkbox.dart';
+import 'package:schoolerp/core/res/colors.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
   final String? label;
@@ -180,4 +180,3 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     );
   }
 }
-

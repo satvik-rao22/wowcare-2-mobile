@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
@@ -36,76 +36,42 @@ class CustomTextField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: const TextStyle(
-          color: Colors.grey,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-        prefixIcon: prefixIcon,
-        suffixIcon: suffixIcon,
-        filled: isFilled,
-        fillColor: fillColor ?? Colors.grey[200],
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(40),
-          borderSide: const BorderSide(
-            color: Colors.black,
-            width: 1,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(40),
-          borderSide: const BorderSide(
-            color: Colors.blue,
-            width: 2.0,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(40),
-          borderSide: const BorderSide(
-            color: Colors.red,
-            width: 1.5,
-          ),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(40),
-          borderSide: const BorderSide(
-            color: Colors.red,
-            width: 2.0,
-          ),
-        ),
-      ),
-      validator: validator ??
-          (value) {
-            if (value == null || value.isEmpty) {
-              return 'This field cannot be empty';
-            }
-            return null;
-          },
       focusNode: focusNode,
       readOnly: readOnly,
       obscureText: isPassword,
-      onFieldSubmitted: (value) {
-        if (nextFocusNode != null) {
-          FocusScope.of(context).requestFocus(nextFocusNode);
-        } else {
-          FocusScope.of(context).unfocus();
-        }
-      },
-      onTapOutside: (_) {
-        FocusScope.of(context).unfocus();
-      },
-      style: const TextStyle(
-        color: AppColors.themeColor,
-        fontSize: 14,
-        fontWeight: FontWeight.w700,
-        // foreground: Paint()
-        //   ..shader = AppColors.buildPrimaryGradient().createShader(
-        //     const Rect.fromLTWH(0, 0, 200, 70),
-        //   ),
+      validator: validator,
+      onFieldSubmitted: nextFocusNode != null ? (_) => nextFocusNode!.requestFocus() : null,
+      decoration: InputDecoration(
+        hintText: hintText,
+        prefixIcon: prefixIcon,
+        suffixIcon: suffixIcon,
+        filled: isFilled,
+        fillColor: fillColor ?? Colors.grey.shade100,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.themeColor),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
     );
   }
 }
-

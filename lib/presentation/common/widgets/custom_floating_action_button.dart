@@ -1,6 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:schoolerp/core/res/colors.dart';
 
 class CustomFloatingActionButton extends StatelessWidget {
   const CustomFloatingActionButton({
@@ -47,4 +47,3 @@ class CustomFloatingActionButton extends StatelessWidget {
     );
   }
 }
-

@@ -1,11 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/core/res/colors.dart';
-import 'package:wowcare/core/res/media_res.dart';
-import 'package:wowcare/core/util/TimeZoneConfiguration.dart';
-import 'package:wowcare/src/classroom/presentation/forms/date_picker_normal.dart';
-import 'package:wowcare/core/util/date_utils.dart';
-import 'package:wowcare/core/common/widgets/calendar_responsive_helper.dart';
+import 'package:schoolerp/core/res/colors.dart';
+import 'package:schoolerp/core/res/media_res.dart';
+import 'package:schoolerp/core/util/TimeZoneConfiguration.dart';
+import 'package:schoolerp/src/classroom/presentation/forms/date_picker_normal.dart';
+import 'package:schoolerp/core/util/date_utils.dart';
+import 'package:schoolerp/core/common/widgets/calendar_responsive_helper.dart';
 
 class CustomDateTimeField extends StatefulWidget {
   const CustomDateTimeField({
@@ -296,4 +296,3 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   String get getMinute => minute ?? '';
   String get getPeriod => period ?? '';
 }
-

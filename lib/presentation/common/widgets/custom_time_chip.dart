@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class CustomTimeChip extends StatelessWidget {
   const CustomTimeChip({
@@ -45,4 +45,3 @@ class CustomTimeChip extends StatelessWidget {
     );
   }
 }
-

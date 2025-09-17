@@ -1,7 +1,7 @@
-﻿
+
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/common/widgets/custom_cancel_button.dart';
-import 'package:wowcare/core/common/widgets/custom_confirm_button.dart';
+import 'package:schoolerp/core/common/widgets/custom_cancel_button.dart';
+import 'package:schoolerp/core/common/widgets/custom_confirm_button.dart';
 
 class ReusableActionButtons extends StatelessWidget {
   @override
@@ -34,4 +34,3 @@ class ReusableActionButtons extends StatelessWidget {
     );
   }
 }
-

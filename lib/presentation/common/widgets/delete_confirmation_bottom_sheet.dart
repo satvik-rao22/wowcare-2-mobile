@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/core/res/colors.dart';
-import 'package:wowcare/core/res/media_res.dart';
+import 'package:schoolerp/core/res/colors.dart';
+import 'package:schoolerp/core/res/media_res.dart';
 
 class DeleteConfirmationBottomSheet extends StatelessWidget {
   final String name; // student name or generic subject name

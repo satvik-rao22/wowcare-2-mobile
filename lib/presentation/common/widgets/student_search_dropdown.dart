@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/res/colors.dart';
-import 'package:wowcare/core/res/fonts.dart';
-import 'package:wowcare/src/billing/data/services/students_dropdown_service.dart';
+import 'package:flutter/material.dart';
+import 'package:schoolerp/core/res/colors.dart';
+import 'package:schoolerp/core/res/fonts.dart';
+import 'package:schoolerp/src/billing/data/services/students_dropdown_service.dart';
 
 class StudentSearchDropdown extends StatefulWidget {
   final String hintText;
@@ -556,4 +556,3 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 }
-

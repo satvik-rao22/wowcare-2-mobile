@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:flutter/material.dart';
+import 'package:schoolerp/core/res/colors.dart';
 
 class CustomToggle extends StatefulWidget {
   const CustomToggle({
@@ -74,4 +74,3 @@ class _CustomToggleState extends State<CustomToggle> {
     );
   }
 }
-

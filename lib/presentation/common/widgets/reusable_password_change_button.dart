@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/common/widgets/custom_confirm_button.dart';
+import 'package:flutter/material.dart';
+import 'package:schoolerp/core/common/widgets/custom_confirm_button.dart';
 
 class ReusablePasswordActionButtons extends StatelessWidget {
   @override
@@ -25,4 +25,3 @@ class ReusablePasswordActionButtons extends StatelessWidget {
     );
   }
 }
-

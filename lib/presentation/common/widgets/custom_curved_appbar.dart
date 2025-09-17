@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class CustomCurvedAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -83,4 +83,3 @@ class CurvedAppBarClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
-

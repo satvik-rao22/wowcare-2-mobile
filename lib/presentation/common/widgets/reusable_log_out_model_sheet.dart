@@ -1,11 +1,11 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
-import 'package:wowcare/core/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/core/extentions/context_extentions.dart';
-import 'package:wowcare/core/res/colors.dart';
-import 'package:wowcare/core/res/media_res.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:flutter/material.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
+// import 'package:wowcare/core/common/widgets/custom_button_layout.dart';
+// import 'package:wowcare/core/extentions/context_extentions.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+// import 'package:wowcare/core/util/core_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LogOutModelBottomSheet extends StatefulWidget {
@@ -27,7 +27,8 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
     });
     prefs.remove('accessToken');
     try {
-      context.read<ProfilePhotoProvider>().clearPhoto();
+      // TODO: Re-enable when ProfilePhotoProvider is available
+      // context.read<ProfilePhotoProvider>().clearPhoto();
 
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -35,22 +36,40 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
         ModalRoute.withName('/first-screen'),
       );
 
-      CoreUtils.showTopSnackBar(
-        context: context,
-        isError: false,
-        isWarning: false,
-        isSuccess: true,
-        isAdjust: false,
-        message: 'You are logged out successfully',
+      // TODO: Re-enable when CoreUtils is available
+      // CoreUtils.showTopSnackBar(
+      //   context: context,
+      //   isError: false,
+      //   isWarning: false,
+      //   isSuccess: true,
+      //   isAdjust: false,
+      //   message: 'You are logged out successfully',
+      // );
+      
+      // Temporary snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You are logged out successfully'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        isError: true,
-        isWarning: false,
-        isSuccess: false,
-        isAdjust: false,
-        message: 'Logout failed. Please try again.',
+      // TODO: Re-enable when CoreUtils is available
+      // CoreUtils.showTopSnackBar(
+      //   context: context,
+      //   isError: true,
+      //   isWarning: false,
+      //   isSuccess: false,
+      //   isAdjust: false,
+      //   message: 'Logout failed. Please try again.',
+      // );
+
+      // Temporary snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Logout failed. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
       );
 
       setState(() {
@@ -66,7 +85,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
         final bottomSheetHeight = constraints.maxHeight;
 
         return Container(
-          height: context.height * 0.4,
+          height: MediaQuery.of(context).size.height * 0.4, // context.height * 0.4,
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -80,7 +99,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
               Container(
                 alignment: Alignment.center,
                 child: Image.asset(
-                  MediaRes.logout_image,
+                  MediaRes.logoutImage, // MediaRes.logout_image,
                   height: bottomSheetHeight * 0.4,
                 ),
               ),
@@ -88,7 +107,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
               const Text(
                 'Are you sure you want to log out?',
                 style: TextStyle(
-                  color: AppColors.primaryColor,
+                  color: AppColors.themeColor, // AppColors.primaryColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -99,12 +118,34 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
                 alignment: Alignment.center,
                 child: _isLogout
                     ? const CircularProgressIndicator()
-                    : CustomButtonLayout(
-                        isForm: false,
-                        confirmButtonLabel: 'Yes',
-                        cancelButtonLabel: 'No',
-                        onPressedConfirm: _logout,
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('No'),
+                          ),
+                          ElevatedButton(
+                            onPressed: _logout,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.themeColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Yes'),
+                          ),
+                        ],
                       ),
+                    // TODO: Re-enable when CustomButtonLayout is available
+                    // : CustomButtonLayout(
+                    //     isForm: false,
+                    //     confirmButtonLabel: 'Yes',
+                    //     cancelButtonLabel: 'No',
+                    //     onPressedConfirm: _logout,
+                    //   ),
               ),
             ],
           ),
@@ -113,4 +154,3 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
     );
   }
 }
-

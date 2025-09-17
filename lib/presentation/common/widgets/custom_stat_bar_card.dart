@@ -1,6 +1,6 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/helpers/progress_item_helper.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:flutter/material.dart';
+import 'package:schoolerp/core/helpers/progress_item_helper.dart';
+import 'package:schoolerp/core/res/colors.dart';
 
 class CustomStatBarCard extends StatelessWidget {
   const CustomStatBarCard({
@@ -250,4 +250,3 @@ class CustomStatBarCard extends StatelessWidget {
     }
   }
 }
-

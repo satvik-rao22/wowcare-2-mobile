@@ -1,8 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:schoolerp/core/res/colors.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:wowcare/core/common/widgets/calendar_responsive_helper.dart';
+import 'package:schoolerp/core/common/widgets/calendar_responsive_helper.dart';
 
 class CustomHorizontalDatePicker extends StatefulWidget {
   @override
@@ -143,4 +143,3 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
     );
   }
 }
-

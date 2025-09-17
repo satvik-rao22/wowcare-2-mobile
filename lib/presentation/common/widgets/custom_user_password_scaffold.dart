@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:wowcare/core/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/core/common/widgets/custom_drawer.dart';
-import 'package:wowcare/core/common/widgets/gradient_background.dart';
-import 'package:wowcare/core/common/widgets/reusable_password_change_button.dart';
-import 'package:wowcare/core/extentions/context_extentions.dart';
+import 'package:schoolerp/core/common/widgets/custom_app_bar.dart';
+import 'package:schoolerp/core/common/widgets/custom_drawer.dart';
+import 'package:schoolerp/core/common/widgets/gradient_background.dart';
+import 'package:schoolerp/core/common/widgets/reusable_password_change_button.dart';
+import 'package:schoolerp/core/extentions/context_extentions.dart';
 
 class UserPasswordChangeGlobalScaffold extends StatefulWidget {
   const UserPasswordChangeGlobalScaffold({
@@ -121,4 +121,3 @@ class _UserPasswordChangeGlobalScaffoldState extends State<UserPasswordChangeGlo
     );
   }
 }
-

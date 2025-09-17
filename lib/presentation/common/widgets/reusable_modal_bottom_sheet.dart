@@ -1,10 +1,10 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/res/colors.dart';
-import 'package:wowcare/core/util/typedefs.dart';
+import 'package:schoolerp/core/res/colors.dart';
+import 'package:schoolerp/core/util/typedefs.dart';
 
 enum FieldType {
   text,
@@ -398,7 +398,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 // import 'package:file_picker/file_picker.dart';
 // import 'package:flutter/material.dart';
 // import 'package:intl/intl.dart';
-// import 'package:wowcare/core/res/colors.dart';
+// import 'package:schoolerp/core/res/colors.dart';
 
 // // Enum to define different field types
 // enum FieldType {
@@ -767,7 +767,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 // import 'package:file_picker/file_picker.dart';
 // import 'package:intl/intl.dart';
 // import 'package:permission_handler/permission_handler.dart';
-// import 'package:wowcare/core/res/colors.dart';
+// import 'package:schoolerp/core/res/colors.dart';
 
 // // Enum to define different field types
 // enum FieldType {
@@ -1139,5 +1139,4 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //     );
 //   }
 // }
-
 

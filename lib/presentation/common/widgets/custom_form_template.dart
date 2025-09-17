@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
-import 'package:wowcare/core/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/core/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/core/res/colors.dart';
+import 'package:flutter/material.dart';
+import 'package:schoolerp/core/common/widgets/custom_button_layout.dart';
+import 'package:schoolerp/core/common/widgets/custom_scaffold.dart';
+import 'package:schoolerp/core/res/colors.dart';
 
 class CustomFormTemplate extends StatelessWidget {
   const CustomFormTemplate({
@@ -78,4 +78,3 @@ class CustomFormTemplate extends StatelessWidget {
     );
   }
 }
-
