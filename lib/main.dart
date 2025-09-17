@@ -3,11 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'src/core/Common/app/providers/splash_screen.dart';
 import 'src/core/Common/app/providers/theme_providers.dart';
-import 'src/presentation/screens/on_boarding/presentation/cubit/cubit/on_boarding_cubit.dart';
-import 'src/presentation/screens/on_boarding/presentation/views/onboarding_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -67,7 +64,7 @@ class MyApp extends StatelessWidget {
               debugShowCheckedModeBanner: false,
               title: 'WowCare',
               theme: theme,
-              home: const SplashScreenWrapper(),
+              home: const SplashScreen(), // ✅ directly show splash
               navigatorKey: navigatorKey,
             ),
           );

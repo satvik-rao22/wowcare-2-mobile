@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/src/core/Common/extentions/context_extentions.dart';
-import 'package:wowcare/src/presentation/screens/on_boarding/domain/entities/page_content.dart';
-
 import '../../../../../core/res/colors.dart';
+import '../../domain/entities/page_content.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -25,81 +24,67 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:
-          // BlocConsumer<OnBoardingCubit, OnBoardingState>(
-          //   listener: (context, state) {
-          //     if (state is OnBoardingStatus && !state.isFirstTimer) {
-          //       Navigator.pushReplacementNamed(context, '/home');
-          //     } else if (state is UserCached) {
-          //       Navigator.pushReplacementNamed(context, '/first-screen');
-          //     }
-          //   },
-          //   builder: (context, state) {
-          //     if (state is CheckingIfUserIsFirstTimer ||
-          //         state is CachingFirstTimer) {
-          //       return const Center(child: CircularProgressIndicator());
-          //     }
-          Stack(
+      body: Stack(
+        children: [
+          PageView(
+            controller: pageController,
             children: [
-              PageView(
-                controller: pageController,
-                children: [
-                  OnboardingBody(
-                    pageContent: const PageContent.first(),
-                    onNextPressed: () {
-                      pageController.nextPage(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-                  OnboardingBody(
-                    pageContent: const PageContent.second(),
-                    onNextPressed: () {
-                      pageController.nextPage(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-                  OnboardingBody(
-                    pageContent: const PageContent.third(),
-                    onNextPressed: () {
-                      pageController.nextPage(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-                  const OnboardingBody(
-                    pageContent: PageContent.forth(),
-                    isLastPage: true,
-                  ),
-                ],
+              OnboardingBody(
+                pageContent: const PageContent.first(),
+                onNextPressed: () {
+                  pageController.nextPage(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                },
               ),
-              Align(
-                alignment: const Alignment(0, 0.06),
-                child: SmoothPageIndicator(
-                  controller: pageController,
-                  count: 4,
-                  onDotClicked: (index) {
-                    pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                  effect: WormEffect(
-                    dotHeight: 10,
-                    dotWidth: 10,
-                    spacing: 40,
-                    activeDotColor: AppColors.themeColor,
-                    dotColor: Colors.grey.shade300,
-                  ),
-                ),
+              OnboardingBody(
+                pageContent: const PageContent.second(),
+                onNextPressed: () {
+                  pageController.nextPage(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                },
+              ),
+              OnboardingBody(
+                pageContent: const PageContent.third(),
+                onNextPressed: () {
+                  pageController.nextPage(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                },
+              ),
+              const OnboardingBody(
+                pageContent: PageContent.forth(),
+                isLastPage: true,
               ),
             ],
           ),
+          Align(
+            alignment: const Alignment(0, 0.06),
+            child: SmoothPageIndicator(
+              controller: pageController,
+              count: 4,
+              onDotClicked: (index) {
+                pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                );
+              },
+              effect: WormEffect(
+                dotHeight: 10,
+                dotWidth: 10,
+                spacing: 40,
+                activeDotColor: AppColors.themeColor,
+                dotColor: Colors.grey.shade300,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
