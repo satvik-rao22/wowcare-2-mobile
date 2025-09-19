@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:schoolerp/core/res/colors.dart';
+
+import '../../../app/theme/colors.dart';
 
 class CustomFloatingActionButton extends StatelessWidget {
   const CustomFloatingActionButton({
@@ -35,14 +36,8 @@ class CustomFloatingActionButton extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: svgIcon == null
-            ? Icon(
-                icon,
-                size: 28,
-              )
-            : SvgPicture.asset(
-                svgIcon!,
-                height: 28,
-              ),
+            ? Icon(icon, size: 28)
+            : SvgPicture.asset(svgIcon!, height: 28),
       ),
     );
   }

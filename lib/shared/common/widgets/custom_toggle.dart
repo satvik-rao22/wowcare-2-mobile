@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import '../../../app/theme/colors.dart';
 
 class CustomToggle extends StatefulWidget {
   const CustomToggle({
@@ -50,8 +50,9 @@ class _CustomToggleState extends State<CustomToggle> {
                   ? AppColors.buildPrimaryGradient()
                   : AppColors.buildPrimaryGradient().withOpacity(0.5),
             ),
-            alignment:
-                _internalToggle ? Alignment.centerRight : Alignment.centerLeft,
+            alignment: _internalToggle
+                ? Alignment.centerRight
+                : Alignment.centerLeft,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 20,

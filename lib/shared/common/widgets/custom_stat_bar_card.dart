@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:schoolerp/core/helpers/progress_item_helper.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import '../../../app/theme/colors.dart';
 
 class CustomStatBarCard extends StatelessWidget {
   const CustomStatBarCard({
@@ -30,10 +30,7 @@ class CustomStatBarCard extends StatelessWidget {
       final percentList = items.map((item) => item.value).toList();
       final percentTotal = percentList.fold(0.0, (a, b) => a + b);
       return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.cardBorderColor),
           borderRadius: BorderRadius.circular(12),
@@ -72,15 +69,14 @@ class CustomStatBarCard extends StatelessWidget {
                 width: double.infinity,
                 child: Row(
                   children: percentTotal == 0
-                      ? [
-                          Expanded(
-                              child: Container(color: Colors.grey[300]))
-                        ]
+                      ? [Expanded(child: Container(color: Colors.grey[300]))]
                       : [
-                          ...items.map((item) => Expanded(
-                                flex: ((item.value * 1000) ~/ percentTotal),
-                                child: Container(color: item.color),
-                              )),
+                          ...items.map(
+                            (item) => Expanded(
+                              flex: ((item.value * 1000) ~/ percentTotal),
+                              child: Container(color: item.color),
+                            ),
+                          ),
                           if (percentTotal < 100)
                             Expanded(
                               flex: ((100 - percentTotal) * 1000 ~/ 100),
@@ -114,7 +110,9 @@ class CustomStatBarCard extends StatelessWidget {
                                 child: Text(
                                   item.label,
                                   style: TextStyle(
-                                    color: AppColors.primaryColor.withOpacity(0.8),
+                                    color: AppColors.primaryColor.withOpacity(
+                                      0.8,
+                                    ),
                                     fontSize: 13,
                                   ),
                                 ),
@@ -122,7 +120,9 @@ class CustomStatBarCard extends StatelessWidget {
                             : Text(
                                 item.label,
                                 style: TextStyle(
-                                  color: AppColors.primaryColor.withOpacity(0.8),
+                                  color: AppColors.primaryColor.withOpacity(
+                                    0.8,
+                                  ),
                                   fontSize: 13,
                                 ),
                               ),
@@ -137,10 +137,7 @@ class CustomStatBarCard extends StatelessWidget {
     } else {
       // Original style
       return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.cardBorderColor),
           borderRadius: BorderRadius.circular(12),
@@ -180,15 +177,18 @@ class CustomStatBarCard extends StatelessWidget {
                         children: !hasValidTotal
                             ? [
                                 Expanded(
-                                    child: Container(color: Colors.grey[300]))
+                                  child: Container(color: Colors.grey[300]),
+                                ),
                               ]
                             : [
-                                ...items.map((item) => Expanded(
-                                      flex: hasValidTotal
-                                          ? (item.value * 100 ~/ total)
-                                          : 1,
-                                      child: Container(color: item.color),
-                                    )),
+                                ...items.map(
+                                  (item) => Expanded(
+                                    flex: hasValidTotal
+                                        ? (item.value * 100 ~/ total)
+                                        : 1,
+                                    child: Container(color: item.color),
+                                  ),
+                                ),
                                 if (sumValues < total)
                                   Expanded(
                                     flex: hasValidTotal
@@ -224,7 +224,8 @@ class CustomStatBarCard extends StatelessWidget {
                                       child: Text(
                                         item.label,
                                         style: TextStyle(
-                                          color: AppColors.primaryColor.withOpacity(0.8),
+                                          color: AppColors.primaryColor
+                                              .withOpacity(0.8),
                                           fontSize: 13,
                                         ),
                                       ),
@@ -232,7 +233,8 @@ class CustomStatBarCard extends StatelessWidget {
                                   : Text(
                                       item.label,
                                       style: TextStyle(
-                                        color: AppColors.primaryColor.withOpacity(0.8),
+                                        color: AppColors.primaryColor
+                                            .withOpacity(0.8),
                                         fontSize: 13,
                                       ),
                                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+
+import '../../../app/theme/colors.dart';
 
 class CustomSearchBar extends StatefulWidget {
   const CustomSearchBar({
@@ -28,10 +29,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
       ),
       child: SearchBar(
         controller: widget.controller,
-        constraints: const BoxConstraints(
-          minHeight: 44,
-          maxHeight: 44,
-        ),
+        constraints: const BoxConstraints(minHeight: 44, maxHeight: 44),
         elevation: const WidgetStatePropertyAll(0),
         hintText: widget.hintText,
         onChanged: widget.onChanged,
@@ -43,10 +41,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
         ),
         leading: const Padding(
           padding: EdgeInsets.only(left: 4),
-          child: Icon(
-            Icons.search,
-            color: AppColors.primaryColor,
-          ),
+          child: Icon(Icons.search, color: AppColors.primaryColor),
         ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
@@ -58,10 +53,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
           ),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.w500,
-          ),
+          TextStyle(color: AppColors.primaryColor, fontWeight: FontWeight.w500),
         ),
       ),
     );

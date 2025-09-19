@@ -5,6 +5,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 
+import '../../../presentation/Student-Module/views/student_profile_screen.dart';
+
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
 
@@ -25,9 +27,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return Container(
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 4),
-      decoration: BoxDecoration(
-        gradient: AppColors.buildPrimaryGradient(),
-      ),
+      decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
       child: Row(
         children: [
           const CircleAvatar(
@@ -41,11 +41,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                Text('WowCare',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(
+                  'WowCare',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 SizedBox(height: 2),
-                Text('Preschool Management',
-                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(
+                  'Preschool Management',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -59,15 +67,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.7,
       child: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-        ),
+        decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _header(),
-              const Divider(color: Colors.white, thickness: 0.3, indent: 8, endIndent: 8),
+              const Divider(
+                color: Colors.white,
+                thickness: 0.3,
+                indent: 8,
+                endIndent: 8,
+              ),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -76,11 +87,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       title: 'Dashboard',
                       icon: MediaRes.dashboardIcon,
                       isDashboard: true,
-                      isCurrentRoute: _currentRoute == DashboardScreen.routeName,
+                      isCurrentRoute:
+                          _currentRoute == DashboardScreen.routeName,
                       onTap: () {
                         Navigator.pop(context);
                         if (_currentRoute != DashboardScreen.routeName) {
-                          Navigator.pushNamed(context, DashboardScreen.routeName);
+                          Navigator.pushNamed(
+                            context,
+                            DashboardScreen.routeName,
+                          );
                         }
                       },
                     ),
@@ -89,7 +104,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: MediaRes.classroom_drawer_icon,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ComingSoonScreen(),
+                          ),
+                        );
                       },
                     ),
                     _CustomExpansionTile(
@@ -97,7 +116,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: MediaRes.students_drawer_icon,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                StudentProfileScreen(students: const []),
+                          ),
+                        );
                       },
                     ),
                     _CustomExpansionTile(
@@ -105,7 +129,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: MediaRes.staffs_drawer_icon,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ComingSoonScreen(),
+                          ),
+                        );
                       },
                     ),
                     _CustomExpansionTile(
@@ -117,22 +145,36 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           title: 'Student Attendance',
                           leading: SvgPicture.asset(
                             MediaRes.studentAttendanceDrawer,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.themeColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ComingSoonScreen(),
+                              ),
+                            );
                           },
                         ),
                         DrawerListTile(
                           title: 'Staff Attendance',
                           leading: SvgPicture.asset(
                             MediaRes.staffAttendanceDrawer,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.themeColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ComingSoonScreen(),
+                              ),
+                            );
                           },
                         ),
                       ],
@@ -142,7 +184,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: MediaRes.activitesIcon,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ComingSoonScreen(),
+                          ),
+                        );
                       },
                     ),
                     _CustomExpansionTile(
@@ -154,33 +200,54 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           title: 'Staff Messaging',
                           leading: SvgPicture.asset(
                             MediaRes.staffMessaging,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.themeColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ComingSoonScreen(),
+                              ),
+                            );
                           },
                         ),
                         DrawerListTile(
                           title: 'Parent Messaging',
                           leading: SvgPicture.asset(
                             MediaRes.parentMessaging,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.themeColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ComingSoonScreen(),
+                              ),
+                            );
                           },
                         ),
                         DrawerListTile(
                           title: 'Newsletter',
                           leading: SvgPicture.asset(
                             MediaRes.newsletter,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.themeColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ComingSoonScreen(),
+                              ),
+                            );
                           },
                         ),
                       ],
@@ -194,7 +261,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           title: 'Privacy Policy',
                           leading: SvgPicture.asset(
                             MediaRes.settings_drawer_Blue,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.themeColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           onTap: () {},
                         ),
@@ -202,7 +272,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           title: 'Terms & Conditions',
                           leading: SvgPicture.asset(
                             MediaRes.settings_drawer_Blue,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.themeColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           onTap: () {},
                         ),
@@ -332,9 +405,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 title: Text(
                   widget.title,
                   maxLines: 1,
-                  style: TextStyle(
-                    color: _getTextColor(),
-                  ),
+                  style: TextStyle(color: _getTextColor()),
                 ),
                 children: widget.children,
                 trailing: const Icon(Icons.keyboard_arrow_down),
@@ -359,8 +430,8 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 tileColor: (widget.isDashboard && widget.isCurrentRoute)
                     ? Colors.white
                     : (!widget.isDashboard && widget.isCurrentRoute)
-                        ? Colors.white
-                        : Colors.transparent,
+                    ? Colors.white
+                    : Colors.transparent,
                 selected: widget.isCurrentRoute,
                 selectedTileColor: Colors.white,
               ),
@@ -391,11 +462,7 @@ class DrawerListTile extends StatelessWidget {
       onTap: onTap,
       horizontalTitleGap: horizontalTitleGap,
       leading: leading,
-      title: Text(
-        title,
-        maxLines: 1,
-        style: TextStyle(color: textColor),
-      ),
+      title: Text(title, maxLines: 1, style: TextStyle(color: textColor)),
     );
   }
 }

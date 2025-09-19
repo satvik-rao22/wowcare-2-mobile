@@ -124,7 +124,8 @@
 // }
 
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+
+import '../../../app/theme/colors.dart';
 
 class CustomDropdown extends StatefulWidget {
   const CustomDropdown({
@@ -224,8 +225,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
                                 ? AppColors.primaryColor
                                 : AppColors.primaryColor.withOpacity(0.7),
                             fontSize: widget.isField ? 15 : 13,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                       ),

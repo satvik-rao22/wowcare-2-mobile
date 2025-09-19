@@ -1,7 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
-
 import '../../core/network/api_client.dart';
 import '../../core/network/network_info.dart';
 import '../../data/features/onboarding/datasources/onboarding_remote_datasource.dart';
@@ -14,12 +13,13 @@ final GetIt serviceLocator = GetIt.instance;
 Future<void> configureDependencies({required String baseUrl}) async {
   // Core
   serviceLocator.registerLazySingleton<Connectivity>(() => Connectivity());
-  serviceLocator.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(serviceLocator()));
+  serviceLocator.registerLazySingleton<NetworkInfo>(
+    () => NetworkInfoImpl(serviceLocator()),
+  );
 
-  serviceLocator.registerLazySingleton<ApiClient>(() => ApiClient(
-        baseUrl: baseUrl,
-        interceptors: <Interceptor>[],
-      ));
+  serviceLocator.registerLazySingleton<ApiClient>(
+    () => ApiClient(baseUrl: baseUrl, interceptors: <Interceptor>[]),
+  );
 
   // Data sources
   serviceLocator.registerLazySingleton<OnboardingRemoteDataSource>(
@@ -28,7 +28,10 @@ Future<void> configureDependencies({required String baseUrl}) async {
 
   // Repositories
   serviceLocator.registerLazySingleton<OnboardingRepository>(
-    () => OnboardingRepositoryImpl(remoteDataSource: serviceLocator(), networkInfo: serviceLocator()),
+    () => OnboardingRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      networkInfo: serviceLocator(),
+    ),
   );
 
   // Use cases
@@ -36,5 +39,3 @@ Future<void> configureDependencies({required String baseUrl}) async {
     () => GetOnboardingContent(serviceLocator()),
   );
 }
-
-

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+
+import '../../../app/theme/colors.dart';
 
 class CustomCheckbox extends StatelessWidget {
   const CustomCheckbox({
@@ -34,7 +35,8 @@ class CustomCheckbox extends StatelessWidget {
               activeColor: AppColors.themeColor,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               side: BorderSide(
-                color: borderColor ??
+                color:
+                    borderColor ??
                     AppColors.primaryColor.withValues(alpha: 0.2),
               ),
               value: value,
@@ -50,7 +52,8 @@ class CustomCheckbox extends StatelessWidget {
             Flexible(
               child: Text(
                 label!,
-                style: labelStyle ??
+                style:
+                    labelStyle ??
                     const TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 13,

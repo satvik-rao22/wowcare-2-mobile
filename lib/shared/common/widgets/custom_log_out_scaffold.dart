@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:schoolerp/core/common/widgets/custom_app_bar.dart';
-import 'package:schoolerp/core/common/widgets/custom_drawer.dart';
-import 'package:schoolerp/core/common/widgets/gradient_background.dart';
-import 'package:schoolerp/core/extentions/context_extentions.dart';
 
 class UserSettingsGlobalScaffold extends StatefulWidget {
   const UserSettingsGlobalScaffold({
@@ -83,10 +79,7 @@ class _UserSettingsGlobalScaffoldState
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        appBar: AppBar(
-          toolbarHeight: 0,
-          scrolledUnderElevation: 0,
-        ),
+        appBar: AppBar(toolbarHeight: 0, scrolledUnderElevation: 0),
         drawer: context.isPersonnel ? const CustomDrawer() : null,
         drawerEnableOpenDragGesture: false,
         body: GradientBackground(
@@ -95,11 +88,10 @@ class _UserSettingsGlobalScaffoldState
             floatHeaderSlivers: true,
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               SliverOverlapAbsorber(
-                handle:
-                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-                sliver: CustomAppBar(
-                  hasBackButton: widget.hasBackButton,
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
                 ),
+                sliver: CustomAppBar(hasBackButton: widget.hasBackButton),
               ),
             ],
             body: _buildBody(),

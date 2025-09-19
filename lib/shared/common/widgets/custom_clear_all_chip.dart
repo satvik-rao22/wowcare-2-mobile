@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+
+import '../../../app/theme/colors.dart';
 
 class CustomClearAllChip extends StatelessWidget {
-  const CustomClearAllChip({
-    required this.onTap,
-    super.key,
-  });
+  const CustomClearAllChip({required this.onTap, super.key});
 
   final void Function()? onTap;
 
@@ -22,10 +20,7 @@ class CustomClearAllChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             gradient: AppColors.buildPrimaryGradient(),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: const Center(
             child: Text(
               'Clear All',

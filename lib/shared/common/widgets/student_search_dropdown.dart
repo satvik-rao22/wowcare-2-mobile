@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
-import 'package:schoolerp/core/res/fonts.dart';
-import 'package:schoolerp/src/billing/data/services/students_dropdown_service.dart';
+
+import '../../../app/theme/colors.dart';
+// import 'package:schoolerp/core/res/colors.dart';
+// import 'package:schoolerp/core/res/fonts.dart';
+// import 'package:schoolerp/src/billing/data/services/students_dropdown_service.dart';
 
 class StudentSearchDropdown extends StatefulWidget {
   final String hintText;
@@ -86,8 +88,10 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
 
       // Filter locally first for immediate response
       final localFiltered = _allStudents
-          .where((student) =>
-              student.fullName.toLowerCase().contains(query.toLowerCase()))
+          .where(
+            (student) =>
+                student.fullName.toLowerCase().contains(query.toLowerCase()),
+          )
           .toList();
 
       setState(() {
@@ -105,8 +109,9 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
 
       // Merge server results with local results, avoiding duplicates
       final existingIds = _filteredStudents.map((s) => s.id).toSet();
-      final newResults =
-          serverResults.where((s) => !existingIds.contains(s.id)).toList();
+      final newResults = serverResults
+          .where((s) => !existingIds.contains(s.id))
+          .toList();
 
       setState(() {
         _filteredStudents = [..._filteredStudents, ...newResults];
@@ -182,9 +187,7 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
               onTap: () {
                 _hideOverlay();
               },
-              child: Container(
-                color: Colors.transparent,
-              ),
+              child: Container(color: Colors.transparent),
             ),
           ),
           // Your original dropdown positioned exactly where it should be
@@ -221,28 +224,37 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
                         focusNode: _searchFocusNode,
                         decoration: InputDecoration(
                           hintText: 'Search students...',
-                          prefixIcon: const Icon(Icons.search,
-                              size: 20, color: Colors.grey),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
                           suffixIcon: _isSearching
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : null,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                BorderSide(color: AppColors.cardBorderColor),
+                            borderSide: BorderSide(
+                              color: AppColors.cardBorderColor,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                                color: AppColors.primaryColor, width: 2),
+                              color: AppColors.primaryColor,
+                              width: 2,
+                            ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           filled: true,
                           fillColor: Colors.grey[50],
                         ),
@@ -257,13 +269,15 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.cardColor,
                           border: Border(
                             top: BorderSide(
-                                color:
-                                    AppColors.cardBorderColor.withOpacity(0.3)),
+                              color: AppColors.cardBorderColor.withOpacity(0.3),
+                            ),
                           ),
                         ),
                         child: Text(
@@ -278,11 +292,13 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
                     // Divider
                     if (_filteredStudents.isNotEmpty)
                       Divider(
-                          height: 1,
-                          color: AppColors.cardBorderColor.withOpacity(0.3)),
+                        height: 1,
+                        color: AppColors.cardBorderColor.withOpacity(0.3),
+                      ),
                     // Student list with scrollbar
                     Expanded(
-                      child: _filteredStudents.isEmpty &&
+                      child:
+                          _filteredStudents.isEmpty &&
                               !_isLoadingStudents &&
                               _searchController.text.isNotEmpty
                           ? const Padding(
@@ -299,138 +315,138 @@ class _StudentSearchDropdownState extends State<StudentSearchDropdown> {
                               ),
                             )
                           : _isLoadingStudents
-                              ? const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2),
-                                        ),
-                                        SizedBox(width: 12),
-                                        Text(
-                                          'Loading students...',
-                                          style: TextStyle(
-                                              fontSize: 14, color: Colors.grey),
-                                        ),
-                                      ],
+                          ? const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     ),
-                                  ),
-                                )
-                              : Scrollbar(
-                                  thumbVisibility: true,
-                                  thickness: 6,
-                                  radius: const Radius.circular(3),
-                                  child: ListView.builder(
-                                    shrinkWrap: true,
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 4),
-                                    itemCount: _filteredStudents.length,
-                                    itemBuilder: (context, index) {
-                                      final student = _filteredStudents[index];
-                                      return InkWell(
-                                        onTap: () {
-                                          widget.onSelect(student);
-                                          _hideOverlay();
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 10),
-                                          child: Row(
-                                            children: [
-                                              // Student avatar/initials
-                                              Container(
-                                                width: 36,
-                                                height: 36,
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.primaryColor
-                                                      .withOpacity(0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(18),
-                                                ),
-                                                child: Center(
-                                                  child: Text(
-                                                    _getInitials(
-                                                        student.fullName),
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: AppColors
-                                                          .primaryColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              // Student name and room
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      student.fullName,
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: AppColors
-                                                            .primaryColor,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                    if (student.roomName !=
-                                                            null &&
-                                                        student.roomName!
-                                                            .isNotEmpty)
-                                                      Text(
-                                                        student.roomName!,
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          color: AppColors
-                                                              .primaryColor
-                                                              .withOpacity(0.7),
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                  ],
-                                                ),
-                                              ),
-                                              // Check icon for selected student
-                                              if (widget.selectedStudent?.id ==
-                                                  student.id)
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.all(4),
-                                                  decoration: BoxDecoration(
-                                                    gradient: AppColors
-                                                        .buildPrimaryGradient(),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            12),
-                                                  ),
-                                                  child: const Icon(
-                                                    Icons.check,
-                                                    size: 14,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Loading students...',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                            )
+                          : Scrollbar(
+                              thumbVisibility: true,
+                              thickness: 6,
+                              radius: const Radius.circular(3),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                itemCount: _filteredStudents.length,
+                                itemBuilder: (context, index) {
+                                  final student = _filteredStudents[index];
+                                  return InkWell(
+                                    onTap: () {
+                                      widget.onSelect(student);
+                                      _hideOverlay();
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // Student avatar/initials
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primaryColor
+                                                  .withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                _getInitials(student.fullName),
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.primaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          // Student name and room
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  student.fullName,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color:
+                                                        AppColors.primaryColor,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                if (student.roomName != null &&
+                                                    student
+                                                        .roomName!
+                                                        .isNotEmpty)
+                                                  Text(
+                                                    student.roomName!,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: AppColors
+                                                          .primaryColor
+                                                          .withOpacity(0.7),
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          // Check icon for selected student
+                                          if (widget.selectedStudent?.id ==
+                                              student.id)
+                                            Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                gradient:
+                                                    AppColors.buildPrimaryGradient(),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: const Icon(
+                                                Icons.check,
+                                                size: 14,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                     ),
                   ],
                 ),
