@@ -12,7 +12,6 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_list_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
-import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
 
@@ -258,23 +257,7 @@ class _StaffScreenState extends State<StaffScreen> {
                         isSelected: _selectedDemo[index],
                         onSelected: (v) => setState(() => _selectedDemo[index] = v ?? false),
                         onEdit: () {},
-                        onDeactivate: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => DeleteConfirmationBottomSheet(
-                              name: demo['name'] as String,
-                              type: 'staff',
-                              onDelete: () {
-                                Navigator.of(context).pop();
-                              },
-                              onCancel: () {
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                          );
-                        },
+                        onDeactivate: () {},
                       ),
                       if (index != 2) const SizedBox(height: 8),
                     ],
