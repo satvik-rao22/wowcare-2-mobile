@@ -412,13 +412,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                       widget.isEdit ? "Edit Staff" : "Add Staff",
-                        style: TextStyle(
-                          fontFamily: "Manrope",
+                  style: TextStyle(
+                    fontFamily: "Manrope",
                           fontSize: responsive.titleFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
-                        ),
-                      ),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff573353),
+                  ),
+                ),
                     ),
                   ),
                   SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
@@ -429,21 +429,21 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                           horizontal: responsive.horizontalSpacing),
                       padding:
                           EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.all(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.all(
                           Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Column(
-                        children: [
+                    ],
+                  ),
+                  child: Column(
+                    children: [
                           if (_warningMessage != null)
                             Container(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -481,62 +481,62 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             child: ListView(
                               padding: EdgeInsets.zero,
                               children: [
-                                _buildRowInputs(
-                                  context,
-                                  "First Name",
-                                  "Last Name",
-                                ),
+                          _buildRowInputs(
+                            context,
+                            "First Name",
+                            "Last Name",
+                          ),
                                 SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField(
-                                  "Email",
-                                  "E.g. name@example.com",
-                                  _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                ),
+                          _buildInputField(
+                            "Email",
+                            "E.g. name@example.com",
+                            _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
                                 SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField(
-                                  "Phone Number",
-                                  "E.g. (000) 000-0000",
-                                  _phoneController,
-                                  keyboardType: TextInputType.phone,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(10),
-                                    PhoneNumberFormatter(),
-                                  ],
-                                ),
+                          _buildInputField(
+                            "Phone Number",
+                            "E.g. (000) 000-0000",
+                            _phoneController,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                              PhoneNumberFormatter(),
+                            ],
+                          ),
                                 SizedBox(height: responsive.verticalSpacing),
-                                _buildDropdown(
-                                  label: "Designation",
-                                  value: _selectedRole,
+                          _buildDropdown(
+                            label: "Designation",
+                            value: _selectedRole,
                                   items: ['ADMIN', 'STAFF'], // Mock data
                                   onSelected: (val) =>
                                       setState(() => _selectedRole = val),
-                                ),
+                          ),
                                 SizedBox(height: responsive.verticalSpacing),
-                                _buildMultiSelectDropdown(
-                                  label: "Allowed Classrooms",
+                          _buildMultiSelectDropdown(
+                            label: "Allowed Classrooms",
                                   selectedCount:
                                       _selectedAllowedClassroomCodes.length,
-                                  items: _classrooms,
-                                  selectedItems: _selectedAllowedClassroomCodes,
+                            items: _classrooms,
+                            selectedItems: _selectedAllowedClassroomCodes,
                                   onConfirm: (values) => setState(
                                       () => _selectedAllowedClassroomCodes = values),
-                                ),
+                          ),
                                 SizedBox(height: responsive.verticalSpacing),
-                                _buildDropdown(
-                                  label: "Primary Classroom",
-                                  value: _selectedPrimaryClassroom,
-                                  items: _classrooms,
+                          _buildDropdown(
+                            label: "Primary Classroom",
+                            value: _selectedPrimaryClassroom,
+                            items: _classrooms,
                                   onSelected: (val) {
                                     setState(() => _selectedPrimaryClassroom = val);
                                   },
-                                ),
+                          ),
                                 SizedBox(height: responsive.verticalSpacing),
-                                _buildDropdown(
-                                  label: "Status",
-                                  value: _selectedStatus,
-                                  items: _statuses,
+                          _buildDropdown(
+                            label: "Status",
+                            value: _selectedStatus,
+                            items: _statuses,
                                   onSelected: (val) =>
                                       setState(() => _selectedStatus = val),
                                 ),
@@ -546,13 +546,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                           ),
                         ],
                       ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                    const SizedBox(height: 12),
+                  ],
               ),
           ],
-        ),
+          ),
         bottomNavigationBar: Container(
           padding: EdgeInsets.only(
               bottom: safeAreaBottom, left: 16, right: 16, top: 8),
@@ -897,4 +897,4 @@ class NameCapitalizationFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
-}
+} 

@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_list_item.dart
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
@@ -132,7 +133,19 @@ class _StaffScreenState extends State<StaffScreen> {
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () {},
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const StaffFilterScreen(),
+                                ),
+                              );
+                              if (!mounted) return;
+                              if (result is Map) {
+                                // TODO: apply filters to list
+                                setState(() {});
+                              }
+                            },
                             borderRadius: BorderRadius.circular(100),
                             child: Padding(
                               padding: const EdgeInsets.all(8),
