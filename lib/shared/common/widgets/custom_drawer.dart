@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -103,9 +104,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     _CustomExpansionTile(
                       title: 'Staff',
                       icon: MediaRes.staffs_drawer_icon,
+                      isCurrentRoute: _currentRoute == StaffScreen.routeName,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                        if (_currentRoute != StaffScreen.routeName) {
+                          Navigator.pushNamed(context, StaffScreen.routeName);
+                        }
                       },
                     ),
                     _CustomExpansionTile(

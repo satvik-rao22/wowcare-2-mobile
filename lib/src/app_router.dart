@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 
 class AppRoutes {
   static const String firstScreen = '/first-screen';
@@ -18,6 +19,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case DashboardScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const DashboardScreen(),
+        settings: settings,
+      );
+    case StaffScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const StaffScreen(),
         settings: settings,
       );
     default:
