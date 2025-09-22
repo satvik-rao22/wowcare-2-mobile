@@ -9,6 +9,9 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_list_item.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
@@ -22,6 +25,8 @@ class StaffScreen extends StatefulWidget {
 class _StaffScreenState extends State<StaffScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _showInactive = false;
+  final List<bool> _selectedDemo = [false, false, false];
+  bool _selectAll = false;
 
   @override
   void dispose() {
@@ -162,7 +167,83 @@ class _StaffScreenState extends State<StaffScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              // Select All outside the search box
+              Align(
+                alignment: Alignment.centerLeft,
+                child: CustomCheckbox(
+                  label: 'Select All',
+                  value: _selectAll,
+                  onChanged: (v) {
+                    final newVal = v ?? false;
+                    setState(() {
+                      _selectAll = newVal;
+                      for (int i = 0; i < _selectedDemo.length; i++) {
+                        _selectedDemo[i] = newVal;
+                      }
+                    });
+                  },
+                ),
+              ),
               // Placeholder for staff list content
+              const SizedBox(height: 16),
+              // Demo staff list using StaffCard with working checkbox
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 3,
+                itemBuilder: (context, index) {
+                  final demo = [
+                    {
+                      'name': 'Aarav Sharma',
+                      'classroom': 'Nursery A',
+                      'allowed': ['Nursery A', 'Playgroup'],
+                      'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                      'joinDate': '12 Jan 2022',
+                      'statusDate': '05 Sep 2024',
+                    },
+                    {
+                      'name': 'Isha Verma',
+                      'classroom': 'Nursery B',
+                      'allowed': ['Nursery B'],
+                      'schedule': ['Mon', 'Wed', 'Fri'],
+                      'joinDate': '22 Mar 2023',
+                      'statusDate': '15 Aug 2024',
+                    },
+                    {
+                      'name': 'Rahul Singh',
+                      'classroom': 'Daycare',
+                      'allowed': ['Daycare', 'Playgroup', 'Nursery A'],
+                      'schedule': ['Tue', 'Thu', 'Sat'],
+                      'joinDate': '10 Oct 2021',
+                      'statusDate': '01 Sep 2024',
+                    },
+                  ][index];
+                  return Column(
+                    children: [
+                      StaffCard(
+                        name: demo['name'] as String,
+                        classroom: demo['classroom'] as String,
+                        allowedClassrooms: (demo['allowed'] as List<String>),
+                        schedule: (demo['schedule'] as List<String>),
+                        designation: index == 0
+                            ? 'Teacher'
+                            : index == 1
+                                ? 'Assistant Teacher'
+                                : 'Caretaker',
+                        phoneNumber: index == 0
+                            ? '5551234567'
+                            : index == 1
+                                ? '2125557890'
+                                : '4155559876',
+                        isSelected: _selectedDemo[index],
+                        onSelected: (v) => setState(() => _selectedDemo[index] = v ?? false),
+                      ),
+                      if (index != 2) const SizedBox(height: 12),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),
