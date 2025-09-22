@@ -345,45 +345,49 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       child: GlobalScaffold(
         hasBackButton: true,
         showCustomNavigationBar: false,
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              ResponsiveHelper(context).horizontalSpacing,
-              16,
-              ResponsiveHelper(context).horizontalSpacing,
-              24,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Add Staff",
-                  style: TextStyle(
-                    fontFamily: "Manrope",
-                    fontSize: ResponsiveHelper(context).titleFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
-                  ),
-                ),
-                SizedBox(height: ResponsiveHelper(context).isTablet ? 32.0 : 20.0),
-                Container(
-                  width: ResponsiveHelper(context).containerWidth,
-                  padding: EdgeInsets.all(ResponsiveHelper(context).isTablet ? 32.0 : 16.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.all(
-                      Radius.circular(ResponsiveHelper(context).isTablet ? 40.0 : 24.0),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+        body: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    ResponsiveHelper(context).horizontalSpacing,
+                    0,
+                    ResponsiveHelper(context).horizontalSpacing,
+                    24,
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SizedBox(height: ResponsiveHelper(context).isTablet ? 16.0 : 8.0),
+                      Text(
+                        "Add Staff",
+                        style: TextStyle(
+                          fontFamily: "Manrope",
+                          fontSize: ResponsiveHelper(context).titleFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff573353),
+                        ),
+                      ),
+                      SizedBox(height: ResponsiveHelper(context).isTablet ? 32.0 : 20.0),
+                      Container(
+                        width: ResponsiveHelper(context).containerWidth,
+                        padding: EdgeInsets.all(ResponsiveHelper(context).isTablet ? 32.0 : 16.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(ResponsiveHelper(context).isTablet ? 40.0 : 24.0),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
                           if (_warningMessage != null)
                             Container(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -479,45 +483,51 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               ),
             ),
           ),
-        ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-              bottom: safeAreaBottom, left: 16, right: 16, top: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
+            Container(
+              padding: EdgeInsets.only(
+                bottom: safeAreaBottom,
+                left: 16,
+                right: 16,
+                top: 8,
               ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : () {},
-              child: Text(
-                'Add',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                ),
+              ),
+              child: Container(
+                height: responsive.buttonHeight,
+                decoration: BoxDecoration(
+                  gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
+                  color: _isSubmitting ? Colors.grey[300] : null,
+                  borderRadius: BorderRadius.circular(
+                    responsive.isTablet ? 16.0 : 8.0,
+                  ),
+                ),
+                child: TextButton(
+                  onPressed: _isSubmitting ? null : _addStaff,
+                  child: Text(
+                    'Add',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: responsive.buttonFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
