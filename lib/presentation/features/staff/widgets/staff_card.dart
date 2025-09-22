@@ -172,7 +172,7 @@ class _StaffCardState extends State<StaffCard> {
                         color: Color(0xFFE9ECEF),
                       ),
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -188,53 +188,54 @@ class _StaffCardState extends State<StaffCard> {
                                     height: 16 / 13,
                                   ),
                                 ),
-                                const Spacer(),
+                                const SizedBox(width: 8),
                                 Expanded(
-                                  flex: 0,
-                                  child: Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    alignment: WrapAlignment.end,
-                                    children: [
-                                      if (widget.allowedClassrooms.isNotEmpty)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0x4DB1AFE9),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            widget.allowedClassrooms[0],
-                                            style: const TextStyle(
-                                              fontFamily: 'Manrope',
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13,
-                                              color: Color(0xFF4B5B7A),
-                                            ),
-                                          ),
-                                        ),
-                                      if (widget.allowedClassrooms.length > 1)
-                                        Tooltip(
-                                          message: widget.allowedClassrooms.skip(1).join(', '),
-                                          child: Container(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Wrap(
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: [
+                                        if (widget.allowedClassrooms.isNotEmpty)
+                                          Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: const Color(0x66D9FFCB),
+                                              color: const Color(0x4DB1AFE9),
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              '+${widget.allowedClassrooms.length - 1}',
+                                              widget.allowedClassrooms[0],
                                               style: const TextStyle(
-                                                fontFamily: 'Inter',
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w400,
-                                                color: Color(0xFF1B237E),
-                                                height: 15 / 12,
+                                                fontFamily: 'Manrope',
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF4B5B7A),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                    ],
+                                        if (widget.allowedClassrooms.length > 1)
+                                          Tooltip(
+                                            message: widget.allowedClassrooms.skip(1).join(', '),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0x66D9FFCB),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                '+${widget.allowedClassrooms.length - 1}',
+                                                style: const TextStyle(
+                                                  fontFamily: 'Inter',
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: Color(0xFF1B237E),
+                                                  height: 15 / 12,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -338,6 +339,62 @@ class _StaffCardState extends State<StaffCard> {
                                     fontWeight: FontWeight.w500,
                                     color: Color(0xff573353),
                                     height: 19 / 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 40,
+                                    child: OutlinedButton(
+                                      onPressed: widget.onDeactivate,
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                      child: const Text(
+                                        'Delete',
+                                        style: TextStyle(
+                                          fontFamily: 'Manrope',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF6C7FD8),
+                                          height: 16 / 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Container(
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      gradient: AppColors.buildPrimaryGradient(),
+                                    ),
+                                    child: TextButton(
+                                      onPressed: widget.onEdit,
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                      child: const Text(
+                                        'Edit',
+                                        style: TextStyle(
+                                          fontFamily: 'Manrope',
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                          height: 16 / 16,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],

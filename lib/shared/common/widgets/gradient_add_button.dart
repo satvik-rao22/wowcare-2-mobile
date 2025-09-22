@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class GradientAddButton extends StatelessWidget {
   final VoidCallback onTap;

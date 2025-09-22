@@ -12,6 +12,9 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_list_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
@@ -46,16 +49,32 @@ class _StaffScreenState extends State<StaffScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Staff List',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353),
-                  height: titleLineHeight,
-                ),
-                textAlign: TextAlign.left,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Staff List',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff573353),
+                        height: titleLineHeight,
+                      ),
+                      textAlign: TextAlign.left,
+                    ),
+                  ),
+                  GradientAddButton(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddStaffScreen()),
+                      );
+                    },
+                    isTablet: MediaQuery.of(context).size.width >= 600,
+                    isLargeTablet: MediaQuery.of(context).size.width >= 900,
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               // Total Staff stat card
@@ -238,8 +257,26 @@ class _StaffScreenState extends State<StaffScreen> {
                                 : '4155559876',
                         isSelected: _selectedDemo[index],
                         onSelected: (v) => setState(() => _selectedDemo[index] = v ?? false),
+                        onEdit: () {},
+                        onDeactivate: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => DeleteConfirmationBottomSheet(
+                              name: demo['name'] as String,
+                              type: 'staff',
+                              onDelete: () {
+                                Navigator.of(context).pop();
+                              },
+                              onCancel: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          );
+                        },
                       ),
-                      if (index != 2) const SizedBox(height: 12),
+                      if (index != 2) const SizedBox(height: 8),
                     ],
                   );
                 },

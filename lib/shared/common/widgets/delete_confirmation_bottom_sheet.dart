@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:schoolerp/core/res/colors.dart';
-import 'package:schoolerp/core/res/media_res.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 
 class DeleteConfirmationBottomSheet extends StatelessWidget {
   final String name; // student name or generic subject name
@@ -71,8 +71,10 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
         ? (type == 'plan_cancel'
             ? 'Do you want to cancel this plan - "${planName ?? ''}" for student $name?'
             : 'Do you want to pause this plan - "${planName ?? ''}" for student $name?')
-        : type == 'user'
+            : type == 'user'
             ? "Do you want to delete this User"
+            : type == 'staff'
+                ? 'Do you want to delete this Staff -\n"$name" ?'
             : type == 'classroom'
                 ? "Do you want to delete this Classroom"
                 : type == 'vendor_category'
