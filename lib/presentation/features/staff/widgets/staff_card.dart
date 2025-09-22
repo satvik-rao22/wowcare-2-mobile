@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class StaffCard extends StatefulWidget {
   const StaffCard({
@@ -350,7 +352,26 @@ class _StaffCardState extends State<StaffCard> {
                                   child: SizedBox(
                                     height: 40,
                                     child: OutlinedButton(
-                                      onPressed: widget.onDeactivate,
+                                      onPressed: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (ctx) {
+                                            return DeleteConfirmationBottomSheet(
+                                              name: widget.name,
+                                              type: 'staff',
+                                              onDelete: () {
+                                                Navigator.of(ctx).pop();
+                                                widget.onDeactivate?.call();
+                                              },
+                                              onCancel: () {
+                                                Navigator.of(ctx).pop();
+                                              },
+                                            );
+                                          },
+                                        );
+                                      },
                                       style: OutlinedButton.styleFrom(
                                         side: const BorderSide(color: Color(0xFF6C7FD8)),
                                         shape: RoundedRectangleBorder(
@@ -380,7 +401,30 @@ class _StaffCardState extends State<StaffCard> {
                                       gradient: AppColors.buildPrimaryGradient(),
                                     ),
                                     child: TextButton(
-                                      onPressed: widget.onEdit,
+                                      onPressed: () {
+                                        // Invoke external handler if provided
+                                        widget.onEdit?.call();
+
+                                        // Derive first/last name from full name
+                                        final parts = widget.name.trim().split(' ');
+                                        final initialFirstName = parts.isNotEmpty ? parts.first : '';
+                                        final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => AddStaffScreen(
+                                              isEdit: true,
+                                              initialFirstName: initialFirstName,
+                                              initialLastName: initialLastName,
+                                              initialPhone: widget.phoneNumber,
+                                              initialRole: widget.designation,
+                                              initialAllowedClassroomCodes: widget.allowedClassrooms,
+                                              initialPrimaryClassroom: widget.classroom,
+                                              // initialEmail and initialStatus not available here
+                                            ),
+                                          ),
+                                        );
+                                      },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                       ),

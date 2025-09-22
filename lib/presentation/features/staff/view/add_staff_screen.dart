@@ -1,15 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+// import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+// import 'package:wowcare/shared/utils/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
 
 class AddStaffScreen extends StatefulWidget {
-  const AddStaffScreen({super.key});
+  const AddStaffScreen({
+    super.key,
+    this.isEdit = false,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhone,
+    this.initialRole,
+    this.initialAllowedClassroomCodes,
+    this.initialPrimaryClassroom,
+    this.initialStatus,
+  });
   static const String routeName = '/add-staff-screen';
+
+  final bool isEdit;
+  final String? initialFirstName;
+  final String? initialLastName;
+  final String? initialEmail;
+  final String? initialPhone;
+  final String? initialRole;
+  final List<String>? initialAllowedClassroomCodes;
+  final String? initialPrimaryClassroom;
+  final String? initialStatus;
 
   @override
   _AddStaffScreenState createState() => _AddStaffScreenState();
@@ -46,6 +68,31 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    // Prefill when editing
+    if (widget.isEdit) {
+      if (widget.initialFirstName != null) {
+        _firstNameController.text = widget.initialFirstName!.trim();
+      }
+      if (widget.initialLastName != null) {
+        _lastNameController.text = widget.initialLastName!.trim();
+      }
+      if (widget.initialEmail != null) {
+        _emailController.text = widget.initialEmail!.trim();
+      }
+      if (widget.initialPhone != null) {
+        _phoneController.text = widget.initialPhone!.trim();
+      }
+      _selectedRole = widget.initialRole;
+      _selectedAllowedClassroomCodes =
+          List<String>.from(widget.initialAllowedClassroomCodes ?? []);
+      _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
+      _selectedStatus = widget.initialStatus;
+    }
+  }
+
+  @override
   void dispose() {
     _removeDropdownOverlay();
     _warningTimer?.cancel();
@@ -58,59 +105,55 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
   void _addStaff() {
     if (_firstNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('First name is required')),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context, message: 'First name is required', isError: true);
       return;
     }
     if (_lastNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Last name is required')),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context, message: 'Last name is required', isError: true);
       return;
     }
 
     final emailError = _validateEmail(_emailController.text);
     if (emailError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(emailError)),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context, message: emailError, isError: true);
       return;
     }
 
     final phoneError = _validatePhoneNumber(_phoneController.text);
     if (phoneError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(phoneError)),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context, message: phoneError, isError: true);
       return;
     }
 
     if (_selectedRole == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a role')),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context, message: 'Please select a role', isError: true);
       return;
     }
 
     if (_selectedAllowedClassroomCodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one allowed classroom')),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context,
+      //     message: 'Please select at least one allowed classroom',
+      //     isError: true);
       return;
     }
 
     if (_selectedPrimaryClassroom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a primary classroom')),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context,
+      //     message: 'Please select a primary classroom',
+      //     isError: true);
       return;
     }
 
     if (_selectedStatus == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a status')),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context, message: 'Please select a status', isError: true);
       return;
     }
 
@@ -123,9 +166,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       setState(() {
         _isSubmitting = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Staff created successfully')),
-      );
+      // CoreUtils.showTopSnackBar(
+      //     context: context, message: 'Staff created successfully', isSuccess: true);
       Navigator.pop(context);
     });
   }
@@ -342,52 +384,66 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         FocusManager.instance.primaryFocus?.unfocus();
         _removeDropdownOverlay();
       },
-      child: GlobalScaffold(
-        hasBackButton: true,
-        showCustomNavigationBar: false,
-        body: Column(
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: Colors.white,
+        appBar: const CustomAppBar(hasBackButton: true),
+        body: Stack(
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    ResponsiveHelper(context).horizontalSpacing,
-                    0,
-                    ResponsiveHelper(context).horizontalSpacing,
-                    24,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: ResponsiveHelper(context).isTablet ? 16.0 : 8.0),
-                      Text(
-                        "Add Staff",
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildScaffoldGradient(),
+                ),
+                child: Image.asset(
+                  MediaRes.wowcareMobileBg,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                ),
+              ),
+            ),
+            Column(
+              children: [
+                  const SizedBox(height: 16),
+                Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: responsive.horizontalSpacing),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                      widget.isEdit ? "Edit Staff" : "Add Staff",
                         style: TextStyle(
                           fontFamily: "Manrope",
-                          fontSize: ResponsiveHelper(context).titleFontSize,
+                          fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xff573353),
                         ),
                       ),
-                      SizedBox(height: ResponsiveHelper(context).isTablet ? 32.0 : 20.0),
-                      Container(
-                        width: ResponsiveHelper(context).containerWidth,
-                        padding: EdgeInsets.all(ResponsiveHelper(context).isTablet ? 32.0 : 16.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(ResponsiveHelper(context).isTablet ? 40.0 : 24.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                    ),
+                  ),
+                  SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                  Expanded(
+                    child: Container(
+                      width: responsive.containerWidth,
+                      margin: EdgeInsets.symmetric(
+                          horizontal: responsive.horizontalSpacing),
+                      padding:
+                          EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                         ),
-                        child: Column(
-                          children: [
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
                           if (_warningMessage != null)
                             Container(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -421,113 +477,120 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                 ],
                               ),
                             ),
-                          _buildRowInputs(
-                            context,
-                            "First Name",
-                            "Last Name",
-                          ),
-                          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-                          _buildInputField(
-                            "Email",
-                            "E.g. name@example.com",
-                            _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                          ),
-                          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-                          _buildInputField(
-                            "Phone Number",
-                            "E.g. (000) 000-0000",
-                            _phoneController,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
-                              PhoneNumberFormatter(),
-                            ],
-                          ),
-                          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-                          _buildDropdown(
-                            label: "Designation",
-                            value: _selectedRole,
-                            items: const ['ADMIN', 'STAFF'],
-                            onSelected: (val) => setState(() => _selectedRole = val),
-                          ),
-                          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-                          _buildMultiSelectDropdown(
-                            label: "Allowed Classrooms",
-                            selectedCount: _selectedAllowedClassroomCodes.length,
-                            items: _classrooms,
-                            selectedItems: _selectedAllowedClassroomCodes,
-                            onConfirm: (values) => setState(() => _selectedAllowedClassroomCodes = values),
-                          ),
-                          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-                          _buildDropdown(
-                            label: "Primary Classroom",
-                            value: _selectedPrimaryClassroom,
-                            items: _classrooms,
-                            onSelected: (val) => setState(() => _selectedPrimaryClassroom = val),
-                          ),
-                          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-                          _buildDropdown(
-                            label: "Status",
-                            value: _selectedStatus,
-                            items: _statuses,
-                            onSelected: (val) => setState(() => _selectedStatus = val),
+                          Expanded(
+                            child: ListView(
+                              padding: EdgeInsets.zero,
+                              children: [
+                                _buildRowInputs(
+                                  context,
+                                  "First Name",
+                                  "Last Name",
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                                _buildInputField(
+                                  "Email",
+                                  "E.g. name@example.com",
+                                  _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                                _buildInputField(
+                                  "Phone Number",
+                                  "E.g. (000) 000-0000",
+                                  _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(10),
+                                    PhoneNumberFormatter(),
+                                  ],
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                                _buildDropdown(
+                                  label: "Designation",
+                                  value: _selectedRole,
+                                  items: ['ADMIN', 'STAFF'], // Mock data
+                                  onSelected: (val) =>
+                                      setState(() => _selectedRole = val),
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                                _buildMultiSelectDropdown(
+                                  label: "Allowed Classrooms",
+                                  selectedCount:
+                                      _selectedAllowedClassroomCodes.length,
+                                  items: _classrooms,
+                                  selectedItems: _selectedAllowedClassroomCodes,
+                                  onConfirm: (values) => setState(
+                                      () => _selectedAllowedClassroomCodes = values),
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                                _buildDropdown(
+                                  label: "Primary Classroom",
+                                  value: _selectedPrimaryClassroom,
+                                  items: _classrooms,
+                                  onSelected: (val) {
+                                    setState(() => _selectedPrimaryClassroom = val);
+                                  },
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                                _buildDropdown(
+                                  label: "Status",
+                                  value: _selectedStatus,
+                                  items: _statuses,
+                                  onSelected: (val) =>
+                                      setState(() => _selectedStatus = val),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                  ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+          ],
+        ),
+        bottomNavigationBar: Container(
+          padding: EdgeInsets.only(
+              bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                offset: const Offset(0, -4),
+                blurRadius: 16,
+              ),
+            ],
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            ),
+          ),
+          child: Container(
+            height: responsive.buttonHeight,
+            decoration: BoxDecoration(
+              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
+              color: _isSubmitting ? Colors.grey[300] : null,
+              borderRadius:
+                  BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+            ),
+            child: TextButton(
+              onPressed: _isSubmitting ? null : () {},
+              child: Text(
+                widget.isEdit ? 'Save' : 'Add',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.buttonFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
             ),
           ),
-            Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
-              child: Container(
-                height: responsive.buttonHeight,
-                decoration: BoxDecoration(
-                  gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-                  color: _isSubmitting ? Colors.grey[300] : null,
-                  borderRadius: BorderRadius.circular(
-                    responsive.isTablet ? 16.0 : 8.0,
-                  ),
-                ),
-                child: TextButton(
-                  onPressed: _isSubmitting ? null : _addStaff,
-                  child: Text(
-                    'Add',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: responsive.buttonFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -542,7 +605,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             label1,
             "E.g. John",
             _firstNameController,
-            textCapitalization: TextCapitalization.words,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              NameCapitalizationFormatter(),
+            ],
           ),
         ),
         SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
@@ -551,7 +617,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             label2,
             "E.g. Smith",
             _lastNameController,
-            textCapitalization: TextCapitalization.words,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              NameCapitalizationFormatter(),
+            ],
           ),
         ),
       ],
@@ -561,8 +630,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   Widget _buildInputField(
       String label, String hint, TextEditingController controller,
       {TextInputType? keyboardType,
-      List<TextInputFormatter>? inputFormatters,
-      TextCapitalization textCapitalization = TextCapitalization.none}) {
+      List<TextInputFormatter>? inputFormatters}) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
@@ -596,7 +664,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             controller: controller,
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
-            textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
@@ -643,9 +710,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
           onTap: () {
             if (label == 'Primary Classroom' &&
                 _selectedAllowedClassroomCodes.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select allowed classrooms first')),
-              );
+              // CoreUtils.showTopSnackBar(
+              //   context: context,
+              //   message: 'Please select allowed classrooms first',
+              //   isWarning: true,
+              // );
               return;
             }
             _showSingleSelectDropdown(
@@ -800,3 +869,32 @@ class PhoneNumberFormatter extends TextInputFormatter {
     );
   }
 } 
+
+class NameCapitalizationFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String text = newValue.text;
+
+    // Remove trailing spaces
+    text = text.replaceFirst(RegExp(r"\s+"), ' '); // collapse multiple spaces inside
+    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
+    text = text.replaceAll(RegExp(r"\s+\z"), '');
+
+    if (text.isEmpty) {
+      return newValue.copyWith(text: text, selection: const TextSelection.collapsed(offset: 0));
+    }
+
+    // Enforce first letter uppercase, remaining lowercase
+    final firstChar = text[0].toUpperCase();
+    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
+    final formatted = firstChar + rest;
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
