@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class CustomToggle extends StatefulWidget {
   const CustomToggle({
@@ -62,14 +62,15 @@ class _CustomToggleState extends State<CustomToggle> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Text(
-          widget.label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontWeight: FontWeight.w500,
+        if (widget.label.trim().isNotEmpty) const SizedBox(width: 8),
+        if (widget.label.trim().isNotEmpty)
+          Text(
+            widget.label,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
       ],
     );
   }

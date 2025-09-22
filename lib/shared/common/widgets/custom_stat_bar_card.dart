@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/helpers/progress_item_helper.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
+
+class ProgressItemHelper {
+  const ProgressItemHelper({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+}
 
 class CustomStatBarCard extends StatelessWidget {
   const CustomStatBarCard({

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class CustomSearchBar extends StatefulWidget {
   const CustomSearchBar({
@@ -33,6 +33,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
           maxHeight: 44,
         ),
         elevation: const WidgetStatePropertyAll(0),
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
         hintText: widget.hintText,
         onChanged: widget.onChanged,
         hintStyle: WidgetStatePropertyAll(
