@@ -134,52 +134,56 @@ class StaffProfileTab extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 16),
-            // Availability with edit icon like reference
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  'Availability',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xff573353),
-                  ),
+          // Availability with edit icon on the right, chips below
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text(
+                'Availability',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xff573353),
                 ),
-                Icon(
-                  Icons.edit,
-                  size: 16,
-                  color: Color(0x99573353),
+              ),
+              Icon(
+                Icons.edit,
+                size: 16,
+                color: Color(0x99573353),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _allDays.map((day) {
+                    final isAvailable =
+                        day == 'Monday' ||
+                        day == 'Tuesday' ||
+                        day == 'Wednesday' ||
+                        day == 'Thursday';
+                    return Opacity(
+                      opacity: isAvailable ? 1 : 0.4,
+                      child: _Chip(
+                        label: day,
+                        labelColor: isAvailable
+                            ? const Color.fromRGBO(27, 35, 126, 1)
+                            : Colors.grey[700]!,
+                        color: isAvailable
+                            ? const Color.fromRGBO(203, 246, 255, 0.4)
+                            : const Color(0xFFF3F4FB),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _allDays.map((day) {
-                      final isAvailable = workingDays.contains(day);
-                      return Opacity(
-                        opacity: isAvailable ? 1 : 0.4,
-                        child: _Chip(
-                          label: day,
-                          labelColor: isAvailable
-                              ? const Color.fromRGBO(27, 35, 126, 1)
-                              : Colors.grey[700]!,
-                          color: isAvailable
-                              ? const Color.fromRGBO(203, 246, 255, 0.4)
-                              : Colors.grey[300]!,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           _Field(
             label: 'Work Time',
@@ -191,10 +195,16 @@ class StaffProfileTab extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: _allDays.map((day) {
-                      final isAvailable = workingDays.contains(day);
+                      final isAvailable =
+                          day == 'Monday' ||
+                          day == 'Tuesday' ||
+                          day == 'Wednesday' ||
+                          day == 'Thursday';
+                      final String value = (workTimes[day] ?? '- -');
+                      final String display = value == '- -' ? '07:00AM - 05:30PM' : value;
                       return Opacity(
                         opacity: isAvailable ? 1 : 0.4,
-                        child: _TimeChip(label: workTimes[day] ?? '- -'),
+                        child: _TimeChip(label: display),
                       );
                     }).toList(),
                   ),
@@ -213,10 +223,16 @@ class StaffProfileTab extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: _allDays.map((day) {
-                      final isAvailable = workingDays.contains(day);
+                      final isAvailable =
+                          day == 'Monday' ||
+                          day == 'Tuesday' ||
+                          day == 'Wednesday' ||
+                          day == 'Thursday';
+                      final String value = (breakTimes[day] ?? '- -');
+                      final String display = value == '- -' ? '01:00PM - 01:30PM' : value;
                       return Opacity(
                         opacity: isAvailable ? 1 : 0.4,
-                        child: _TimeChip(label: breakTimes[day] ?? '- -'),
+                        child: _TimeChip(label: display),
                       );
                     }).toList(),
                   ),
