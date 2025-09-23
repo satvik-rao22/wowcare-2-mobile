@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+// import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
@@ -193,8 +195,22 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildActionIcon(MediaRes.calenderClockIcon, onTap: () {}),
-          _buildActionIcon(MediaRes.timerIcon, onTap: () {}),
+          _buildActionIcon(MediaRes.calenderClockIcon, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const StudentAttendanceProfile(),
+              ),
+            );
+          }),
+          _buildActionIcon(MediaRes.timerIcon, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const StudentAttendanceProfile(),
+              ),
+            );
+          }),
           _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),
         ],
       ),
