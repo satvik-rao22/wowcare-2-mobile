@@ -23,22 +23,47 @@ class StaffDatesTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Important Dates',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Important Dates',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.themeColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.edit, size: 18, color: AppColors.themeColor),
+                  ),
+                ],
               ),
-              const SizedBox(height: 50),
-              const _DateRow(label: 'Hire Date', text: 'Jan 12, 2022'),
               const SizedBox(height: 16),
-              const _DateRow(label: 'CDA Examination Date', text: 'Aug 15, 2024'),
+              const _DateRow(label: 'Hire Date', text: 'Nov 09 ,2022'),
               const SizedBox(height: 16),
-              const _DateRow(label: 'First Aid / CPR Expiration Date', text: 'Nov 20, 2025'),
+              const _DateRow(
+                label: 'CDA Examination Date',
+                text: 'No CDA Examination Date',
+                showInfo: true,
+              ),
               const SizedBox(height: 16),
-              const _DateRow(label: 'Background Record Check Expiration Date', text: 'Oct 01, 2026'),
+              const _DateRow(
+                label: 'First Aid / CPR Expiration Date',
+                text: 'First Aid / CPR Expiration Date',
+              ),
+              const SizedBox(height: 16),
+              const _DateRow(
+                label: 'Background Record Check Expiration Date',
+                text: 'Background Record Check Expiration Date',
+                showInfo: true,
+              ),
               const SizedBox(height: 16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,6 +72,7 @@ class StaffDatesTab extends StatelessWidget {
                     'Physical Checkup',
                     style: TextStyle(
                       color: AppColors.primaryColor.withOpacity(0.5),
+                      fontSize: 16,
                       letterSpacing: 14 * (-3 / 100),
                     ),
                   ),
@@ -56,14 +82,14 @@ class StaffDatesTab extends StatelessWidget {
                     statusLabel: 'Completed',
                     statusColor: const Color.fromRGBO(56, 200, 32, 1),
                     statusBg: const Color.fromRGBO(56, 200, 32, 0.1),
-                    date: 'Jun 10, 2024',
+                    date: 'Dec 09 ,2023',
                   ),
                   // Due/Overdue card
                   _PhysicalCard(
                     statusLabel: 'Due',
                     statusColor: const Color.fromRGBO(234, 186, 0, 1),
                     statusBg: const Color.fromRGBO(234, 186, 0, 0.1),
-                    date: 'Jun 10, 2025',
+                    date: 'Dec 09 ,2023',
                   ),
                 ],
               ),
@@ -76,38 +102,49 @@ class StaffDatesTab extends StatelessWidget {
 }
 
 class _DateRow extends StatelessWidget {
-  const _DateRow({required this.label, required this.text});
+  const _DateRow({required this.label, required this.text, this.showInfo = false});
   final String label;
   final String text;
+  final bool showInfo;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 180,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              letterSpacing: 14 * (-3 / 100),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: AppColors.primaryColor.withOpacity(0.5),
+              fontSize: 16,
+                  letterSpacing: 14 * (-3 / 100),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+            if (showInfo) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.info_outline,
+                size: 14,
+                color: AppColors.primaryColor.withOpacity(0.5),
+              ),
+            ],
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            textAlign: TextAlign.end,
-            style: const TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
+        const SizedBox(height: 6),
+        Text(
+          text,
+          textAlign: TextAlign.left,
+          style: const TextStyle(
+            color: AppColors.primaryColor,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

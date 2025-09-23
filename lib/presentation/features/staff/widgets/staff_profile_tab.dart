@@ -142,7 +142,7 @@ class StaffProfileTab extends StatelessWidget {
                 'Availability',
                 style: TextStyle(
                   fontFamily: 'Manrope',
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Color(0xff573353),
                 ),
@@ -338,7 +338,7 @@ class _Field extends StatelessWidget {
           label,
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: Color(0xff573353),
           ),
@@ -388,7 +388,7 @@ class _Chip extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'Manrope',
               fontWeight: FontWeight.w600,
-              fontSize: 13,
+              fontSize: 15,
               color: labelColor,
             ),
           ),
@@ -414,7 +414,7 @@ class _TimeChip extends StatelessWidget {
         label,
         style: const TextStyle(
           fontFamily: 'Manrope',
-          fontSize: 13,
+          fontSize: 15,
           fontWeight: FontWeight.w500,
           color: Color(0xFF4B5B7A),
         ),
