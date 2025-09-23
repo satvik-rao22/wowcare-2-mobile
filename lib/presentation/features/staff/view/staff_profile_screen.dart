@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 
 class StaffProfileScreen extends StatefulWidget {
   const StaffProfileScreen({
@@ -81,10 +82,20 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: const [
-                _PlaceholderTab(label: 'Profile'),
-                _PlaceholderTab(label: 'Important Dates'),
-                _PlaceholderTab(label: 'Documents'),
+              children: [
+                StaffProfileTab(
+                  name: widget.name,
+                  profileStatus: 'A',
+                  designation: widget.designation,
+                  allowedClassrooms: [widget.classroom],
+                  primaryClassroom: widget.classroom,
+                  email: '',
+                  clockInPin: '',
+                  phoneNumber: widget.phoneNumber,
+                  schedules: const <ScheduleEntry>[],
+                ),
+                const _PlaceholderTab(label: 'Important Dates'),
+                const _PlaceholderTab(label: 'Documents'),
               ],
             ),
           ),

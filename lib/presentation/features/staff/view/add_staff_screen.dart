@@ -550,7 +550,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-              ),
+                ),
           ],
           ),
         bottomNavigationBar: Container(
