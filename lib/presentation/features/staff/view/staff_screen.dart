@@ -15,6 +15,8 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
@@ -30,6 +32,7 @@ class _StaffScreenState extends State<StaffScreen> {
   bool _showInactive = false;
   final List<bool> _selectedDemo = [false, false, false];
   bool _selectAll = false;
+  StaffPanelType _currentPanel = StaffPanelType.none;
 
   @override
   void dispose() {
@@ -42,9 +45,14 @@ class _StaffScreenState extends State<StaffScreen> {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
 
+    final bool anySelected = _selectedDemo.any((e) => e);
+    final int selectedCount = _selectedDemo.where((e) => e).length;
+
     return GlobalScaffold(
-      body: SingleChildScrollView(
-        child: Padding(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Padding(
           padding: ResponsiveSizing.contentPadding(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,7 +276,12 @@ class _StaffScreenState extends State<StaffScreen> {
                                 ? '2125557890'
                                 : '4155559876',
                         isSelected: _selectedDemo[index],
-                        onSelected: (v) => setState(() => _selectedDemo[index] = v ?? false),
+                        onSelected: (v) => setState(() {
+                          _selectedDemo[index] = v ?? false;
+                          if (!_selectedDemo.any((e) => e)) {
+                            _currentPanel = StaffPanelType.none;
+                          }
+                        }),
                         onEdit: () {},
                         onDeactivate: () {},
                       ),
@@ -280,6 +293,80 @@ class _StaffScreenState extends State<StaffScreen> {
             ],
           ),
         ),
+        ),
+          if (anySelected)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: StaffActionPanel(
+                currentPanel: _currentPanel,
+                onAttendanceTap: () {
+                  setState(() {
+                    _currentPanel = _currentPanel == StaffPanelType.attendance
+                        ? StaffPanelType.none
+                        : StaffPanelType.attendance;
+                  });
+                },
+                onActivitiesTap: () {
+                  setState(() {
+                    _currentPanel = _currentPanel == StaffPanelType.activities
+                        ? StaffPanelType.none
+                        : StaffPanelType.activities;
+                  });
+                },
+                onMessageTap: () {},
+                onProfileTap: selectedCount == 1
+                    ? () {
+                        final idx = _selectedDemo.indexWhere((e) => e);
+                        if (idx != -1) {
+                          final demo = [
+                            {
+                              'name': 'Aarav Sharma',
+                              'classroom': 'Nursery A',
+                              'designation': 'Teacher',
+                              'phone': '5551234567',
+                            },
+                            {
+                              'name': 'Isha Verma',
+                              'classroom': 'Nursery B',
+                              'designation': 'Assistant Teacher',
+                              'phone': '2125557890',
+                            },
+                            {
+                              'name': 'Rahul Singh',
+                              'classroom': 'Daycare',
+                              'designation': 'Caretaker',
+                              'phone': '4155559876',
+                            },
+                          ][idx];
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => StaffProfileScreen(
+                                name: demo['name'] as String,
+                                classroom: demo['classroom'] as String,
+                                designation: demo['designation'] as String,
+                                phoneNumber: demo['phone'] as String,
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+                onClearSelections: () {
+                  setState(() {
+                    for (int i = 0; i < _selectedDemo.length; i++) {
+                      _selectedDemo[i] = false;
+                    }
+                    _selectAll = false;
+                    _currentPanel = StaffPanelType.none;
+                  });
+                },
+                isProfileEnabled: selectedCount == 1,
+                activitiesEnabled: selectedCount > 0,
+              ),
+            ),
+        ],
       ),
       showCustomNavigationBar: true,
     );
