@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.dart';
 
 class StaffProfileTab extends StatelessWidget {
   const StaffProfileTab({
@@ -192,8 +193,8 @@ class StaffProfileTab extends StatelessWidget {
           // Availability with edit icon on the right, chips below
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
+            children: [
+              const Text(
                 'Availability',
                 style: TextStyle(
                   fontFamily: 'Manrope',
@@ -202,10 +203,22 @@ class StaffProfileTab extends StatelessWidget {
                   color: Color(0xff573353),
                 ),
               ),
-              Icon(
-                Icons.edit,
-                size: 16,
-                color: Color(0x99573353),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditScheduleScreen(
+                        initialSchedules: schedules,
+                      ),
+                    ),
+                  );
+                },
+                child: const Icon(
+                  Icons.edit,
+                  size: 16,
+                  color: Color(0x99573353),
+                ),
               ),
             ],
           ),
