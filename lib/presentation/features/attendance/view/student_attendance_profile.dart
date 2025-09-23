@@ -7,6 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_card.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StudentAttendanceProfile extends StatefulWidget {
   static const String routeName = '/student-attendance-profile';
@@ -34,6 +35,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+    
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
@@ -44,13 +47,31 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(child: _buildDateRangePicker(context)),
-                  const SizedBox(width: 16),
-                  _buildActionMenuButton(context),
-                ],
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.only(left: 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "View Staff Attendance",
+                    style: TextStyle(
+                      fontFamily: "Manrope",
+                      fontSize: responsive.titleFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff573353),
+                    ),
+                  ),
+                ),
               ),
+              SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+              _buildDateRangePicker(context),
+              // Row(
+              //   children: [
+              //     Expanded(child: _buildDateRangePicker(context)),
+              //     const SizedBox(width: 16),
+              //     _buildActionMenuButton(context),
+              //   ],
+              // ),
               const SizedBox(height: 16),
               _buildStudentCard(context),
               const SizedBox(height: 16),
@@ -124,10 +145,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                     ),
                   ),
                 ),
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  color: Color(0xff573353),
-                  size: 20,
+                SvgPicture.asset(
+                  MediaRes.calender_icon,
+                  height: 20,
+                  colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
                 ),
               ],
             ),
@@ -140,7 +161,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   Future<void> _selectDate(bool isStartDate) async {
     try {
       final result = await showDialog<Map<String, dynamic>>(
-        context: context,
+          context: context,
         builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
@@ -150,7 +171,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       
       if (result != null && result['date'] != null) {
         final picked = result['date'] as DateTime;
-        setState(() {
+          setState(() {
           if (isStartDate) {
             _startDate = picked;
             // If end date is before start date, update end date
@@ -164,16 +185,16 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               _startDate = picked;
             }
           }
-          _isLoading = true;
-        });
-        
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
+            _isLoading = true;
           });
+        
+          await Future.delayed(const Duration(milliseconds: 600));
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
         }
-      }
     } catch (e) {
       print('Error opening calendar dialog: $e');
     }
@@ -318,13 +339,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   Widget _buildStats() {
     return Column(
-      children: [
-        _statRowSvg(iconAsset: MediaRes.calenderClockIcon, label: 'Attended Days', value: '12', valueColor: const Color(0xFF4CAF50)),
-        const SizedBox(height: 16),
-        _statRowSvg(iconAsset: MediaRes.timerIcon, label: 'Attended Hours', value: '48h', valueColor: const Color(0xFF4285F4)),
-        const SizedBox(height: 16),
-        _statRowSvg(iconAsset: MediaRes.calenderClockIcon, label: 'Absent Days', value: '2', valueColor: Colors.red),
-      ],
+        children: [
+          _statRowSvg(iconAsset: MediaRes.calenderClockIcon, label: 'Attended Days', value: '12', valueColor: const Color(0xFF4CAF50)),
+          const SizedBox(height: 16),
+          _statRowSvg(iconAsset: MediaRes.timerIcon, label: 'Attended Hours', value: '48h', valueColor: const Color(0xFF4285F4)),
+          const SizedBox(height: 16),
+          _statRowSvg(iconAsset: MediaRes.calenderClockIcon, label: 'Absent Days', value: '2', valueColor: Colors.red),
+        ],
     );
   }
 

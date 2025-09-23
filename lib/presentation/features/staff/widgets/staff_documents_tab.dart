@@ -4,6 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
 
 class StaffDocumentsTab extends StatefulWidget {
   const StaffDocumentsTab({super.key});
@@ -26,83 +28,98 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
 
     final filtered = docs.where((d) => _showExpired ? d.expiry.isBefore(now) : !d.expiry.isBefore(now)).toList();
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-                borderRadius: BorderRadius.circular(14),
-                color: Colors.white,
-              ),
-              child: CustomToggle(
-                label: 'Show Expired Documents',
-                isToggled: _showExpired,
-                onToggle: (v) => setState(() => _showExpired = v),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (filtered.isEmpty)
-              Text(
-                _showExpired ? 'No expired documents found' : 'No documents found',
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  height: 16,
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(14),
+                  color: Colors.white,
                 ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
-                itemBuilder: (context, i) {
-                  final d = filtered[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: ExpansionTile(
-                      title: Text(
-                        d.fileNameNoExt,
-                        style: const TextStyle(
-                          color: AppColors.primaryColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      trailing: const SizedBox.shrink(),
-                      backgroundColor: Colors.white,
-                      collapsedBackgroundColor: Colors.white,
-                      collapsedShape: RoundedRectangleBorder(
-                        side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      children: [
-                        Divider(color: AppColors.primaryColor.withOpacity(0.1)),
-                        const SizedBox(height: 16),
-                        _DocRow(label: 'Document Type', text: d.type),
-                        const SizedBox(height: 16),
-                        _DocRow(
-                          label: 'Expiry Date',
-                          text: DateFormat('MMM dd, yyyy').format(d.expiry),
-                        ),
-                        const SizedBox(height: 16),
-                        _DocRow(label: 'Document', text: d.fileNameNoExt, trailingIcon: Icons.insert_drive_file_outlined),
-                      ],
-                    ),
-                  );
-                },
+                child: CustomToggle(
+                  label: 'Show Expired Documents',
+                  isToggled: _showExpired,
+                  onToggle: (v) => setState(() => _showExpired = v),
+                ),
               ),
-          ],
+              const SizedBox(height: 16),
+              if (filtered.isEmpty)
+                Text(
+                  _showExpired ? 'No expired documents found' : 'No documents found',
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    height: 16,
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) {
+                    final d = filtered[i];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: ExpansionTile(
+                        title: Text(
+                          d.fileNameNoExt,
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        trailing: const SizedBox.shrink(),
+                        backgroundColor: Colors.white,
+                        collapsedBackgroundColor: Colors.white,
+                        collapsedShape: RoundedRectangleBorder(
+                          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        children: [
+                          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+                          const SizedBox(height: 16),
+                          _DocRow(label: 'Document Type', text: d.type),
+                          const SizedBox(height: 16),
+                          _DocRow(
+                            label: 'Expiry Date',
+                            text: DateFormat('MMM dd, yyyy').format(d.expiry),
+                          ),
+                          const SizedBox(height: 16),
+                          _DocRow(label: 'Document', text: d.fileNameNoExt, trailingIcon: Icons.insert_drive_file_outlined),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
         ),
       ),
+      floatingActionButton: GradientAddButton(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const AddDocumentScreen(),
+            ),
+          );
+        },
+        size: 50.0,
+        iconSize: 28.0,
+        borderRadius: 12.0,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }

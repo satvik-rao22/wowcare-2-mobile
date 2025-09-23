@@ -2,10 +2,10 @@ import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:intl/intl.dart';
+import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 
 class CalendarDialog extends StatefulWidget {
   final bool isRangePicker;
@@ -78,37 +78,31 @@ class _CalendarDialogState extends State<CalendarDialog> {
 
   String _getHeaderText() {
     if (!widget.isRangePicker) {
-      return selectedDate == null ? 'Select Date' : DateFormat('MMM dd, yyyy').format(selectedDate!);
+      return selectedDate == null ? 'Select Date' : DateUtilsNew.formatToShortReadableDate(selectedDate!);
     }
 
     if (rangeEndDate == null) {
-      return DateFormat('MMM dd, yyyy').format(rangeStartDate!);
+      return DateUtilsNew.formatToShortReadableDate(rangeStartDate!);
     }
 
-    return "${DateFormat('MMM dd, yyyy').format(rangeStartDate!)} -\n ${DateFormat('MMM dd, yyyy').format(rangeEndDate!)}";
+    return "${DateUtilsNew.formatToShortReadableDate(rangeStartDate!)} -\n ${DateUtilsNew.formatToShortReadableDate(rangeEndDate!)}";
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final isLargeTablet = screenWidth > 900;
-    
-    final double dialogWidth = isLargeTablet ? 600 : (isTablet ? 400 : 350);
+    final calHelper = CalendarResponsiveHelper(context);
+    final double dialogWidth = calHelper.isLargeTablet ? 600 : (calHelper.isTablet ? 400 : calHelper.calendarWidth);
     final double maxDialogHeight = MediaQuery.of(context).size.height * 0.95;
-    final double controlsFontSize = isLargeTablet ? 18 : (isTablet ? 16 : 14);
-    final double dayFontSize = isLargeTablet ? 16 : (isTablet ? 15 : 13);
-    final double yearFontSize = isLargeTablet ? 18 : (isTablet ? 16 : 14);
-    final double controlsHeight = isTablet ? 50 : 44;
-    final double hourMinuteFieldWidth = isTablet ? 56 : 46;
-    final double amPmMinWidth = isTablet ? 80 : 64;
-    final double headerFontSize = isLargeTablet ? 20 : (isTablet ? 18 : 16);
-    final double calendarPadding = isTablet ? 24 : 16;
-    final double calendarMargin = isTablet ? 32 : 16;
+    final double controlsFontSize = calHelper.isLargeTablet ? 18 : (calHelper.isTablet ? 16 : 14);
+    final double dayFontSize = calHelper.isLargeTablet ? 16 : (calHelper.isTablet ? 15 : 13);
+    final double yearFontSize = calHelper.isLargeTablet ? 18 : (calHelper.isTablet ? 16 : 14);
+    final double controlsHeight = calHelper.isTablet ? 50 : 44;
+    final double hourMinuteFieldWidth = calHelper.isTablet ? 56 : 46;
+    final double amPmMinWidth = calHelper.isTablet ? 80 : 64;
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
-        vertical: calendarMargin * 0.5,
-        horizontal: calendarMargin,
+        vertical: calHelper.calendarMargin * 0.5,
+        horizontal: calHelper.calendarMargin,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
@@ -122,8 +116,8 @@ class _CalendarDialogState extends State<CalendarDialog> {
           onPanDown: (_) => _dismissKeyboard(),
         child: Padding(
           padding: EdgeInsets.symmetric(
-            vertical: calendarPadding,
-            horizontal: calendarPadding * 0.75,
+            vertical: calHelper.calendarPadding,
+            horizontal: calHelper.calendarPadding * 0.75,
           ),
             child: SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
@@ -138,13 +132,13 @@ class _CalendarDialogState extends State<CalendarDialog> {
                             ? "Select date range"
                             : (widget.isTimePicker ? "Select date & time" : "Select date"),
                         style: TextStyle(
-                          fontSize: headerFontSize * 0.8,
+                          fontSize: calHelper.headerFontSize * 0.8,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: calendarPadding * 0.5),
+                  SizedBox(height: calHelper.calendarPadding * 0.5),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
@@ -152,7 +146,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                         child: Text(
                           _getHeaderText(),
                           style: TextStyle(
-                            fontSize: headerFontSize,
+                            fontSize: calHelper.headerFontSize,
                             fontWeight: FontWeight.w600,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -160,22 +154,22 @@ class _CalendarDialogState extends State<CalendarDialog> {
                       ),
                     ],
                   ),
-                  SizedBox(height: calendarPadding * 0.4),
+                  SizedBox(height: calHelper.calendarPadding * 0.4),
                   const Divider(
                     indent: 0,
                     endIndent: 0,
                     color: Color(0xFFE0E0E0),
                     height: 2,
                   ),
-                  SizedBox(height: calendarPadding * 0.4),
+                  SizedBox(height: calHelper.calendarPadding * 0.4),
                   if (widget.isRangePicker)
                     SizedBox(
-                      height: isTablet ? 320 : 280,
+                      height: calHelper.isTablet ? 320 : 280,
                       width: double.infinity,
                       child: CalendarDatePicker2(
                         config: CalendarDatePicker2Config(
                           calendarType: CalendarDatePicker2Type.range,
-                          selectedDayHighlightColor: const Color(0xFF6F8CFF),
+                          selectedDayHighlightColor: AppColors.primaryGradientColors.first,
                           centerAlignModePicker: true,
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
@@ -203,7 +197,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                       child: CalendarDatePicker2(
                         config: CalendarDatePicker2Config(
                           calendarType: CalendarDatePicker2Type.single,
-                          selectedDayHighlightColor: const Color(0xFF6F8CFF),
+                          selectedDayHighlightColor: AppColors.primaryGradientColors.first,
                           centerAlignModePicker: true,
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
@@ -383,36 +377,84 @@ class _CalendarDialogState extends State<CalendarDialog> {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  CustomButtonLayout(
-                    confirmButtonLabel: 'OK',
-                    isForm: false,
-                    onPressedConfirm: () {
-                      if (widget.isRangePicker) {
-                        final DateTime? formattedEndDate = rangeEndDate != null
-                            ? DateTime(
-                                rangeEndDate!.year,
-                                rangeEndDate!.month,
-                                rangeEndDate!.day,
-                                23,
-                                59,
-                                59,
-                              )
-                            : null;
-                        Navigator.pop(context, {
-                          'startDate': rangeStartDate,
-                          'endDate': formattedEndDate,
-                        });
-                      } else {
-                        Navigator.pop(context, {
-                          'date': selectedDate,
-                          'time': selectedTime,
-                        });
-                      }
-                    },
-                    onPressedCancel: () {
-                      Navigator.pop(context);
-                    },
-                    cancelButtonLabel: 'Cancel',
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 40,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF6C7FD8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF6C7FD8),
+                                height: 16 / 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            gradient: AppColors.buildPrimaryGradient(),
+                          ),
+                          child: TextButton(
+                            onPressed: () {
+                              if (widget.isRangePicker) {
+                                final DateTime? formattedEndDate = rangeEndDate != null
+                                    ? DateTime(
+                                        rangeEndDate!.year,
+                                        rangeEndDate!.month,
+                                        rangeEndDate!.day,
+                                        23,
+                                        59,
+                                        59,
+                                      )
+                                    : null;
+                                Navigator.pop(context, {
+                                  'startDate': rangeStartDate,
+                                  'endDate': formattedEndDate,
+                                });
+                              } else {
+                                Navigator.pop(context, {
+                                  'date': selectedDate,
+                                  'time': selectedTime,
+                                });
+                              }
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Text(
+                              'OK',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                height: 16 / 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
