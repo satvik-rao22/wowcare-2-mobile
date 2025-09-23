@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 
 class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({super.key});
@@ -34,18 +35,33 @@ class StaffDatesTab extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.edit,
-                      size: 22,
-                      color: Colors.white,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EditImportantDatesScreen(
+                            initialHireDate: null, // You can pass actual dates here
+                            initialCdaExaminationDate: null,
+                            initialFirstAidCprExpirationDate: null,
+                            initialBackgroundRecordCheckExpirationDate: null,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildPrimaryGradient(),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.edit,
+                        size: 22,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],

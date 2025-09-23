@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 
 class AppRoutes {
   static const String firstScreen = '/first-screen';
@@ -24,6 +26,16 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case StaffScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const StaffScreen(),
+        settings: settings,
+      );
+    case EditImportantDatesScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const EditImportantDatesScreen(),
+        settings: settings,
+      );
+    case EditProfileDetailsScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const EditProfileDetailsScreen(),
         settings: settings,
       );
     default:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 
 class StaffProfileTab extends StatelessWidget {
   const StaffProfileTab({
@@ -69,6 +70,60 @@ class StaffProfileTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Profile Information',
+                  style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditProfileDetailsScreen(
+                          initialFirstName: 'Jessica',
+                          initialLastName: 'Rhodes',
+                          initialStatus: 'Active',
+                          initialDesignation: 'Admin',
+                          initialAllowedClassrooms: ['5 Days X', '1-Blue D X', '3-Orange-D X'],
+                          initialPrimaryClassroom: 'Office X',
+                          initialBirthDate: null,
+                          initialJobTag: 'Full Time',
+                          initialEmail: 'Jessica@wowcare.com',
+                          initialPhoneNumber: '(986) 027-1627',
+                          initialStreet: '',
+                          initialCity: '',
+                          initialState: 'New Hampshire',
+                          initialCountry: 'United States',
+                          initialZipCode: '',
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buildPrimaryGradient(),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.edit,
+                      size: 22,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             _Field(label: 'Name', value: name),
             const SizedBox(height: 16),
             _Field(
