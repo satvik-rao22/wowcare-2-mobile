@@ -349,7 +349,7 @@ class _Field extends StatelessWidget {
             value ?? '- -',
             style: const TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 14,
+              fontSize: 15,
               color: Color(0xff573353),
               fontWeight: FontWeight.w400,
             ),

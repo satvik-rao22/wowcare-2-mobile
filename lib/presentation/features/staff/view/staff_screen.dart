@@ -72,6 +72,27 @@ class _StaffScreenState extends State<StaffScreen> {
                       textAlign: TextAlign.left,
                     ),
                   ),
+              // Clock action button
+              Container(
+                width: 38,
+                height: 38,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildPrimaryGradient(),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: GestureDetector(
+                  onTap: () {},
+                  child: SvgPicture.asset(
+                    MediaRes.calenderClockIcon,
+                    width: 22,
+                    height: 22,
+                    fit: BoxFit.contain,
+                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  ),
+                ),
+              ),
                   GradientAddButton(
                     onTap: () {
                       Navigator.push(

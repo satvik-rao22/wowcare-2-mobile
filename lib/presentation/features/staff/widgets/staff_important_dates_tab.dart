@@ -18,12 +18,43 @@ class StaffImportantDatesTab extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          children: List.generate(entries.length * 2 - 1, (i) {
-            if (i.isOdd) return const SizedBox(height: 16);
-            final idx = i ~/ 2;
-            final e = entries[idx];
-            return _DateRow(label: e.key, text: e.value);
-          }),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Important Dates',
+                  style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buildPrimaryGradient(),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.edit,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(entries.length * 2 - 1, (i) {
+              if (i.isOdd) return const SizedBox(height: 16);
+              final idx = i ~/ 2;
+              final e = entries[idx];
+              return _DateRow(label: e.key, text: e.value);
+            }),
+          ],
         ),
       ),
     );

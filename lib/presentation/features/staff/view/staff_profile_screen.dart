@@ -6,6 +6,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 
 class StaffProfileScreen extends StatefulWidget {
   const StaffProfileScreen({
@@ -97,7 +98,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   schedules: const <ScheduleEntry>[],
                 ),
                 const StaffDatesTab(),
-                const _PlaceholderTab(label: 'Documents'),
+                const StaffDocumentsTab(),
               ],
             ),
           ),
@@ -193,6 +194,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildActionIcon(MediaRes.calenderClockIcon, onTap: () {}),
+          _buildActionIcon(MediaRes.timerIcon, onTap: () {}),
           _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),
         ],
       ),
@@ -212,14 +214,14 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   asset,
                   height: 28,
                   colorFilter: const ColorFilter.mode(
-                    AppColors.cardColor,
+                    Colors.white,
                     BlendMode.srcIn,
                   ),
                 )
               : Image.asset(
                   asset,
                   height: 28,
-                  color: AppColors.cardColor,
+                  color: Colors.white,
                 ),
         ),
       ),
