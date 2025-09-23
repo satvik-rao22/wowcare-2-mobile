@@ -5,6 +5,8 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_card.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 
 class StudentAttendanceProfile extends StatefulWidget {
   static const String routeName = '/student-attendance-profile';
@@ -52,7 +54,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               const SizedBox(height: 16),
               _buildStudentCard(context),
               const SizedBox(height: 16),
-              _isLoading ? _buildShimmerList() : _buildStatsAndList(),
+              _buildAttendanceList(),
             ],
           ),
         ),
@@ -61,51 +63,120 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   Widget _buildDateRangePicker(BuildContext context) {
-    final rangeText = _formatRange(_startDate, _endDate);
-    return OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        side: BorderSide(color: AppColors.primaryColor.withOpacity(0.12)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      onPressed: () async {
-        final now = DateTime.now();
-        final picked = await showDateRangePicker(
-          context: context,
-          firstDate: DateTime(now.year - 1),
-          lastDate: DateTime(now.year + 2),
-          initialDateRange: _startDate != null && _endDate != null
-              ? DateTimeRange(start: _startDate!, end: _endDate!)
-              : null,
-        );
-        if (picked != null) {
-          setState(() {
-            _startDate = picked.start;
-            _endDate = picked.end;
-            _isLoading = true;
-          });
-          await Future.delayed(const Duration(milliseconds: 600));
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-          }
-        }
-      },
-      child: Row(
-        children: [
-          SvgPicture.asset(MediaRes.calenderClockIcon, height: 20, colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              rangeText.isEmpty ? 'Date Range' : rangeText,
-              style: const TextStyle(fontSize: 16, color: AppColors.primaryColor, fontWeight: FontWeight.w500),
+    return Row(
+      children: [
+        Expanded(
+          child: _buildDatePickerField(
+            label: 'From',
+            date: _startDate,
+            onTap: () => _selectDate(true),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildDatePickerField(
+            label: 'To',
+            date: _endDate,
+            onTap: () => _selectDate(false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDatePickerField({
+    required String label,
+    required DateTime? date,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xff573353),
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F0F8),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    date != null ? DateFormat('MMM dd, yyyy').format(date) : 'Select Date',
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  color: Color(0xff573353),
+                  size: 20,
+                ),
+              ],
             ),
           ),
-          const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryColor),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  Future<void> _selectDate(bool isStartDate) async {
+    try {
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => CalendarDialog(
+          isRangePicker: false,
+          isTimePicker: false,
+          initialDate: isStartDate ? _startDate : _endDate,
+        ),
+      );
+      
+      if (result != null && result['date'] != null) {
+        final picked = result['date'] as DateTime;
+        setState(() {
+          if (isStartDate) {
+            _startDate = picked;
+            // If end date is before start date, update end date
+            if (_endDate != null && _endDate!.isBefore(picked)) {
+              _endDate = picked;
+            }
+          } else {
+            _endDate = picked;
+            // If start date is after end date, update start date
+            if (_startDate != null && _startDate!.isAfter(picked)) {
+              _startDate = picked;
+            }
+          }
+          _isLoading = true;
+        });
+        
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error opening calendar dialog: $e');
+    }
   }
 
   Widget _buildActionMenuButton(BuildContext context) {
@@ -170,6 +241,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   Widget _buildStudentCard(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2), width: 0.5),
         borderRadius: BorderRadius.circular(16),
@@ -217,19 +289,19 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                       children: [
                         const Text('Room A', style: TextStyle(color: AppColors.primaryColor, fontWeight: FontWeight.w500)),
                         const SizedBox(width: 100),
-                        Row(
-                          children: const [
-                            Icon(Icons.camera_alt_outlined, size: 20),
-                            SizedBox(width: 4),
-                            Icon(Icons.health_and_safety_outlined, size: 20),
-                            SizedBox(width: 4),
-                            Icon(Icons.description_outlined, size: 20),
-                            SizedBox(width: 4),
-                            Icon(Icons.warning_amber_outlined, size: 20),
-                            SizedBox(width: 4),
-                            Icon(Icons.fastfood_outlined, size: 20),
-                          ],
-                        ),
+                        // Row(
+                        //   children: const [
+                        //     Icon(Icons.camera_alt_outlined, size: 20),
+                        //     SizedBox(width: 4),
+                        //     Icon(Icons.health_and_safety_outlined, size: 20),
+                        //     SizedBox(width: 4),
+                        //     Icon(Icons.description_outlined, size: 20),
+                        //     SizedBox(width: 4),
+                        //     Icon(Icons.warning_amber_outlined, size: 20),
+                        //     SizedBox(width: 4),
+                        //     Icon(Icons.fastfood_outlined, size: 20),
+                        //   ],
+                        // ),
                       ],
                     ),
                   ],
@@ -285,97 +357,91 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     );
   }
 
-  Widget _buildStatsAndList() {
+  Widget _buildAttendanceList() {
+    // Dummy attendance data
+    final attendanceData = [
+      {
+        'date': DateTime.now().subtract(const Duration(days: 0)),
+        'signIn': '08:30:00 AM',
+        'signOut': '05:10:00 PM',
+        'roomName': 'Room A',
+        'signInBy': 'John Doe',
+        'signOutBy': 'Jane Smith',
+      },
+      {
+        'date': DateTime.now().subtract(const Duration(days: 1)),
+        'signIn': '08:45:00 AM',
+        'signOut': '05:00:00 PM',
+        'roomName': 'Room A',
+        'signInBy': 'Mike Johnson',
+        'signOutBy': 'Sarah Wilson',
+      },
+      {
+        'date': DateTime.now().subtract(const Duration(days: 2)),
+        'signIn': '08:20:00 AM',
+        'signOut': '', // Not yet signed out
+        'roomName': 'Room A',
+        'signInBy': 'David Brown',
+        'signOutBy': 'System Auto Signout',
+      },
+      {
+        'date': DateTime.now().subtract(const Duration(days: 3)),
+        'signIn': '09:00:00 AM',
+        'signOut': '04:30:00 PM',
+        'roomName': 'Room A',
+        'signInBy': 'Lisa Davis',
+        'signOutBy': 'Tom Anderson',
+      },
+      {
+        'date': DateTime.now().subtract(const Duration(days: 4)),
+        'signIn': '08:15:00 AM',
+        'signOut': '05:15:00 PM',
+        'roomName': 'Room A',
+        'signInBy': 'Emma Taylor',
+        'signOutBy': 'Chris Miller',
+      },
+    ];
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'Attendance History',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 16),
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: 5,
+          itemCount: attendanceData.length,
           itemBuilder: (context, index) {
-            final date = DateTime.now().subtract(Duration(days: index));
-            return _attendanceItem(
-              date: date,
-              signIn: '08:30:00 AM',
-              signOut: index % 3 == 0 ? '' : '05:10:00 PM',
-              roomName: 'Room A',
-              signInBy: 'John Doe',
-              signOutBy: 'Jane Smith',
+            final data = attendanceData[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: StudentAttendanceCard(
+                date: data['date'] as DateTime,
+                signIn: data['signIn'] as String,
+                signOut: data['signOut'] as String,
+                roomName: data['roomName'] as String,
+                signInBy: data['signInBy'] as String,
+                signOutBy: data['signOutBy'] as String,
+                onDelete: () {
+                  // Handle delete action
+                  print('Delete attendance for ${DateFormat('MMM dd, yyyy').format(data['date'] as DateTime)}');
+                },
+                onEdit: () {
+                  // Handle edit action
+                  print('Edit attendance for ${DateFormat('MMM dd, yyyy').format(data['date'] as DateTime)}');
+                },
+              ),
             );
           },
         ),
       ],
-    );
-  }
-
-  Widget _attendanceItem({
-    required DateTime date,
-    required String signIn,
-    required String signOut,
-    required String roomName,
-    required String signInBy,
-    required String signOutBy,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: ExpansionTile(
-        title: Text(
-          DateFormat('MMM dd, yyyy').format(date),
-          style: const TextStyle(color: Color(0xff573353), fontWeight: FontWeight.w500),
-        ),
-        trailing: Text(
-          _calculateAttendedTime(signIn, signOut),
-          style: const TextStyle(color: Color(0xff573353), fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        backgroundColor: Colors.white,
-        collapsedBackgroundColor: Colors.white,
-        collapsedShape: RoundedRectangleBorder(
-          side: const BorderSide(color: Color(0x33573353)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        shape: RoundedRectangleBorder(
-          side: const BorderSide(color: Color(0x33573353)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          const Divider(color: Color(0x1A573353)),
-          const SizedBox(height: 16),
-          _labelValue(label: 'Classroom', value: roomName),
-          const SizedBox(height: 16),
-          _labelValue(label: 'Sign In', value: _formatTime(signIn)),
-          const SizedBox(height: 16),
-          _labelValue(label: 'Sign In By', value: _firstName(signInBy)),
-          const SizedBox(height: 16),
-          _labelValue(label: 'Sign Out', value: _formatTime(signOut)),
-          const SizedBox(height: 16),
-          _labelValue(label: 'Sign Out By', value: _firstName(signOutBy)),
-        ],
-      ),
-    );
-  }
-
-  Widget _labelValue({required String label, required String value}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xff573353))),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 15, color: Colors.black87)),
-      ],
-    );
-  }
-
-  Widget _buildShimmerList() {
-    return Column(
-      children: List.generate(
-        3,
-        (index) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          height: 50,
-          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
     );
   }
 
@@ -385,27 +451,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return '${df.format(start)} - ${df.format(end)}';
   }
 
-  String _formatTime(String time) {
-    if (time.isEmpty) return 'Not Yet Signed Out';
-    return DateFormat('hh:mm a').format(DateFormat('hh:mm:ss a').parse(time));
-  }
-
-  String _calculateAttendedTime(String signInTime, String signOutTime) {
-    if (signInTime.isEmpty || signOutTime.isEmpty) return 'Not Yet Signed Out';
-    final format = DateFormat('hh:mm:ss a');
-    final signIn = format.parse(signInTime);
-    final signOut = format.parse(signOutTime);
-    final duration = signOut.difference(signIn);
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes % 60;
-    if (hours < 1) return '$minutes minutes';
-    return '$hours hours $minutes minutes';
-  }
-
-  String _firstName(String name) {
-    if (name == 'System Auto Signout') return name;
-    return name.split(' ').first;
-  }
 
   Future<void> _onRefresh() async {
     setState(() => _isLoading = true);
