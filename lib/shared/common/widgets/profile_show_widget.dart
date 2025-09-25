@@ -1,13 +1,13 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:schoolerp/core/res/media_res.dart';
-import 'package:schoolerp/core/util/color_utils.dart';
-import 'package:schoolerp/core/util/string_utils.dart';
-import 'package:schoolerp/core/util/typedefs.dart';
-import 'package:schoolerp/src/documents/presentation/bloc/document_bloc.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/color_utils.dart';
+import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
+// Backend/bloc imports disabled for UI-only usage
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'dart:typed_data';
+// import 'package:wowcare/core/util/typedefs.dart';
+// import 'package:wowcare/src/documents/presentation/bloc/document_bloc.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   final String fileUuid;
@@ -43,61 +43,36 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   @override
   void initState() {
     super.initState();
-    if (widget.fileUuid.isNotEmpty) {
-      _fetchDocument();
-    }
+    // Backend disabled: skip fetching, UI-only
+    // if (widget.fileUuid.isNotEmpty) {
+    //   _fetchDocument();
+    // }
   }
 
   @override
   void didUpdateWidget(DocumentImageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.fileUuid != oldWidget.fileUuid) {
-      _fetchDocument();
+      // Backend disabled: no fetch necessary in UI-only mode
     }
   }
 
-  void _fetchDocument() {
-    DataMap parameters = {
-      'fileUuid.equals': widget.fileUuid,
-    };
-    context.read<DocumentBloc>().add(DownloadDocument(parameters));
-  }
+  // Backend disabled: skip fetching, UI-only
+  // void _fetchDocument() {
+  //   DataMap parameters = {
+  //     'fileUuid.equals': widget.fileUuid,
+  //   };
+  //   context.read<DocumentBloc>().add(DownloadDocument(parameters));
+  // }
 
   @override
   Widget build(BuildContext context) {
+    // UI-only: show initials if name is available; else placeholder image
     return GestureDetector(
       onTap: widget.onTap,
-      child: BlocBuilder<DocumentBloc, DocumentState>(
-        builder: (context, state) {
-          if (state is DocumentDownloaded) {
-            Uint8List? imageData = state.fileData;
-            if (imageData.isNotEmpty) {
-              return _buildImageContainer(
-                child: Image.memory(
-                  imageData,
-                  fit: widget.fit,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _buildPlaceholder(),
-                ),
-              );
-            } else {
-              if (widget.name != null && widget.name!.isNotEmpty) {
-                return _buildInitialsAvatar();
-              } else {
-                return _buildPlaceholder();
-              }
-            }
-          } else if (state is DownloadingDocument) {
-            return _buildShimmer();
-          } else {
-            if (widget.name != null && widget.name!.isNotEmpty) {
-              return _buildInitialsAvatar();
-            } else {
-              return _buildPlaceholder();
-            }
-          }
-        },
-      ),
+      child: (widget.name != null && widget.name!.isNotEmpty)
+          ? _buildInitialsAvatar()
+          : _buildPlaceholder(),
     );
   }
 

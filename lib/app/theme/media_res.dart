@@ -86,6 +86,7 @@ class MediaRes {
       '$_baseImages/newsletter_preview_image.png';
   static const newletterImage1 = '$_baseImages/newsletter_image_1.png';
   static const newletterImage2 = '$_baseImages/newsletter_image_2.png';
+  static const String classroomInfoIcon = '$_baseIcons/classroom_info_icon.svg';
 
   static const signinInbuttonIcon = '$_baseIcons/signinicon.jpg';
 
