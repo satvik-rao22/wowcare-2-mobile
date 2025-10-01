@@ -9,6 +9,9 @@ import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_car
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
+import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
+import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
 // Backend/bloc imports disabled for UI-only mode
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:wowcare/core/extentions/context_extentions.dart';
@@ -179,6 +182,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   @override
   Widget build(BuildContext context) {
     return GlobalScaffold(
+      floatingActionButton: _buildTabFab(context),
       body: Column(
         children: [
           Row(
@@ -295,6 +299,56 @@ class _ClassroomScreenState extends State<ClassroomScreen>
         ],
       ),
     );
+  }
+
+  Widget? _buildTabFab(BuildContext context) {
+    // Show respective FAB only on Students (0) and Staff (1) tabs
+    if (selectedRoom == null) return null;
+    if (_tabController.index == 0) {
+      return CustomFloatingActionButton(
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => DraggableScrollableSheet(
+              maxChildSize: 0.95,
+              initialChildSize: 0.9,
+              minChildSize: 0.6,
+              builder: (_, controller) => AssignStudentToClassroomForm(
+                selectedRoomName: selectedRoom!.name,
+                onStudentsAssigned: () {
+                  // no-op for UI-only; could trigger a UI refresh callback if needed
+                },
+              ),
+            ),
+          );
+        },
+      );
+    }
+    if (_tabController.index == 1) {
+      return CustomFloatingActionButton(
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => DraggableScrollableSheet(
+              maxChildSize: 0.95,
+              initialChildSize: 0.9,
+              minChildSize: 0.6,
+              builder: (_, controller) => AssignStaffToClassroomForm(
+                selectedRoomName: selectedRoom!.name,
+                onStaffsAssigned: () {
+                  // no-op for UI-only; could trigger a UI refresh callback if needed
+                },
+              ),
+            ),
+          );
+        },
+      );
+    }
+    return null;
   }
 }
 

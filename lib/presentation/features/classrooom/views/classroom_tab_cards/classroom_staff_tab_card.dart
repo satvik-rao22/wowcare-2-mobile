@@ -6,6 +6,8 @@ import 'package:wowcare/app/theme/decorations.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
+import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
 
 // UI-only lightweight models
 class RoomDTO {
@@ -403,8 +405,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
             ),
           ],
         ),
-        // Backend-dependent FAB and forms disabled for UI-only mode
-        // Positioned(... CustomFloatingActionButton ...)
+        // FAB handled at screen level for tab-aware visibility
       ],
     );
   }
