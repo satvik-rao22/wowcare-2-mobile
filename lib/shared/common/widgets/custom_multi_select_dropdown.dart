@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/common/widgets/custom_checkbox.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
   final String? label;
@@ -31,6 +31,8 @@ class CustomMultiSelectDropdown extends StatefulWidget {
 class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   late List<String> _localSelectedItems;
   bool isDropdownOpen = false;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
@@ -60,123 +62,214 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     return 'items';
   }
 
+  void _toggleDropdown() {
+    if (isDropdownOpen) {
+      _closeDropdown();
+    } else {
+      _openDropdown();
+    }
+  }
+
+  void _openDropdown() {
+    _overlayEntry = _createOverlayEntry();
+    Overlay.of(context).insert(_overlayEntry!);
+    setState(() {
+      isDropdownOpen = true;
+    });
+  }
+
+  void _closeDropdown() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    setState(() {
+      isDropdownOpen = false;
+    });
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    RenderBox renderBox = context.findRenderObject() as RenderBox;
+    var size = renderBox.size;
+
+    return OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Barrier to close dropdown when tapping outside
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeDropdown,
+              child: Container(
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+          // Dropdown content
+          Positioned(
+            width: size.width,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(0.0, size.height + 5.0),
+              child: Material(
+                elevation: 8.0,
+                borderRadius: BorderRadius.circular(8),
+                shadowColor: Colors.black26,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    maxHeight: 250,
+                    minWidth: 120,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                  ),
+                  child: StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setOverlayState) {
+                      return ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: widget.items.length,
+                        itemBuilder: (context, index) {
+                          final item = widget.items[index];
+                          final isSelected = _localSelectedItems.contains(item);
+                          return InkWell(
+                            onTap: () {
+                              setOverlayState(() {
+                                if (isSelected) {
+                                  _localSelectedItems.remove(item);
+                                } else {
+                                  _localSelectedItems.add(item);
+                                }
+                              });
+                              setState(() {}); // Update main widget
+                              widget.onChanged(_localSelectedItems);
+                            },
+                            hoverColor: Colors.grey.shade100,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: isSelected 
+                                            ? AppColors.themeColor 
+                                            : Colors.grey.shade400,
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                      color: isSelected 
+                                          ? AppColors.themeColor 
+                                          : Colors.transparent,
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check,
+                                            size: 14,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      item,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _closeDropdown();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     String displayText = _localSelectedItems.isEmpty
         ? widget.hintText
         : '${_localSelectedItems.length} $displaySuffix';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.label != null)
-          Text(
-            widget.label!,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.5),
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        if (widget.label != null) const SizedBox(height: 8),
-        Container(
-          height: 40,
-          width: widget.width,
-          child: DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFFF8F7FA),
-              hintText: widget.hintText,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Colors.transparent),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Colors.transparent),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Colors.transparent),
-              ),
-            ),
-            icon: const Icon(Icons.keyboard_arrow_down),
-            iconSize: 24,
-            elevation: 2,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 16,
-            ),
-            dropdownColor: Colors.white,
-            items: widget.items.map((String item) {
-              return DropdownMenuItem<String>(
-                value: item,
-                enabled: false,
-                child: StatefulBuilder(
-                  builder:
-                      (BuildContext context, StateSetter setMenuItemState) {
-                    final isSelected = _localSelectedItems.contains(item);
-                    return InkWell(
-                      onTap: () {
-                        setMenuItemState(() {
-                          if (isSelected) {
-                            _localSelectedItems.remove(item);
-                          } else {
-                            _localSelectedItems.add(item);
-                          }
-                        });
-                        setState(() {});
-                        widget.onChanged(_localSelectedItems);
-                      },
-                      child: Row(
-                        children: [
-                          CustomCheckbox(
-                            value: isSelected,
-                            onChanged: (bool? checked) {
-                              setMenuItemState(() {
-                                if (checked == true) {
-                                  _localSelectedItems.add(item);
-                                } else {
-                                  _localSelectedItems.remove(item);
-                                }
-                              });
-                              setState(() {});
-                              widget.onChanged(_localSelectedItems);
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              item,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.black87,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              );
-            }).toList(),
-            onChanged: (_) {},
-            isExpanded: true,
-            hint: Text(
-              displayText,
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.label != null)
+            Text(
+              widget.label!,
               style: TextStyle(
-                color: _localSelectedItems.isEmpty
-                    ? Colors.grey[600]
-                    : Colors.black87,
-                fontSize: 15,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          if (widget.label != null) const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _toggleDropdown,
+            child: Container(
+              height: 40,
+              width: widget.width,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F7FA),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.transparent),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      displayText,
+                      style: TextStyle(
+                        color: _localSelectedItems.isEmpty
+                            ? Colors.grey[600]
+                            : Colors.black87,
+                        fontSize: 15,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    isDropdownOpen 
+                        ? Icons.keyboard_arrow_up 
+                        : Icons.keyboard_arrow_down,
+                    size: 24,
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

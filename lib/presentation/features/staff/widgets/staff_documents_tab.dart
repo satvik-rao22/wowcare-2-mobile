@@ -124,7 +124,6 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
   }
 }
 
-// Using shared CustomToggle above within a styled container
 
 class _DocRow extends StatelessWidget {
   const _DocRow({required this.label, required this.text, this.trailingIcon});
