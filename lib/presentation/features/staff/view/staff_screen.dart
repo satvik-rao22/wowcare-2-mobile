@@ -61,7 +61,7 @@ class _StaffScreenState extends State<StaffScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Staff List',
+                      'Staff',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: titleFontSize,
@@ -185,44 +185,34 @@ class _StaffScreenState extends State<StaffScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 8,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.max,
-                              children: [
-                                const CustomChip(
-                                  label: 'Active',
-                                  labelStyle: TextStyle(
-                                    color: AppColors.secondaryColor,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  color: Color.fromRGBO(177, 175, 233, 0.3),
-                                ),
-                                const SizedBox(width: 8),
-                                CustomToggle(
-                                  label: '',
-                                  isToggled: _showInactive,
-                                  onToggle: (v) => setState(() => _showInactive = v),
-                                ),
-                              ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CustomChip(
+                              label: 'Active',
+                              labelStyle: TextStyle(
+                                color: AppColors.secondaryColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              color: Color.fromRGBO(177, 175, 233, 0.3),
                             ),
-                          ),
-                          const Expanded(
-                            flex: 2,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: CustomClearAllChip(onTap: null),
-                            ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 8),
+                            const CustomClearAllChip(onTap: null),
+                          ],
+                        ),
+                        CustomToggle(
+                          label: '',
+                          isToggled: _showInactive,
+                          onToggle: (v) => setState(() => _showInactive = v),
+                        ),
+                      ],
                     ),
                   ],
                 ),

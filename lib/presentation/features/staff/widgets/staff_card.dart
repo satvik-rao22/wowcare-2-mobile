@@ -3,6 +3,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StaffCard extends StatefulWidget {
   const StaffCard({
@@ -99,6 +101,8 @@ class _StaffCardState extends State<StaffCard> {
                               borderColor: null,
                               label: null,
                             ),
+                          // Replaced the bubble circle and letter initials with DocumentImageWidget
+                          /*
                           Container(
                             width: 38,
                             height: 38,
@@ -125,6 +129,12 @@ class _StaffCardState extends State<StaffCard> {
                                     ),
                                   )
                                 : null,
+                          ),
+                          */
+                          DocumentImageWidget(
+                            fileUuid: '',
+                            name: widget.name,
+                            size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
                           Expanded(
@@ -243,10 +253,11 @@ class _StaffCardState extends State<StaffCard> {
                               ],
                             ),
                             const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                 const Text(
                                   'Schedule',
                                   style: TextStyle(
@@ -257,15 +268,15 @@ class _StaffCardState extends State<StaffCard> {
                                     height: 16 / 13,
                                   ),
                                 ),
-                                Expanded(
-                                  child: Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
-                                    alignment: WrapAlignment.end,
-                                    children: [
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  alignment: WrapAlignment.start,
+                                  children: [
                                       ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) {
                                         final isActive = widget.schedule.contains(day);
-                                        return Container(
+                                        final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
                                             color: isActive
@@ -285,12 +296,16 @@ class _StaffCardState extends State<StaffCard> {
                                             ),
                                           ),
                                         );
+                                        if (!isActive) return dayChip;
+                                        return Tooltip(
+                                          message: 'Work - 09:50 AM - 04:50 PM\nBreak - 12:50 PM - 01:50 PM',
+                                          child: dayChip,
+                                        );
                                       }),
-                                    ],
-                                  ),
+                                  ],
                                 ),
                               ],
-                            ),
+                            )),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -333,8 +348,26 @@ class _StaffCardState extends State<StaffCard> {
                                     height: 16 / 13,
                                   ),
                                 ),
-                                Text(
+                                SelectableText(
                                   _formatUsPhone(widget.phoneNumber),
+                                  contextMenuBuilder: (BuildContext context, dynamic editableState) {
+                                    final List<ContextMenuButtonItem> items = List<ContextMenuButtonItem>.from(
+                                      editableState.contextMenuButtonItems,
+                                    );
+                                    items.add(
+                                      ContextMenuButtonItem(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          _callPhone(widget.phoneNumber);
+                                        },
+                                        label: 'Call',
+                                      ),
+                                    );
+                                    return AdaptiveTextSelectionToolbar.buttonItems(
+                                      anchors: editableState.contextMenuAnchors,
+                                      buttonItems: items,
+                                    );
+                                  },
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -380,7 +413,7 @@ class _StaffCardState extends State<StaffCard> {
                                         padding: EdgeInsets.zero,
                                       ),
                                       child: const Text(
-                                        'Delete',
+                                        'Deactivate',
                                         style: TextStyle(
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
@@ -465,6 +498,14 @@ class _StaffCardState extends State<StaffCard> {
     final mid = digits.substring(3, 6);
     final last = digits.substring(6, 10);
     return '($area) $mid-$last';
+  }
+
+  Future<void> _callPhone(String phone) async {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final uri = Uri(scheme: 'tel', path: digits);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
   }
 }
 

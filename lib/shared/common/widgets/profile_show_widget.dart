@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/color_utils.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
-// Backend/bloc imports disabled for UI-only usage
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'dart:typed_data';
-// import 'package:wowcare/core/util/typedefs.dart';
-// import 'package:wowcare/src/documents/presentation/bloc/document_bloc.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   final String fileUuid;
@@ -40,34 +35,24 @@ class DocumentImageWidget extends StatefulWidget {
 }
 
 class _DocumentImageWidgetState extends State<DocumentImageWidget> {
+  Color? _avatarColor;
   @override
   void initState() {
     super.initState();
-    // Backend disabled: skip fetching, UI-only
-    // if (widget.fileUuid.isNotEmpty) {
-    //   _fetchDocument();
-    // }
+    // UI-only: no backend fetch
+    _avatarColor = _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid);
   }
 
   @override
   void didUpdateWidget(DocumentImageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.fileUuid != oldWidget.fileUuid) {
-      // Backend disabled: no fetch necessary in UI-only mode
+    if (oldWidget.name != widget.name) {
+      _avatarColor = _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid);
     }
   }
 
-  // Backend disabled: skip fetching, UI-only
-  // void _fetchDocument() {
-  //   DataMap parameters = {
-  //     'fileUuid.equals': widget.fileUuid,
-  //   };
-  //   context.read<DocumentBloc>().add(DownloadDocument(parameters));
-  // }
-
   @override
   Widget build(BuildContext context) {
-    // UI-only: show initials if name is available; else placeholder image
     return GestureDetector(
       onTap: widget.onTap,
       child: (widget.name != null && widget.name!.isNotEmpty)
@@ -100,15 +85,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   Widget _buildInitialsAvatar() {
     return CircleAvatar(
-      backgroundColor: ColorUtils.getColorFromName(
-        widget.name!,
-      ),
+      backgroundColor: _avatarColor ?? _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid),
       radius: widget.size / 2,
       child: Text(
         StringUtils.getInitials(widget.name!),
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: widget.fontSize,
+          color: Colors.white,
         ),
       ),
     );
@@ -135,15 +119,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return _buildImageContainer(child: placeholder);
     } else {
       return CircleAvatar(
-        backgroundColor: ColorUtils.getColorFromName(
-          widget.name!,
-        ),
+        backgroundColor: _avatarColor ?? _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid),
         radius: widget.size / 2,
         child: Text(
           StringUtils.getInitials(widget.name!),
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: widget.fontSize,
+            color: Colors.white,
           ),
         ),
       );
@@ -167,4 +150,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       ),
     );
   }
+}
+
+Color _pickStableProfileAvatarColor(String seed) {
+  if (AppColors.profileAvatarColors.isEmpty) return AppColors.primaryColor;
+  if (seed.isEmpty) seed = 'default';
+  final int index = seed.hashCode.abs() % AppColors.profileAvatarColors.length;
+  return AppColors.profileAvatarColors[index];
 }

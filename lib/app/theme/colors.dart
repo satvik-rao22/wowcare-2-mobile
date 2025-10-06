@@ -63,6 +63,7 @@ class AppColors {
         end: end,
       );
 
+
   static LinearGradient buildSecondaryGradient({
     List<Color> colors = secondaryGradientColors,
     Alignment begin = Alignment.centerLeft,
@@ -73,4 +74,14 @@ class AppColors {
         begin: begin,
         end: end,
       );
+
+  // Avatar color palette used exclusively by profile initials widgets
+  static const List<Color> profileAvatarColors = <Color>[
+    Color(0xFFFF9B9B), // soft red
+    Color(0xFFFDCD16), // yellow
+    Color(0xFF87CEEB), // sky blue
+    Color(0xFFFDA758), // orange
+    Color(0xFFF67EAF), // pink
+    Color(0xFFCB9AFC), // lavender (new)
+  ];
 }
