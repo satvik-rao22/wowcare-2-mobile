@@ -7,6 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 // import 'package:wowcare/shared/utils/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -44,6 +45,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   String? _selectedRole;
+  String? _selectedDesignation;
   String? _selectedPrimaryClassroom;
   final List<String> _classrooms = [
     'Classroom A',
@@ -56,9 +58,26 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
   String? _selectedStatus;
   final List<String> _statuses = ['Active', 'Inactive'];
+  bool get _isAdminSelected => (_selectedRole ?? '').toLowerCase() == 'admin';
+
   OverlayEntry? _overlayEntry;
   String? _warningMessage;
   Timer? _warningTimer;
+
+  // Cached dropdown option lists (in-memory; not reloaded per build)
+  static const List<String> _roleOptions = ['Admin', 'Staff'];
+  static const List<String> _adminDesignationOptions = [
+    'Director',
+    'Admin',
+    'Assistant Director',
+    'Owner',
+  ];
+  static const List<String> _staffDesignationOptions = [
+    'Lead teacher',
+    'Associate Teacher',
+    'Assistant teacher',
+    'Floater',
+  ];
 
   // Phone number validation regex - now requires exactly 10 digits
   static final RegExp _phoneRegex = RegExp(r'^\\(\\d{3}\\)\\s\\d{3}-\\d{4}$');
@@ -90,6 +109,18 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
       _selectedStatus = widget.initialStatus;
     }
+    // Default role when creating new entry
+    _selectedRole ??= widget.initialRole ?? 'Staff';
+    // If role is Admin, preselect allowed classrooms and primary classroom
+    if (_isAdminSelected) {
+      _selectedAllowedClassroomCodes = List<String>.from(_classrooms);
+      // Ensure 'Office' is available as a default primary classroom
+      if (!_classrooms.contains('Office')) {
+        _classrooms.insert(0, 'Office');
+      }
+      _selectedPrimaryClassroom ??= 'Office';
+      _selectedStatus ??= 'Active';
+    }
   }
 
   @override
@@ -104,6 +135,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   }
 
   void _addStaff() {
+    _trimAllInputs();
     if (_firstNameController.text.isEmpty) {
       // CoreUtils.showTopSnackBar(
       //     context: context, message: 'First name is required', isError: true);
@@ -135,7 +167,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       return;
     }
 
-    if (_selectedAllowedClassroomCodes.isEmpty) {
+    if (!_isAdminSelected && _selectedAllowedClassroomCodes.isEmpty) {
       // CoreUtils.showTopSnackBar(
       //     context: context,
       //     message: 'Please select at least one allowed classroom',
@@ -157,6 +189,24 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       return;
     }
 
+    // Additional validations based on role
+    if (_isAdminSelected) {
+      // Ensure designation picked from admin list
+      if (_selectedDesignation == null || !_adminDesignationOptions.contains(_selectedDesignation)) {
+        return;
+      }
+      // Admins have all classrooms allowed by default
+      _selectedAllowedClassroomCodes = List<String>.from(_classrooms);
+      if (_selectedPrimaryClassroom == null) {
+        _selectedPrimaryClassroom = 'Office';
+      }
+    } else {
+      // Staff designation validation
+      if (_selectedDesignation == null || !_staffDesignationOptions.contains(_selectedDesignation)) {
+        return;
+      }
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -170,6 +220,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       //     context: context, message: 'Staff created successfully', isSuccess: true);
       Navigator.pop(context);
     });
+  }
+
+  void _trimAllInputs() {
+    _firstNameController.text = _firstNameController.text.trim();
+    _lastNameController.text = _lastNameController.text.trim();
+    _emailController.text = _emailController.text.trim();
+    _phoneController.text = _phoneController.text.trim();
   }
 
   void _showWarningMessage(String message) {
@@ -481,6 +538,39 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             child: ListView(
                               padding: EdgeInsets.zero,
                               children: [
+                          // Role dropdown (Admin / Staff) - first field
+                          CustomDropdown(
+                            label: "Role",
+                            hintText: 'Select',
+                            items: _roleOptions,
+                            selectedItem: _selectedRole,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            showAsterisk: true,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onSelect: (val) {
+                              if (val == null) return;
+                              setState(() {
+                                _selectedRole = val;
+                                if (_isAdminSelected) {
+                                  _selectedAllowedClassroomCodes = List<String>.from(_classrooms);
+                                  if (!_classrooms.contains('Office')) {
+                                    _classrooms.insert(0, 'Office');
+                                  }
+                                  _selectedPrimaryClassroom = 'Office';
+                                  _selectedStatus ??= 'Active';
+                                } else {
+                                  _selectedAllowedClassroomCodes = [];
+                                  _selectedPrimaryClassroom = null;
+                                }
+                              });
+                            },
+                          ),
+                                SizedBox(height: responsive.verticalSpacing),
                           _buildRowInputs(
                             context,
                             "First Name",
@@ -492,6 +582,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             "E.g. name@example.com",
                             _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            inputFormatters: [TrimFormatter()],
                           ),
                                 SizedBox(height: responsive.verticalSpacing),
                           _buildInputField(
@@ -503,43 +594,91 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                               FilteringTextInputFormatter.digitsOnly,
                               LengthLimitingTextInputFormatter(10),
                               PhoneNumberFormatter(),
+                              TrimFormatter(),
                             ],
                           ),
                                 SizedBox(height: responsive.verticalSpacing),
-                          _buildDropdown(
+                          // Designation
+                          CustomDropdown(
                             label: "Designation",
-                            value: _selectedRole,
-                                  items: ['ADMIN', 'STAFF'], // Mock data
-                                  onSelected: (val) =>
-                                      setState(() => _selectedRole = val),
+                            hintText: 'Select',
+                            items: _isAdminSelected
+                                ? _adminDesignationOptions
+                                : _staffDesignationOptions,
+                            selectedItem: _selectedDesignation,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            showAsterisk: true,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onSelect: (val) => setState(() => _selectedDesignation = val ?? _selectedDesignation),
                           ),
                                 SizedBox(height: responsive.verticalSpacing),
-                          _buildMultiSelectDropdown(
-                            label: "Allowed Classrooms",
-                                  selectedCount:
-                                      _selectedAllowedClassroomCodes.length,
-                            items: _classrooms,
-                            selectedItems: _selectedAllowedClassroomCodes,
-                                  onConfirm: (values) => setState(
-                                      () => _selectedAllowedClassroomCodes = values),
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          _buildDropdown(
-                            label: "Primary Classroom",
-                            value: _selectedPrimaryClassroom,
-                            items: _classrooms,
-                                  onSelected: (val) {
-                                    setState(() => _selectedPrimaryClassroom = val);
-                                  },
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          _buildDropdown(
-                            label: "Status",
-                            value: _selectedStatus,
-                            items: _statuses,
-                                  onSelected: (val) =>
-                                      setState(() => _selectedStatus = val),
+                          if (!_isAdminSelected)
+                            _buildMultiSelectDropdown(
+                              label: "Allowed Classrooms",
+                              selectedCount:
+                                  _selectedAllowedClassroomCodes.length,
+                              items: _classrooms,
+                              selectedItems: _selectedAllowedClassroomCodes,
+                              onConfirm: (values) => setState(
+                                  () => _selectedAllowedClassroomCodes = values),
+                            )
+                          else
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                child: Text(
+                                  'All classrooms are allowed for admin users',
+                                  style: TextStyle(
+                                    fontSize: responsive.labelFontSize,
+                                    fontFamily: 'Manrope',
+                                    color: const Color(0xff573353),
+                                  ),
                                 ),
+                              ),
+                            ),
+                                SizedBox(height: responsive.verticalSpacing),
+                          CustomDropdown(
+                            label: "Primary Classroom",
+                            hintText: 'Select',
+                            items: _isAdminSelected
+                                ? (['Office', ..._classrooms.where((e) => e != 'Office')])
+                                : _classrooms,
+                            selectedItem: _selectedPrimaryClassroom,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            showAsterisk: true,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onSelect: (val) {
+                              if (val == null) return;
+                              setState(() => _selectedPrimaryClassroom = val);
+                            },
+                          ),
+                                SizedBox(height: responsive.verticalSpacing),
+                          CustomDropdown(
+                            label: "Status",
+                            hintText: 'Select',
+                            items: const ['Active', 'Upcoming'],
+                            selectedItem: _selectedStatus,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            showAsterisk: true,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onSelect: (val) => setState(() => _selectedStatus = val ?? _selectedStatus),
+                          ),
                                 const SizedBox(height: 12),
                               ],
                             ),
@@ -579,7 +718,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                   BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
             ),
             child: TextButton(
-              onPressed: _isSubmitting ? null : () {},
+              onPressed: _isSubmitting ? null : _addStaff,
               child: Text(
                 widget.isEdit ? 'Save' : 'Add',
                 style: TextStyle(
@@ -608,6 +747,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
               NameCapitalizationFormatter(),
+              TrimFormatter(),
             ],
           ),
         ),
@@ -620,6 +760,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
               NameCapitalizationFormatter(),
+              TrimFormatter(),
             ],
           ),
         ),
@@ -847,7 +988,7 @@ class PhoneNumberFormatter extends TextInputFormatter {
       return newValue;
     }
 
-    final digitsOnly = newText.replaceAll(RegExp(r'\\D'), '');
+    final digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
     final charCount = digitsOnly.length;
 
     String formattedText;
@@ -856,11 +997,9 @@ class PhoneNumberFormatter extends TextInputFormatter {
     } else if (charCount <= 3) {
       formattedText = '($digitsOnly';
     } else if (charCount <= 6) {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
+      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
     } else {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
     }
 
     return TextEditingValue(
@@ -868,7 +1007,7 @@ class PhoneNumberFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formattedText.length),
     );
   }
-} 
+}
 
 class NameCapitalizationFormatter extends TextInputFormatter {
   @override
@@ -895,6 +1034,18 @@ class NameCapitalizationFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class TrimFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final trimmed = newValue.text.trimLeft();
+    // Preserve caret at end for simplicity
+    return TextEditingValue(
+      text: trimmed,
+      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 } 

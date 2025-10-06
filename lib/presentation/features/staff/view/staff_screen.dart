@@ -140,6 +140,39 @@ class _StaffScreenState extends State<StaffScreen> {
                 },
               ),
               const SizedBox(height: 16),
+              // Expected Students stat card
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool isTablet = constraints.maxWidth >= 600;
+                  // Demo values for present/absent
+                  final double present = 18.0;
+                  final double absent = 3.0;
+                  final int expectedTotal = (present + absent).toInt();
+                  final String total = '$expectedTotal';
+                  final items = [
+                    ProgressItemHelper(
+                      label: 'Present (${present.toInt()})',
+                      value: present,
+                      color: AppColors.lightGreenProgressBar,
+                    ),
+                    ProgressItemHelper(
+                      label: 'Absent (${absent.toInt()})',
+                      value: absent,
+                      color: AppColors.redProgressBar,
+                    ),
+                  ];
+                  return Container(
+                    margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
+                    child: CustomStatBarCard(
+                      title: 'Expected\nStudents',
+                      number: total,
+                      items: items,
+                      fullWidthBar: false,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
               // Filter card with search and filter icon
               Container(
                 padding: const EdgeInsets.all(12),

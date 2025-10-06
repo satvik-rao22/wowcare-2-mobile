@@ -139,6 +139,9 @@ class CustomDropdown extends StatefulWidget {
     this.onSelect,
     this.selectedItem, // New parameter for the selected item
     this.controller,
+    this.labelStyle,
+    this.showAsterisk = true,
+    this.labelBottomSpacing,
   });
 
   final String? label;
@@ -151,6 +154,9 @@ class CustomDropdown extends StatefulWidget {
   final String? selectedItem; // New parameter for the selected item
   final String? initialValue;
   final TextEditingController? controller;
+  final TextStyle? labelStyle;
+  final bool showAsterisk;
+  final double? labelBottomSpacing;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -182,93 +188,103 @@ class _CustomDropdownState extends State<CustomDropdown> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label != null)
-          Text(
-            widget.label!,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+          RichText(
+            text: TextSpan(
+              style: TextStyle(
+                color: (widget.labelStyle?.color ?? AppColors.primaryColor),
+                fontSize: widget.labelStyle?.fontSize ?? 13,
+                fontWeight: widget.labelStyle?.fontWeight ?? FontWeight.w400,
+                fontFamily: widget.labelStyle?.fontFamily,
+              ),
+              children: [
+                TextSpan(text: widget.label!),
+                if (widget.showAsterisk)
+                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              ],
             ),
           ),
-        if (widget.label != null) const SizedBox(height: 12),
-        Container(
-          constraints: BoxConstraints(minHeight: widget.isField ? 40 : 30),
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FA),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: PopupMenuButton<String>(
-            enabled: widget.isEnabled,
-            onSelected: (value) {
-              setState(() {
-                selectedItem = value; // Update the selected item
-              });
-              // Call the onSelect callback if it's provided
-              if (widget.onSelect != null) {
-                widget.onSelect!(value);
-              }
-            },
-            itemBuilder: (BuildContext context) {
-              return widget.items.map((String item) {
-                final isSelected = item == selectedItem;
-                return PopupMenuItem<String>(
-                  value: item,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item,
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppColors.primaryColor
-                                : AppColors.primaryColor.withOpacity(0.7),
-                            fontSize: widget.isField ? 15 : 13,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w400,
+        if (widget.label != null)
+          SizedBox(height: widget.labelBottomSpacing ?? 6),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Container(
+              constraints: BoxConstraints(minHeight: widget.isField ? 40 : 30),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F7FA),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: PopupMenuButton<String>(
+                enabled: widget.isEnabled,
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth,
+                  maxWidth: constraints.maxWidth,
+                ),
+                onSelected: (value) {
+                  setState(() {
+                    selectedItem = value; // Update the selected item
+                  });
+                  // Call the onSelect callback if it's provided
+                  if (widget.onSelect != null) {
+                    widget.onSelect!(value);
+                  }
+                },
+                itemBuilder: (BuildContext context) {
+                  return widget.items.map((String item) {
+                    final isSelected = item == selectedItem;
+                    return PopupMenuItem<String>(
+                      value: item,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: TextStyle(
+                                color: AppColors.primaryColor.withOpacity(0.9),
+                                fontSize: widget.isField ? 17:15,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                    );
+                  }).toList();
+                },
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          selectedItem ?? widget.hintText,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight:
+                                selectedItem != null ? FontWeight.w600 : FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.left,
                         ),
                       ),
-                      if (isSelected)
+                      const SizedBox(width: 4),
+                      if (widget.isEnabled)
                         const Icon(
-                          Icons.check,
+                          Icons.keyboard_arrow_down,
                           color: AppColors.primaryColor,
-                          size: 16,
+                          size: 24,
                         ),
                     ],
                   ),
-                );
-              }).toList();
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      selectedItem ?? widget.hintText,
-                      style: TextStyle(
-                        color: widget.isEnabled
-                            ? AppColors.primaryColor.withOpacity(0.6)
-                            : AppColors.primaryColor,
-                        fontSize: widget.isField ? 14 : 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  if (widget.isEnabled)
-                    const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: AppColors.primaryColor,
-                      size: 24,
-                    ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ],
     );

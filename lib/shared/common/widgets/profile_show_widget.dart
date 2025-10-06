@@ -15,6 +15,7 @@ class DocumentImageWidget extends StatefulWidget {
   final BorderRadius? borderRadius;
   final Widget? errorWidget;
   final double? fontSize;
+  final Color? statusColor; // optional small status dot color
 
   const DocumentImageWidget({
     Key? key,
@@ -28,6 +29,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.borderRadius,
     this.errorWidget,
     this.fontSize,
+    this.statusColor,
   }) : super(key: key);
 
   @override
@@ -56,8 +58,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     return GestureDetector(
       onTap: widget.onTap,
       child: (widget.name != null && widget.name!.isNotEmpty)
-          ? _buildInitialsAvatar()
-          : _buildPlaceholder(),
+          ? _buildAvatarWithStatus(_buildInitialsAvatar())
+          : _buildAvatarWithStatus(_buildPlaceholder()),
     );
   }
 
@@ -81,6 +83,29 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         ),
       );
     }
+  }
+
+  Widget _buildAvatarWithStatus(Widget avatar) {
+    if (widget.statusColor == null) return avatar;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          right: 0,
+          top: 0,
+          child: Container(
+            width: widget.size * 0.22,
+            height: widget.size * 0.22,
+            decoration: BoxDecoration(
+              color: widget.statusColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildInitialsAvatar() {
