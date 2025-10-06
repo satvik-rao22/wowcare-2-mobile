@@ -134,8 +134,7 @@ class _StaffCardState extends State<StaffCard> {
                           DocumentImageWidget(
                             fileUuid: '',
                             name: widget.name,
-                            size: 45,
-                            statusColor: _computeStatusColor(),
+                            size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
                           Expanded(
@@ -507,15 +506,6 @@ class _StaffCardState extends State<StaffCard> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
-  }
-
-  Color? _computeStatusColor() {
-    // Demo logic: green if today appears in schedule, red otherwise
-    final now = DateTime.now();
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final today = days[now.weekday - 1];
-    final isWorkingToday = widget.schedule.contains(today);
-    return isWorkingToday ? const Color.fromRGBO(0, 177, 21, 1) : const Color.fromRGBO(200, 32, 32, 1);
   }
 }
 

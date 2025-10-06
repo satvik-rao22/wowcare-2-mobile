@@ -805,6 +805,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             controller: controller,
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: responsive.inputFontSize,
+              fontWeight: FontWeight.w600, // typing weight
+              color: const Color(0xff573353),
+              height: 19 / 14,
+            ),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
