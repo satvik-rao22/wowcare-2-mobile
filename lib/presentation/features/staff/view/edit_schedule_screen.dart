@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -118,41 +117,56 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     }
 
     try {
-      final result = await showDialog<Map<String, dynamic>>(
+      final picked = await showTimePicker(
         context: context,
-        builder: (context) => CalendarDialog(
-          isRangePicker: false,
-          isTimePicker: true,
-          initialTime: initialTime,
-        ),
+        initialTime: initialTime,
+        builder: (context, child) {
+          final theme = Theme.of(context);
+          return Theme(
+            data: theme.copyWith(
+              timePickerTheme: const TimePickerThemeData(
+                dialHandColor: Colors.white,
+              ),
+              colorScheme: theme.colorScheme.copyWith(
+                primary: AppColors.primaryColor,
+                secondary: AppColors.primaryColor,
+              ),
+            ),
+            child: child!,
+          );
+        },
       );
-      
-      if (result != null && result['time'] != null) {
-        final selectedTime = result['time'] as TimeOfDay;
-        setState(() {
-          switch (timeType) {
-            case TimeType.workStart:
-              _schedules[day] = currentSchedule.copyWith(workStartTime: selectedTime);
-              break;
-            case TimeType.workEnd:
-              _schedules[day] = currentSchedule.copyWith(workEndTime: selectedTime);
-              break;
-            case TimeType.breakStart:
-              _schedules[day] = currentSchedule.copyWith(breakStartTime: selectedTime);
-              break;
-            case TimeType.breakEnd:
-              _schedules[day] = currentSchedule.copyWith(breakEndTime: selectedTime);
-              break;
-          }
-          _selectedDay = day;
-          if (_copyToAllDays) {
-            _copyDayScheduleToAll(day);
-          }
-        });
+
+      if (picked != null) {
+        _onTimePicked(day, timeType, picked);
       }
     } catch (e) {
       print('Error opening time picker: $e');
     }
+  }
+
+  void _onTimePicked(String day, TimeType timeType, TimeOfDay selectedTime) {
+    final currentSchedule = _schedules[day]!;
+    setState(() {
+      switch (timeType) {
+        case TimeType.workStart:
+          _schedules[day] = currentSchedule.copyWith(workStartTime: selectedTime);
+          break;
+        case TimeType.workEnd:
+          _schedules[day] = currentSchedule.copyWith(workEndTime: selectedTime);
+          break;
+        case TimeType.breakStart:
+          _schedules[day] = currentSchedule.copyWith(breakStartTime: selectedTime);
+          break;
+        case TimeType.breakEnd:
+          _schedules[day] = currentSchedule.copyWith(breakEndTime: selectedTime);
+          break;
+      }
+      _selectedDay = day;
+      if (_copyToAllDays) {
+        _copyDayScheduleToAll(day);
+      }
+    });
   }
 
   void _copyDayScheduleToAll(String sourceDay) {
@@ -379,7 +393,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               child: GradientTimePickerField(
                 label: 'Start',
                 time: startTime,
-                onTimeSelected: (_) => onTimeSelected(title == 'Work Time' ? TimeType.workStart : TimeType.breakStart),
+                onTimeSelected: (t) => _onTimePicked(day, title == 'Work Time' ? TimeType.workStart : TimeType.breakStart, t),
               ),
             ),
             const SizedBox(width: 12),
@@ -387,7 +401,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               child: GradientTimePickerField(
                 label: 'End',
                 time: endTime,
-                onTimeSelected: (_) => onTimeSelected(title == 'Work Time' ? TimeType.workEnd : TimeType.breakEnd),
+                onTimeSelected: (t) => _onTimePicked(day, title == 'Work Time' ? TimeType.workEnd : TimeType.breakEnd, t),
               ),
             ),
           ],
