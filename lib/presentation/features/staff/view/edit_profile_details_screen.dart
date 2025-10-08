@@ -76,8 +76,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
   final List<String> _designationOptions = ['Admin', 'Teacher', 'Assistant', 'Manager', 'Director'];
-  final List<String> _classroomOptions = ['5 Days X', '1-Blue D X', '3-Orange-D X', 'Office X', '2-Red A X'];
-  final List<String> _jobTagOptions = ['Full Time', 'Part Time', 'Contract', 'Temporary'];
+  final List<String> _classroomOptions = ['5 Days', '1-Blue D', '3-Orange-D', 'Office', '2-Red A'];
+  final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
   final List<String> _stateOptions = ['New Hampshire', 'Massachusetts', 'Vermont', 'Maine', 'Connecticut'];
   final List<String> _countryOptions = ['United States', 'Canada', 'Mexico'];
 
@@ -410,11 +410,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           SizedBox(height: responsive.verticalSpacing),
           _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildPinField(responsive),
-                        SizedBox(height: responsive.verticalSpacing),
-                        _buildWorkTimeSection(responsive),
-                        SizedBox(height: responsive.verticalSpacing),
-                        _buildBreakTimeSection(responsive),
+                        // _buildPinField(responsive),
+                        // SizedBox(height: responsive.verticalSpacing),
+                        // _buildWorkTimeSection(responsive),
+                        // SizedBox(height: responsive.verticalSpacing),
+                        // _buildBreakTimeSection(responsive),
                       ],
                     ),
                   ),
@@ -549,6 +549,23 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
+      selectedTextStyle: TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: responsive.inputFontSize,
+        fontWeight: FontWeight.w600,
+        color: const Color(0xff573353),
+        height: 19 / 14,
+      ),
+      popupItemTextStyle: TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: responsive.inputFontSize,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xff573353),
+      ),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: responsive.isTablet ? 16.0 : 12.0,
+        vertical: responsive.isTablet ? 16.0 : 12.0,
+      ),
     );
   }
 
@@ -699,14 +716,18 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         GestureDetector(
           onTap: _selectBirthDate,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 40),
+            constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
-              borderRadius: BorderRadius.circular(10),
+              color: Colors.white,
+              border: Border.all(color: const Color(0x66573353)),
+              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -716,11 +737,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
-                        color: selectedDate == null 
-                            ? AppColors.primaryColor.withOpacity(0.6)
-                            : AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontFamily: 'Manrope',
+                        fontSize: responsive.inputFontSize,
+                        fontWeight: selectedDate != null ? FontWeight.w600 : FontWeight.w500,
+                        color: const Color(0xff573353),
+                        height: 19 / 14,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),

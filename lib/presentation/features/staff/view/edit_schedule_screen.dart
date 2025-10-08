@@ -4,6 +4,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:intl/intl.dart';
@@ -33,6 +35,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   // Store schedule data for each day
   final Map<String, DaySchedule> _schedules = {};
+  bool _copyToAllDays = false;
+  String? _selectedDay;
 
   @override
   void initState() {
@@ -44,12 +48,13 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     // Initialize with default values or from initialSchedules
     for (final day in _allDays) {
       _schedules[day] = DaySchedule(
-        workStartTime: const TimeOfDay(hour: 7, minute: 30),
-        workEndTime: const TimeOfDay(hour: 17, minute: 30),
-        breakStartTime: const TimeOfDay(hour: 12, minute: 30),
-        breakEndTime: const TimeOfDay(hour: 13, minute: 0),
+        workStartTime: null,
+        workEndTime: null,
+        breakStartTime: null,
+        breakEndTime: null,
       );
     }
+    _selectedDay = _allDays.isNotEmpty ? _allDays.first : null;
 
     // Load from initial schedules if provided
     for (final schedule in widget.initialSchedules) {
@@ -95,20 +100,20 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   Future<void> _selectTime(BuildContext context, String day, TimeType timeType) async {
     final currentSchedule = _schedules[day]!;
-    TimeOfDay initialTime;
+    TimeOfDay initialTime = const TimeOfDay(hour: 9, minute: 0);
     
     switch (timeType) {
       case TimeType.workStart:
-        initialTime = currentSchedule.workStartTime;
+        initialTime = currentSchedule.workStartTime ?? initialTime;
         break;
       case TimeType.workEnd:
-        initialTime = currentSchedule.workEndTime;
+        initialTime = currentSchedule.workEndTime ?? initialTime;
         break;
       case TimeType.breakStart:
-        initialTime = currentSchedule.breakStartTime;
+        initialTime = currentSchedule.breakStartTime ?? initialTime;
         break;
       case TimeType.breakEnd:
-        initialTime = currentSchedule.breakEndTime;
+        initialTime = currentSchedule.breakEndTime ?? initialTime;
         break;
     }
 
@@ -139,10 +144,28 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               _schedules[day] = currentSchedule.copyWith(breakEndTime: selectedTime);
               break;
           }
+          _selectedDay = day;
+          if (_copyToAllDays) {
+            _copyDayScheduleToAll(day);
+          }
         });
       }
     } catch (e) {
       print('Error opening time picker: $e');
+    }
+  }
+
+  void _copyDayScheduleToAll(String sourceDay) {
+    final source = _schedules[sourceDay];
+    if (source == null) return;
+    for (final d in _allDays) {
+      if (d == sourceDay) continue;
+      _schedules[d] = _schedules[d]!.copyWith(
+        workStartTime: source.workStartTime,
+        workEndTime: source.workEndTime,
+        breakStartTime: source.breakStartTime,
+        breakEndTime: source.breakEndTime,
+      );
     }
   }
 
@@ -155,27 +178,32 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       final dayLower = day.toLowerCase();
       
       // Add work time
+      if (schedule.workStartTime != null && schedule.workEndTime != null) {
       schedules.add(ScheduleEntry(
         day: dayLower,
-        startTime: _formatTimeOfDay(schedule.workStartTime),
-        endTime: _formatTimeOfDay(schedule.workEndTime),
+          startTime: _formatTimeOfDay(schedule.workStartTime)!,
+          endTime: _formatTimeOfDay(schedule.workEndTime)!,
         isBreakTime: false,
       ));
+      }
       
       // Add break time
+      if (schedule.breakStartTime != null && schedule.breakEndTime != null) {
       schedules.add(ScheduleEntry(
         day: dayLower,
-        startTime: _formatTimeOfDay(schedule.breakStartTime),
-        endTime: _formatTimeOfDay(schedule.breakEndTime),
+          startTime: _formatTimeOfDay(schedule.breakStartTime)!,
+          endTime: _formatTimeOfDay(schedule.breakEndTime)!,
         isBreakTime: true,
       ));
+      }
     }
     
     // Navigate back with the updated schedules
     Navigator.pop(context, schedules);
   }
 
-  String _formatTimeOfDay(TimeOfDay time) {
+  String? _formatTimeOfDay(TimeOfDay? time) {
+    if (time == null) return null;
     final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
     final period = time.period == DayPeriod.am ? 'AM' : 'PM';
     final minute = time.minute.toString().padLeft(2, '0');
@@ -193,6 +221,36 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing, vertical: 8),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Copy to all days',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                ),
+                CustomToggle(
+                  label: '',
+                  isToggled: _copyToAllDays,
+                  onToggle: (v) {
+                    setState(() {
+                      _copyToAllDays = v;
+                      if (_copyToAllDays && _selectedDay != null) {
+                        _copyDayScheduleToAll(_selectedDay!);
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
           ..._allDays.map((day) => _buildDaySchedule(day, responsive)),
           const SizedBox(height: 12),
         ],
@@ -240,26 +298,30 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   Widget _buildDaySchedule(String day, ResponsiveHelper responsive) {
     final schedule = _schedules[day]!;
-    
+    final isSelected = _selectedDay == day;
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Day header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(177, 175, 233, 0.3),
-              borderRadius: BorderRadius.circular(16),
-            ),
+          GestureDetector(
+            onTap: () => setState(() => _selectedDay = day),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color.fromRGBO(177, 175, 233, 0.45) : const Color.fromRGBO(177, 175, 233, 0.3),
+                borderRadius: BorderRadius.circular(16),
+                border: isSelected ? Border.all(color: const Color(0xff573353).withOpacity(0.5)) : null,
+              ),
             child: Text(
               day,
               style: const TextStyle(
                 fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 color: Color(0xff573353),
+                ),
               ),
             ),
           ),
@@ -272,6 +334,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
             schedule.workEndTime,
             (timeType) => _selectTime(context, day, timeType),
             responsive,
+            day,
           ),
           const SizedBox(height: 12),
           
@@ -282,6 +345,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
             schedule.breakEndTime,
             (timeType) => _selectTime(context, day, timeType),
             responsive,
+            day,
           ),
         ],
       ),
@@ -290,10 +354,11 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   Widget _buildTimeSection(
     String title,
-    TimeOfDay startTime,
-    TimeOfDay endTime,
+    TimeOfDay? startTime,
+    TimeOfDay? endTime,
     Function(TimeType) onTimeSelected,
     ResponsiveHelper responsive,
+    String day,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,20 +376,18 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
         Row(
           children: [
             Expanded(
-              child: _buildTimeField(
-                'Start',
-                _formatTimeOfDay(startTime),
-                () => onTimeSelected(TimeType.workStart),
-                responsive,
+              child: GradientTimePickerField(
+                label: 'Start',
+                time: startTime,
+                onTimeSelected: (_) => onTimeSelected(title == 'Work Time' ? TimeType.workStart : TimeType.breakStart),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTimeField(
-                'End',
-                _formatTimeOfDay(endTime),
-                () => onTimeSelected(TimeType.workEnd),
-                responsive,
+              child: GradientTimePickerField(
+                label: 'End',
+                time: endTime,
+                onTimeSelected: (_) => onTimeSelected(title == 'Work Time' ? TimeType.workEnd : TimeType.breakEnd),
               ),
             ),
           ],
@@ -355,24 +418,24 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
         GestureDetector(
           onTap: onTap,
           child: Container(
-            constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.isTablet ? 16.0 : 12.0,
-              vertical: responsive.isTablet ? 16.0 : 12.0,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-            ),
-            child: Row(
-              children: [
-                Expanded(
+          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+          padding: EdgeInsets.symmetric(
+            horizontal: responsive.isTablet ? 16.0 : 12.0,
+            vertical: responsive.isTablet ? 16.0 : 12.0,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0x66573353)),
+            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+          ),
+          child: Row(
+            children: [
+              Expanded(
                   child: Text(
                     time,
-                    style: const TextStyle(
+                  style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 15,
+                    fontSize: 15,
                       fontFamily: 'Manrope',
                       fontWeight: FontWeight.w500,
                     ),
@@ -384,7 +447,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
                 ),
               ],
-            ),
+              ),
           ),
         ),
       ],
@@ -393,10 +456,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 }
 
 class DaySchedule {
-  final TimeOfDay workStartTime;
-  final TimeOfDay workEndTime;
-  final TimeOfDay breakStartTime;
-  final TimeOfDay breakEndTime;
+  final TimeOfDay? workStartTime;
+  final TimeOfDay? workEndTime;
+  final TimeOfDay? breakStartTime;
+  final TimeOfDay? breakEndTime;
 
   DaySchedule({
     required this.workStartTime,
