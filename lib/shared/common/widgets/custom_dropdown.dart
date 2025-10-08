@@ -143,6 +143,9 @@ class CustomDropdown extends StatefulWidget {
     this.showAsterisk = true,
     this.labelBottomSpacing,
     this.fieldHeight,
+    this.selectedTextStyle,
+    this.popupItemTextStyle,
+    this.contentPadding,
   });
 
   final String? label;
@@ -159,6 +162,9 @@ class CustomDropdown extends StatefulWidget {
   final bool showAsterisk;
   final double? labelBottomSpacing;
   final double? fieldHeight;
+  final TextStyle? selectedTextStyle;
+  final TextStyle? popupItemTextStyle;
+  final EdgeInsets? contentPadding;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -241,9 +247,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
                           Expanded(
                             child: Text(
                               item,
-                              style: TextStyle(
+                              style: widget.popupItemTextStyle ?? TextStyle(
                                 color: AppColors.primaryColor.withOpacity(0.9),
-                                fontSize: widget.isField ? 17:15,
+                                fontSize: widget.isField ? 17 : 15,
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
@@ -254,19 +260,17 @@ class _CustomDropdownState extends State<CustomDropdown> {
                   }).toList();
                 },
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Flexible(
                         child: Text(
                           selectedItem ?? widget.hintText,
-                          style: TextStyle(
+                          style: widget.selectedTextStyle ?? TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
-                            fontWeight:
-                                selectedItem != null ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
                             color: const Color(0xff573353),
                             height: 19 / 14,
                           ),

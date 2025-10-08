@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 
 class EditProfileDetailsScreen extends StatefulWidget {
   const EditProfileDetailsScreen({
@@ -232,66 +233,198 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return StaffFormLayout(
-      title: "Edit Profile Details",
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: Scaffold
+      (
+        key: _scaffoldKey,
+        backgroundColor: Colors.white,
+        appBar: const CustomAppBar(hasBackButton: true),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildScaffoldGradient(),
+                ),
+                child: Image.asset(
+                  MediaRes.wowcareMobileBg,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                ),
+              ),
+            ),
+            Column(
+              children: [
+                const SizedBox(height: 16),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Edit Staff',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: responsive.titleFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff573353),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                Expanded(
+                  child: Container(
+                    width: responsive.containerWidth,
+                    margin: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.all(Radius.circular(responsive.isTablet ? 40.0 : 24.0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Personal Details Section
-          _buildInputField("First Name", "E.g. Jessica", _firstNameController, isRequired: true),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildInputField(
+                                "First Name",
+                                "E.g. John",
+                                _firstNameController,
+                              ),
+                            ),
+                            SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                            Expanded(
+                              child: _buildInputField(
+                                "Last Name",
+                                "E.g. Smith",
+                                _lastNameController,
+                              ),
+                            ),
+                          ],
+                        ),
           SizedBox(height: responsive.verticalSpacing),
-          _buildInputField("Last Name", "E.g. Rhodes", _lastNameController, isRequired: true),
+                        _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-          _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (value) => setState(() => _selectedStatus = value)),
+                        _buildCustomDropdown("Designation", "Select", _designationOptions, _selectedDesignation, (v) => setState(() => _selectedDesignation = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-          _buildCustomDropdown("Designation", "Select", _designationOptions, _selectedDesignation, (value) => setState(() => _selectedDesignation = value)),
+
+                        // Allowed Classrooms like Add Staff
+                        ClassroomSelectionWidgetExact(
+                          primaryClassroom: _selectedPrimaryClassroom,
+                          allowedClassrooms: _selectedAllowedClassrooms,
+                          availableClassrooms: _classroomOptions,
+                          onPrimaryClassroomChanged: (classroom) {
+                            setState(() {
+                              _selectedPrimaryClassroom = classroom;
+                            });
+                          },
+                          onAllowedClassroomsChanged: (classrooms) {
+                            setState(() {
+                              _selectedAllowedClassrooms = classrooms;
+                              if (_selectedPrimaryClassroom != null && !classrooms.contains(_selectedPrimaryClassroom)) {
+                                _selectedPrimaryClassroom = null;
+                              }
+                            });
+                          },
+                          primaryClassroomError: null,
+                          allowedClassroomsError: null,
+                          showPrimaryClassroom: false,
+                        ),
+          SizedBox(height: responsive.verticalSpacing),
           
+                        // Primary Classroom Dropdown with guard
+                        Stack(
+                          children: [
+                            CustomDropdown(
+                              label: "Primary Classroom",
+                              hintText: 'Select',
+                              items: _selectedAllowedClassrooms.isEmpty ? [] : _selectedAllowedClassrooms,
+                              selectedItem: _selectedPrimaryClassroom,
+                              labelStyle: TextStyle(
+                                fontSize: responsive.labelFontSize,
+                                fontFamily: "Manrope",
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xff573353),
+                              ),
+                              showAsterisk: true,
+                              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                              fieldHeight: responsive.isTablet ? 64.0 : 56.0,
+                              selectedTextStyle: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: responsive.inputFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff573353),
+                                height: 19 / 14,
+                              ),
+                              popupItemTextStyle: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: responsive.inputFontSize,
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xff573353),
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                                vertical: responsive.isTablet ? 16.0 : 12.0,
+                              ),
+                              onSelect: (val) => setState(() => _selectedPrimaryClassroom = val),
+                            ),
+                            if (_selectedAllowedClassrooms.isEmpty)
+                              Positioned.fill(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    _showWarningMessage('Please select Allowed Classrooms first');
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
           SizedBox(height: responsive.verticalSpacing),
           
-          // Classroom Information Section
-          _buildClassroomSection(),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildPrimaryClassroomSection(),
-          
-          SizedBox(height: responsive.verticalSpacing),
-          
-          // Dates & Employment Section
           _buildDateField("Birthdate", _selectedBirthDate),
           SizedBox(height: responsive.verticalSpacing),
-          _buildCustomDropdown("Job Tag", "Select", _jobTagOptions, _selectedJobTag, (value) => setState(() => _selectedJobTag = value)),
-          
+                        _buildCustomDropdown("Job Tag", "Select", _jobTagOptions, _selectedJobTag, (v) => setState(() => _selectedJobTag = v)),
           SizedBox(height: responsive.verticalSpacing),
-          
-          // Contact Information Section
           _buildInputField("Email", "E.g. Jessica@wowcare.com", _emailController, isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-          _buildInputField("Phone Number", "E.g. (986) 027-1627", _phoneNumberController, isRequired: true),
-          
+                        _buildInputField("Phone Number", "E.g. +19860271627", _phoneNumberController, isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-          
-          // Address Information Section
           _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildInputField("Address line 2", "(Optional)", _street2Controller, isRequired: false),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildInputField("Address line 2", "(Optional)", _street2Controller, isRequired: false),
           SizedBox(height: responsive.verticalSpacing),
           _buildInputField("City", "Eg. Nashua", _cityController, isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-          _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (value) => setState(() => _selectedState = value), isRequired: true),
+                        _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-          _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (value) => setState(() => _selectedCountry = value), isRequired: true),
+                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
           _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildPinField(responsive),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildWorkTimeSection(responsive),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildBreakTimeSection(responsive),
-          
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildPinField(responsive),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildWorkTimeSection(responsive),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildBreakTimeSection(responsive),
+                      ],
+                    ),
+                  ),
+                ),
           const SizedBox(height: 12),
         ],
       ),
-      bottomBar: Container(
+          ],
+        ),
+        bottomNavigationBar: Container(
         padding: EdgeInsets.only(
           bottom: safeAreaBottom, left: 16, right: 16, top: 8,
         ),
@@ -325,6 +458,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                 fontSize: responsive.buttonFontSize,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -363,21 +497,27 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FA),
-            borderRadius: BorderRadius.circular(10),
+            color: Colors.white,
+            border: Border.all(color: const Color(0x66573353)),
+            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
           child: TextField(
             controller: controller,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.primaryColor.withOpacity(0.6)),
+              hintStyle: labelStyle.copyWith(color: Colors.grey),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
             ),
             style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontFamily: 'Manrope',
+              fontSize: responsive.inputFontSize,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff573353),
+              height: 19 / 14,
             ),
           ),
         ),
@@ -393,12 +533,22 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
   }) {
+    final responsive = ResponsiveHelper(context);
     return CustomDropdown(
-      label: isRequired ? "$label *" : label,
+      label: label,
       hintText: hintText,
       items: items,
       selectedItem: selectedItem,
       onSelect: onSelect,
+      showAsterisk: isRequired,
+      labelStyle: TextStyle(
+        fontSize: responsive.labelFontSize,
+        fontFamily: "Manrope",
+        fontWeight: FontWeight.w400,
+        color: const Color(0xff573353),
+      ),
+      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+      fieldHeight: responsive.isTablet ? 64.0 : 56.0,
     );
   }
 
