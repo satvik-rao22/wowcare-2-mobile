@@ -73,27 +73,6 @@ class _StaffScreenState extends State<StaffScreen> {
                       textAlign: TextAlign.left,
                     ),
                   ),
-              // Clock action button
-              Container(
-                width: 38,
-                height: 38,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                alignment: Alignment.center,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: SvgPicture.asset(
-                    MediaRes.calenderClockIcon,
-                    width: 22,
-                    height: 22,
-                    fit: BoxFit.contain,
-                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                  ),
-                ),
-              ),
                   GradientAddButton(
                     onTap: () async {
                       final result = await Navigator.push(
@@ -267,10 +246,26 @@ class _StaffScreenState extends State<StaffScreen> {
                             const CustomClearAllChip(onTap: null),
                           ],
                         ),
-                        CustomToggle(
-                          label: '',
-                          isToggled: _showInactive,
-                          onToggle: (v) => setState(() => _showInactive = v),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Show present',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xff573353),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            CustomToggle(
+                              label: '',
+                              isToggled: _showInactive,
+                              onToggle: (v) => setState(() => _showInactive = v),
+                            ),
+                          ],
                         ),
                       ],
                     ),
