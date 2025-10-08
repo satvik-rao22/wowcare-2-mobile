@@ -142,6 +142,7 @@ class CustomDropdown extends StatefulWidget {
     this.labelStyle,
     this.showAsterisk = true,
     this.labelBottomSpacing,
+    this.fieldHeight,
   });
 
   final String? label;
@@ -157,6 +158,7 @@ class CustomDropdown extends StatefulWidget {
   final TextStyle? labelStyle;
   final bool showAsterisk;
   final double? labelBottomSpacing;
+  final double? fieldHeight;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -208,7 +210,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
         LayoutBuilder(
           builder: (context, constraints) {
             return Container(
-              constraints: BoxConstraints(minHeight: widget.isField ? 40 : 30),
+              constraints: BoxConstraints(minHeight: widget.fieldHeight ?? (widget.isField ? 40 : 30)),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFFF8F7FA),

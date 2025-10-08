@@ -11,6 +11,7 @@ class ClassroomSelectionWidgetExact extends StatefulWidget {
   final bool isRequired;
   final String? primaryClassroomError;
   final String? allowedClassroomsError;
+  final bool showPrimaryClassroom;
 
   const ClassroomSelectionWidgetExact({
     super.key,
@@ -22,6 +23,7 @@ class ClassroomSelectionWidgetExact extends StatefulWidget {
     this.isRequired = true,
     this.primaryClassroomError,
     this.allowedClassroomsError,
+    this.showPrimaryClassroom = true,
   });
 
   @override
@@ -38,9 +40,10 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
 
   // Function to generate different colors for each classroom
   Color _getClassroomColor(String classroom) {
-    // Use profile avatar colors for chips
+    // Use profile avatar colors for chips with transparency
     final hash = classroom.hashCode;
-    return AppColors.profileAvatarColors[hash.abs() % AppColors.profileAvatarColors.length];
+    final baseColor = AppColors.profileAvatarColors[hash.abs() % AppColors.profileAvatarColors.length];
+    return baseColor.withOpacity(0.2); // Make it lighter for chip background
   }
 
   @override
@@ -335,75 +338,77 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Primary Classroom Section
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: labelFontSize,
-              fontFamily: "Manrope",
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
-            ),
-            children: [
-              const TextSpan(text: 'Primary Classroom'),
-              if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
-        GestureDetector(
-          key: _primaryDropdownKey,
-          onTap: _togglePrimaryDropdown,
-          child: Container(
-            height: inputFieldHeight,
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.isTablet ? 20.0 : 16.0,
-              vertical: responsive.isTablet ? 12.0 : 10.0,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: widget.primaryClassroomError != null 
-                  ? Colors.red 
-                  : const Color(0x66573353),
+        if (widget.showPrimaryClassroom) ...[
+          RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: labelFontSize,
+                fontFamily: "Manrope",
+                fontWeight: FontWeight.w400,
+                color: const Color(0xff573353),
               ),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-              color: Colors.white,
-            ),
-            child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    widget.primaryClassroom ?? 'Select Primary Classroom',
-                    style: TextStyle(
-                      color: widget.primaryClassroom == null ? const Color(0xff573353) : Colors.black,
-                      fontSize: inputFontSize,
-                      fontFamily: 'Manrope',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Icon(
-                  _isPrimaryDropdownOpen
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                  color: const Color(0xff573353),
-                  size: responsive.isTablet ? 28.0 : 24.0,
-                ),
+                const TextSpan(text: 'Primary Classroom'),
+                if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
               ],
             ),
           ),
-        ),
-        if (widget.primaryClassroomError != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            widget.primaryClassroomError!,
-            style: const TextStyle(
-              color: Colors.red,
-              fontSize: 12,
-              fontFamily: 'Manrope',
+          SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
+          GestureDetector(
+            key: _primaryDropdownKey,
+            onTap: _togglePrimaryDropdown,
+            child: Container(
+              height: inputFieldHeight,
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 20.0 : 16.0,
+                vertical: responsive.isTablet ? 12.0 : 10.0,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: widget.primaryClassroomError != null 
+                    ? Colors.red 
+                    : const Color(0x66573353),
+                ),
+                borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+                color: Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.primaryClassroom ?? 'Select Primary Classroom',
+                      style: TextStyle(
+                        color: widget.primaryClassroom == null ? const Color(0xff573353) : Colors.black,
+                        fontSize: inputFontSize,
+                        fontFamily: 'Manrope',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isPrimaryDropdownOpen
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xff573353),
+                    size: responsive.isTablet ? 28.0 : 24.0,
+                  ),
+                ],
+              ),
             ),
           ),
+          if (widget.primaryClassroomError != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              widget.primaryClassroomError!,
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 12,
+                fontFamily: 'Manrope',
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
         ],
-        const SizedBox(height: 16),
         
         // Allowed Classrooms Section - Exact UI from WowInventory
         RichText(

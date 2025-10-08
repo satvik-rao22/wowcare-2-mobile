@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_list_item.dart
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
+import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
@@ -94,11 +95,37 @@ class _StaffScreenState extends State<StaffScreen> {
                 ),
               ),
                   GradientAddButton(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const AddStaffScreen()),
                       );
+                      if (!mounted) return;
+                      print('[StaffScreen] Received result from AddStaffScreen: ' + result.toString());
+                      if (result is Map && (result['showPostAddPrompt'] == true)) {
+                        final staffName = (result['staffName'] as String?) ?? '';
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.white,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(24),
+                                topRight: Radius.circular(24),
+                              ),
+                            ),
+                            builder: (ctx) => PostAddStaffBottomSheet(
+                              staffName: staffName,
+                              onLater: () => Navigator.of(ctx).pop(),
+                              onYes: () {
+                                Navigator.of(ctx).pop();
+                                Navigator.of(context).pushNamed('/edit-profile-details-screen');
+                              },
+                            ),
+                          );
+                        });
+                      }
                     },
                     isTablet: MediaQuery.of(context).size.width >= 600,
                     isLargeTablet: MediaQuery.of(context).size.width >= 900,

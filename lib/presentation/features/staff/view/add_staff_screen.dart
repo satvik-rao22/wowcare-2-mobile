@@ -7,6 +7,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -85,8 +86,12 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   // Phone number validation regex - now requires exactly 10 digits
   static final RegExp _phoneRegex = RegExp(r'^\\(\\d{3}\\)\\s\\d{3}-\\d{4}$');
   // Email validation regex
-  static final RegExp _emailRegex = RegExp(
-    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
+  // Email validation regexes: strict and permissive; accept if any matches
+  static final RegExp _emailRegexStrict = RegExp(
+    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+  );
+  static final RegExp _emailRegexPermissive = RegExp(
+    r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$',
   );
 
   @override
@@ -140,33 +145,48 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   void _addStaff() {
     _trimAllInputs();
     if (_firstNameController.text.isEmpty) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context, message: 'First name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name is required',
+        isError: true,
+      );
       return;
     }
     if (_lastNameController.text.isEmpty) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context, message: 'Last name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name is required',
+        isError: true,
+      );
       return;
     }
 
     final emailError = _validateEmail(_emailController.text);
     if (emailError != null) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context, message: emailError, isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: emailError,
+        isError: true,
+      );
       return;
     }
 
     final phoneError = _validatePhoneNumber(_phoneController.text);
     if (phoneError != null) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context, message: phoneError, isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: phoneError,
+        isError: true,
+      );
       return;
     }
 
     if (_selectedRole == null) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context, message: 'Please select a role', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select a role',
+        isError: true,
+      );
       return;
     }
 
@@ -180,6 +200,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       setState(() {
         _allowedClassroomsError = 'Please select at least one allowed classroom';
       });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select Allowed Classrooms',
+        isError: true,
+      );
       return;
     }
 
@@ -187,12 +212,20 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       setState(() {
         _primaryClassroomError = 'Please select a primary classroom';
       });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select a Primary Classroom',
+        isError: true,
+      );
       return;
     }
 
     if (_selectedStatus == null) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context, message: 'Please select a status', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select a status',
+        isError: true,
+      );
       return;
     }
 
@@ -200,6 +233,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     if (_isAdminSelected) {
       // Ensure designation picked from admin list
       if (_selectedDesignation == null || !_adminDesignationOptions.contains(_selectedDesignation)) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a valid designation',
+          isError: true,
+        );
         return;
       }
       // Admins have all classrooms allowed by default
@@ -210,6 +248,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     } else {
       // Staff designation validation
       if (_selectedDesignation == null || !_staffDesignationOptions.contains(_selectedDesignation)) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a valid designation',
+          isError: true,
+        );
         return;
       }
     }
@@ -223,10 +266,28 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       setState(() {
         _isSubmitting = false;
       });
-      // CoreUtils.showTopSnackBar(
-      //     context: context, message: 'Staff created successfully', isSuccess: true);
-      Navigator.pop(context);
+      final staffName = _composeStaffName();
+      // Debug
+      print('[AddStaff] Returning to previous screen with staffName="$staffName"');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'A new staff${staffName.isNotEmpty ? ' $staffName ' : ' '}is added successfully',
+        isSuccess: true,
+      );
+      final result = {
+        'showPostAddPrompt': true,
+        'staffName': staffName,
+      };
+      print('[AddStaff] Navigator.pop result: ' + result.toString());
+      Navigator.pop(context, result);
     });
+  }
+
+  String _composeStaffName() {
+    final first = _firstNameController.text.trim();
+    final last = _lastNameController.text.trim();
+    final name = [first, last].where((p) => p.isNotEmpty).join(' ');
+    return name;
   }
 
   void _trimAllInputs() {
@@ -272,27 +333,61 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
 
   String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
+    // Debug logging to diagnose email validation issues
+    final raw = value ?? '';
+    final trimmed = raw.trim().toLowerCase();
+    print('[Email Validation] raw: "$raw"');
+    print('[Email Validation] trimmed: "$trimmed"');
+    print('[Email Validation] strict regex: ${_emailRegexStrict.pattern}');
+    print('[Email Validation] permissive regex: ${_emailRegexPermissive.pattern}');
+
+    if (trimmed.isEmpty) {
+      print('[Email Validation] FAIL: empty');
       return 'Email is required';
     }
-    if (!_emailRegex.hasMatch(value)) {
+
+    final hasAt = trimmed.contains('@');
+    final hasDot = trimmed.contains('.') && trimmed.lastIndexOf('.') > trimmed.indexOf('@');
+    final strictMatch = _emailRegexStrict.hasMatch(trimmed);
+    final permissiveMatch = _emailRegexPermissive.hasMatch(trimmed);
+    final matches = strictMatch || permissiveMatch || (hasAt && hasDot && trimmed.length >= 6);
+    print('[Email Validation] hasAt: $hasAt, hasDotAfterAt: $hasDot');
+    print('[Email Validation] strictMatch: $strictMatch, permissiveMatch: $permissiveMatch');
+    print('[Email Validation] final hasMatch: $matches');
+    if (!matches) {
+      // Pinpoint common issues
+      if (trimmed.contains(' ')) {
+        print('[Email Validation] contains spaces');
+      }
+      if (!trimmed.contains('@')) {
+        print('[Email Validation] missing @');
+      }
+      if (!trimmed.contains('.')) {
+        print('[Email Validation] missing dot in domain');
+      }
       return 'Please enter a valid email address';
     }
     return null;
   }
 
   String? _validatePhoneNumber(String? value) {
-    if (value == null || value.isEmpty) {
+    final raw = (value ?? '').trim();
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    print('[Phone Validation] raw: "$raw"');
+    print('[Phone Validation] digitsOnly: "$digits"');
+    print('[Phone Validation] regex: ${_phoneRegex.pattern}');
+
+    if (raw.isEmpty) {
       return 'Phone number is required';
     }
-    final digits = value.replaceAll(RegExp(r'\\D'), '');
     if (digits.length != 10) {
+      print('[Phone Validation] FAIL: digits length = ${digits.length}');
       return 'Please enter a valid 10-digit phone number';
     }
-    if (!_phoneRegex.hasMatch(value)) {
-      return 'Please enter a valid US phone number (e.g., (123) 456-7890)';
-    }
-    return null;
+    // Accept either formatted string OR any 10-digit input (formatter will format on type)
+    final formattedMatch = _phoneRegex.hasMatch(raw);
+    print('[Phone Validation] formattedMatch: $formattedMatch');
+    return null; // digits == 10 is sufficient
   }
 
   @override
@@ -484,64 +579,116 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                 SizedBox(height: responsive.verticalSpacing),
                           // Classroom Selection Widget
                           if (!_isAdminSelected)
-                            ClassroomSelectionWidgetExact(
-                              primaryClassroom: _selectedPrimaryClassroom,
-                              allowedClassrooms: _selectedAllowedClassroomCodes,
-                              availableClassrooms: _classrooms,
-                              onPrimaryClassroomChanged: (classroom) {
-                                setState(() {
-                                  _selectedPrimaryClassroom = classroom;
-                                  _primaryClassroomError = null;
-                                });
-                              },
-                              onAllowedClassroomsChanged: (classrooms) {
-                                setState(() {
-                                  _selectedAllowedClassroomCodes = classrooms;
-                                  _allowedClassroomsError = null;
-                                });
-                              },
-                              primaryClassroomError: _primaryClassroomError,
-                              allowedClassroomsError: _allowedClassroomsError,
+                            Column(
+                              children: [
+                                // Allowed Classrooms
+                                ClassroomSelectionWidgetExact(
+                                  primaryClassroom: _selectedPrimaryClassroom,
+                                  allowedClassrooms: _selectedAllowedClassroomCodes,
+                                  availableClassrooms: _classrooms,
+                                  onPrimaryClassroomChanged: (classroom) {
+                                    setState(() {
+                                      _selectedPrimaryClassroom = classroom;
+                                      _primaryClassroomError = null;
+                                    });
+                                  },
+                                  onAllowedClassroomsChanged: (classrooms) {
+                                    setState(() {
+                                      _selectedAllowedClassroomCodes = classrooms;
+                                      _allowedClassroomsError = null;
+                                      // Clear primary classroom if it's not in allowed classrooms anymore
+                                      if (_selectedPrimaryClassroom != null && 
+                                          !classrooms.contains(_selectedPrimaryClassroom)) {
+                                        _selectedPrimaryClassroom = null;
+                                      }
+                                    });
+                                  },
+                                  primaryClassroomError: _primaryClassroomError,
+                                  allowedClassroomsError: _allowedClassroomsError,
+                                  showPrimaryClassroom: false, // Hide primary classroom section
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                                // Primary Classroom Dropdown
+                                Stack(
+                                  children: [
+                                    CustomDropdown(
+                                      label: "Primary Classroom",
+                                      hintText: 'Select',
+                                      items: _selectedAllowedClassroomCodes,
+                                      selectedItem: _selectedPrimaryClassroom,
+                                      labelStyle: TextStyle(
+                                        fontSize: responsive.labelFontSize,
+                                        fontFamily: "Manrope",
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xff573353),
+                                      ),
+                                      showAsterisk: true,
+                                      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                                      fieldHeight: responsive.isTablet ? 64.0 : 56.0, // Bigger height
+                                      onSelect: (val) {
+                                        if (val == null) return;
+                                        setState(() {
+                                          _selectedPrimaryClassroom = val;
+                                          _primaryClassroomError = null;
+                                        });
+                                      },
+                                    ),
+                                    if (_selectedAllowedClassroomCodes.isEmpty)
+                                      Positioned.fill(
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () {
+                                            CoreUtils.showTopSnackBar(
+                                              context: context,
+                                              message: 'Please select Allowed Classrooms first',
+                                              isError: true,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             )
                           else
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 6),
-                                    child: Text(
-                                      'All classrooms are allowed for admin users',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: 'Manrope',
-                                        color: const Color(0xff573353),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                CustomDropdown(
-                                  label: "Primary Classroom",
-                                  hintText: 'Select',
-                                  items: ['Office', ..._classrooms.where((e) => e != 'Office')],
-                                  selectedItem: _selectedPrimaryClassroom,
-                                  labelStyle: TextStyle(
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                child: Text(
+                                  'All classrooms are allowed for admin users',
+                                  style: TextStyle(
                                     fontSize: responsive.labelFontSize,
-                                    fontFamily: "Manrope",
-                                    fontWeight: FontWeight.w400,
+                                    fontFamily: 'Manrope',
                                     color: const Color(0xff573353),
                                   ),
-                                  showAsterisk: true,
-                                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                                  onSelect: (val) {
-                                    if (val == null) return;
-                                    setState(() => _selectedPrimaryClassroom = val);
-                                  },
+                                ),
+                              ),
+                            ),
+                                SizedBox(height: responsive.verticalSpacing),
+                          CustomDropdown(
+                            label: "Primary Classroom",
+                            hintText: 'Select',
+                                  items: ['Office', ..._classrooms.where((e) => e != 'Office')],
+                            selectedItem: _selectedPrimaryClassroom,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            showAsterisk: true,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onSelect: (val) {
+                              if (val == null) return;
+                              setState(() => _selectedPrimaryClassroom = val);
+                            },
                                 ),
                               ],
-                            ),
+                          ),
                                 SizedBox(height: responsive.verticalSpacing),
                           CustomDropdown(
                             label: "Status",
