@@ -31,7 +31,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     return Scaffold(
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
           child: Column(
             children: [
               Container(

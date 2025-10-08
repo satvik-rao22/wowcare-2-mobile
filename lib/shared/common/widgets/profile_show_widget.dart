@@ -92,20 +92,41 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       children: [
         avatar,
         Positioned(
-          right: 0,
-          top: 0,
-          child: Container(
-            width: widget.size * 0.22,
-            height: widget.size * 0.22,
+          right: 2,
+          top: 2,
+          child: Tooltip(
+            message: _statusTooltipMessage(widget.statusColor!),
+            waitDuration: const Duration(milliseconds: 100),
+            showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: widget.statusColor,
+              color: AppColors.primaryColor.withOpacity(0.95),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white, width: 2),
+            ),
+            textStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontFamily: 'Manrope',
+              fontWeight: FontWeight.w600,
+            ),
+            child: Container(
+              width: widget.size * 0.22,
+              height: widget.size * 0.22,
+              decoration: BoxDecoration(
+                color: widget.statusColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
             ),
           ),
         ),
       ],
     );
+  }
+
+  String _statusTooltipMessage(Color c) {
+    if (c.green >= c.red && c.green > 120) return 'Staff is signed in';
+    if (c.red > 180 && c.green < 120) return 'Staff is absent';
+    return 'Status';
   }
 
   Widget _buildInitialsAvatar() {

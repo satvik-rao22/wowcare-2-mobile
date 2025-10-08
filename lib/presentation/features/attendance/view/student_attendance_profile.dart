@@ -44,23 +44,45 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         onRefresh: _onRefresh,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(8),
           child: Column(
             children: [
-              const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.only(left: 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "View Staff Attendance",
-                    style: TextStyle(
-                      fontFamily: "Manrope",
-                      fontSize: responsive.titleFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xff573353),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "View Staff Attendance",
+                          style: TextStyle(
+                            fontFamily: "Manrope",
+                            fontSize: responsive.titleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff573353),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    // Gradient action button opening vertical popup
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildPrimaryGradient(),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => _showActionMenu(context),
+                          child: const Icon(Icons.more_vert, color: Colors.white, size: 22),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               SizedBox(height: responsive.isTablet ? 32.0 : 20.0),

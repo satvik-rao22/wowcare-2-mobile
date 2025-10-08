@@ -56,7 +56,7 @@ class StaffProfileTab extends StatelessWidget {
     final breakTimes = _getFormattedTimes(schedules, true);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -189,120 +189,139 @@ class StaffProfileTab extends StatelessWidget {
                 color: chipColors.first,
               ),
             ),
-          const SizedBox(height: 16),
-          // Availability with edit icon on the right, chips below
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Availability',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xff573353),
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditScheduleScreen(
-                        initialSchedules: schedules,
-                      ),
-                    ),
-                  );
-                },
-                child: const Icon(
-                  Icons.edit,
-                  size: 16,
-                  color: Color(0x99573353),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _allDays.map((day) {
-                    final isAvailable =
-                        day == 'Monday' ||
-                        day == 'Tuesday' ||
-                        day == 'Wednesday' ||
-                        day == 'Thursday';
-                    return Opacity(
-                      opacity: isAvailable ? 1 : 0.4,
-                      child: _Chip(
-                        label: day,
-                        labelColor: isAvailable
-                            ? const Color.fromRGBO(27, 35, 126, 1)
-                            : Colors.grey[700]!,
-                        color: isAvailable
-                            ? const Color.fromRGBO(203, 246, 255, 0.4)
-                            : const Color(0xFFF3F4FB),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _Field(
-            label: 'Work Time',
-            value: null,
-            trailing: Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _allDays.map((day) {
-                      final isAvailable =
-                          day == 'Monday' ||
-                          day == 'Tuesday' ||
-                          day == 'Wednesday' ||
-                          day == 'Thursday';
-                      final String value = (workTimes[day] ?? '- -');
-                      final String display = value == '- -' ? '07:00AM - 05:30PM' : value;
-                      return Opacity(
-                        opacity: isAvailable ? 1 : 0.4,
-                        child: _TimeChip(label: display),
-                      );
-                    }).toList(),
+          // Availability + surrounding area navigates to EditScheduleScreen
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditScheduleScreen(
+                    initialSchedules: schedules,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _Field(
-            label: 'Break Time',
-            value: null,
-            trailing: Row(
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _allDays.map((day) {
-                      final isAvailable =
-                          day == 'Monday' ||
-                          day == 'Tuesday' ||
-                          day == 'Wednesday' ||
-                          day == 'Thursday';
-                      final String value = (breakTimes[day] ?? '- -');
-                      final String display = value == '- -' ? '01:00PM - 01:30PM' : value;
-                      return Opacity(
-                        opacity: isAvailable ? 1 : 0.4,
-                        child: _TimeChip(label: display),
-                      );
-                    }).toList(),
+                const SizedBox(height: 16),
+                // Availability with edit icon on the right, chips below
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Availability',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xff573353),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditScheduleScreen(
+                              initialSchedules: schedules,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: Color(0x99573353),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _allDays.map((day) {
+                          final isAvailable =
+                              day == 'Monday' ||
+                              day == 'Tuesday' ||
+                              day == 'Wednesday' ||
+                              day == 'Thursday';
+                          return Opacity(
+                            opacity: isAvailable ? 1 : 0.4,
+                            child: _Chip(
+                              label: day,
+                              labelColor: isAvailable
+                                  ? const Color.fromRGBO(27, 35, 126, 1)
+                                  : Colors.grey[700]!,
+                              color: isAvailable
+                                  ? const Color.fromRGBO(203, 246, 255, 0.4)
+                                  : const Color(0xFFF3F4FB),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _Field(
+                  label: 'Work Time',
+                  value: null,
+                  trailing: Row(
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _allDays.map((day) {
+                            final isAvailable =
+                                day == 'Monday' ||
+                                day == 'Tuesday' ||
+                                day == 'Wednesday' ||
+                                day == 'Thursday';
+                            final String value = (workTimes[day] ?? '- -');
+                            final String display = value == '- -' ? '07:00AM - 05:30PM' : value;
+                            return Opacity(
+                              opacity: isAvailable ? 1 : 0.4,
+                              child: _TimeChip(label: display),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _Field(
+                  label: 'Break Time',
+                  value: null,
+                  trailing: Row(
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _allDays.map((day) {
+                            final isAvailable =
+                                day == 'Monday' ||
+                                day == 'Tuesday' ||
+                                day == 'Wednesday' ||
+                                day == 'Thursday';
+                            final String value = (breakTimes[day] ?? '- -');
+                            final String display = value == '- -' ? '01:00PM - 01:30PM' : value;
+                            return Opacity(
+                              opacity: isAvailable ? 1 : 0.4,
+                              child: _TimeChip(label: display),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

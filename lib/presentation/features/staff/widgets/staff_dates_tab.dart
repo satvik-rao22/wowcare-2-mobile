@@ -9,7 +9,7 @@ class StaffDatesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -83,7 +83,7 @@ class StaffDatesTab extends StatelessWidget {
               const _DateRow(
                 label: 'Background Record Check Expiration Date',
                 text: 'Background Record Check Expiration Date',
-                showInfo: true,
+                showInfo: false,
               ),
               const SizedBox(height: 16),
               Column(
@@ -141,7 +141,7 @@ class _DateRow extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: AppColors.primaryColor.withOpacity(0.5),
-              fontSize: 16,
+                  fontSize: 16,
                   letterSpacing: 14 * (-3 / 100),
                 ),
                 maxLines: 2,
@@ -150,17 +150,45 @@ class _DateRow extends StatelessWidget {
             ),
             if (showInfo) ...[
               const SizedBox(width: 6),
-              Icon(
-                Icons.info_outline,
-                size: 14,
-                color: AppColors.primaryColor.withOpacity(0.5),
+              Tooltip(
+                message: 'Child Development Associate',
+                triggerMode: TooltipTriggerMode.tap,
+                preferBelow: true,
+                waitDuration: Duration(milliseconds: 50),
+                showDuration: Duration(seconds: 2),
+                verticalOffset: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                textStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontFamily: 'Manrope',
+                  fontWeight: FontWeight.w600,
+                ),
+                child: Icon(
+                  Icons.info_outline,
+                  size: 22,
+                  color: AppColors.primaryColor,
+                ),
               ),
             ],
           ],
         ),
         const SizedBox(height: 6),
         Text(
-          text,
+          (() {
+            final t = text.trim();
+            final tl = t.toLowerCase();
+            if (t.isEmpty) return '-';
+            if (tl.contains('no cda')) return '-';
+            if (tl.contains('first aid') || tl.contains('cpr')) return '-';
+            if (tl.contains('background record')) return '-';
+            return text;
+          })(),
           textAlign: TextAlign.left,
           style: const TextStyle(
             color: AppColors.primaryColor,
