@@ -102,7 +102,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const StudentScreen()),
+                          MaterialPageRoute(builder: (_) => StudentScreen()),
                         );
                       },
                     ),

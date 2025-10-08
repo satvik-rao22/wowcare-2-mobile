@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -323,5 +324,3 @@ class _StudentScreenState extends State<StudentScreen> {
     );
   }
 }
-
-

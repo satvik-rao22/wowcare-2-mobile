@@ -58,8 +58,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneNumberController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
+  final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
+  final TextEditingController _pinController = TextEditingController();
   
   String? _selectedStatus;
   String? _selectedDesignation;
@@ -78,6 +80,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final List<String> _stateOptions = ['New Hampshire', 'Massachusetts', 'Vermont', 'Maine', 'Connecticut'];
   final List<String> _countryOptions = ['United States', 'Canada', 'Mexico'];
 
+  // Simple validators (align with Add Staff)
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
+  static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
+  static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +100,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     _emailController.text = widget.initialEmail ?? 'Jessica@wowcare.com';
     _phoneNumberController.text = widget.initialPhoneNumber ?? '(986) 027-1627';
     _streetController.text = widget.initialStreet ?? '';
+    _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
     _selectedState = widget.initialState ?? 'New Hampshire';
     _selectedCountry = widget.initialCountry ?? 'United States';
@@ -105,6 +113,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneNumberController.dispose();
+    _street2Controller.dispose();
     _streetController.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
@@ -112,11 +121,17 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   }
 
   void _saveProfileDetails() {
-    if (_firstNameController.text.isEmpty) {
+    final first = _firstNameController.text.trim();
+    final last = _lastNameController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
+    final phoneRaw = _phoneNumberController.text.trim();
+    final phoneDigits = phoneRaw.replaceAll(RegExp(r'\D'), '');
+
+    if (first.isEmpty || !_nameRegex.hasMatch(first)) {
       _showWarningMessage('First Name is required');
       return;
     }
-    if (_lastNameController.text.isEmpty) {
+    if (last.isEmpty || !_nameRegex.hasMatch(last)) {
       _showWarningMessage('Last Name is required');
       return;
     }
@@ -128,11 +143,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       _showWarningMessage('Primary Classroom is required');
       return;
     }
-    if (_emailController.text.isEmpty) {
+    if (email.isEmpty || !_emailRegex.hasMatch(email)) {
       _showWarningMessage('Email is required');
       return;
     }
-    if (_phoneNumberController.text.isEmpty) {
+    if (phoneDigits.length < 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
       _showWarningMessage('Phone Number is required');
       return;
     }
@@ -144,7 +159,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       _showWarningMessage('City is required');
       return;
     }
-    if (_zipCodeController.text.isEmpty) {
+    if (_zipCodeController.text.trim().isEmpty) {
       _showWarningMessage('Zip Code is required');
       return;
     }
@@ -257,6 +272,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           // Address Information Section
           _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
+          _buildInputField("Address line 2", "(Optional)", _street2Controller, isRequired: false),
+          SizedBox(height: responsive.verticalSpacing),
           _buildInputField("City", "Eg. Nashua", _cityController, isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
           _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (value) => setState(() => _selectedState = value), isRequired: true),
@@ -264,6 +281,12 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (value) => setState(() => _selectedCountry = value), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
           _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
+          SizedBox(height: responsive.verticalSpacing),
+          _buildPinField(responsive),
+          SizedBox(height: responsive.verticalSpacing),
+          _buildWorkTimeSection(responsive),
+          SizedBox(height: responsive.verticalSpacing),
+          _buildBreakTimeSection(responsive),
           
           const SizedBox(height: 12),
         ],
@@ -376,6 +399,136 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       items: items,
       selectedItem: selectedItem,
       onSelect: onSelect,
+    );
+  }
+
+  Widget _buildPinField(ResponsiveHelper responsive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: responsive.labelFontSize,
+              fontFamily: "Manrope",
+              fontWeight: FontWeight.w400,
+              color: const Color(0xff573353),
+            ),
+            children: const [
+              TextSpan(text: 'Clock In-Out PIN'),
+              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F7FA),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  controller: _pinController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: responsive.inputFieldHeight,
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: TextButton(
+                onPressed: _generatePin,
+                child: const Text(
+                  'Generate',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _generatePin() {
+    final now = DateTime.now().millisecondsSinceEpoch.toString();
+    final pin = now.substring(now.length - 4);
+    setState(() {
+      _pinController.text = pin;
+    });
+  }
+
+  Widget _buildWorkTimeSection(ResponsiveHelper responsive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Work Time',
+          style: TextStyle(
+            fontSize: responsive.labelFontSize,
+            fontFamily: "Manrope",
+            fontWeight: FontWeight.w400,
+            color: const Color(0xff573353),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: responsive.inputFieldHeight,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F7FA),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: const Text('Select working days & time (coming soon)', style: TextStyle(color: AppColors.primaryColor)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBreakTimeSection(ResponsiveHelper responsive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Break Time',
+          style: TextStyle(
+            fontSize: responsive.labelFontSize,
+            fontFamily: "Manrope",
+            fontWeight: FontWeight.w400,
+            color: const Color(0xff573353),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: responsive.inputFieldHeight,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F7FA),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: const Text('Select break days & time (coming soon)', style: TextStyle(color: AppColors.primaryColor)),
+        ),
+      ],
     );
   }
 
