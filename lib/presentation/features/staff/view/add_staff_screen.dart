@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-// import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-// import 'package:wowcare/shared/utils/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -48,11 +47,15 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   String? _selectedDesignation;
   String? _selectedPrimaryClassroom;
   final List<String> _classrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C'
+    'Nursery A',
+    'Nursery B', 
+    'Playgroup',
+    'Daycare',
+    'Office'
   ]; // Mock data
   List<String> _selectedAllowedClassroomCodes = [];
+  String? _primaryClassroomError;
+  String? _allowedClassroomsError;
   bool _isLoading = false;
   bool _isSubmitting = false;
 
@@ -167,19 +170,23 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       return;
     }
 
+    // Validate classroom selection
+    setState(() {
+      _primaryClassroomError = null;
+      _allowedClassroomsError = null;
+    });
+
     if (!_isAdminSelected && _selectedAllowedClassroomCodes.isEmpty) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context,
-      //     message: 'Please select at least one allowed classroom',
-      //     isError: true);
+      setState(() {
+        _allowedClassroomsError = 'Please select at least one allowed classroom';
+      });
       return;
     }
 
     if (_selectedPrimaryClassroom == null) {
-      // CoreUtils.showTopSnackBar(
-      //     context: context,
-      //     message: 'Please select a primary classroom',
-      //     isError: true);
+      setState(() {
+        _primaryClassroomError = 'Please select a primary classroom';
+      });
       return;
     }
 
@@ -263,148 +270,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     _overlayEntry = null;
   }
 
-  void _showSingleSelectDropdown({
-    required BuildContext context,
-    required List<String> items,
-    required Function(String) onSelected,
-    required GlobalKey key,
-  }) {
-    if (_overlayEntry != null) {
-      _removeDropdownOverlay();
-      return;
-    }
-
-    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-    final size = renderBox.size;
-    final position = renderBox.localToGlobal(Offset.zero);
-
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _removeDropdownOverlay,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-          Positioned(
-            top: position.dy + size.height,
-            left: position.dx,
-            width: size.width,
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(8),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 200),
-                child: ListView.builder(
-                  padding: EdgeInsets.zero,
-                  shrinkWrap: true,
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return ListTile(
-                      title: Text(item),
-                      onTap: () {
-                        onSelected(item);
-                        _removeDropdownOverlay();
-                      },
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _showMultiSelectDropdown({
-    required BuildContext context,
-    required List<String> items,
-    required List<String> selectedItems,
-    required Function(List<String>) onConfirm,
-    required GlobalKey key,
-  }) {
-    if (_overlayEntry != null) {
-      _removeDropdownOverlay();
-      return;
-    }
-
-    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-    final size = renderBox.size;
-    final position = renderBox.localToGlobal(Offset.zero);
-
-    final tempSelected = List<String>.from(selectedItems);
-
-    _overlayEntry = OverlayEntry(
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _removeDropdownOverlay,
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            Positioned(
-              top: position.dy + size.height - 40,
-              left: position.dx,
-              width: size.width,
-              child: Material(
-                elevation: 4,
-                borderRadius: BorderRadius.circular(8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      child: ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          return CheckboxListTile(
-                            title: Text(item),
-                            value: tempSelected.contains(item),
-                            onChanged: (value) {
-                              setDialogState(() {
-                                if (value == true) {
-                                  tempSelected.add(item);
-                                } else {
-                                  tempSelected.remove(item);
-                                }
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          onConfirm(tempSelected);
-                          _removeDropdownOverlay();
-                        },
-                        child: const Text('OK'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    Overlay.of(context).insert(_overlayEntry!);
-  }
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -617,52 +482,66 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             onSelect: (val) => setState(() => _selectedDesignation = val ?? _selectedDesignation),
                           ),
                                 SizedBox(height: responsive.verticalSpacing),
+                          // Classroom Selection Widget
                           if (!_isAdminSelected)
-                            _buildMultiSelectDropdown(
-                              label: "Allowed Classrooms",
-                              selectedCount:
-                                  _selectedAllowedClassroomCodes.length,
-                              items: _classrooms,
-                              selectedItems: _selectedAllowedClassroomCodes,
-                              onConfirm: (values) => setState(
-                                  () => _selectedAllowedClassroomCodes = values),
+                            ClassroomSelectionWidgetExact(
+                              primaryClassroom: _selectedPrimaryClassroom,
+                              allowedClassrooms: _selectedAllowedClassroomCodes,
+                              availableClassrooms: _classrooms,
+                              onPrimaryClassroomChanged: (classroom) {
+                                setState(() {
+                                  _selectedPrimaryClassroom = classroom;
+                                  _primaryClassroomError = null;
+                                });
+                              },
+                              onAllowedClassroomsChanged: (classrooms) {
+                                setState(() {
+                                  _selectedAllowedClassroomCodes = classrooms;
+                                  _allowedClassroomsError = null;
+                                });
+                              },
+                              primaryClassroomError: _primaryClassroomError,
+                              allowedClassroomsError: _allowedClassroomsError,
                             )
                           else
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                child: Text(
-                                  'All classrooms are allowed for admin users',
-                                  style: TextStyle(
-                                    fontSize: responsive.labelFontSize,
-                                    fontFamily: 'Manrope',
-                                    color: const Color(0xff573353),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: Text(
+                                      'All classrooms are allowed for admin users',
+                                      style: TextStyle(
+                                        fontSize: responsive.labelFontSize,
+                                        fontFamily: 'Manrope',
+                                        color: const Color(0xff573353),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
                                 SizedBox(height: responsive.verticalSpacing),
-                          CustomDropdown(
-                            label: "Primary Classroom",
-                            hintText: 'Select',
-                            items: _isAdminSelected
-                                ? (['Office', ..._classrooms.where((e) => e != 'Office')])
-                                : _classrooms,
-                            selectedItem: _selectedPrimaryClassroom,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
+                                CustomDropdown(
+                                  label: "Primary Classroom",
+                                  hintText: 'Select',
+                                  items: ['Office', ..._classrooms.where((e) => e != 'Office')],
+                                  selectedItem: _selectedPrimaryClassroom,
+                                  labelStyle: TextStyle(
+                                    fontSize: responsive.labelFontSize,
+                                    fontFamily: "Manrope",
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xff573353),
+                                  ),
+                                  showAsterisk: true,
+                                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                                  onSelect: (val) {
+                                    if (val == null) return;
+                                    setState(() => _selectedPrimaryClassroom = val);
+                                  },
+                                ),
+                              ],
                             ),
-                            showAsterisk: true,
-                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            onSelect: (val) {
-                              if (val == null) return;
-                              setState(() => _selectedPrimaryClassroom = val);
-                            },
-                          ),
                                 SizedBox(height: responsive.verticalSpacing),
                           CustomDropdown(
                             label: "Status",
@@ -827,160 +706,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     );
   }
 
-  Widget _buildDropdown({
-    required String label,
-    String? value,
-    required List<String> items,
-    required Function(String) onSelected,
-  }) {
-    final responsive = ResponsiveHelper(context);
-    final key = GlobalKey();
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: "Manrope",
-              fontWeight: FontWeight.w400,
-              color: AppColors.primaryColor,
-            ),
-            children: [
-              TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
-        GestureDetector(
-          onTap: () {
-            if (label == 'Primary Classroom' &&
-                _selectedAllowedClassroomCodes.isEmpty) {
-              // CoreUtils.showTopSnackBar(
-              //   context: context,
-              //   message: 'Please select allowed classrooms first',
-              //   isWarning: true,
-              // );
-              return;
-            }
-            _showSingleSelectDropdown(
-              context: context,
-              items: items,
-              onSelected: onSelected,
-              key: key,
-            );
-          },
-          child: Container(
-            height: responsive.inputFieldHeight,
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.isTablet ? 20.0 : 16.0,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x66573353)),
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-              color: Colors.white,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    value ?? 'Select',
-                    style: TextStyle(
-                      color: value == null ? Colors.grey : Colors.black,
-                      fontSize: responsive.inputFontSize,
-                      fontFamily: 'Manrope',
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: const Color(0xff573353),
-                  size: responsive.isTablet ? 28.0 : 24.0,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMultiSelectDropdown({
-    required String label,
-    required int selectedCount,
-    required List<String> items,
-    required List<String> selectedItems,
-    required Function(List<String>) onConfirm,
-  }) {
-    final responsive = ResponsiveHelper(context);
-    final key = GlobalKey();
-    return Column(
-      key: key,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: "Manrope",
-              fontWeight: FontWeight.w400,
-              color: AppColors.primaryColor,
-            ),
-            children: [
-              TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
-        GestureDetector(
-          onTap: () => _showMultiSelectDropdown(
-            context: context,
-            items: items,
-            selectedItems: selectedItems,
-            onConfirm: onConfirm,
-            key: key,
-          ),
-          child: Container(
-            height: responsive.inputFieldHeight,
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.isTablet ? 20.0 : 16.0,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x66573353)),
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-              color: Colors.white,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    selectedCount == 0
-                        ? 'Select'
-                        : '$selectedCount Classroom(s) selected',
-                    style: TextStyle(
-                      color: selectedCount == 0 ? Colors.grey : Colors.black,
-                      fontSize: responsive.inputFontSize,
-                      fontFamily: 'Manrope',
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: const Color(0xff573353),
-                  size: responsive.isTablet ? 28.0 : 24.0,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class PhoneNumberFormatter extends TextInputFormatter {

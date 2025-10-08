@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -100,7 +101,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: MediaRes.students_drawer_icon,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const StudentScreen()),
+                        );
                       },
                     ),
                     _CustomExpansionTile(
