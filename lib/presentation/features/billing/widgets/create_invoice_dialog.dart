@@ -92,7 +92,7 @@ class CreateInvoiceDialog extends StatelessWidget {
   }
 }
 
-class _CreateInvoiceTypeCard extends StatelessWidget {
+class _CreateInvoiceTypeCard extends StatefulWidget {
   final String title;
   final String subtitle;
   final IconData icon;
@@ -105,16 +105,42 @@ class _CreateInvoiceTypeCard extends StatelessWidget {
   });
 
   @override
+  State<_CreateInvoiceTypeCard> createState() => _CreateInvoiceTypeCardState();
+}
+
+class _CreateInvoiceTypeCardState extends State<_CreateInvoiceTypeCard> {
+  bool _isHighlighted = false;
+
+  void _setHighlight(bool v) {
+    if (_isHighlighted == v) return;
+    setState(() => _isHighlighted = v);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final Color bgColor = _isHighlighted ? AppColors.themeColor : AppColors.cardColor;
+    final Color borderColor = _isHighlighted ? AppColors.themeColor : AppColors.cardBorderColor;
+    final Color primaryText = _isHighlighted ? Colors.white : const Color(0xff573353);
+    final Color secondaryText = _isHighlighted ? Colors.white70 : const Color(0x99573353);
+    final Color iconBg = _isHighlighted ? Colors.white24 : AppColors.themeColor.withOpacity(0.1);
+    final Color iconColor = _isHighlighted ? Colors.white : AppColors.themeColor;
+
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
+      onHighlightChanged: _setHighlight,
+      overlayColor: MaterialStatePropertyAll(
+        AppColors.themeColor.withOpacity(0.12),
+      ),
+      splashColor: AppColors.themeColor.withOpacity(0.16),
+      highlightColor: AppColors.themeColor.withOpacity(0.1),
       borderRadius: BorderRadius.circular(12),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.cardColor,
+          color: bgColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor),
+          border: Border.all(color: borderColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,29 +148,29 @@ class _CreateInvoiceTypeCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.themeColor.withOpacity(0.1),
+                color: iconBg,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: AppColors.themeColor, size: 22),
+              child: Icon(widget.icon, color: iconColor, size: 22),
             ),
             const SizedBox(height: 12),
             Text(
-              title,
-              style: const TextStyle(
+              widget.title,
+              style: TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xff573353),
+                color: primaryText,
                 height: 1.2,
               ),
             ),
             const SizedBox(height: 10),
             Text(
-              subtitle,
-              style: const TextStyle(
+              widget.subtitle,
+              style: TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 12,
-                color: Color(0x99573353),
+                color: secondaryText,
                 height: 1.3,
               ),
             ),

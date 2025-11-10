@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/view/Accounting/students.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
+import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -71,7 +72,11 @@ class _BillingScreenState extends State<BillingScreen>
                                     builder: (ctx) => CreateInvoiceDialog(
                                       onSelectOneTime: () {
                                         Navigator.of(ctx).maybePop();
-                                        // TODO: navigate to one-time invoice flow
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => const SelectStudentsScreen(),
+                                          ),
+                                        );
                                       },
                                       onSelectRecurring: () {
                                         Navigator.of(ctx).maybePop();
