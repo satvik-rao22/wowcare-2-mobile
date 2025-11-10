@@ -570,7 +570,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     Function(TimeType) onTimeSelected,
     ResponsiveHelper responsive,
     String day,
-    {bool enabled = true},
+    {bool enabled = true}
   ) {
     return Opacity(
       opacity: enabled ? 1.0 : 0.5,

@@ -4,6 +4,7 @@ import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.da
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 
 class AppRoutes {
   static const String firstScreen = '/first-screen';
@@ -36,6 +37,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case EditProfileDetailsScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const EditProfileDetailsScreen(),
+        settings: settings,
+      );
+    case BillingScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const BillingScreen(),
         settings: settings,
       );
     default:
