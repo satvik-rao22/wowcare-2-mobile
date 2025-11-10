@@ -20,6 +20,8 @@ class CustomStatBarCard extends StatelessWidget {
     required this.items,
     this.onLegendTap,
     this.fullWidthBar = false,
+    this.numberFontSize,
+    this.titleFontSize,
     super.key,
   });
 
@@ -28,6 +30,8 @@ class CustomStatBarCard extends StatelessWidget {
   final List<ProgressItemHelper> items;
   final void Function(String label)? onLegendTap;
   final bool fullWidthBar;
+  final double? numberFontSize;
+  final double? titleFontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -57,20 +61,31 @@ class CustomStatBarCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: AppColors.primaryColor.withOpacity(0.8),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 15,
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      color: const Color(0xff573353),
+                      fontWeight: FontWeight.w500,
+                      fontSize: titleFontSize ?? 15,
+                    ),
                   ),
                 ),
-                Text(
-                  number,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    color: AppColors.themeColor,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    number,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      color: AppColors.themeColor,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -163,8 +178,8 @@ class CustomStatBarCard extends StatelessWidget {
               children: [
                 Text(
                   number,
-                  style: const TextStyle(
-                    fontSize: 24,
+                  style: TextStyle(
+                    fontSize: numberFontSize ?? 24,
                     color: AppColors.themeColor,
                     fontWeight: FontWeight.w700,
                   ),
@@ -173,7 +188,8 @@ class CustomStatBarCard extends StatelessWidget {
                   title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.primaryColor.withOpacity(0.8),
+                    fontFamily: 'Manrope',
+                    color: const Color(0xff573353),
                     fontWeight: FontWeight.w500,
                   ),
                 ),

@@ -248,7 +248,7 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
               borderRadius: BorderRadius.circular(10),
               color: widget.isDisabled == true
                   ? const Color(0xFFF8F7FA).withValues(alpha: 0.5)
-                  : AppColors.fieldBackgroundColor,
+                  : (widget.isRangePicker ? Colors.white : AppColors.fieldBackgroundColor),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
