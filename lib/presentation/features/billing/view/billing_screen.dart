@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/billing/view/Accounting/students.d
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -20,8 +21,8 @@ class _BillingScreenState extends State<BillingScreen>
     with SingleTickerProviderStateMixin {
   static const List<String> _tabs = <String>[
     'Student(s)',
-    'Recurring Plans',
     'Transactions',
+    'Recurring Plans',
     'General Ledger',
     'Subsidies',
     'Analytics',
@@ -184,6 +185,8 @@ class _BillingScreenState extends State<BillingScreen>
                                   inProcessPercentage: 10,
                                   unpaidPercentage: 5,
                                 );
+                              } else if (current == 1) {
+                                content = const TransactionsSection();
                               } else {
                                 final String t = _tabs[current];
                                 content = Align(
