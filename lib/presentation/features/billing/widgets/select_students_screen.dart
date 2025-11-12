@@ -6,6 +6,8 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 
 // NOTE: UI-only screen. All API/backend-related code has been removed or commented out.
 // import 'dart:convert';
@@ -15,29 +17,6 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 // import 'package:wowcare/core/common/app/providers/auth_providers.dart';
 // import 'package:wowcare/core/util/core_utils.dart';
 // import 'selected_students_receipt_screen.dart';
-
-class Tag {
-  final int id;
-  final String name;
-  Tag({required this.id, required this.name});
-}
-
-class Student {
-  final int id;
-  final String fullName;
-  final String? photoUuid;
-  final String? roomName;
-  final int? roomId;
-  final List<Tag> tags;
-  Student({
-    required this.id,
-    required this.fullName,
-    this.photoUuid,
-    this.roomName,
-    this.roomId,
-    required this.tags,
-  });
-}
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData}) : super(key: key);
@@ -54,8 +33,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
   String selectedClassroom = 'Select Classroom';
   String selectedTag = 'Select Tags';
   String searchQuery = '';
-  bool selectAll = false;
-  List<bool> selected = [];
+  final Set<int> _selectedStudentIds = <int>{};
   final TextEditingController _searchController = TextEditingController();
   bool isLoading = true;
 
@@ -97,7 +75,6 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
     }
     tags = ['Select Tags', ...tagSet.toList()..sort()];
 
-    selected = List.generate(students.length, (_) => false);
     isLoading = false;
     setState(() {});
   }
@@ -119,6 +96,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = filteredStudents;
+    final bool areAllSelected =
+        filtered.isNotEmpty && filtered.every((student) => _selectedStudentIds.contains(student.id));
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final isLargeTablet = screenWidth > 900;
@@ -195,8 +175,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                 searchQuery = '';
                                 selectedClassroom = classrooms[0];
                                 selectedTag = tags[0];
-                                selectAll = false;
-                                selected = List.generate(students.length, (_) => false);
+                                _selectedStudentIds.clear();
                               });
                             },
                           ),
@@ -235,12 +214,16 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                 Row(
                   children: [
                     Checkbox(
-                      value: selectAll,
+                      value: areAllSelected,
                       onChanged: (val) {
                         setState(() {
-                          selectAll = val ?? false;
-                          final current = filteredStudents;
-                          selected = List.generate(current.length, (_) => selectAll);
+                          if (val ?? false) {
+                            _selectedStudentIds.addAll(filtered.map((student) => student.id));
+                          } else {
+                            _selectedStudentIds.removeWhere(
+                              (id) => filtered.any((student) => student.id == id),
+                            );
+                          }
                         });
                       },
                       activeColor: AppColors.themeColor,
@@ -269,20 +252,18 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   child: isLoading
                       ? const Center(child: GradientCircularProgress())
                       : ListView.builder(
-                          itemCount: filteredStudents.length,
+                          itemCount: filtered.length,
                           itemBuilder: (context, index) {
-                            final student = filteredStudents[index];
-                            final isChecked = selected.length > index ? selected[index] : false;
+                            final student = filtered[index];
+                            final isChecked = _selectedStudentIds.contains(student.id);
                             return GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  final next = !isChecked;
-                                  if (selected.length <= index) {
-                                    selected = List<bool>.from(selected)..add(next);
+                                  if (isChecked) {
+                                    _selectedStudentIds.remove(student.id);
                                   } else {
-                                    selected[index] = next;
+                                    _selectedStudentIds.add(student.id);
                                   }
-                                  selectAll = selected.isNotEmpty && selected.every((e) => e);
                                 });
                               },
                               child: Container(
@@ -333,13 +314,11 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                       value: isChecked,
                                       onChanged: (val) {
                                         setState(() {
-                                          final v = val ?? false;
-                                          if (selected.length <= index) {
-                                            selected = List<bool>.from(selected)..add(v);
+                                          if (val ?? false) {
+                                            _selectedStudentIds.add(student.id);
                                           } else {
-                                            selected[index] = v;
+                                            _selectedStudentIds.remove(student.id);
                                           }
-                                          selectAll = selected.isNotEmpty && selected.every((e) => e);
                                         });
                                       },
                                       activeColor: AppColors.themeColor,
@@ -395,24 +374,24 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               child: TextButton(
                 onPressed: () {
                   // UI-only: handle "Next" with a placeholder
-                  final selectedStudents = <Student>[];
-                  final current = filteredStudents;
-                  for (int i = 0; i < current.length; i++) {
-                    if (selected.length > i && selected[i]) {
-                      selectedStudents.add(current[i]);
-                    }
-                  }
+                  final selectedStudents = students
+                      .where((student) => _selectedStudentIds.contains(student.id))
+                      .toList();
                   if (selectedStudents.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please select at least one student')),
                     );
                     return;
                   }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Selected ${selectedStudents.length} student(s) — UI only')),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CreateInvoiceScreen(
+                        selectedStudents: selectedStudents,
+                        initialInvoiceData: widget.invoiceData,
+                      ),
+                    ),
                   );
-                  // Intended next navigation (UI-only, commented):
-                  // Navigator.push(context, MaterialPageRoute(builder: (_) => SelectedStudentsReceiptScreen(...)));
                 },
                 child: const Text(
                   'Next',
