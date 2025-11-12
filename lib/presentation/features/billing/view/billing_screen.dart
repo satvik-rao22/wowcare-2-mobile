@@ -45,6 +45,7 @@ class _BillingScreenState extends State<BillingScreen>
               children: [
                 Expanded(
                   child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
                     child: Padding(
                       padding: contentPadding,
                       child: Column(
@@ -89,116 +90,120 @@ class _BillingScreenState extends State<BillingScreen>
                             ],
                           ),
                           const SizedBox(height: 12),
-                          // Scrollable TabBar
-                           Container(
-                             decoration: BoxDecoration(
-                               color: Colors.transparent,
-                               borderRadius: BorderRadius.circular(12),
-                             ),
-                             padding: const EdgeInsets.symmetric(
-                               horizontal: 0,
-                               vertical: 8,
-                             ),
-                             child: Row(
-                               children: [
-                                 IconButton(
-                                   tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
-                                    splashRadius: 14,
-                                   icon: const Icon(Icons.chevron_left, color: Color(0xff573353), size: 25),
-                                   onPressed: () {
-                                     final int current = controller.index;
-                                     if (current > 0) {
-                                       controller.animateTo(current - 1);
-                                     }
-                                   },
-                                 ),
-                                 Expanded(
-                                   child: TabBar(
-                                     isScrollable: true,
-                                      padding: EdgeInsets.zero,
-                                     labelPadding: EdgeInsets.zero,
-                                     tabAlignment: TabAlignment.start,
-                                     labelColor: AppColors.themeColor,
-                                     unselectedLabelColor: const Color(0xff573353),
-                                     dividerColor: Colors.transparent,
-                                     indicatorSize: TabBarIndicatorSize.label,
-                                     indicator: UnderlineTabIndicator(
-                                       borderSide: BorderSide(
-                                         color: AppColors.themeColor,
-                                         width: 2,
-                                       ),
-                                     ),
-                                     tabs: List<Widget>.generate(
-                                       _tabs.length,
-                                       (int index) => Padding(
-                                         padding: EdgeInsets.fromLTRB(
-                                          index == 0 ? 4 : 12,
-                                           6,
-                                          12,
-                                           6,
-                                         ),
-                                         child: Text(
-                                           _tabs[index],
-                                           style: const TextStyle(
-                                             fontFamily: 'Manrope',
-                                            fontSize: 16,
-                                             fontWeight: FontWeight.w600,
-                                           ),
-                                         ),
-                                       ),
-                                     ),
-                                   ),
-                                 ),
-                                 IconButton(
-                                   tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(width: 26, height: 32),
-                                    splashRadius: 14,
-                                    icon: const Icon(Icons.chevron_right, color: Color(0xff573353), size: 25),
-                                   onPressed: () {
-                                     final int current = controller.index;
-                                     if (current < _tabs.length - 1) {
-                                       controller.animateTo(current + 1);
-                                     }
-                                   },
-                                 ),
-                               ],
-                             ),
-                           ),
-                          const SizedBox(height: 12),
-                          // Tab content
-                          SizedBox(
-                            height: 400,
-                            child: TabBarView(
+                          // Scrollable TabBar (horizontal only)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 0,
+                              vertical: 8,
+                            ),
+                            child: Row(
                               children: [
-                                // Students tab content
-                                const StudentsAccountingSection(
-                                  totalAmountInvoiced: 100750,
-                                  paidPercentage: 85,
-                                  inProcessPercentage: 10,
-                                  unpaidPercentage: 5,
+                                IconButton(
+                                  tooltip: 'Scroll tabs',
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints.tightFor(width: 26, height: 32),
+                                  splashRadius: 14,
+                                  icon: const Icon(Icons.chevron_left, color: Color(0xff573353), size: 25),
+                                  onPressed: () {
+                                    final int current = controller.index;
+                                    if (current > 0) {
+                                      controller.animateTo(current - 1);
+                                    }
+                                  },
                                 ),
-                                // Placeholders for remaining tabs
-                                ..._tabs.skip(1).map(
-                                  (t) => Align(
-                                    alignment: Alignment.topLeft,
-                                    child: Text(
-                                      '$t content goes here.',
-                                      style: const TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xff573353),
+                                Expanded(
+                                  child: TabBar(
+                                    isScrollable: true,
+                                    padding: EdgeInsets.zero,
+                                    labelPadding: EdgeInsets.zero,
+                                    tabAlignment: TabAlignment.start,
+                                    labelColor: AppColors.themeColor,
+                                    unselectedLabelColor: const Color(0xff573353),
+                                    dividerColor: Colors.transparent,
+                                    indicatorSize: TabBarIndicatorSize.label,
+                                    indicator: UnderlineTabIndicator(
+                                      borderSide: BorderSide(
+                                        color: AppColors.themeColor,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    tabs: List<Widget>.generate(
+                                      _tabs.length,
+                                      (int index) => Padding(
+                                        padding: EdgeInsets.fromLTRB(
+                                          index == 0 ? 4 : 12,
+                                          6,
+                                          12,
+                                          6,
+                                        ),
+                                        child: Text(
+                                          _tabs[index],
+                                          style: const TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
+                                IconButton(
+                                  tooltip: 'Scroll tabs',
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints.tightFor(width: 26, height: 32),
+                                  splashRadius: 14,
+                                  icon: const Icon(Icons.chevron_right, color: Color(0xff573353), size: 25),
+                                  onPressed: () {
+                                    final int current = controller.index;
+                                    if (current < _tabs.length - 1) {
+                                      controller.animateTo(current + 1);
+                                    }
+                                  },
+                                ),
                               ],
                             ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Inline tab content so the entire page scrolls together
+                          AnimatedBuilder(
+                            animation: controller,
+                            builder: (context, _) {
+                              final int current = controller.index;
+                              Widget content;
+                              if (current == 0) {
+                                content = const StudentsAccountingSection(
+                                  totalAmountInvoiced: 100750,
+                                  paidPercentage: 85,
+                                  inProcessPercentage: 10,
+                                  unpaidPercentage: 5,
+                                );
+                              } else {
+                                final String t = _tabs[current];
+                                content = Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Text(
+                                    '$t content goes here.',
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xff573353),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return content;
+                            },
+                          ),
+                          SizedBox(
+                            height: MediaQuery.of(context).padding.bottom + 12,
                           ),
                         ],
                       ),

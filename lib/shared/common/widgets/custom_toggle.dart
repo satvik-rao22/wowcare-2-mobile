@@ -7,11 +7,13 @@ class CustomToggle extends StatefulWidget {
     required this.label,
     required this.isToggled,
     required this.onToggle,
+    this.labelStyle,
   });
 
   final String label;
   final bool isToggled;
   final ValueChanged<bool> onToggle;
+  final TextStyle? labelStyle;
 
   @override
   State<CustomToggle> createState() => _CustomToggleState();
@@ -66,10 +68,11 @@ class _CustomToggleState extends State<CustomToggle> {
         if (widget.label.trim().isNotEmpty)
           Text(
             widget.label,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.6),
-              fontWeight: FontWeight.w500,
-            ),
+            style: widget.labelStyle ??
+                TextStyle(
+                  color: AppColors.primaryColor.withValues(alpha: 0.6),
+                  fontWeight: FontWeight.w500,
+                ),
           ),
       ],
     );
