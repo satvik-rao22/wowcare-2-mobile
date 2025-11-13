@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -187,6 +188,8 @@ class _BillingScreenState extends State<BillingScreen>
                                 );
                               } else if (current == 1) {
                                 content = const TransactionsSection();
+                              } else if (current == 4){
+                                content = SubsidiesSection();
                               } else {
                                 final String t = _tabs[current];
                                 content = Align(
