@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_diff_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class SendInvoiceScreen extends StatefulWidget {

@@ -6,6 +6,8 @@ import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_diff_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -229,8 +231,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       onView: () => _showActionFeedback('View'),
                       onViewReceipt: () => _showActionFeedback('View Receipt'),
                       onSendInvoice: () => _openSendInvoice(record.item),
-                      onReceivePayment: () => _showActionFeedback('Receive Payment'),
-                      onIssueRefund: () => _showActionFeedback('Issue Refund'),
+                      onReceivePayment: () => _openReceivePayment(record.item),
+                      onIssueRefund: () => _openIssueRefund(record.item),
                       onDelete: () => _showActionFeedback('Delete confirmed'),
                     ),
                   ),
@@ -440,6 +442,26 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) => SendInvoiceScreen(transaction: item),
+      ),
+    );
+  }
+
+  void _openReceivePayment(TransactionItem item) {
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) =>
+            ReceivePaymentIssueRefundScreen(transaction: item),
+      ),
+    );
+  }
+
+  void _openIssueRefund(TransactionItem item) {
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => ReceivePaymentIssueRefundScreen(
+          transaction: item,
+          isRefund: true,
+        ),
       ),
     );
   }
