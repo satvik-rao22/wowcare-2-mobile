@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/billing/widgets/accounting/date_ra
 import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_diff_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -234,6 +235,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       onReceivePayment: () => _openReceivePayment(record.item),
                       onIssueRefund: () => _openIssueRefund(record.item),
                       onDelete: () => _showActionFeedback('Delete confirmed'),
+                      onLongPress: () => _openTransactionDetails(record.item),
                     ),
                   ),
                 )
@@ -461,6 +463,16 @@ class _TransactionsSectionState extends State<TransactionsSection> {
         builder: (context) => ReceivePaymentIssueRefundScreen(
           transaction: item,
           isRefund: true,
+        ),
+      ),
+    );
+  }
+
+  void _openTransactionDetails(TransactionItem item) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TransactionDetailsScreen(
+          transaction: item,
         ),
       ),
     );

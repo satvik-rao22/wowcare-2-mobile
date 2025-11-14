@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 
@@ -20,7 +21,12 @@ class AmountInvoicedStatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String formatAmount(double value) => '\$${value.toStringAsFixed(0)}';
+    final numberFormat = NumberFormat('#,##0');
+    String formatAmount(double value) => '\$${numberFormat.format(value)}';
+    const double dummyRefundAmount = 2500;
+    const double dummyRefundPercentage = 12.5;
+    const double dummyPaidAmount = 79865321;
+    const double dummyPaidPercentage = 72.0;
     final double paidAmt =
         (totalAmount * (paidPercentage.clamp(0, 100) / 100)).clamp(0, totalAmount);
     final double inProcessAmt =
@@ -30,7 +36,7 @@ class AmountInvoicedStatBar extends StatelessWidget {
 
     return CustomStatBarCard(
       title: title,
-      number: '\$${totalAmount.toStringAsFixed(0)}',
+      number: '\$${numberFormat.format(totalAmount)}',
       numberFontSize: 26,
       titleFontSize: 17,
       items: [
@@ -51,6 +57,18 @@ class AmountInvoicedStatBar extends StatelessWidget {
               'Outstanding\n${formatAmount(unpaidAmt)} (${unpaidPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
           value: unpaidPercentage.clamp(0, 100).toDouble(),
           color: Colors.redAccent.shade100,
+        ),
+        ProgressItemHelper(
+          label:
+              'Refund\n${formatAmount(dummyRefundAmount)} (${dummyRefundPercentage.toStringAsFixed(1)}%)',
+          value: dummyRefundPercentage,
+          color: AppColors.refundLegendColor,
+        ),
+        ProgressItemHelper(
+          label:
+              'Paid\n${formatAmount(dummyPaidAmount)} (${dummyPaidPercentage.toStringAsFixed(1)}%)',
+          value: dummyPaidPercentage,
+          color: AppColors.paidLegendColor,
         ),
       ],
       fullWidthBar: true,

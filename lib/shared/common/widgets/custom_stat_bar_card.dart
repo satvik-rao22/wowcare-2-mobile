@@ -38,6 +38,91 @@ class CustomStatBarCard extends StatelessWidget {
     int total = int.tryParse(number) ?? 0;
     double sumValues = items.fold(0, (sum, item) => sum + item.value);
     bool hasValidTotal = total > 0;
+    final legendRows = <List<ProgressItemHelper>>[];
+    for (var i = 0; i < items.length; i += 2) {
+      legendRows.add(items.sublist(i, i + 2 > items.length ? items.length : i + 2));
+    }
+
+    Widget buildLegendItem(ProgressItemHelper item) {
+      final labelParts = item.label.split('\n');
+      final titleText = labelParts.first;
+      final valueText =
+          labelParts.length > 1 ? labelParts.sublist(1).join('\n') : '';
+      final labelWidget = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            titleText,
+            style: TextStyle(
+              color: AppColors.primaryColor.withOpacity(0.8),
+              fontSize: 16,
+            ),
+          ),
+          if (valueText.isNotEmpty)
+            Text(
+              valueText,
+              style: const TextStyle(
+                color: AppColors.themeColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+        ],
+      );
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 10,
+            width: 10,
+            decoration: BoxDecoration(
+              color: item.color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          onLegendTap != null
+              ? GestureDetector(
+                  onTap: () => onLegendTap!(item.label),
+                  child: labelWidget,
+                )
+              : labelWidget,
+        ],
+      );
+    }
+
+    Widget buildLegendLayout() {
+      return Column(
+        children: legendRows
+            .map(
+              (row) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: row.length == 2
+                      ? MainAxisAlignment.spaceBetween
+                      : MainAxisAlignment.center,
+                  children: row.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final alignment = row.length == 2
+                        ? (index == 0
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight)
+                        : Alignment.center;
+                    return Expanded(
+                      child: Align(
+                        alignment: alignment,
+                        child: buildLegendItem(item),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            )
+            .toList(),
+      );
+    }
 
     if (fullWidthBar) {
       // Admin billing style: label and value above, bar full width
@@ -117,46 +202,7 @@ class CustomStatBarCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 16,
-              runSpacing: 4,
-              children: items
-                  .map(
-                    (item) => Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          height: 10,
-                          width: 10,
-                          decoration: BoxDecoration(
-                            color: item.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        onLegendTap != null
-                            ? GestureDetector(
-                                onTap: () => onLegendTap!(item.label),
-                                child: Text(
-                                  item.label,
-                                  style: TextStyle(
-                                    color: AppColors.primaryColor.withOpacity(0.8),
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                item.label,
-                                style: TextStyle(
-                                  color: AppColors.primaryColor.withOpacity(0.8),
-                                  fontSize: 13,
-                                ),
-                              ),
-                      ],
-                    ),
-                  )
-                  .toList(),
-            ),
+            buildLegendLayout(),
           ],
         ),
       );
@@ -228,46 +274,7 @@ class CustomStatBarCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 4,
-                    children: items
-                        .map(
-                          (item) => Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                height: 10,
-                                width: 10,
-                                decoration: BoxDecoration(
-                                  color: item.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              onLegendTap != null
-                                  ? GestureDetector(
-                                      onTap: () => onLegendTap!(item.label),
-                                      child: Text(
-                                        item.label,
-                                        style: TextStyle(
-                                          color: AppColors.primaryColor.withOpacity(0.8),
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    )
-                                  : Text(
-                                      item.label,
-                                      style: TextStyle(
-                                        color: AppColors.primaryColor.withOpacity(0.8),
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                            ],
-                          ),
-                        )
-                        .toList(),
-                  ),
+                  buildLegendLayout(),
                 ],
               ),
             ),

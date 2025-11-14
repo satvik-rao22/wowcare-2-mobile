@@ -28,6 +28,8 @@ class AppColors {
   static const Color mustardProgressBar = Color.fromRGBO(253, 205, 22, 1);
   static const Color lightGreenProgressBar = Color.fromRGBO(151, 242, 148, 1);
   static const Color redProgressBar = Color.fromRGBO(240, 111, 111, 1);
+  static const Color refundLegendColor = Color(0xFFA8D8FF);
+  static const Color paidLegendColor = Color(0xFF25AC7C);
 
   static const List<Color> scaffoldGradientColors = [
     Color.fromRGBO(255, 255, 255, 1),
