@@ -12,6 +12,8 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
+import '../widgets/student_card.dart';
+
 class StudentScreen extends StatefulWidget {
   const StudentScreen({super.key});
 
@@ -246,72 +248,103 @@ class _StudentScreenState extends State<StudentScreen> {
                         {
                           'name': 'Kabir Mehta',
                           'classroom': 'Nursery A',
+                          'tags': ['5 days', 'Full day', 'Allergies', 'Medication'],
+                          'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                          'birthDate': '12 Jan 2022',
+                          'movementDate': '05 Sep 2024',
                         },
                         {
                           'name': 'Sara Khan',
                           'classroom': 'Nursery B',
+                          'tags': ['3 days', 'Full day', 'Allergies'],
+                          'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
+                          'birthDate': '12 Jan 2022',
+                          'movementDate': '05 Sep 2024',
                         },
                         {
                           'name': 'Rohan Gupta',
                           'classroom': 'Playgroup',
+                          'tags': [ 'Half day', 'Medication'],
+                          'schedule': ['Mon', 'Wed', 'Thu', 'Fri'],
+                          'birthDate': '12 Jan 2022',
+                          'movementDate': '05 Sep 2024',
                         },
                       ][index];
-                      return Container(
-                        margin: EdgeInsets.only(bottom: index != 2 ? 8 : 0),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          border: Border.all(color: AppColors.cardBorderColor),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            CustomCheckbox(
-                              label: '',
-                              value: _selectedDemo[index],
-                              onChanged: (v) => setState(() {
-                                _selectedDemo[index] = v ?? false;
-                                if (!_selectedDemo.any((e) => e)) {
-                                  // nothing extra for now
-                                }
-                              }),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    demo['name'] as String,
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xff573353),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    demo['classroom'] as String,
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: Color(0xff7A6B78),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.keyboard_arrow_right,
-                              size: 18,
-                              color: Color(0xff7A6B78),
-                            ),
-                          ],
-                        ),
+                      return Column(
+                        children: [
+                          StudentCard(
+                            name: demo['name'] as String,
+                            classroom: demo['classroom'] as String,
+                            tags: (demo['tags'] as List<String>),
+                            schedule: (demo['schedule'] as List<String>),
+                            birthDate: (demo['birthDate'] as String),
+                            movementDate: (demo['movementDate'] as String),
+                            isSelected: _selectedDemo[index],
+                            onSelected: (v) => setState(() {
+
+                            }),
+                            onEdit: () {},
+                            onDeactivate: () {},
+                          ),
+                          if (index != 2) const SizedBox(height: 10),
+                        ],
                       );
+                      // return Container(
+                      //   margin: EdgeInsets.only(bottom: index != 2 ? 8 : 0),
+                      //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      //   decoration: BoxDecoration(
+                      //     color: AppColors.cardColor,
+                      //     border: Border.all(color: AppColors.cardBorderColor),
+                      //     borderRadius: BorderRadius.circular(12),
+                      //   ),
+                      //   child: Row(
+                      //     children: [
+                      //       CustomCheckbox(
+                      //         label: '',
+                      //         value: _selectedDemo[index],
+                      //         onChanged: (v) => setState(() {
+                      //           _selectedDemo[index] = v ?? false;
+                      //           if (!_selectedDemo.any((e) => e)) {
+                      //             // nothing extra for now
+                      //           }
+                      //         }),
+                      //       ),
+                      //       const SizedBox(width: 8),
+                      //       Expanded(
+                      //         child: Column(
+                      //           crossAxisAlignment: CrossAxisAlignment.start,
+                      //           children: [
+                      //             Text(
+                      //               demo['name'] as String,
+                      //               style: const TextStyle(
+                      //                 fontFamily: 'Manrope',
+                      //                 fontSize: 16,
+                      //                 fontWeight: FontWeight.w600,
+                      //                 color: Color(0xff573353),
+                      //               ),
+                      //             ),
+                      //             const SizedBox(height: 4),
+                      //             Text(
+                      //               demo['classroom'] as String,
+                      //               style: const TextStyle(
+                      //                 fontFamily: 'Manrope',
+                      //                 fontSize: 13,
+                      //                 fontWeight: FontWeight.w400,
+                      //                 color: Color(0xff7A6B78),
+                      //               ),
+                      //             ),
+                      //           ],
+                      //         ),
+                      //       ),
+                      //       const SizedBox(width: 8),
+                      //       const Icon(
+                      //         Icons.keyboard_arrow_right,
+                      //         size: 18,
+                      //         color: Color(0xff7A6B78),
+                      //       ),
+                      //     ],
+                      //   ),
+                      // );
                     },
                   ),
                 ],

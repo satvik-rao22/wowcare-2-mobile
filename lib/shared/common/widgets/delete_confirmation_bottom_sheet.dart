@@ -75,6 +75,8 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
             ? "Do you want to delete this User"
             : type == 'staff'
                 ? 'Do you want to deactivate this Staff -\n"$name" ?'
+            : type == 'subsidy'
+                ? 'Do you want to delete the subsidy -\n$name ?'
             : type == 'classroom'
                 ? "Do you want to delete this Classroom"
                 : type == 'vendor_category'

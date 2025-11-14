@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
 
+import '../../../../../app/theme/colors.dart';
+import '../../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+
 class SubsidyCard extends StatefulWidget {
   const SubsidyCard({
     super.key,
@@ -85,7 +88,80 @@ class _SubsidyCardState extends State<SubsidyCard> {
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    //child: _buildActions(statusLower),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 40,
+                            child: OutlinedButton(
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (ctx) {
+                                    return DeleteConfirmationBottomSheet(
+                                      name: widget.subsidy.subsidyName,
+                                      type: 'subsidy',
+                                      onDelete: () {
+                                        Navigator.of(ctx).pop();
+                                        widget.onDelete?.call();
+                                      },
+                                      onCancel: () {
+                                        Navigator.of(ctx).pop();
+                                      },
+                                    );
+                                  },
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF6C7FD8),
+                                  height: 16 / 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              gradient: AppColors.buildPrimaryGradient(),
+                            ),
+                            child: TextButton(
+                              onPressed: () {},
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: const Text(
+                                'Edit',
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  height: 16 / 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -186,3 +262,6 @@ class _SubsidyCardState extends State<SubsidyCard> {
     );
   }
 }
+
+
+
