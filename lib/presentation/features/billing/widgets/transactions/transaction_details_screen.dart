@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_diff_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -598,15 +600,22 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                     child: TransactionDiffCard(
                       transaction: transaction,
                       onView: () {
-                        // Navigate to receipt view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('View tapped (UI only)')),
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ViewInvoiceScreen(
+                              transaction: transaction,
+                            ),
+                          ),
                         );
                       },
                       onViewReceipt: () {
-                        // Navigate to receipt view
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('View Receipt tapped (UI only)')),
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ViewReceiptScreen(
+                              transaction: transaction,
+                              viewType: 'receipt',
+                            ),
+                          ),
                         );
                       },
                       onSendInvoice: () {

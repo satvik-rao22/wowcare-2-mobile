@@ -8,6 +8,8 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/send_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_diff_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -229,8 +231,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: TransactionDiffCard(
                       transaction: record.item,
-                      onView: () => _showActionFeedback('View'),
-                      onViewReceipt: () => _showActionFeedback('View Receipt'),
+                      onView: () => _openViewInvoice(record.item),
+                      onViewReceipt: () => _openViewReceipt(record.item, 'receipt'),
                       onSendInvoice: () => _openSendInvoice(record.item),
                       onReceivePayment: () => _openReceivePayment(record.item),
                       onIssueRefund: () => _openIssueRefund(record.item),
@@ -472,6 +474,27 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TransactionDetailsScreen(
+          transaction: item,
+        ),
+      ),
+    );
+  }
+
+  void _openViewReceipt(TransactionItem item, String viewType) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ViewReceiptScreen(
+          transaction: item,
+          viewType: viewType,
+        ),
+      ),
+    );
+  }
+
+  void _openViewInvoice(TransactionItem item) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ViewInvoiceScreen(
           transaction: item,
         ),
       ),
