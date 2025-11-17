@@ -3,6 +3,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
+import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+
 class StudentCard extends StatefulWidget {
   const StudentCard({
     super.key,
@@ -13,6 +15,7 @@ class StudentCard extends StatefulWidget {
     required this.schedule,
     required this.birthDate,
     required this.movementDate,
+    required this.status,
     this.onDeactivate,
     this.onEdit,
     this.isSelected = false,
@@ -26,6 +29,7 @@ class StudentCard extends StatefulWidget {
   final List<String> schedule;
   final String birthDate;
   final String movementDate;
+  final String status;
   final VoidCallback? onDeactivate;
   final VoidCallback? onEdit;
   final bool isSelected;
@@ -52,10 +56,7 @@ class _StudentCardState extends State<StudentCard> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
@@ -70,7 +71,9 @@ class _StudentCardState extends State<StudentCard> {
                   children: [
                     Container(
                       height: 60,
-                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 24 : 16,
+                      ),
                       alignment: Alignment.center,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -84,10 +87,38 @@ class _StudentCardState extends State<StudentCard> {
                               borderColor: null,
                               label: null,
                             ),
-                          DocumentImageWidget(
-                            fileUuid: '',
-                            name: widget.name,
-                            size: 45,
+                          Stack(
+                            children: [
+                              DocumentImageWidget(
+                                fileUuid: '',
+                                name: widget.name,
+                                size: 45,
+                              ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: widget.status == 'upcoming'
+                                        ? const Color.fromARGB(255, 253, 205, 22)
+                                        : widget.status == 'signedIn'
+                                        ? const Color.fromRGBO(0, 177, 21, 1)
+                                        : widget.status == 'isAbsent'
+                                        ? const Color.fromRGBO(200, 32, 32, 1)
+                                        : Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+
+                                ),
+                              ),
+
+                            ],
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
                           Expanded(
@@ -163,10 +194,14 @@ class _StudentCardState extends State<StudentCard> {
                                       children: [
                                         if (widget.tags.isNotEmpty)
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: const Color(0x4DB1AFE9),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               widget.tags[0],
@@ -179,16 +214,44 @@ class _StudentCardState extends State<StudentCard> {
                                             ),
                                           ),
                                         if (widget.tags.length > 1)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x66CBF6FF),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              widget.tags[1],
+                                              style: const TextStyle(
+                                                fontFamily: 'Manrope',
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF4B5B7A),
+                                              ),
+                                            ),
+                                          ),
+                                        if (widget.tags.length > 2)
                                           Tooltip(
-                                            message: widget.tags.skip(1).join(', '),
+                                            message: widget.tags
+                                                .skip(2)
+                                                .join(', '),
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: const Color(0x66D9FFCB),
-                                                borderRadius: BorderRadius.circular(8),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${widget.tags.length - 1}',
+                                                '+${widget.tags.length - 2}',
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,
@@ -199,6 +262,24 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
+                                        Tooltip(
+                                          message: 'Edit tags',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              Icons.mode_edit_outline_outlined,
+                                              color: const Color(0xFFCECECE),
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -207,58 +288,74 @@ class _StudentCardState extends State<StudentCard> {
                             ),
                             const SizedBox(height: 10),
                             Align(
-                                alignment: Alignment.centerLeft,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'Schedule',
-                                      style: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                        color: Color(0xff573353),
-                                        height: 16 / 13,
-                                      ),
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Schedule',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xff573353),
+                                      height: 16 / 13,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Wrap(
-                                      spacing: 4,
-                                      runSpacing: 4,
-                                      alignment: WrapAlignment.start,
-                                      children: [
-                                        ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) {
-                                          final isActive = widget.schedule.contains(day);
-                                          final dayChip = Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            decoration: BoxDecoration(
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    alignment: WrapAlignment.start,
+                                    children: [
+                                      ...[
+                                        'Mon',
+                                        'Tue',
+                                        'Wed',
+                                        'Thu',
+                                        'Fri',
+                                      ].map((day) {
+                                        final isActive = widget.schedule
+                                            .contains(day);
+                                        final dayChip = Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isActive
+                                                ? const Color(
+                                                    0xFF6C7FD8,
+                                                  ).withOpacity(0.12)
+                                                : const Color(0xFFF3F4FB),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            day,
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
                                               color: isActive
-                                                  ? const Color(0xFF6C7FD8).withOpacity(0.12)
-                                                  : const Color(0xFFF3F4FB),
-                                              borderRadius: BorderRadius.circular(8),
+                                                  ? const Color(0xFF6C7FD8)
+                                                  : const Color(0xFFB1AFC9),
                                             ),
-                                            child: Text(
-                                              day,
-                                              style: TextStyle(
-                                                fontFamily: 'Manrope',
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13,
-                                                color: isActive
-                                                    ? const Color(0xFF6C7FD8)
-                                                    : const Color(0xFFB1AFC9),
-                                              ),
-                                            ),
-                                          );
-                                          if (!isActive) return dayChip;
-                                          return Tooltip(
-                                            message: '',
-                                            child: dayChip,
-                                          );
-                                        }),
-                                      ],
-                                    ),
-                                  ],
-                                )),
+                                          ),
+                                        );
+                                        if (!isActive) return dayChip;
+                                        return Tooltip(
+                                          message: '',
+                                          child: dayChip,
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -320,11 +417,34 @@ class _StudentCardState extends State<StudentCard> {
                                   child: SizedBox(
                                     height: 40,
                                     child: OutlinedButton(
-                                      onPressed: () {},
+                                      onPressed: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (ctx) {
+                                            return DeleteConfirmationBottomSheet(
+                                              name: widget.name,
+                                              type: 'student',
+                                              onDelete: () {
+                                                Navigator.of(ctx).pop();
+                                                //widget.onDelete?.call();
+                                              },
+                                              onCancel: () {
+                                                Navigator.of(ctx).pop();
+                                              },
+                                            );
+                                          },
+                                        );
+                                      },
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                        side: const BorderSide(
+                                          color: Color(0xFF6C7FD8),
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
@@ -347,7 +467,8 @@ class _StudentCardState extends State<StudentCard> {
                                     height: 40,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
-                                      gradient: AppColors.buildPrimaryGradient(),
+                                      gradient:
+                                          AppColors.buildPrimaryGradient(),
                                     ),
                                     child: TextButton(
                                       onPressed: () {
@@ -358,8 +479,6 @@ class _StudentCardState extends State<StudentCard> {
                                         // final parts = widget.name.trim().split(' ');
                                         // final initialFirstName = parts.isNotEmpty ? parts.first : '';
                                         // final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
-
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
@@ -392,7 +511,4 @@ class _StudentCardState extends State<StudentCard> {
       },
     );
   }
-
 }
-
-

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -28,6 +30,36 @@ class _StudentScreenState extends State<StudentScreen> {
   bool _showInactive = false;
   final List<bool> _selectedDemo = [false, false, false];
   bool _selectAll = false;
+  StudentPanelType _currentPanel = StudentPanelType.none;
+  List<Map<String, dynamic>> _demoStudentData =  [
+    {
+      'name': 'Kabir Mehta',
+      'classroom': 'Nursery A',
+      'tags': ['5 days', 'Full day', 'Allergies', 'Medication'],
+      'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      'birthDate': '12 Jan 2022',
+      'movementDate': '05 Sep 2024',
+      'status': 'signedIn'
+    },
+    {
+      'name': 'Sara Khan',
+      'classroom': 'Nursery B',
+      'tags': ['3 days', 'Full day', 'Allergies'],
+      'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
+      'birthDate': '12 Jan 2022',
+      'movementDate': '05 Sep 2024',
+      'status': 'isAbsent'
+    },
+    {
+      'name': 'Rohan Gupta',
+      'classroom': 'Playgroup',
+      'tags': [ 'Half day', 'Medication'],
+      'schedule': ['Mon', 'Wed', 'Thu', 'Fri'],
+      'birthDate': '12 Jan 2022',
+      'movementDate': '05 Sep 2024',
+      'status': 'upcoming'
+    },
+  ];
 
   @override
   void dispose() {
@@ -39,6 +71,9 @@ class _StudentScreenState extends State<StudentScreen> {
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
+
+    final bool anySelected = _selectedDemo.any((e) => e);
+    final int selectedCount = _selectedDemo.where((e) => e).length;
 
     return GlobalScaffold(
       body: Stack(
@@ -244,32 +279,7 @@ class _StudentScreenState extends State<StudentScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: 3,
                     itemBuilder: (context, index) {
-                      final demo = [
-                        {
-                          'name': 'Kabir Mehta',
-                          'classroom': 'Nursery A',
-                          'tags': ['5 days', 'Full day', 'Allergies', 'Medication'],
-                          'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-                          'birthDate': '12 Jan 2022',
-                          'movementDate': '05 Sep 2024',
-                        },
-                        {
-                          'name': 'Sara Khan',
-                          'classroom': 'Nursery B',
-                          'tags': ['3 days', 'Full day', 'Allergies'],
-                          'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
-                          'birthDate': '12 Jan 2022',
-                          'movementDate': '05 Sep 2024',
-                        },
-                        {
-                          'name': 'Rohan Gupta',
-                          'classroom': 'Playgroup',
-                          'tags': [ 'Half day', 'Medication'],
-                          'schedule': ['Mon', 'Wed', 'Thu', 'Fri'],
-                          'birthDate': '12 Jan 2022',
-                          'movementDate': '05 Sep 2024',
-                        },
-                      ][index];
+                      final demo = _demoStudentData[index];
                       return Column(
                         children: [
                           StudentCard(
@@ -279,8 +289,13 @@ class _StudentScreenState extends State<StudentScreen> {
                             schedule: (demo['schedule'] as List<String>),
                             birthDate: (demo['birthDate'] as String),
                             movementDate: (demo['movementDate'] as String),
+                            status: (demo['status'] as String),
                             isSelected: _selectedDemo[index],
                             onSelected: (v) => setState(() {
+                              _selectedDemo[index] = v ?? false;
+                              if (!_selectedDemo.any((e) => e)) {
+                                _currentPanel = StudentPanelType.none;
+                              }
 
                             }),
                             onEdit: () {},
@@ -351,6 +366,45 @@ class _StudentScreenState extends State<StudentScreen> {
               ),
             ),
           ),
+          if (anySelected)
+            Positioned(
+                right: 16,
+              bottom: 16,
+              child: StudentActionPanel(
+                  currentPanel: _currentPanel,
+                onAttendanceTap: (){},
+                onActivitiesTap: (){},
+                onMessageTap: (){},
+                onProfileTap: selectedCount == 1 ? (){
+                    final idx = _selectedDemo.indexWhere((e) => e);
+                    if(idx != -1){
+                      final demo = _demoStudentData[idx];
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => StudentProfileScreen(
+                                  name: demo['name'] as String,
+                                  classroom: demo['classroom'] as String
+                              )
+                          )
+                      );
+                    }
+
+                }: null,
+                onClearSelections: (){
+                    setState(() {
+                      for (int i = 0; i < _selectedDemo.length; i++){
+                        _selectedDemo[i] = false;
+                      }
+                      _selectAll = false;
+                      _currentPanel = StudentPanelType.none;
+                    });
+                },
+                isProfileEnabled: selectedCount == 1,
+                activitiesEnabled: selectedCount > 0,
+              ),
+            )
+
         ],
       ),
       showCustomNavigationBar: true,
