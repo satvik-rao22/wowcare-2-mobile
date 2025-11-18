@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -304,62 +303,6 @@ class _StudentScreenState extends State<StudentScreen> {
                           if (index != 2) const SizedBox(height: 10),
                         ],
                       );
-                      // return Container(
-                      //   margin: EdgeInsets.only(bottom: index != 2 ? 8 : 0),
-                      //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      //   decoration: BoxDecoration(
-                      //     color: AppColors.cardColor,
-                      //     border: Border.all(color: AppColors.cardBorderColor),
-                      //     borderRadius: BorderRadius.circular(12),
-                      //   ),
-                      //   child: Row(
-                      //     children: [
-                      //       CustomCheckbox(
-                      //         label: '',
-                      //         value: _selectedDemo[index],
-                      //         onChanged: (v) => setState(() {
-                      //           _selectedDemo[index] = v ?? false;
-                      //           if (!_selectedDemo.any((e) => e)) {
-                      //             // nothing extra for now
-                      //           }
-                      //         }),
-                      //       ),
-                      //       const SizedBox(width: 8),
-                      //       Expanded(
-                      //         child: Column(
-                      //           crossAxisAlignment: CrossAxisAlignment.start,
-                      //           children: [
-                      //             Text(
-                      //               demo['name'] as String,
-                      //               style: const TextStyle(
-                      //                 fontFamily: 'Manrope',
-                      //                 fontSize: 16,
-                      //                 fontWeight: FontWeight.w600,
-                      //                 color: Color(0xff573353),
-                      //               ),
-                      //             ),
-                      //             const SizedBox(height: 4),
-                      //             Text(
-                      //               demo['classroom'] as String,
-                      //               style: const TextStyle(
-                      //                 fontFamily: 'Manrope',
-                      //                 fontSize: 13,
-                      //                 fontWeight: FontWeight.w400,
-                      //                 color: Color(0xff7A6B78),
-                      //               ),
-                      //             ),
-                      //           ],
-                      //         ),
-                      //       ),
-                      //       const SizedBox(width: 8),
-                      //       const Icon(
-                      //         Icons.keyboard_arrow_right,
-                      //         size: 18,
-                      //         color: Color(0xff7A6B78),
-                      //       ),
-                      //     ],
-                      //   ),
-                      // );
                     },
                   ),
                 ],
@@ -383,8 +326,12 @@ class _StudentScreenState extends State<StudentScreen> {
                           context,
                           MaterialPageRoute(
                               builder: (_) => StudentProfileScreen(
-                                  name: demo['name'] as String,
-                                  classroom: demo['classroom'] as String
+                                  name: demo['name'] as String? ?? "Unknown Student",
+                                  classroom: demo['classroom'] as String? ?? "Unknown Class",
+                                  tags: (demo['tags'] as List<dynamic>?)
+                                      ?.map((e) => e.toString())
+                                      .toList() ??
+                                      ['5 days', 'Full day', 'Allergies', 'Medication'],
                               )
                           )
                       );
