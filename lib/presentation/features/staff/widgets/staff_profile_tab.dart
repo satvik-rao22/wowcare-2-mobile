@@ -50,8 +50,6 @@ class StaffProfileTab extends StatelessWidget {
       const Color.fromRGBO(203, 246, 255, 0.4),
       const Color.fromRGBO(217, 255, 203, 0.4),
     ];
-
-    final workingDays = _getWorkingDays(schedules);
     final workTimes = _getFormattedTimes(schedules, false);
     final breakTimes = _getFormattedTimes(schedules, true);
 
@@ -364,13 +362,6 @@ class StaffProfileTab extends StatelessWidget {
     return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}';
   }
 
-  List<String> _getWorkingDays(List<ScheduleEntry> schedule) {
-    return schedule
-        .where((e) => !e.isBreakTime)
-        .map((e) => _capitalizeFirst(e.day))
-        .toSet()
-        .toList();
-  }
 
   Map<String, String> _getFormattedTimes(List<ScheduleEntry> schedule, bool isBreakTime) {
     final Map<String, String> times = {};

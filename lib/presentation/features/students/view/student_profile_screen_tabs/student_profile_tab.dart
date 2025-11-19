@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
+import '../student_profile_tab_cards/student_family_tab_card.dart';
+
 
 class StudentProfileTab extends StatefulWidget {
   const StudentProfileTab({
@@ -10,7 +12,9 @@ class StudentProfileTab extends StatefulWidget {
     required this.scrollController,
     required this.name,
     required this.classroom,
-    required this.tags
+    required this.tags,
+    required this.schedule,
+    required this.sibling
   });
 
   final int initialTabIndex;
@@ -18,6 +22,8 @@ class StudentProfileTab extends StatefulWidget {
   final String name;
   final String classroom;
   final List<String> tags;
+  final List<String> schedule;
+  final Map<String, dynamic> sibling;
 
 
 
@@ -151,18 +157,21 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                     name: widget.name,
                   classroom: widget.classroom,
                   tags: widget.tags,
+                  schedule: widget.schedule,
+                  sibling: widget.sibling,
+                ),
+                StudentFamilyTabCard(
+                  scrollController: _familyScrollController,
+                  name: widget.name,
+                  classroom: widget.classroom,
                 ),
                 StudentAboutTabCard(
                   scrollController: _aboutScrollController,
                   name: widget.name,
                   classroom: widget.classroom,
                   tags: widget.tags,
-                ),
-                StudentAboutTabCard(
-                  scrollController: _aboutScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
-                  tags: widget.tags,
+                  schedule: widget.schedule,
+                  sibling: widget.sibling,
                 )
               ],
             ),

@@ -13,13 +13,17 @@ class StudentProfileScreen extends StatefulWidget {
     super.key,
     required this.name,
     required this.classroom,
-    required this.tags
+    required this.tags,
+    required this.schedule,
+    required this.sibling
 
   });
 
   final String name;
   final String classroom;
   final List<String> tags;
+  final List<String> schedule;
+  final Map<String, dynamic> sibling;
 
 
   @override
@@ -66,7 +70,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Widget build(BuildContext context) {
     return GlobalScaffold(
       hasBackButton: true,
-      showCustomNavigationBar: false,
+      showCustomNavigationBar: true,
       body: Column(
         children: [
           SingleChildScrollView(
@@ -114,6 +118,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: widget.name,
                   classroom: widget.classroom,
                   tags: widget.tags,
+                  schedule: widget.schedule,
+                  sibling: widget.sibling,
 
                 ),
                 StudentProfileTab(
@@ -121,6 +127,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: widget.name,
                   classroom: widget.classroom,
                   tags: widget.tags,
+                  schedule: widget.schedule,
+                  sibling: widget.sibling,
 
                 ),
                 StudentProfileTab(
@@ -128,6 +136,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: widget.name,
                   classroom: widget.classroom,
                   tags: widget.tags,
+                  schedule: widget.schedule,
+                  sibling: widget.sibling,
 
                 ),
                 StudentProfileTab(
@@ -135,6 +145,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: widget.name,
                   classroom: widget.classroom,
                   tags: widget.tags,
+                  schedule: widget.schedule,
+                  sibling: widget.sibling,
 
                 ),
 
@@ -181,6 +193,29 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               size: 90,
                               fontSize: 24,
                               statusColor: const Color(0xFF00B115),
+                            ),
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                                  ],
+                                ),
+                                child: Container(
+                                  margin: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    gradient: AppColors.buildPrimaryGradient(),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                                ),
+                              ),
                             ),
                           ],
                         ),

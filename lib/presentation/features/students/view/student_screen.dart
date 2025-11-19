@@ -38,7 +38,8 @@ class _StudentScreenState extends State<StudentScreen> {
       'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
-      'status': 'signedIn'
+      'status': 'signedIn',
+      'sibling': {'name': ['Anya Mehta'], 'relation': ['sister'], 'status': ['upcoming']}
     },
     {
       'name': 'Sara Khan',
@@ -47,7 +48,8 @@ class _StudentScreenState extends State<StudentScreen> {
       'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
-      'status': 'isAbsent'
+      'status': 'isAbsent',
+      'sibling': {'name': [], 'relation': [], 'status': []}
     },
     {
       'name': 'Rohan Gupta',
@@ -56,7 +58,8 @@ class _StudentScreenState extends State<StudentScreen> {
       'schedule': ['Mon', 'Wed', 'Thu', 'Fri'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
-      'status': 'upcoming'
+      'status': 'upcoming',
+      'sibling': {'name': ['Raghave Gupta', 'Ruhi Gupta'], 'relation': ['brother', 'sister'], 'status': ['signedIn', 'isAbsent']}
     },
   ];
 
@@ -285,6 +288,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             name: demo['name'] as String,
                             classroom: demo['classroom'] as String,
                             tags: (demo['tags'] as List<String>),
+                            sibling: demo['sibling'] as Map<String, dynamic>,
                             schedule: (demo['schedule'] as List<String>),
                             birthDate: (demo['birthDate'] as String),
                             movementDate: (demo['movementDate'] as String),
@@ -327,6 +331,11 @@ class _StudentScreenState extends State<StudentScreen> {
                           MaterialPageRoute(
                               builder: (_) => StudentProfileScreen(
                                   name: demo['name'] as String? ?? "Unknown Student",
+                                  sibling: demo['sibling'] as Map<String, dynamic>,
+                                  schedule : (demo['schedule'] as List<dynamic>?)
+                                      ?.map((e) => e.toString())
+                                      .toList() ??
+                                      ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
                                   classroom: demo['classroom'] as String? ?? "Unknown Class",
                                   tags: (demo['tags'] as List<dynamic>?)
                                       ?.map((e) => e.toString())

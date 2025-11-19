@@ -3,6 +3,8 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 
+import '../../../../../shared/common/widgets/profile_show_widget.dart';
+
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -10,6 +12,8 @@ class StudentAboutTabCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     required this.tags,
+    required this.schedule,
+    required this.sibling,
     super.key,
   });
 
@@ -17,6 +21,8 @@ class StudentAboutTabCard extends StatefulWidget {
   final String name;
   final String classroom;
   final List<String> tags;
+  final List<String> schedule;
+  final Map<String, dynamic> sibling;
 
   @override
   State<StudentAboutTabCard> createState() =>
@@ -39,8 +45,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.themeColor),
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(16),
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8)
           ),
           color: Colors.white,
         ),
@@ -88,10 +96,149 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             const SizedBox(height: 16),
             _Field(label: 'Notes', value: "- -"),
             const SizedBox(height: 16),
+            _Field(label: 'Child Custody', value: "Child custody not selected"),
+            const SizedBox(height: 16),
+            _Field(label: 'State Subsidy', value: "No state subsidy"),
+            if ((widget.sibling['name'] as List?)?.isNotEmpty == true) ...[
+              const SizedBox(height: 16),
+              _Field(
+                label: (widget.sibling['name'] as List).length == 1 ? 'Sibling' : 'Siblings',
+                value: null,
+                trailing: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: (widget.sibling['name'] as List).asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final name = widget.sibling['name'][index] as String;
+                    final relation = widget.sibling['relation'][index] as String;
+                    final status = widget.sibling['status'][index] as String;
+
+                    final color = status == 'upcoming'
+                          ? const Color.fromARGB(255, 253, 205, 22)
+                              : status == 'signedIn'
+                          ? const Color.fromRGBO(0, 177, 21, 1)
+                              : status == 'isAbsent'
+                          ? const Color.fromRGBO(200, 32, 32, 1)
+                              : Colors.white;
+
+                    return Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            Stack(
+                              children: [
+                                DocumentImageWidget(
+                                  fileUuid: '',
+                                  name: name,
+                                  size: 45,
+                                ),
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              '$name ($relation)',
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 15,
+                                color: Color(0xff573353),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                    );
+
+                  }).toList(),
+                ),
+
+              ),
+            ],
+            const SizedBox(height: 16),
             _Field(
               label: 'Address',
               value: ('12, East Dunstable road, Nashua, NH, USA,\n03062'),
             ),
+            const SizedBox(height: 16),
+            _Field(
+              label: 'Schedule',
+              value: null,
+              trailing: Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'Monday',
+                        'Tuesday',
+                        'Wednesday',
+                        'Thursday',
+                        'Friday',
+                      ].map((fullDay) {
+                        const dayMap = {
+                          'Monday': 'Mon',
+                          'Tuesday': 'Tue',
+                          'Wednesday': 'Wed',
+                          'Thursday': 'Thu',
+                          'Friday': 'Fri',
+                        };
+
+                        final shortDay = dayMap[fullDay]!;
+                        final isAvailable = widget.schedule.contains(shortDay);
+                        final timeText = '07:00AM–05:30PM'; // get the data from backend later
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ScheduleChip(
+                              width: 110,
+                              label: fullDay,
+                              labelColor: isAvailable
+                                  ? const Color.fromRGBO(27, 35, 126, 1)
+                                  : Colors.grey.shade700,
+                              color: isAvailable
+                                  ? const Color(0x4DB1AFE9)
+                                  : const Color(0xFFF3F4FB),
+                            ),
+                            if (isAvailable) ...[
+                              const SizedBox(height: 6),
+                              _ScheduleChip(
+                                width: 110,
+                                label: timeText,
+                                labelColor: const Color.fromRGBO(27, 35, 126, 1),
+                                color: Colors.transparent,
+                                isTimeChip: true,
+                              ),
+                            ],
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _Field(
+                label: 'School leaving Date',
+                value: 'Oct 29, 2001'),
+            const SizedBox(height: 16),
+            _Field(
+                label: 'Upcoming move',
+                value: 'Oct 29, 2001')
           ],
         ),
       ),
@@ -273,12 +420,69 @@ class _tags extends StatelessWidget{
   }
 }
 
+class _ScheduleChip extends StatelessWidget {
+  const _ScheduleChip({
+    required this.label,
+    required this.labelColor,
+    required this.color,
+    required this.width,
+    this.isTimeChip = false// now required
+  });
+
+  final String label;
+  final Color labelColor;
+  final Color color;
+  final double width;
+  final bool isTimeChip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: isTimeChip
+            ? Border.all(color: const Color(0x4DB1AFE9), width: 1.5)
+            : null,
+
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+
+          Flexible(
+            //child: FittedBox(
+              //fit: isTimeChip ? BoxFit.contain : BoxFit.scaleDown, // scales down if too big, never overflows
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  color: labelColor,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: isTimeChip ? 2 : 1,
+                overflow: TextOverflow.visible,
+              ),
+            ),
+          //),
+        ],
+      ),
+    );
+  }
+}
+
 class _Chip extends StatelessWidget {
   const _Chip({required this.label, required this.labelColor, required this.color, this.icon});
   final String label;
   final Color labelColor;
   final Color color;
   final Widget? icon;
+
 
   @override
   Widget build(BuildContext context) {
