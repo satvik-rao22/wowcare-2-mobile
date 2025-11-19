@@ -182,6 +182,9 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     final double inProcessPercent = _percentage(totalInProcess, totalInvoiced);
     final double unpaidPercent =
         _percentage(_totalAmountFor(<TransactionStatus>{TransactionStatus.unpaid}), totalInvoiced);
+    final double totalRefund =
+        _totalAmountFor(<TransactionStatus>{TransactionStatus.refund});
+    final double refundPercent = _percentage(totalRefund, totalInvoiced);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -204,6 +207,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
           paidPercentage: paidPercent,
           inProcessPercentage: inProcessPercent,
           unpaidPercentage: unpaidPercent,
+          refundPercentage: refundPercent,
         ),
         const SizedBox(height: 12),
         _buildFilters(context),

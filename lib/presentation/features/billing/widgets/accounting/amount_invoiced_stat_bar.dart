@@ -8,6 +8,7 @@ class AmountInvoicedStatBar extends StatefulWidget {
   final double paidPercentage;
   final double inProcessPercentage;
   final double unpaidPercentage;
+  final double refundPercentage;
   final String title;
 
   const AmountInvoicedStatBar({
@@ -16,6 +17,7 @@ class AmountInvoicedStatBar extends StatefulWidget {
     required this.paidPercentage,
     required this.inProcessPercentage,
     required this.unpaidPercentage,
+    this.refundPercentage = 0,
     this.title = 'Amount Invoiced',
   });
 
@@ -36,11 +38,6 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
   Widget build(BuildContext context) {
     final numberFormat = NumberFormat('#,##0');
     String formatAmount(double value) => '\$${numberFormat.format(value)}';
-
-    const double dummyRefundAmount = 2500;
-    const double dummyRefundPercentage = 12.5;
-    const double dummyPaidAmount = 7986;
-    const double dummyPaidPercentage = 72.0;
 
     final double paidAmt = (widget.totalAmount *
             (widget.paidPercentage.clamp(0, 100) / 100))
@@ -74,17 +71,20 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       color: Colors.yellow,
     );
 
+    final double refundAmt = widget.totalAmount *
+        (widget.refundPercentage.clamp(0, 100) / 100);
+
     final refundItem = ProgressItemHelper(
       label:
-          'Refund\n${formatAmount(dummyRefundAmount)} (${dummyRefundPercentage.toStringAsFixed(1)}%)',
-      value: dummyRefundPercentage,
+          'Refund\n${formatAmount(refundAmt)} (${widget.refundPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
+      value: widget.refundPercentage.clamp(0, 100).toDouble(),
       color: AppColors.refundLegendColor,
     );
 
     final paidItem = ProgressItemHelper(
       label:
-          'Paid\n${formatAmount(dummyPaidAmount)} (${dummyPaidPercentage.toStringAsFixed(1)}%)',
-      value: dummyPaidPercentage,
+          'Paid\n${formatAmount(paidAmt)} (${widget.paidPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
+      value: widget.paidPercentage.clamp(0, 100).toDouble(),
       color: AppColors.paidLegendColor,
     );
 

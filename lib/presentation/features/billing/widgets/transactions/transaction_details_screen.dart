@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
@@ -47,6 +48,47 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   int _pageSize = 10;
   bool _hasMoreData = true;
   bool _isLoadingMore = false;
+
+  double _summaryDouble(String key) {
+    final value = _siblingSummary[key];
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  double get _netPaidAmount => _summaryDouble('netAmountPaid');
+  double get _amountUnpaid => _summaryDouble('amountUnpaid');
+  double get _amountInProcess => _summaryDouble('amountInProcess');
+  double get _amountRefund => _summaryDouble('amountRefund');
+  double get _amountPaid => _summaryDouble('amountPaid');
+
+  double get _familyTotalInvoiced => _netPaidAmount + _amountUnpaid + _amountInProcess;
+
+  double _percentage(double value, double total) {
+    if (total <= 0) return 0;
+    return (value / total) * 100;
+  }
+
+  String get _familyDisplayName {
+    String? familyName = _extractFamilyNameFromList(_familyParents);
+    familyName ??= _extractFamilyNameFromList(_familyChildren);
+    familyName ??= _extractFamilyName(widget.transaction.studentName);
+    return (familyName?.isNotEmpty ?? false) ? familyName! : 'Family';
+  }
+
+  String? _extractFamilyNameFromList(List<Map<String, dynamic>> members) {
+    if (members.isEmpty) return null;
+    final first = members.first['fullName']?.toString();
+    return _extractFamilyName(first);
+  }
+
+  String? _extractFamilyName(String? fullName) {
+    if (fullName == null) return null;
+    final trimmed = fullName.trim();
+    if (trimmed.isEmpty) return null;
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) return parts.first;
+    return parts.last;
+  }
 
   @override
   void initState() {
@@ -237,9 +279,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Transaction Details',
-                      style: TextStyle(
+                    Text(
+                      '${_familyDisplayName} Family Transactions',
+                      style: const TextStyle(
                         color: AppColors.primaryColor,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
@@ -400,109 +442,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Row of two summary cards
-              Row(
-                children: [
-                  Expanded(
-                    child: _isLoadingSiblings
-                        ? ShimmerLoaderCard(
-                            child: Container(
-                              height: 80,
-                              child: const SizedBox(),
-                            ),
-                          )
-                        : TransactionsSummaryBox(
-                            width: double.infinity,
-                            amount:
-                                ' \$${(_siblingSummary['netAmountPaid'] ?? 0.0).toStringAsFixed(0)}',
-                            label: 'Net Amount Paid',
-                            valueFontSize: 22,
-                            labelFontSize: 15,
-                          ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _isLoadingSiblings
-                        ? ShimmerLoaderCard(
-                            child: Container(
-                              height: 80,
-                              child: const SizedBox(),
-                            ),
-                          )
-                        : TransactionsSummaryBox(
-                            width: double.infinity,
-                            amount:
-                                ' \$${(_siblingSummary['amountUnpaid'] ?? 0.0).toStringAsFixed(0)}',
-                            label: 'Amount Unpaid',
-                            valueFontSize: 22,
-                            labelFontSize: 15,
-                          ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Row: In Process (left) and Refunded (right)
-              Row(
-                children: [
-                  Expanded(
-                    child: _isLoadingSiblings
-                        ? ShimmerLoaderCard(
-                            child: Container(
-                              height: 80,
-                              child: const SizedBox(),
-                            ),
-                          )
-                        : TransactionsSummaryBox(
-                            width: double.infinity,
-                            amount:
-                                ' \$${(_siblingSummary['amountInProcess'] ?? 0.0).toStringAsFixed(0)}',
-                            label: 'Amount in Process',
-                            valueFontSize: 22,
-                            labelFontSize: 15,
-                          ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _isLoadingSiblings
-                        ? ShimmerLoaderCard(
-                            child: Container(
-                              height: 80,
-                              child: const SizedBox(),
-                            ),
-                          )
-                        : TransactionsSummaryBox(
-                            width: double.infinity,
-                            amount:
-                                ' \$${(_siblingSummary['amountRefund'] ?? 0.0).toStringAsFixed(0)}',
-                            label: 'Amount Refunded',
-                            valueFontSize: 22,
-                            labelFontSize: 15,
-                          ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _isLoadingSiblings
-                        ? ShimmerLoaderCard(
-                            child: Container(
-                              height: 80,
-                              child: const SizedBox(),
-                            ),
-                          )
-                        : TransactionsSummaryBox(
-                            width: double.infinity,
-                            amount:
-                                ' \$${(_siblingSummary['amountPaid'] ?? 0.0).toStringAsFixed(0)}',
-                            label: 'Amount Paid',
-                            valueFontSize: 22,
-                            labelFontSize: 15,
-                          ),
-                  ),
-                ],
-              ),
+              _buildFamilyStatBar(),
               const SizedBox(height: 16),
             ],
           ),
@@ -655,22 +595,73 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
               // End of list indicator
-              if (!_hasMoreData && _siblingTransactions.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Center(
-                    child: Text(
-                      'All ${_siblingTransactions.length} family transactions loaded',
-                      style: TextStyle(
-                        color: AppColors.primaryColor.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
+              // if (!_hasMoreData && _siblingTransactions.isNotEmpty)
+              //   Padding(
+              //     padding: const EdgeInsets.only(top: 16),
+              //     child: Center(
+              //       child: Text(
+              //         'All ${_siblingTransactions.length} family transactions loaded',
+              //         style: TextStyle(
+              //           color: AppColors.primaryColor.withOpacity(0.7),
+              //           fontSize: 12,
+              //         ),
+              //       ),
+              //     ),
+              //   ),
             ],
           ),
       ],
+    );
+  }
+
+  Widget _buildFamilyStatBar() {
+    if (_isLoadingSiblings) {
+      return ShimmerLoaderCard(
+        child: Container(
+          height: 120,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+
+    final total = _familyTotalInvoiced;
+    if (total <= 0) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.cardBorderColor),
+        ),
+        child: const Text(
+          'No invoiced data available for this family.',
+          style: TextStyle(
+            color: AppColors.primaryColor,
+            fontFamily: 'Manrope',
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    final paidPercent = _percentage(_netPaidAmount, total);
+    final unpaidPercent = _percentage(_amountUnpaid, total);
+    final inProcessPercent = _percentage(_amountInProcess, total);
+    final refundPercent = _percentage(_amountRefund, total);
+
+    return AmountInvoicedStatBar(
+      totalAmount: total,
+      paidPercentage: paidPercent,
+      inProcessPercentage: inProcessPercent,
+      unpaidPercentage: unpaidPercent,
+      refundPercentage: refundPercent,
+      title: 'Invoiced Amount',
     );
   }
 
@@ -799,60 +790,6 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   }
 }
 
-class TransactionsSummaryBox extends StatelessWidget {
-  final double width;
-  final String amount;
-  final String label;
-  final double? valueFontSize;
-  final double? labelFontSize;
-
-  const TransactionsSummaryBox({
-    super.key,
-    required this.width,
-    required this.amount,
-    required this.label,
-    this.valueFontSize,
-    this.labelFontSize,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            amount.trim(),
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w700,
-              fontSize: valueFontSize ?? 20,
-              color: AppColors.themeColor,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w500,
-              fontSize: labelFontSize ?? 13,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _FamilyChip extends StatelessWidget {
   final String name;
   final dynamic photoUuid;
@@ -877,18 +814,18 @@ class _FamilyChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         CircleAvatar(
-          radius: 12,
+          radius: 16,
           backgroundColor: backgroundColor,
           child: Text(
             initials,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
-              fontSize: 10,
+              fontSize: 12,
             ),
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 120),
           child: Text(
@@ -897,8 +834,8 @@ class _FamilyChip extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.primaryColor,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
             ),
           ),
         ),

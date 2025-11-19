@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class BillingTransactionCard extends StatefulWidget {
   const BillingTransactionCard({
@@ -40,7 +41,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   Widget build(BuildContext context) {
     final String type = widget.transaction.transactionType.toLowerCase();
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -60,26 +61,15 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           onTap: _toggleExpanded,
           onLongPress: widget.onLongPress,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 SizedBox(
-                  height: 60,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      Expanded(child: _buildTitle(type)),
-                      const SizedBox(width: 12),
-                      _buildTrailing(type),
-                      const SizedBox(width: 8),
-                      Icon(
-                        _isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: AppColors.primaryColor,
-                      ),
-                    ],
-                  ),
+                  height: 54,
+                  child: _buildHeader(type),
                 ),
+                const SizedBox(height: 4),
                 if (_isExpanded) ..._buildExpandedContent(type),
               ],
             ),
@@ -88,67 +78,64 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       ),
     );
   }
-  Widget _buildTitle(String type) {
+  Widget _buildHeader(String type) {
+    final String dateLabel = _dateLabel(widget.transaction, type);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Container(
-          width: type == 'payment' ? null : 80,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: _badgeColor(type),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            _badgeLabel(type),
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 16,
-              color: Color(0xff573353),
-              fontWeight: FontWeight.w600,
+        Row(
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _badgeColor(type),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                _badgeLabel(type),
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 16,
+                  color: Color(0xff573353),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
+            const Spacer(),
+            Text(
+              _formatCurrency(widget.transaction.amount),
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff573353),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 5),
-        Text(
-          'Status: ${widget.transaction.status}',
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            color: Color(0xff573353),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTrailing(String type) {
-    final String label = _dateLabel(widget.transaction, type);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        Text(
-          _formatCurrency(widget.transaction.amount),
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 13,
-            color: Color(0xff573353),
-          ),
-          textAlign: TextAlign.right,
+        const SizedBox(height: 4),
+        Row(
+          children: <Widget>[
+            Text(
+              'Status: ${widget.transaction.status}',
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                color: Color(0xff573353),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              dateLabel,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 13,
+                color: Color(0xff573353),
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ],
         ),
       ],
     );
@@ -157,9 +144,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   List<Widget> _buildExpandedContent(String type) {
     final List<Widget> content = <Widget>[
       Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
       _studentInfoRow(),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
     ];
 
     if (type == 'invoice') {
@@ -371,4 +358,3 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     return formatter.format(value);
   }
 }
-
