@@ -102,6 +102,11 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
     ];
 
     final itemsToShow = _isExpanded ? expandedItems : collapsedItems;
+    final progressItems = <ProgressItemHelper>[
+      netPaidItem,
+      outstandingItem,
+      inProcessItem,
+    ];
 
     return GestureDetector(
       onTap: _toggleExpanded,
@@ -111,6 +116,7 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
         numberFontSize: 26,
         titleFontSize: 17,
         items: itemsToShow,
+        progressItems: progressItems,
         fullWidthBar: true,
         footer: TextButton.icon(
           onPressed: _toggleExpanded,

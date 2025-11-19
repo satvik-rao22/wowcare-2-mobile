@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 class BillingTransactionCard extends StatefulWidget {
   const BillingTransactionCard({
     super.key,
     required this.transaction,
+    this.showSelection = true,
+    this.isSelected = false,
+    this.onSelected,
+    this.onToggleSelection,
+    this.onMessage,
+    this.onBillingProfile,
+    this.onEditInvoice,
+    this.onMore,
     this.onSendInvoice,
     this.onReceivePayment,
     this.onView,
@@ -18,6 +27,14 @@ class BillingTransactionCard extends StatefulWidget {
   });
 
   final TransactionItem transaction;
+  final bool showSelection;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelected;
+  final ValueChanged<bool>? onToggleSelection;
+  final VoidCallback? onMessage;
+  final VoidCallback? onBillingProfile;
+  final VoidCallback? onEditInvoice;
+  final VoidCallback? onMore;
   final VoidCallback? onSendInvoice;
   final VoidCallback? onReceivePayment;
   final VoidCallback? onView;
@@ -32,9 +49,137 @@ class BillingTransactionCard extends StatefulWidget {
 
 class _BillingTransactionCardState extends State<BillingTransactionCard> {
   bool _isExpanded = false;
+  late bool _localSelected;
+
+  bool get _isSelectionControlled => widget.onSelected != null;
+
+  bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
+
+  @override
+  void initState() {
+    super.initState();
+    _localSelected = widget.isSelected;
+  }
+
+  @override
+  void didUpdateWidget(covariant BillingTransactionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isSelectionControlled && widget.isSelected != oldWidget.isSelected) {
+      _localSelected = widget.isSelected;
+    }
+  }
 
   void _toggleExpanded() {
     setState(() => _isExpanded = !_isExpanded);
+  }
+
+  BillingPopupType? _popupTypeFor(String type) {
+    switch (type) {
+      case 'invoice':
+        return BillingPopupType.invoice;
+      case 'payment':
+        return BillingPopupType.payment;
+      default:
+        return null;
+    }
+  }
+
+  void _showActionsMenu(BuildContext context, BillingPopupType popupType) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.transparent,
+      builder: (BuildContext dialogContext) {
+        bool showMoreOptions = false;
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (showMoreOptions)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: BillingMoreOptionsPopup(
+                          popupType: popupType,
+                          onMessageTap: _dialogCallback(dialogContext, widget.onMessage),
+                          onBillingProfileTap: _dialogCallback(dialogContext, widget.onBillingProfile),
+                          onCancelTap: popupType == BillingPopupType.invoice
+                              ? _dialogCallback(dialogContext, widget.onDelete ?? widget.onLongPress)
+                              : null,
+                        ),
+                      ),
+                    BillingStudentVerticalPopUp(
+                      popupType: popupType,
+                      onViewTap: _dialogCallback(dialogContext, _viewActionFor(popupType)),
+                      onEditTap: _dialogCallback(dialogContext, widget.onEditInvoice),
+                      onResendTap: _dialogCallback(dialogContext, widget.onSendInvoice),
+                      onReceivePaymentTap: _dialogCallback(dialogContext, widget.onReceivePayment),
+                      onIssueRefundTap: _dialogCallback(dialogContext, widget.onIssueRefund),
+                      onMoreTap: () {
+                        widget.onMore?.call();
+                        setDialogState(() {
+                          showMoreOptions = !showMoreOptions;
+                        });
+                      },
+                      onClose: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) => _clearSelection());
+  }
+
+  VoidCallback? _dialogCallback(BuildContext dialogContext, VoidCallback? callback) {
+    if (callback == null) {
+      return null;
+    }
+    return () {
+      Navigator.of(dialogContext).pop();
+      callback();
+    };
+  }
+
+  VoidCallback? _viewActionFor(BillingPopupType popupType) {
+    if (popupType == BillingPopupType.payment) {
+      return widget.onViewReceipt ?? widget.onView;
+    }
+    return widget.onView;
+  }
+
+
+  void _handleSelectionChanged(BuildContext context, bool? value, String type) {
+    if (!_isSelectionControlled) {
+      setState(() {
+        _localSelected = value ?? false;
+      });
+    }
+    widget.onSelected?.call(value);
+    widget.onToggleSelection?.call(value ?? false);
+
+    if (value == true) {
+      final BillingPopupType? popupType = _popupTypeFor(type);
+      if (popupType != null) {
+        _showActionsMenu(context, popupType);
+      }
+    }
+  }
+
+  void _clearSelection() {
+    if (!_isSelectionControlled) {
+      setState(() {
+        _localSelected = false;
+      });
+    }
+    widget.onSelected?.call(false);
+    widget.onToggleSelection?.call(false);
   }
 
   @override
@@ -85,6 +230,19 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       children: <Widget>[
         Row(
           children: <Widget>[
+            if (widget.showSelection) ...<Widget>[
+              Builder(
+                builder: (BuildContext checkboxContext) => CustomCheckbox(
+                  value: _checkboxValue,
+                  onChanged: (bool? value) =>
+                      _handleSelectionChanged(checkboxContext, value, type),
+                  scale: 1.2,
+                  borderColor: null,
+                  label: null,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(

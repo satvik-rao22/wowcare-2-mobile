@@ -18,6 +18,7 @@ class CustomStatBarCard extends StatelessWidget {
     required this.title,
     required this.number,
     required this.items,
+    this.progressItems,
     this.onLegendTap,
     this.fullWidthBar = false,
     this.numberFontSize,
@@ -29,6 +30,7 @@ class CustomStatBarCard extends StatelessWidget {
   final String title;
   final String number;
   final List<ProgressItemHelper> items;
+  final List<ProgressItemHelper>? progressItems;
   final void Function(String label)? onLegendTap;
   final bool fullWidthBar;
   final double? numberFontSize;
@@ -38,7 +40,8 @@ class CustomStatBarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     int total = int.tryParse(number) ?? 0;
-    double sumValues = items.fold(0, (sum, item) => sum + item.value);
+    final barItems = progressItems ?? items;
+    double sumValues = barItems.fold(0, (sum, item) => sum + item.value);
     bool hasValidTotal = total > 0;
     final legendRows = <List<ProgressItemHelper>>[];
     for (var i = 0; i < items.length; i += 2) {
@@ -128,8 +131,9 @@ class CustomStatBarCard extends StatelessWidget {
 
     if (fullWidthBar) {
       // Admin billing style: label and value above, bar full width
-      final percentSum = items.fold<double>(0, (sum, item) => sum + item.value);
-      final percentList = items.map((item) => item.value).toList();
+      final percentSum =
+          barItems.fold<double>(0, (sum, item) => sum + item.value);
+      final percentList = barItems.map((item) => item.value).toList();
       final percentTotal = percentList.fold(0.0, (a, b) => a + b);
       return Container(
         padding: const EdgeInsets.symmetric(
@@ -190,7 +194,7 @@ class CustomStatBarCard extends StatelessWidget {
                               child: Container(color: Colors.grey[300]))
                         ]
                       : [
-                          ...items.map((item) => Expanded(
+                          ...barItems.map((item) => Expanded(
                                 flex: ((item.value * 1000) ~/ percentTotal),
                                 child: Container(color: item.color),
                               )),
@@ -265,7 +269,7 @@ class CustomStatBarCard extends StatelessWidget {
                                     child: Container(color: Colors.grey[300]))
                               ]
                             : [
-                                ...items.map((item) => Expanded(
+                                ...barItems.map((item) => Expanded(
                                       flex: hasValidTotal
                                           ? (item.value * 100 ~/ total)
                                           : 1,
