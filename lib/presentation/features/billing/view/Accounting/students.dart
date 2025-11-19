@@ -9,6 +9,8 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 
 class StudentsAccountingSection extends StatefulWidget {
   final double totalAmountInvoiced;
@@ -32,6 +34,36 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
   final TextEditingController _searchController = TextEditingController();
   bool _showOutstandingOnly = false;
   double _totalOutstandingAmount = 0;
+
+  TransactionItem _buildSampleTransaction() {
+    return TransactionItem(
+      id: 2001,
+      transactionType: 'Invoice',
+      date: DateTime(2025, 11, 2),
+      amount: 250,
+      status: 'Success',
+      description: 'Tuition Invoice November',
+      studentName: 'John Doe',
+      classroom: 'Grade 5 - A',
+      studentId: 201,
+      refTable: 'Invoice',
+      refTableId: 5001,
+      balance: 120,
+      note: 'Reference: INV-2025-0001',
+      endDate: '2025-11-12',
+      paymentMode: 'Bank Transfer',
+      studentOpenBalance: 120,
+    );
+  }
+
+  void _openBillingProfile(BuildContext context) {
+    final TransactionItem transaction = _buildSampleTransaction();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TransactionDetailsScreen(transaction: transaction),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -137,7 +169,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
           ),
         ),
         const SizedBox(height: 8),
-        const BillingStudentCard(
+        BillingStudentCard(
           name: 'John Doe',
           classroom: 'Grade 5 - A',
           fileUuid: '',
@@ -150,6 +182,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
           lastInvoiceSent: '02 Nov 2025',
           lastInvoiceDue: '12 Nov 2025',
           openBalance: 120,
+          onBillingProfile: () => _openBillingProfile(context),
         ),
       ],
     );

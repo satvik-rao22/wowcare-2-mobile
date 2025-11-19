@@ -240,6 +240,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       onSendInvoice: () => _openSendInvoice(record.item),
                       onReceivePayment: () => _openReceivePayment(record.item),
                       onIssueRefund: () => _openIssueRefund(record.item),
+                      onBillingProfile: () => _openTransactionDetails(record.item),
                       onDelete: () => _showActionFeedback('Delete confirmed'),
                       onLongPress: () => _openTransactionDetails(record.item),
                     ),

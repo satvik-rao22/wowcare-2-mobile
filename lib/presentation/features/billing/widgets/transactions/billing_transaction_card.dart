@@ -105,6 +105,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                         padding: const EdgeInsets.only(right: 8),
                         child: BillingMoreOptionsPopup(
                           popupType: popupType,
+                          transaction: widget.transaction,
                           onMessageTap: _dialogCallback(dialogContext, widget.onMessage),
                           onBillingProfileTap: _dialogCallback(dialogContext, widget.onBillingProfile),
                           onCancelTap: popupType == BillingPopupType.invoice
@@ -114,6 +115,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                       ),
                     BillingStudentVerticalPopUp(
                       popupType: popupType,
+                      transaction: widget.transaction,
                       onViewTap: _dialogCallback(dialogContext, _viewActionFor(popupType)),
                       onEditTap: _dialogCallback(dialogContext, widget.onEditInvoice),
                       onResendTap: _dialogCallback(dialogContext, widget.onSendInvoice),
@@ -225,75 +227,82 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   }
   Widget _buildHeader(String type) {
     final String dateLabel = _dateLabel(widget.transaction, type);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            if (widget.showSelection) ...<Widget>[
-              Builder(
-                builder: (BuildContext checkboxContext) => CustomCheckbox(
-                  value: _checkboxValue,
-                  onChanged: (bool? value) =>
-                      _handleSelectionChanged(checkboxContext, value, type),
-                  scale: 1.2,
-                  borderColor: null,
-                  label: null,
-                ),
+        if (widget.showSelection && !_isExpanded) ...<Widget>[
+          Builder(
+            builder: (BuildContext checkboxContext) => CustomCheckbox(
+              value: _checkboxValue,
+              onChanged: (bool? value) =>
+                  _handleSelectionChanged(checkboxContext, value, type),
+              scale: 1.2,
+              borderColor: null,
+              label: null,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _badgeColor(type),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _badgeLabel(type),
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 16,
+                        color: Color(0xff573353),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    _formatCurrency(widget.transaction.amount),
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 4),
+              Row(
+                children: <Widget>[
+                  Text(
+                    'Status: ${widget.transaction.status}',
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      color: Color(0xff573353),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    dateLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 13,
+                      color: Color(0xff573353),
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ],
+              ),
             ],
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _badgeColor(type),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                _badgeLabel(type),
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                  color: Color(0xff573353),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              _formatCurrency(widget.transaction.amount),
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Color(0xff573353),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: <Widget>[
-            Text(
-              'Status: ${widget.transaction.status}',
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                color: Color(0xff573353),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              dateLabel,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 13,
-                color: Color(0xff573353),
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ],
+          ),
         ),
       ],
     );

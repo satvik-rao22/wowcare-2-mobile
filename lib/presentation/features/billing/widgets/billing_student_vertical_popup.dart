@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 
 enum BillingPopupType { student, invoice, payment }
 
@@ -18,6 +20,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
     this.onReceivePaymentTap,
     this.onIssueRefundTap,
     this.onMoreTap,
+    this.transaction,
   });
 
   final BillingPopupType popupType;
@@ -30,10 +33,11 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
   final VoidCallback? onReceivePaymentTap;
   final VoidCallback? onIssueRefundTap;
   final VoidCallback? onMoreTap;
+  final TransactionItem? transaction;
 
   @override
   Widget build(BuildContext context) {
-    final List<_PopupActionConfig> actions = _buildActions();
+    final List<_PopupActionConfig> actions = _buildActions(context);
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
@@ -100,7 +104,9 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
     );
   }
 
-  List<_PopupActionConfig> _buildActions() {
+  List<_PopupActionConfig> _buildActions(BuildContext context) {
+    final VoidCallback? defaultBillingProfileTap =
+        onBillingProfileTap ?? _buildDefaultBillingProfileTap(context);
     switch (popupType) {
       case BillingPopupType.student:
         return <_PopupActionConfig>[
@@ -112,7 +118,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
           _PopupActionConfig(
             iconPath: MediaRes.profile_panel_icon,
             label: 'Billing Profile',
-            onTap: onBillingProfileTap,
+            onTap: defaultBillingProfileTap,
           ),
         ];
       case BillingPopupType.invoice:
@@ -163,6 +169,10 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
         ];
     }
   }
+
+  VoidCallback? _buildDefaultBillingProfileTap(BuildContext context) {
+    return _transactionDetailsOpener(context, transaction);
+  }
 }
 
 class _PopupActionConfig {
@@ -199,33 +209,40 @@ class _PopupActionButton extends StatelessWidget {
       opacity: isEnabled ? 1.0 : 0.4,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          children: [
-            if (iconPath != null)
-              SvgPicture.asset(
-                iconPath!,
-                height: 24,
-                width: 24,
-                colorFilter: const ColorFilter.mode(
-                  Colors.white,
-                  BlendMode.srcIn,
+        child: SizedBox(
+          width: 50,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (iconPath != null)
+                SvgPicture.asset(
+                  iconPath!,
+                  height: 24,
+                  width: 24,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                )
+              else if (iconData != null)
+                Icon(
+                  iconData,
+                  color: Colors.white,
+                  size: 24,
                 ),
-              )
-            else if (iconData != null)
-              Icon(
-                iconData,
-                color: Colors.white,
-                size: 24,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
               ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -239,12 +256,14 @@ class BillingMoreOptionsPopup extends StatelessWidget {
     this.onMessageTap,
     this.onBillingProfileTap,
     this.onCancelTap,
+    this.transaction,
   });
 
   final BillingPopupType popupType;
   final VoidCallback? onMessageTap;
   final VoidCallback? onBillingProfileTap;
   final VoidCallback? onCancelTap;
+  final TransactionItem? transaction;
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +276,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
       _PopupActionConfig(
         iconPath: MediaRes.profile_panel_icon,
         label: 'Billing Profile',
-        onTap: onBillingProfileTap,
+        onTap: onBillingProfileTap ?? _transactionDetailsOpener(context, transaction),
       ),
       if (popupType == BillingPopupType.invoice)
         _PopupActionConfig(
@@ -390,5 +409,28 @@ class _GradientIcon extends StatelessWidget {
             ),
     );
   }
+}
+
+VoidCallback? _transactionDetailsOpener(
+  BuildContext context,
+  TransactionItem? transaction,
+) {
+  if (transaction == null) {
+    return null;
+  }
+  final TransactionItem transactionItem = transaction;
+  return () {
+    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
+    navigator.pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigator.push(
+        MaterialPageRoute(
+          builder: (context) => TransactionDetailsScreen(
+            transaction: transactionItem,
+          ),
+        ),
+      );
+    });
+  };
 }
 

@@ -255,6 +255,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     });
   }
 
+  void _openTransactionDetails(TransactionItem item) {
+    if (item.id == widget.transaction.id) {
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TransactionDetailsScreen(transaction: item),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GlobalScaffold(
@@ -573,6 +584,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                           const SnackBar(content: Text('Issue Refund tapped (UI only)')),
                         );
                       },
+                      onBillingProfile: () => _openTransactionDetails(transaction),
                       onDelete: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Delete tapped (UI only)')),
