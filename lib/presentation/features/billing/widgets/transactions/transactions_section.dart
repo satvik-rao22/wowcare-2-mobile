@@ -4,8 +4,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_diff_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
@@ -229,7 +229,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 .map(
                   (_TransactionRecord record) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: TransactionDiffCard(
+                    child: BillingTransactionCard(
                       transaction: record.item,
                       onView: () => _openViewInvoice(record.item),
                       onViewReceipt: () => _openViewReceipt(record.item, 'receipt'),

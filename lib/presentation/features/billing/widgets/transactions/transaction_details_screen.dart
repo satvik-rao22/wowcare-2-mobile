@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_diff_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
@@ -597,7 +597,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 children: _siblingTransactions.map((transaction) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: TransactionDiffCard(
+                    child: BillingTransactionCard(
                       transaction: transaction,
                       onView: () {
                         Navigator.of(context).push(
