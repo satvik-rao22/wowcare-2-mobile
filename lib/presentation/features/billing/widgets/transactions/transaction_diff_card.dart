@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class TransactionDiffCard extends StatefulWidget {
@@ -16,6 +17,9 @@ class TransactionDiffCard extends StatefulWidget {
     this.onDelete,
     this.onViewReceipt,
     this.onIssueRefund,
+    this.showSelection = true,
+    this.isSelected = false,
+    this.onSelected,
   });
 
   final TransactionItem transaction;
@@ -26,6 +30,9 @@ class TransactionDiffCard extends StatefulWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onViewReceipt;
   final VoidCallback? onIssueRefund;
+  final bool showSelection;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelected;
 
   @override
   State<TransactionDiffCard> createState() => _TransactionDiffCardState();
@@ -33,6 +40,25 @@ class TransactionDiffCard extends StatefulWidget {
 
 class _TransactionDiffCardState extends State<TransactionDiffCard> {
   bool _isExpanded = false;
+  late bool _localSelected;
+
+  bool get _isSelectionControlled => widget.onSelected != null;
+
+  bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
+
+  @override
+  void initState() {
+    super.initState();
+    _localSelected = widget.isSelected;
+  }
+
+  @override
+  void didUpdateWidget(covariant TransactionDiffCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isSelectionControlled && widget.isSelected != oldWidget.isSelected) {
+      _localSelected = widget.isSelected;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +90,7 @@ class _TransactionDiffCardState extends State<TransactionDiffCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                _buildHeader(transaction),
+                _buildHeader(transaction, _isExpanded),
                 if (_isExpanded) ...<Widget>[
                   const Divider(
                     height: 1,
@@ -124,7 +150,16 @@ class _TransactionDiffCardState extends State<TransactionDiffCard> {
     );
   }
 
-  Widget _buildHeader(TransactionItem tx) {
+  void _handleSelectionChanged(bool? value) {
+    if (!_isSelectionControlled) {
+      setState(() {
+        _localSelected = value ?? false;
+      });
+    }
+    widget.onSelected?.call(value);
+  }
+
+  Widget _buildHeader(TransactionItem tx, bool isExpanded) {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -132,13 +167,24 @@ class _TransactionDiffCardState extends State<TransactionDiffCard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
+          if (!isExpanded && widget.showSelection)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: CustomCheckbox(
+                value: _checkboxValue,
+                onChanged: _handleSelectionChanged,
+                scale: 1.2,
+                borderColor: null,
+                label: null,
+              ),
+            ),
           DocumentImageWidget(
             fileUuid: tx.studentPhotoUuid ?? '',
             name: tx.studentName,
-            size: 38,
+            size: 48,
             shape: BoxShape.circle,
             fit: BoxFit.cover,
-            fontSize: 12,
+            fontSize: 14,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -153,9 +199,9 @@ class _TransactionDiffCardState extends State<TransactionDiffCard> {
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                    fontSize: 16,
                     color: Color(0xff573353),
-                    height: 19 / 15,
+                    height: 22 / 16,
                   ),
                 ),
               ],
@@ -187,10 +233,10 @@ class _TransactionDiffCardState extends State<TransactionDiffCard> {
           'Status',
           style: TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
             color: Color(0xff573353),
-            height: 20 / 14,
+            height: 16 / 12,
           ),
         ),
         _buildStatusTag(status),
@@ -373,10 +419,10 @@ class _TransactionDiffCardState extends State<TransactionDiffCard> {
             value,
             style: const TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
               color: Color(0xff573353),
-              height: 19 / 14,
+              height: 19 / 13,
             ),
             textAlign: TextAlign.right,
             maxLines: 2,

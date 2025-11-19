@@ -20,6 +20,8 @@ class InfoRowItem {
 
 class ExpandableInfoCard extends StatefulWidget {
   final Widget? leading;
+  final Widget? collapsedPrefix;
+  final double collapsedPrefixSpacing;
   final String titleText;
   final TextStyle? titleStyle;
   final String? subtitleText;
@@ -43,6 +45,8 @@ class ExpandableInfoCard extends StatefulWidget {
   const ExpandableInfoCard({
     Key? key,
     this.leading,
+    this.collapsedPrefix,
+    this.collapsedPrefixSpacing = 12,
     required this.titleText,
     this.titleStyle,
     this.subtitleText,
@@ -127,6 +131,10 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                        if (!isExpanded && widget.collapsedPrefix != null) ...[
+                          widget.collapsedPrefix!,
+                          SizedBox(width: widget.collapsedPrefixSpacing),
+                        ],
                           if (widget.leading != null) widget.leading!,
                           if (widget.leading != null) const SizedBox(width: 12),
                           Expanded(

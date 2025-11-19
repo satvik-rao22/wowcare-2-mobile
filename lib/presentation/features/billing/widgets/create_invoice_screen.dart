@@ -244,10 +244,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   void _handleSubmit() {
     if (_isSubmitting) return;
+    if (!_validateRequiredFields()) {
+      return;
+    }
     if (_invoiceItems.every((item) => item.amountController.text.trim().isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter at least one invoice item amount')),
-      );
+      _showValidationMessage('Please enter at least one invoice item amount');
       return;
     }
 
@@ -432,9 +433,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        _requiredLabel(
           'Invoice Due Date',
-          style: TextStyle(
+          TextStyle(
             fontFamily: 'Manrope',
             fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w500,
@@ -544,16 +545,25 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Invoice Items',
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: responsive.labelFontSize,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xff573353),
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: _requiredLabel(
+                'Invoice Items',
+                TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.labelFontSize,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff573353),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildAddItemButton(isTablet),
+          ],
         ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        SizedBox(height: responsive.isTablet ? 12.0 : 10.0),
         ..._invoiceItems.asMap().entries.map((entry) {
           final index = entry.key;
           final item = entry.value;
@@ -705,70 +715,78 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           );
         }),
         const SizedBox(height: 12),
-        GestureDetector(
-          onTap: _addInvoiceItem,
-          child: Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              vertical: responsive.isTablet ? 16.0 : 12.0,
-              horizontal: responsive.isTablet ? 20.0 : 14.0,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-              gradient: _isFormLocked
-                  ? null
-                  : LinearGradient(
-                      colors: [
-                        const Color(0x1A5978F7),
-                        const Color(0x1A9C84FF),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              color: _isFormLocked ? Colors.grey[200] : null,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Add Invoice Items',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xff573353),
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Preset charges, discounts, subsidies',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  'Total: \$${_totalAmount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xff573353),
-                  ),
-                ),
-              ],
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            vertical: responsive.isTablet ? 16.0 : 12.0,
+            horizontal: responsive.isTablet ? 20.0 : 14.0,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            color: const Color(0x1AB1AFE9),
+            border: Border.all(color: const Color(0x33573353)),
+          ),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'Total: \$${_totalAmount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xff573353),
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAddItemButton(bool isTablet) {
+    final borderRadius = BorderRadius.circular(isTablet ? 14.0 : 10.0);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: isTablet ? 48.0 : 42.0,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          gradient: _isFormLocked ? null : AppColors.buildPrimaryGradient(),
+          color: _isFormLocked ? Colors.grey[200] : null,
+          boxShadow: _isFormLocked
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+        ),
+        child: TextButton.icon(
+          onPressed: _isFormLocked ? null : _addInvoiceItem,
+          icon: const Icon(Icons.add, color: Colors.white, size: 18),
+          label: Text(
+            'Add Item',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: isTablet ? 15 : 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          style: TextButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: borderRadius),
+            padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 18.0 : 14.0,
+              vertical: 10.0,
+            ),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+      ),
     );
   }
 
@@ -805,6 +823,60 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _requiredLabel(String text, TextStyle style) {
+    return RichText(
+      text: TextSpan(
+        text: text,
+        style: style,
+        children: const [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(
+              color: Color(0xffFF3B30),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _validateRequiredFields() {
+    if (_dueDate == null) {
+      _showValidationMessage('Please select an invoice due date.');
+      return false;
+    }
+
+    for (var index = 0; index < _invoiceItems.length; index++) {
+      final item = _invoiceItems[index];
+      final description = _effectiveControllerValue(item.descriptionController, fallback: item.description);
+      if (description.trim().isEmpty) {
+        _showValidationMessage('Please provide a description for invoice item ${index + 1}.');
+        return false;
+      }
+
+      final amountText = _effectiveControllerValue(item.amountController, fallback: item.amount);
+      final isDiscountType = item.type == 'Discount' || item.type == 'Subsidy';
+      if (amountText.trim().isEmpty) {
+        final label = isDiscountType ? 'deduction' : 'amount';
+        _showValidationMessage('Please enter the $label for invoice item ${index + 1}.');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  String _effectiveControllerValue(TextEditingController controller, {required String fallback}) {
+    final text = controller.text.trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  void _showValidationMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }
@@ -1108,4 +1180,3 @@ extension IterableMapIndexedExtension<T> on Iterable<T> {
     return result;
   }
 }
-

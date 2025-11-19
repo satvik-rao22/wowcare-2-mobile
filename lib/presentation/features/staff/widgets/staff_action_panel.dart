@@ -5,7 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 
 enum StaffPanelType { attendance, activities, none }
 
-class StaffActionPanel extends StatelessWidget {
+class StaffActionPanel extends StatefulWidget {
   const StaffActionPanel({
     super.key,
     required this.currentPanel,
@@ -14,6 +14,10 @@ class StaffActionPanel extends StatelessWidget {
     this.onMessageTap,
     this.onProfileTap,
     this.onClearSelections,
+    this.onSignIn,
+    this.onSignOut,
+    this.onTransfer,
+    this.onAbsent,
     this.isProfileEnabled = false,
     this.activitiesEnabled = true,
   });
@@ -24,95 +28,233 @@ class StaffActionPanel extends StatelessWidget {
   final VoidCallback? onMessageTap;
   final VoidCallback? onProfileTap;
   final VoidCallback? onClearSelections;
+  final VoidCallback? onSignIn;
+  final VoidCallback? onSignOut;
+  final VoidCallback? onTransfer;
+  final VoidCallback? onAbsent;
   final bool isProfileEnabled;
   final bool activitiesEnabled;
 
   @override
+  State<StaffActionPanel> createState() => _StaffActionPanelState();
+}
+
+class _StaffActionPanelState extends State<StaffActionPanel> {
+  bool _showAttendancePanel = false;
+
+  void _toggleAttendancePanel() {
+    setState(() {
+      _showAttendancePanel = !_showAttendancePanel;
+    });
+    widget.onAttendanceTap?.call();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.bottomCenter,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Material(
-          borderRadius: BorderRadius.circular(10),
-          elevation: 3,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ActionButton(
-                  svgPath: MediaRes.attendance_panel_icon,
-                  label: 'Attendance',
-                  onTap: onAttendanceTap,
-                  isSelected: currentPanel == StaffPanelType.attendance,
-                ),
-                // const SizedBox(height: 20),
-                // _ActionButton(
-                //   svgPath: MediaRes.activity_panel_icon,
-                //   label: 'Activities',
-                //   onTap: activitiesEnabled ? onActivitiesTap : null,
-                //   isSelected: currentPanel == StaffPanelType.activities,
-                //   isEnabled: activitiesEnabled,
-                //   disabledTooltip: 'Select applicable items to mark an activity',
-                // ),
-                const SizedBox(height: 20),
-                _ActionButton(
-                  svgPath: MediaRes.message_panel_icon,
-                  label: 'Message',
-                  onTap: onMessageTap,
-                ),
-                const SizedBox(height: 20),
-                _ActionButton(
-                  svgPath: MediaRes.profile_panel_icon,
-                  label: 'Profile',
-                  onTap: isProfileEnabled ? onProfileTap : null,
-                  isEnabled: isProfileEnabled,
-                  disabledTooltip: 'Select only one to view profile',
-                ),
-                const SizedBox(height: 24),
-              ],
+        if (_showAttendancePanel)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _AttendanceOptionsPanel(
+              onSignIn: widget.onSignIn,
+              onSignOut: widget.onSignOut,
+              onTransfer: widget.onTransfer,
+              onAbsent: widget.onAbsent,
             ),
           ),
-        ),
-        Transform.translate(
-          offset: const Offset(0, 15),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color.fromRGBO(156, 132, 255, 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+        Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            Material(
+              borderRadius: BorderRadius.circular(10),
+              elevation: 3,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildPrimaryGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ActionButton(
+                      svgPath: MediaRes.attendance_panel_icon,
+                      label: 'Attendance',
+                      onTap: _toggleAttendancePanel,
+                      isSelected: _showAttendancePanel,
+                    ),
+                    const SizedBox(height: 20),
+                    _ActionButton(
+                      svgPath: MediaRes.message_panel_icon,
+                      label: 'Message',
+                      onTap: widget.onMessageTap,
+                    ),
+                    const SizedBox(height: 20),
+                    _ActionButton(
+                      svgPath: MediaRes.profile_panel_icon,
+                      label: 'Profile',
+                      onTap: widget.isProfileEnabled ? widget.onProfileTap : null,
+                      isEnabled: widget.isProfileEnabled,
+                      disabledTooltip: 'Select only one to view profile',
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onClearSelections,
-                customBorder: const CircleBorder(),
-                child: const Padding(
-                  padding: EdgeInsets.all(10.0),
-                  child: Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 20,
+            Transform.translate(
+              offset: const Offset(0, 15),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color.fromRGBO(156, 132, 255, 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() => _showAttendancePanel = false);
+                      widget.onClearSelections?.call();
+                    },
+                    customBorder: const CircleBorder(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(10.0),
+                      child: Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _AttendanceOptionsPanel extends StatelessWidget {
+  const _AttendanceOptionsPanel({
+    this.onSignIn,
+    this.onSignOut,
+    this.onTransfer,
+    this.onAbsent,
+  });
+
+  final VoidCallback? onSignIn;
+  final VoidCallback? onSignOut;
+  final VoidCallback? onTransfer;
+  final VoidCallback? onAbsent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 70,
+      constraints: const BoxConstraints(maxHeight: 400),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AttendanceActionItem(
+            svgPath: MediaRes.Sign_in,
+            label: 'Sign-In',
+            onTap: onSignIn,
+          ),
+          const SizedBox(height: 5),
+          _AttendanceActionItem(
+            svgPath: MediaRes.Sign_out,
+            label: 'Sign-Out',
+            onTap: onSignOut,
+          ),
+          const SizedBox(height: 5),
+          _AttendanceActionItem(
+            svgPath: MediaRes.transfer,
+            label: 'Transfer',
+            onTap: onTransfer,
+          ),
+          const SizedBox(height: 5),
+          _AttendanceActionItem(
+            svgPath: MediaRes.Mark_absent,
+            label: 'Absent',
+            onTap: onAbsent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceActionItem extends StatelessWidget {
+  const _AttendanceActionItem({
+    required this.svgPath,
+    required this.label,
+    this.onTap,
+  });
+
+  final String svgPath;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: SvgPicture.asset(
+              svgPath,
+              height: 24,
+              width: 24,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Manrope',
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
