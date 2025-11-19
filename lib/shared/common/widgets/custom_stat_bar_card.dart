@@ -22,6 +22,7 @@ class CustomStatBarCard extends StatelessWidget {
     this.fullWidthBar = false,
     this.numberFontSize,
     this.titleFontSize,
+    this.footer,
     super.key,
   });
 
@@ -32,6 +33,7 @@ class CustomStatBarCard extends StatelessWidget {
   final bool fullWidthBar;
   final double? numberFontSize;
   final double? titleFontSize;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +205,13 @@ class CustomStatBarCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             buildLegendLayout(),
+            if (footer != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.center,
+                child: footer!,
+              ),
+            ],
           ],
         ),
       );
@@ -275,6 +284,13 @@ class CustomStatBarCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   buildLegendLayout(),
+                  if (footer != null) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.center,
+                      child: footer!,
+                    ),
+                  ],
                 ],
               ),
             ),

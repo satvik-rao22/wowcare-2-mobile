@@ -22,11 +22,11 @@ class _BillingScreenState extends State<BillingScreen>
   static const List<String> _tabs = <String>[
     'Student(s)',
     'Transactions',
-    'Recurring Plans',
-    'General Ledger',
-    'Subsidies',
-    'Analytics',
-    'Billing Settings',
+    // 'Recurring Plans',
+    // 'General Ledger',
+    // 'Subsidies',
+    // 'Analytics',
+    // 'Billing Settings',
   ];
 
   @override
