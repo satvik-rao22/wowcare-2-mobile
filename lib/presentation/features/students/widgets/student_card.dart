@@ -4,6 +4,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import '../view/add_student_screen.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
@@ -478,9 +479,22 @@ class _StudentCardState extends State<StudentCard> {
                                         widget.onEdit?.call();
 
                                         // Derive first/last name from full name
-                                        // final parts = widget.name.trim().split(' ');
-                                        // final initialFirstName = parts.isNotEmpty ? parts.first : '';
-                                        // final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+                                        final parts = widget.name.trim().split(' ');
+                                        final initialFirstName = parts.isNotEmpty ? parts.first : '';
+                                        final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => AddStudentScreen(
+                                              isEdit: true,
+                                              initialFirstName: initialFirstName,
+                                              initialLastName: initialLastName,
+                                              initialClassroom: widget.classroom,
+                                              //initialStatus: widget.status,
+                                              // initialEmail and initialStatus not available here
+                                            ),
+                                          ),
+                                        );
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,

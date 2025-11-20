@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_profile_tab.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -34,6 +35,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _profileScrollController = ScrollController();
+  final ScrollController _healthScrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -122,13 +124,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   sibling: widget.sibling,
 
                 ),
-                StudentProfileTab(
-                  scrollController: _profileScrollController,
+                StudentHealthTab(
+                  scrollController: _healthScrollController,
                   name: widget.name,
                   classroom: widget.classroom,
-                  tags: widget.tags,
-                  schedule: widget.schedule,
-                  sibling: widget.sibling,
 
                 ),
                 StudentProfileTab(

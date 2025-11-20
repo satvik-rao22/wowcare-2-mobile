@@ -12,8 +12,10 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
-
+import '../../../../shared/common/widgets/gradient_add_button.dart';
+import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
+import 'add_student_screen.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({super.key});
@@ -101,6 +103,43 @@ class _StudentScreenState extends State<StudentScreen> {
                           textAlign: TextAlign.left,
                         ),
                       ),
+                      GradientAddButton(
+                        onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AddStudentScreen()),
+                          );
+                          if (!mounted) return;
+                          print('[StudentScreen] Received result from AddStudentScreen: ' + result.toString());
+                          if (result is Map && (result['showPostAddPrompt'] == true)) {
+                            final studentName = (result['studentName'] as String?) ?? '';
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.white,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(24),
+                                    topRight: Radius.circular(24),
+                                  ),
+                                ),
+                                builder: (ctx) => PostAddStudentBottomSheet(
+                                  studentName: studentName,
+                                  onLater: () => Navigator.of(ctx).pop(),
+                                  onYes: () {
+                                    Navigator.of(ctx).pop();
+                                    //Navigator.of(context).pushNamed('/edit-profile-details-screen');
+                                  },
+                                ),
+                              );
+                            });
+                          }
+                        },
+                        isTablet: MediaQuery.of(context).size.width >= 600,
+                        isLargeTablet: MediaQuery.of(context).size.width >= 900,
+                      ),
+                      SizedBox(width: 10,),
                       // Clock action button
                       Container(
                         width: 38,

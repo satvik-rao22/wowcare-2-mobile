@@ -3,6 +3,7 @@ import 'package:wowcare/presentation/features/students/view/student_profile_tab_
 import 'package:wowcare/app/theme/colors.dart';
 
 import '../student_profile_tab_cards/student_family_tab_card.dart';
+import '../student_profile_tab_cards/student_pickup_tab_card.dart';
 
 
 class StudentProfileTab extends StatefulWidget {
@@ -165,14 +166,11 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                   name: widget.name,
                   classroom: widget.classroom,
                 ),
-                StudentAboutTabCard(
-                  scrollController: _aboutScrollController,
+                StudentPickupTabCard(
+                  scrollController: _pickupScrollController,
                   name: widget.name,
                   classroom: widget.classroom,
-                  tags: widget.tags,
-                  schedule: widget.schedule,
-                  sibling: widget.sibling,
-                )
+                ),
               ],
             ),
           ),

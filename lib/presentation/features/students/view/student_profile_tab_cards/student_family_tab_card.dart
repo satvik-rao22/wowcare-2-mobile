@@ -34,9 +34,9 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       controller: widget.scrollController,
       child: Column(
         children: [
-          _FamilyCard(name: "Parent name", relation: 'Father', email: "father@mai.com",),
+          _FamilyCard(name: "Parent name", relation: 'Father', email: "father@mail.com",),
           SizedBox(height: 20,),
-          _FamilyCard(name: "Parent name", relation: 'Mother', email: "mother@mai.com",)
+          _FamilyCard(name: "Parent name", relation: 'Mother', email: "mother@mail.com",)
         ],
       ),
 
