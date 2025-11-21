@@ -33,9 +33,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
       controller: widget.scrollController,
       child: Column(
         children: [
-          _PhysicianCard(name: "Parent name", address: 'Nashua,New Hampshire', email: "father@mail.com",),
+          _PhysicianCard(name: "Dr. Sanjay Verma", address: 'Nashua,New Hampshire', email: "doctor00@mail.com",),
           SizedBox(height: 20,),
-          _PhysicianCard(name: "Parent name", address: 'Nashua,New Hampshire', email: "mother@mail.com",)
+          _PhysicianCard(name: "Dr. Marry Dsouza", address: 'Nashua,New Hampshire', email: "doctor01@mail.com",)
         ],
       ),
 

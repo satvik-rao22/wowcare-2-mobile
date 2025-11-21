@@ -33,9 +33,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
       controller: widget.scrollController,
       child: Column(
         children: [
-          _PhysicalExamCard(status: "", checkupDate: ''),
+          _PhysicalExamCard(status: "Completed", checkupDate: 'Nov 09 ,2025'),
           SizedBox(height: 20,),
-          _PhysicalExamCard(status: "", checkupDate: '')
+          _PhysicalExamCard(status: "Due", checkupDate: 'Nov 09 ,2026')
         ],
       ),
 
@@ -70,28 +70,12 @@ class _PhysicalExamCard extends StatelessWidget{
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      const Text(
-                        '',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
-                      ),
-                      Text(
-                        status!,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
+                      _Chip(
+                          label: status,
+                          labelColor: (status.toLowerCase() == 'completed') ? const Color(0xFF38C820) : Color(0xFFEABA00),
+                          color: (status.toLowerCase() == 'completed') ? const Color(0x1A38C820) : Color(0x1AEABA00),
                       ),
                     ],
                   ),
@@ -111,7 +95,7 @@ class _PhysicalExamCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        checkupDate!,
+                        checkupDate,
                         style: const TextStyle(
                           fontFamily: 'Manrope',
                           fontSize: 14,
