@@ -32,80 +32,86 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
     final horizontalPadding = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
 
     final verticalPadding = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
 
     final titleFontSize = isLargeTablet
         ? 20.0
         : isTablet
-            ? 18.0
-            : 16.0;
+        ? 18.0
+        : 16.0;
 
     final buttonHeight = isLargeTablet
         ? 56.0
         : isTablet
-            ? 48.0
-            : 40.0;
+        ? 48.0
+        : 40.0;
 
     final buttonFontSize = isLargeTablet
         ? 18.0
         : isTablet
-            ? 16.0
-            : 14.0;
+        ? 16.0
+        : 14.0;
 
     final borderRadius = isLargeTablet
         ? 24.0
         : isTablet
-            ? 20.0
-            : 16.0;
+        ? 20.0
+        : 16.0;
 
     final bool isPlanAction = type == 'plan_cancel' || type == 'plan_pause';
 
     final String typeText = isPlanAction
         ? (type == 'plan_cancel'
-            ? 'Do you want to cancel this plan - "${planName ?? ''}" for student $name?'
-            : 'Do you want to pause this plan - "${planName ?? ''}" for student $name?')
-            : type == 'user'
-            ? "Do you want to delete this User"
-            : type == 'staff'
-                ? 'Do you want to deactivate this Staff -\n"$name" ?'
-            : type == 'classroom'
-                ? "Do you want to delete this Classroom"
-                : type == 'vendor_category'
-                    ? "Do you want to delete this Vendor Category"
-                    : type == 'vendor'
-                        ? "Do you want to delete this Vendor"
-                        : type == 'product_category'
-                            ? "Do you want to delete this Product Category"
-                            : type == 'product'
-                                ? "Do you want to delete this Product"
-                                : type == 'request'
-                                    ? "Do you want to delete request made for product name"
-                                    : type == 'purchase_order'
-                                        ? "Do you want to delete this Purchase Order"
-                                        : type == 'complete_purchase'
-                                            ? "Are you sure you want to mark this purchase \"$name\" as completed? This action cannot be reversed."
-                                            : type == 'order_purchase'
-                                                ? "Are you sure you want to mark this purchase \"$name\" as ordered? This action cannot be reversed."
-                                            : type == 'reject_request'
-                                                ? "Are you sure you want to reject this request for \"$name\"? This action cannot be reversed."
-                                                : type == 'attendance'
-                                                    ? "Do you want to delete $name's Attendance?"
-                                                    : '';
+              ? 'Do you want to cancel this plan - "${planName ?? ''}" for student $name?'
+              : 'Do you want to pause this plan - "${planName ?? ''}" for student $name?')
+        : type == 'user'
+        ? "Do you want to delete this User"
+        : type == 'staff'
+        ? 'Do you want to deactivate this Staff -\n"$name" ?'
+        : type == 'student'
+        ? 'Do you want to deactivate this Student -\n"$name" ?'
+        : type == 'subsidy'
+        ? 'Do you want to delete the subsidy -\n$name ?'
+        : type == 'classroom'
+        ? "Do you want to delete this Classroom"
+        : type == 'vendor_category'
+        ? "Do you want to delete this Vendor Category"
+        : type == 'vendor'
+        ? "Do you want to delete this Vendor"
+        : type == 'product_category'
+        ? "Do you want to delete this Product Category"
+        : type == 'product'
+        ? "Do you want to delete this Product"
+        : type == 'request'
+        ? "Do you want to delete request made for product name"
+        : type == 'purchase_order'
+        ? "Do you want to delete this Purchase Order"
+        : type == 'complete_purchase'
+        ? "Are you sure you want to mark this purchase \"$name\" as completed? This action cannot be reversed."
+        : type == 'order_purchase'
+        ? "Are you sure you want to mark this purchase \"$name\" as ordered? This action cannot be reversed."
+        : type == 'reject_request'
+        ? "Are you sure you want to reject this request for \"$name\"? This action cannot be reversed."
+        : type == 'attendance'
+        ? "Do you want to delete $name's Attendance?"
+        : '';
 
     String buttonText = type == 'complete_purchase'
         ? "Mark Complete"
         : type == 'order_purchase'
-            ? "Mark as Ordered"
-            : type == 'reject_request'
-                ? "Reject Request"
-                : (type == 'plan_pause' ? 'Pause Plan' : (type == 'plan_cancel' ? 'Cancel Plan' : "Delete"));
+        ? "Mark as Ordered"
+        : type == 'reject_request'
+        ? "Reject Request"
+        : (type == 'plan_pause'
+              ? 'Pause Plan'
+              : (type == 'plan_cancel' ? 'Cancel Plan' : "Delete"));
 
     return SafeArea(
       top: false,
@@ -155,8 +161,12 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
                             Colors.white,
                             BlendMode.srcIn,
                           ),
-                          width: isLargeTablet ? 32.0 : (isTablet ? 28.0 : 24.0),
-                          height: isLargeTablet ? 32.0 : (isTablet ? 28.0 : 24.0),
+                          width: isLargeTablet
+                              ? 32.0
+                              : (isTablet ? 28.0 : 24.0),
+                          height: isLargeTablet
+                              ? 32.0
+                              : (isTablet ? 28.0 : 24.0),
                         ),
                       ),
                     );
@@ -166,7 +176,9 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
               SizedBox(height: verticalPadding),
               // Title text centered
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   typeText,
                   style: TextStyle(
@@ -193,7 +205,9 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFF6C7FD8)),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                           ),
                           backgroundColor: Colors.white,
                         ),
@@ -223,13 +237,19 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
                         onPressed: isLoading ? null : onDelete,
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                           ),
                         ),
                         child: isLoading
                             ? SizedBox(
-                                width: isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0),
-                                height: isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0),
+                                width: isLargeTablet
+                                    ? 24.0
+                                    : (isTablet ? 20.0 : 16.0),
+                                height: isLargeTablet
+                                    ? 24.0
+                                    : (isTablet ? 20.0 : 16.0),
                                 child: const CircularProgressIndicator(
                                   color: Colors.white,
                                   strokeWidth: 2,

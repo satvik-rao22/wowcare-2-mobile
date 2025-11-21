@@ -1,8 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -11,6 +12,10 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import '../../../../shared/common/widgets/gradient_add_button.dart';
+import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
+import '../widgets/student_card.dart';
+import 'add_student_screen.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({super.key});
@@ -26,6 +31,39 @@ class _StudentScreenState extends State<StudentScreen> {
   bool _showInactive = false;
   final List<bool> _selectedDemo = [false, false, false];
   bool _selectAll = false;
+  StudentPanelType _currentPanel = StudentPanelType.none;
+  List<Map<String, dynamic>> _demoStudentData =  [
+    {
+      'name': 'Kabir Mehta',
+      'classroom': 'Nursery A',
+      'tags': ['5 days', 'Full day', 'Allergies', 'Medication'],
+      'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      'birthDate': '12 Jan 2022',
+      'movementDate': '05 Sep 2024',
+      'status': 'signedIn',
+      'sibling': {'name': ['Anya Mehta'], 'relation': ['sister'], 'status': ['upcoming']}
+    },
+    {
+      'name': 'Sara Khan',
+      'classroom': 'Nursery B',
+      'tags': ['3 days', 'Full day', 'Allergies'],
+      'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
+      'birthDate': '12 Jan 2022',
+      'movementDate': '05 Sep 2024',
+      'status': 'isAbsent',
+      'sibling': {'name': [], 'relation': [], 'status': []}
+    },
+    {
+      'name': 'Rohan Gupta',
+      'classroom': 'Playgroup',
+      'tags': [ 'Half day', 'Medication'],
+      'schedule': ['Mon', 'Wed', 'Thu', 'Fri'],
+      'birthDate': '12 Jan 2022',
+      'movementDate': '05 Sep 2024',
+      'status': 'upcoming',
+      'sibling': {'name': ['Raghave Gupta', 'Ruhi Gupta'], 'relation': ['brother', 'sister'], 'status': ['signedIn', 'isAbsent']}
+    },
+  ];
 
   @override
   void dispose() {
@@ -37,6 +75,9 @@ class _StudentScreenState extends State<StudentScreen> {
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
+
+    final bool anySelected = _selectedDemo.any((e) => e);
+    final int selectedCount = _selectedDemo.where((e) => e).length;
 
     return GlobalScaffold(
       body: Stack(
@@ -62,6 +103,43 @@ class _StudentScreenState extends State<StudentScreen> {
                           textAlign: TextAlign.left,
                         ),
                       ),
+                      GradientAddButton(
+                        onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AddStudentScreen()),
+                          );
+                          if (!mounted) return;
+                          print('[StudentScreen] Received result from AddStudentScreen: ' + result.toString());
+                          if (result is Map && (result['showPostAddPrompt'] == true)) {
+                            final studentName = (result['studentName'] as String?) ?? '';
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.white,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(24),
+                                    topRight: Radius.circular(24),
+                                  ),
+                                ),
+                                builder: (ctx) => PostAddStudentBottomSheet(
+                                  studentName: studentName,
+                                  onLater: () => Navigator.of(ctx).pop(),
+                                  onYes: () {
+                                    Navigator.of(ctx).pop();
+                                    //Navigator.of(context).pushNamed('/edit-profile-details-screen');
+                                  },
+                                ),
+                              );
+                            });
+                          }
+                        },
+                        isTablet: MediaQuery.of(context).size.width >= 600,
+                        isLargeTablet: MediaQuery.of(context).size.width >= 900,
+                      ),
+                      SizedBox(width: 10,),
                       // Clock action button
                       Container(
                         width: 38,
@@ -242,75 +320,31 @@ class _StudentScreenState extends State<StudentScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: 3,
                     itemBuilder: (context, index) {
-                      final demo = [
-                        {
-                          'name': 'Kabir Mehta',
-                          'classroom': 'Nursery A',
-                        },
-                        {
-                          'name': 'Sara Khan',
-                          'classroom': 'Nursery B',
-                        },
-                        {
-                          'name': 'Rohan Gupta',
-                          'classroom': 'Playgroup',
-                        },
-                      ][index];
-                      return Container(
-                        margin: EdgeInsets.only(bottom: index != 2 ? 8 : 0),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          border: Border.all(color: AppColors.cardBorderColor),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            CustomCheckbox(
-                              label: '',
-                              value: _selectedDemo[index],
-                              onChanged: (v) => setState(() {
-                                _selectedDemo[index] = v ?? false;
-                                if (!_selectedDemo.any((e) => e)) {
-                                  // nothing extra for now
-                                }
-                              }),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    demo['name'] as String,
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xff573353),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    demo['classroom'] as String,
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: Color(0xff7A6B78),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.keyboard_arrow_right,
-                              size: 18,
-                              color: Color(0xff7A6B78),
-                            ),
-                          ],
-                        ),
+                      final demo = _demoStudentData[index];
+                      return Column(
+                        children: [
+                          StudentCard(
+                            name: demo['name'] as String,
+                            classroom: demo['classroom'] as String,
+                            tags: (demo['tags'] as List<String>),
+                            sibling: demo['sibling'] as Map<String, dynamic>,
+                            schedule: (demo['schedule'] as List<String>),
+                            birthDate: (demo['birthDate'] as String),
+                            movementDate: (demo['movementDate'] as String),
+                            status: (demo['status'] as String),
+                            isSelected: _selectedDemo[index],
+                            onSelected: (v) => setState(() {
+                              _selectedDemo[index] = v ?? false;
+                              if (!_selectedDemo.any((e) => e)) {
+                                _currentPanel = StudentPanelType.none;
+                              }
+
+                            }),
+                            onEdit: () {},
+                            onDeactivate: () {},
+                          ),
+                          if (index != 2) const SizedBox(height: 10),
+                        ],
                       );
                     },
                   ),
@@ -318,6 +352,54 @@ class _StudentScreenState extends State<StudentScreen> {
               ),
             ),
           ),
+          if (anySelected)
+            Positioned(
+                right: 16,
+              bottom: 16,
+              child: StudentActionPanel(
+                  currentPanel: _currentPanel,
+                onAttendanceTap: (){},
+                onActivitiesTap: (){},
+                onMessageTap: (){},
+                onProfileTap: selectedCount == 1 ? (){
+                    final idx = _selectedDemo.indexWhere((e) => e);
+                    if(idx != -1){
+                      final demo = _demoStudentData[idx];
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => StudentProfileScreen(
+                                  name: demo['name'] as String? ?? "Unknown Student",
+                                  sibling: demo['sibling'] as Map<String, dynamic>,
+                                  schedule : (demo['schedule'] as List<dynamic>?)
+                                      ?.map((e) => e.toString())
+                                      .toList() ??
+                                      ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                                  classroom: demo['classroom'] as String? ?? "Unknown Class",
+                                  tags: (demo['tags'] as List<dynamic>?)
+                                      ?.map((e) => e.toString())
+                                      .toList() ??
+                                      ['5 days', 'Full day', 'Allergies', 'Medication'],
+                              )
+                          )
+                      );
+                    }
+
+                }: null,
+                onClearSelections: (){
+                    setState(() {
+                      for (int i = 0; i < _selectedDemo.length; i++){
+                        _selectedDemo[i] = false;
+                      }
+                      _selectAll = false;
+                      _currentPanel = StudentPanelType.none;
+                    });
+                },
+                isProfileEnabled: selectedCount == 1,
+                activitiesEnabled: selectedCount > 0,
+              ),
+            )
+
         ],
       ),
       showCustomNavigationBar: true,
