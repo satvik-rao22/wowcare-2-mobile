@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
+import '../student_health_tab_cards/student_dates_tab_card.dart';
+import '../student_health_tab_cards/student_physician_tab_card.dart';
+
 
 class StudentHealthTab extends StatefulWidget {
   const StudentHealthTab({
@@ -166,8 +169,8 @@ class _StudentHealthTabState extends State<StudentHealthTab>
             controller: _tabController,
             children: [
               StudentHealthTabCard(scrollController: _healthScrollController, name: widget.name, classroom: widget.classroom),
-              StudentHealthTabCard(scrollController: _healthScrollController, name: widget.name, classroom: widget.classroom),
-              StudentHealthTabCard(scrollController: _healthScrollController, name: widget.name, classroom: widget.classroom),
+              StudentPhysicianTabCard(scrollController: _physicianScrollController, name: widget.name, classroom: widget.classroom),
+              StudentDatesTabCard(scrollController: _datesScrollController, name: widget.name, classroom: widget.classroom),
               StudentHealthTabCard(scrollController: _healthScrollController, name: widget.name, classroom: widget.classroom),
             ],
           ),
