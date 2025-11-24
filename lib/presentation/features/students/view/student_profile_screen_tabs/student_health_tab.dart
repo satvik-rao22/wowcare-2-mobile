@@ -153,7 +153,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               ],
             ),
           ),
-          const SizedBox(height: 20), // bottom spacing preserved
+          const SizedBox(height: 20),
         ],
 
         Transform.translate(

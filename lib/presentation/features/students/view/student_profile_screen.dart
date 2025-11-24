@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_profile_tab.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -16,8 +18,7 @@ class StudentProfileScreen extends StatefulWidget {
     required this.classroom,
     required this.tags,
     required this.schedule,
-    required this.sibling
-
+    required this.sibling,
   });
 
   final String name;
@@ -25,7 +26,6 @@ class StudentProfileScreen extends StatefulWidget {
   final List<String> tags;
   final List<String> schedule;
   final Map<String, dynamic> sibling;
-
 
   @override
   State<StudentProfileScreen> createState() => _StudentProfileScreenState();
@@ -36,19 +36,24 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late TabController _tabController;
   final ScrollController _profileScrollController = ScrollController();
   final ScrollController _healthScrollController = ScrollController();
+  final ScrollController _importantDatesScrollController = ScrollController();
+  final ScrollController _documentsScrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
+  bool isExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _profileScrollController.dispose();
+    _healthScrollController.dispose();
+    _importantDatesScrollController.dispose();
+    _documentsScrollController.dispose();
     super.dispose();
   }
 
@@ -57,16 +62,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selected profile image')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selected profile image')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +107,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 Tab(text: 'Profile'),
                 Tab(text: 'Health'),
                 Tab(text: 'Dates'),
-                Tab(text: 'Documents',)
+                Tab(text: 'Documents'),
                 // Billing settings can be added based on role
               ],
             ),
@@ -122,37 +126,26 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   tags: widget.tags,
                   schedule: widget.schedule,
                   sibling: widget.sibling,
-
                 ),
                 StudentHealthTab(
                   scrollController: _healthScrollController,
                   name: widget.name,
                   classroom: widget.classroom,
-
                 ),
-                StudentProfileTab(
-                  scrollController: _profileScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
-                  tags: widget.tags,
-                  schedule: widget.schedule,
-                  sibling: widget.sibling,
-
+                StudentImportantDatesTab(
+                    scrollController: _importantDatesScrollController,
+                    name: widget.name,
+                    classroom: widget.classroom
                 ),
-                StudentProfileTab(
-                  scrollController: _profileScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
-                  tags: widget.tags,
-                  schedule: widget.schedule,
-                  sibling: widget.sibling,
-
-                ),
+                StudentDocumentsTab(
+                    scrollController: _documentsScrollController,
+                    name: widget.name,
+                    classroom: widget.classroom
+                )
 
               ],
             ),
           ),
-
         ],
       ),
     );
@@ -162,158 +155,315 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     //final String initials = _getInitials(widget.name)
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Colors.white,
-      elevation: 8,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 30),
-            child: Column(
-              children: [
-                Container(
-                  height: 120,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isTablet ? 24 : 16,
-                    vertical: 10
-                  ),
-                  alignment: Alignment.center,
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: _pickProfileImage,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            DocumentImageWidget(
-                              fileUuid: widget.name, // seed for stable color when no image
-                              name: widget.name,
-                              size: 90,
-                              fontSize: 24,
-                              statusColor: const Color(0xFF00B115),
-                            ),
-                            Positioned(
-                              right: -2,
-                              bottom: -2,
-                              child: Container(
-                                width: 32,
-                                height: 32,
+    return (!isExpanded)
+        ? Card(
+            margin: EdgeInsets.zero,
+            color: Colors.white,
+            elevation: 1,
+            child: InkWell(
+              onTap: () => setState(() {
+                isExpanded = true;
+              }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
+                ),
+                child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: _pickProfileImage,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              DocumentImageWidget(
+                                fileUuid: widget
+                                    .name, // seed for stable color when no image
+                                name: widget.name,
+                                size: 56,
+                                fontSize: 18,
+                                statusColor: const Color(0xFF00B115),
+                              ),
+                              Positioned(
+                                right: -4,
+                                bottom: -4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 4,
+                                        //offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      gradient:
+                                          AppColors.buildPrimaryGradient(),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                      size: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                widget.name,
+                                style: const TextStyle(
+                                  color: const Color(0xFF573353),
+                                  fontSize: 18,
+                                  fontFamily: 'Manrope',
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.03 * 18,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  widget.classroom,
+                                  style: const TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                ),
+              ),
+            )
+        : InkWell(
+            onTap: () => setState(() {
+              isExpanded = false;
+            }),
+            child: Card(
+              margin: EdgeInsets.zero,
+              color: Colors.white,
+              elevation: 2,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 30,
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 120,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? 24 : 16,
+                            vertical: 10,
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            children: [
+                              GestureDetector(
+                                onTap: _pickProfileImage,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    DocumentImageWidget(
+                                      fileUuid: widget
+                                          .name, // seed for stable color when no image
+                                      name: widget.name,
+                                      size: 90,
+                                      fontSize: 24,
+                                      statusColor: const Color(0xFF00B115),
+                                    ),
+                                    Positioned(
+                                      right: -2,
+                                      bottom: -2,
+                                      child: Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.08,
+                                              ),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Container(
+                                          margin: const EdgeInsets.all(2),
+                                          decoration: BoxDecoration(
+                                            gradient:
+                                                AppColors.buildPrimaryGradient(),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.camera_alt,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                child: Container(
-                                  margin: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    gradient: AppColors.buildPrimaryGradient(),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                              ),
+                              const SizedBox(width: 28),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.name,
+                                      style: const TextStyle(
+                                        color: const Color(0xFF573353),
+                                        fontFamily: 'Manrope',
+                                        fontSize: 23,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: -0.03 * 23,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue[50],
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        widget.classroom,
+                                        style: const TextStyle(
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 28),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: Color(0xFFE9ECEF),
+                        ),
+                        SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              widget.name,
-                              style: const TextStyle(
-                                color: AppColors.primaryColor,
-                                fontSize: 23,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.6,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              child: Tooltip(
+                                message: 'Photo Permission not given by parent',
+                                child: SvgPicture.asset(
+                                  MediaRes.cameraIcon,
+                                  height: 28,
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[50],
-                                borderRadius: BorderRadius.circular(4),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
                               ),
-                              child: Text(
-                                widget.classroom,
-                                style: const TextStyle(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.w500,
+                              child: Tooltip(
+                                message: 'Observe first aid',
+                                child: SvgPicture.asset(
+                                  MediaRes.alertIcon,
+                                  height: 28,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                              ),
+                              child: Tooltip(
+                                message: 'Bring homework',
+                                child: SvgPicture.asset(
+                                  MediaRes.docsIcon,
+                                  height: 28,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                              ),
+                              child: Tooltip(
+                                message: 'Student has health concerns',
+                                child: SvgPicture.asset(
+                                  MediaRes.healthIcon,
+                                  height: 28,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                              ),
+                              child: Tooltip(
+                                message: 'Student is vegetarian',
+                                child: Image.asset(
+                                  MediaRes.foodIcon2,
+                                  height: 28,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  indent: 16,
-                  endIndent: 16,
-                  color: Color(0xFFE9ECEF),
-                ),
-                SizedBox(height: 10,),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      child: Tooltip(
-                        message: 'Photo Permission not given by parent',
-                        child: SvgPicture.asset(MediaRes.cameraIcon, height: 28)
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      child: Tooltip(
-                          message: 'Observe first aid',
-                          child: SvgPicture.asset(MediaRes.alertIcon, height: 28)
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      child: Tooltip(
-                          message: 'Bring homework',
-                          child: SvgPicture.asset(MediaRes.docsIcon, height: 28)
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      child: Tooltip(
-                          message: 'Student has health concerns',
-                          child: SvgPicture.asset(MediaRes.healthIcon, height: 28)
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      child: Tooltip(
-                          message: 'Student is vegetarian',
-                          child: Image.asset(MediaRes.foodIcon2, height: 28)
-                      ),
-                    ),
-                  ],
-                )
-              ],
+
+                  _buildStudentActionButtons(context),
+                ],
+              ),
             ),
-
-          ),
-
-          _buildStudentActionButtons(context),
-
-        ],
-      ),
-    );
+          );
   }
 
   Widget _buildStudentActionButtons(BuildContext context) {
@@ -326,16 +476,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildActionIcon(MediaRes.attendanceIcon, onTap: () {
-
-          }),
-          _buildActionIcon(MediaRes.activitesIcon, onTap: () {
-
-          }),
+          _buildActionIcon(MediaRes.attendanceIcon, onTap: () {}),
+          _buildActionIcon(MediaRes.activitesIcon, onTap: () {}),
           _buildActionIcon(MediaRes.message_panel_icon, onTap: () {}),
-          _buildActionIcon(MediaRes.billing_drawer_icon, onTap: () {
-
-          }),
+          _buildActionIcon(MediaRes.billing_drawer_icon, onTap: () {}),
         ],
       ),
     );
@@ -351,21 +495,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
           margin: const EdgeInsets.symmetric(horizontal: 8),
           child: isSvg
               ? SvgPicture.asset(
-            asset,
-            height: 28,
-            colorFilter: const ColorFilter.mode(
-              Colors.white,
-              BlendMode.srcIn,
-            ),
-          )
-              : Image.asset(
-            asset,
-            height: 28,
-            color: Colors.white,
-          ),
+                  asset,
+                  height: 28,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                )
+              : Image.asset(asset, height: 28, color: Colors.white),
         ),
       ),
     );
   }
-
 }

@@ -91,6 +91,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             _Field(label: 'Tags', value:null, trailing: _tags(tags: widget.tags,),),
             const SizedBox(height: 16),
             _Field(
+                label: 'Gender',
+                value: 'Male/Female'),
+            const SizedBox(height: 16),
+            _Field(
               label: 'Birth Date',
               value: 'Oct 29, 2001'),
             const SizedBox(height: 16),
@@ -368,51 +372,44 @@ class _tags extends StatelessWidget{
                 ),
               ),
             if (tagList.length > 2)
-              Tooltip(
-                message: tagList
-                    .skip(2)
-                    .join(', '),
-                child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0x66D9FFCB),
-                    borderRadius:
-                    BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '+${tagList.length - 2}',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xFF1B237E),
-                      height: 15 / 12,
-                    ),
-                  ),
-                ),
-              ),
-            Tooltip(
-              message: 'Edit tags',
-              child: Container(
+              Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.transparent,
+                  color: const Color(0x66D9FFCB),
                   borderRadius:
                   BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  Icons.mode_edit_outline_outlined,
-                  color: const Color(0xFFCECECE),
+                child: Text(
+                  tagList[1],
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Color(0xFF1B237E),
+                  ),
                 ),
               ),
-            ),
+            // Tooltip(
+            //   message: 'Edit tags',
+            //   child: Container(
+            //     padding: const EdgeInsets.symmetric(
+            //       horizontal: 10,
+            //       vertical: 4,
+            //     ),
+            //     decoration: BoxDecoration(
+            //       color: Colors.transparent,
+            //       borderRadius:
+            //       BorderRadius.circular(8),
+            //     ),
+            //     child: Icon(
+            //       Icons.mode_edit_outline_outlined,
+            //       color: const Color(0xFFCECECE),
+            //     ),
+            //   ),
+            // ),
           ],
         );
 
