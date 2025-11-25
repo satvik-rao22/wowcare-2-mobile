@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
+import '../edit_student_profile_details_screen.dart';
 
 
 class StudentAboutTabCard extends StatefulWidget {
@@ -61,7 +62,30 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               children: [
                 _Field(label: 'Name', value: widget.name),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditStudentProfileDetailsScreen(
+                          initialFirstName: 'Jessica',
+                          initialLastName: 'Rhodes',
+                          initialStatus: 'Active',
+                          //initialDesignation: 'Admin',
+                          //initialAllowedClassrooms: ['5 Days X', '1-Blue D X', '3-Orange-D X'],
+                          initialClassroom: '',
+                          initialBirthDate: null,
+                          initialJobTag: 'Full Time',
+                          initialEmail: 'Jessica@wowcare.com',
+                          initialPhoneNumber: '(986) 027-1627',
+                          initialStreet: '',
+                          initialCity: '',
+                          initialState: 'New Hampshire',
+                          initialCountry: 'United States',
+                          initialZipCode: '',
+                        ),
+                      ),
+                    );
+                  },
                   child: Container(
                     width: 38,
                     height: 38,
