@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../shared/common/widgets/profile_show_widget.dart';
+import '../../../../shared/common/widgets/schedule_picker.dart';
 import '../../../../shared/common/widgets/tags_selection_widget.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
@@ -18,13 +19,10 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialFirstName,
     this.initialLastName,
     this.initialStatus,
-    //this.initialDesignation,
-    //this.initialAllowedClassrooms,
     this.initialClassroom,
     this.initialBirthDate,
-    this.initialJobTag,
-    this.initialEmail,
-    this.initialPhoneNumber,
+    this.initialNotes,
+    this.initialFTE,
     this.initialStreet,
     this.initialCity,
     this.initialState,
@@ -36,13 +34,12 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final String? initialFirstName;
   final String? initialLastName;
   final String? initialStatus;
-  //final String? initialDesignation;
-  //final List<String>? initialAllowedClassrooms;
+  final String? initialNotes;
+
   final String? initialClassroom;
   final DateTime? initialBirthDate;
-  final String? initialJobTag;
-  final String? initialEmail;
-  final String? initialPhoneNumber;
+
+  final String? initialFTE;
   final String? initialStreet;
   final String? initialCity;
   final String? initialState;
@@ -57,22 +54,22 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneNumberController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _FTEController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
   final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
-  final TextEditingController _pinController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   String? _selectedStatus;
-  //String? _selectedDesignation;
-  //List<String> _selectedAllowedClassrooms = [];
+  String? _selectedStateSubsidyOption;
+  List<String> _selectedSiblings = [];
   List<String> _selectedTags = ['Full Day'];
   String? _selectedClassroom;
   DateTime? _selectedBirthDate;
-  String? _selectedJobTag;
+  DateTime? _selectedUpcomingMoveDate;
+  String? _selectedChildCustody;
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
@@ -86,17 +83,23 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     'Allergy',
     'Pickup Authorized',
   ];
+  final List<String> _allStudents = [
+    'Raghave Gupta',
+    'Rohan Gupta',
+    'Ruhi Gupta',
+    'Anya Mehta',
+    'Kabir Mehta',
+    'Sara Khan',
+  ];
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
-  //final List<String> _designationOptions = ['Admin', 'Teacher', 'Assistant', 'Manager', 'Director'];
+  final List<String> _stateSubsidyOptions = ['Yes', 'No'];
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
-  final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
+  final List<String> _childCustodyOptions = ['Mother', 'Father', 'Both Mother and Father'];
   final List<String> _stateOptions = ['New Hampshire', 'Massachusetts', 'Vermont', 'Maine', 'Connecticut'];
   final List<String> _countryOptions = ['United States', 'Canada', 'Mexico'];
 
-  // Simple validators (align with Add Staff)
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
-  static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
-  static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
+  static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
 
   @override
   void initState() {
@@ -104,14 +107,11 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     // Prefill when editing
     _firstNameController.text = widget.initialFirstName ?? 'Jessica';
     _lastNameController.text = widget.initialLastName ?? 'Rhodes';
+    _notesController.text = widget.initialNotes ?? '';
+    _FTEController.text = widget.initialFTE ?? '';
     _selectedStatus = widget.initialStatus ?? 'Active';
-    //_selectedDesignation = widget.initialDesignation ?? 'Admin';
-   // _selectedAllowedClassrooms = widget.initialAllowedClassrooms ?? ['5 Days X', '1-Blue D X', '3-Orange-D X'];
     _selectedClassroom = widget.initialClassroom ?? '1-Blue D';
     _selectedBirthDate = widget.initialBirthDate;
-    _selectedJobTag = widget.initialJobTag ?? 'Full Time';
-    _emailController.text = widget.initialEmail ?? 'Jessica@wowcare.com';
-    _phoneNumberController.text = widget.initialPhoneNumber ?? '(986) 027-1627';
     _streetController.text = widget.initialStreet ?? '';
     _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
@@ -124,8 +124,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _emailController.dispose();
-    _phoneNumberController.dispose();
+    _notesController.dispose();
+    _FTEController.dispose();
     _street2Controller.dispose();
     _streetController.dispose();
     _cityController.dispose();
@@ -151,9 +151,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   void _saveProfileDetails() {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
-    final email = _emailController.text.trim().toLowerCase();
-    final phoneRaw = _phoneNumberController.text.trim();
-    final phoneDigits = phoneRaw.replaceAll(RegExp(r'\D'), '');
+    final fte = _FTEController.text.trim();
 
     if (first.isEmpty || !_nameRegex.hasMatch(first)) {
       _showWarningMessage('First Name is required');
@@ -167,14 +165,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       _showWarningMessage('Classroom is required');
       return;
     }
-    if (email.isEmpty || !_emailRegex.hasMatch(email)) {
-      _showWarningMessage('Email is required');
+    if (fte.isEmpty) {
+      _showWarningMessage('FTE is required');
       return;
     }
-    if (phoneDigits.length < 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
-      _showWarningMessage('Phone Number is required');
+    if (!_fteRegex.hasMatch(fte)) {
+      _showWarningMessage('FTE must be a number between 0 and 100.');
       return;
     }
+
     if (_streetController.text.isEmpty) {
       _showWarningMessage('Street is required');
       return;
@@ -243,6 +242,27 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       if (result != null && result['date'] != null) {
         setState(() {
           _selectedBirthDate = result['date'] as DateTime;
+        });
+      }
+    } catch (e) {
+      print('Error opening calendar dialog: $e');
+    }
+  }
+
+  Future<void> _selectUpcomingMoveDate() async {
+    try {
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => CalendarDialog(
+          isRangePicker: false,
+          isTimePicker: false,
+          initialDate: _selectedUpcomingMoveDate,
+        ),
+      );
+
+      if (result != null && result['date'] != null) {
+        setState(() {
+          _selectedUpcomingMoveDate = result['date'] as DateTime;
         });
       }
     } catch (e) {
@@ -390,12 +410,14 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                                     "First Name",
                                     "E.g. John",
                                     _firstNameController,
+                                    isRequired: true
                                   ),
                                   SizedBox(height: responsive.verticalSpacing),
                                   _buildInputField(
                                     "Last Name",
                                     "E.g. Smith",
                                     _lastNameController,
+                                    isRequired: true
                                   ),
 
                                 ],
@@ -463,97 +485,55 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        TagMultiSelectWidget(
-                          availableTags: _allTags,
-                          selectedTags: _selectedTags,
+                        MultiSelectWidget(
+                          availableOptions: _allTags,
+                          selectedOptions: _selectedTags,
                           onSelectionChanged: (tags) {
                             setState(() => _selectedTags = tags);
-                            print('Selected: $tags');
                           },
                           isRequired: true,
                         ),
-
-                        // Allowed Classrooms like Add Staff
-                        // ClassroomSelectionWidgetExact(
-                        //   primaryClassroom: _selectedPrimaryClassroom,
-                        //   allowedClassrooms: _selectedAllowedClassrooms,
-                        //   availableClassrooms: _classroomOptions,
-                        //   onPrimaryClassroomChanged: (classroom) {
-                        //     setState(() {
-                        //       _selectedPrimaryClassroom = classroom;
-                        //     });
-                        //   },
-                        //   onAllowedClassroomsChanged: (classrooms) {
-                        //     setState(() {
-                        //       _selectedAllowedClassrooms = classrooms;
-                        //       if (_selectedPrimaryClassroom != null && !classrooms.contains(_selectedPrimaryClassroom)) {
-                        //         _selectedPrimaryClassroom = null;
-                        //       }
-                        //     });
-                        //   },
-                        //   primaryClassroomError: null,
-                        //   allowedClassroomsError: null,
-                        //   showPrimaryClassroom: false,
-                        // ),
+                        SizedBox(height: responsive.verticalSpacing),
+                        Text(
+                            "Schedule",
+                            style: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            )
+                        ),
+                        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+                        SchedulePicker(),
                         SizedBox(height: responsive.verticalSpacing),
 
-
-                        // Primary Classroom Dropdown with guard
-                        // Stack(
-                        //   children: [
-                        //     CustomDropdown(
-                        //       label: "Primary Classroom",
-                        //       hintText: 'Select',
-                        //       items: _selectedAllowedClassrooms.isEmpty ? [] : _selectedAllowedClassrooms,
-                        //       selectedItem: _selectedPrimaryClassroom,
-                        //       labelStyle: TextStyle(
-                        //         fontSize: responsive.labelFontSize,
-                        //         fontFamily: "Manrope",
-                        //         fontWeight: FontWeight.w400,
-                        //         color: const Color(0xff573353),
-                        //       ),
-                        //       showAsterisk: true,
-                        //       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                        //       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-                        //       selectedTextStyle: TextStyle(
-                        //         fontFamily: 'Manrope',
-                        //         fontSize: responsive.inputFontSize,
-                        //         fontWeight: FontWeight.w600,
-                        //         color: const Color(0xff573353),
-                        //         height: 19 / 14,
-                        //       ),
-                        //       popupItemTextStyle: TextStyle(
-                        //         fontFamily: 'Manrope',
-                        //         fontSize: responsive.inputFontSize,
-                        //         fontWeight: FontWeight.w400,
-                        //         color: const Color(0xff573353),
-                        //       ),
-                        //       contentPadding: EdgeInsets.symmetric(
-                        //         horizontal: responsive.isTablet ? 16.0 : 12.0,
-                        //         vertical: responsive.isTablet ? 16.0 : 12.0,
-                        //       ),
-                        //       onSelect: (val) => setState(() => _selectedPrimaryClassroom = val),
-                        //     ),
-                        //     if (_selectedAllowedClassrooms.isEmpty)
-                        //       Positioned.fill(
-                        //         child: GestureDetector(
-                        //           behavior: HitTestBehavior.opaque,
-                        //           onTap: () {
-                        //             _showWarningMessage('Please select Allowed Classrooms first');
-                        //           },
-                        //         ),
-                        //       ),
-                        //   ],
-                        // ),
+                        _buildDateField("Birthdate", _selectedBirthDate, _selectBirthDate, true),
                         SizedBox(height: responsive.verticalSpacing),
-
-                        _buildDateField("Birthdate", _selectedBirthDate),
+                        _buildInputField(
+                            "Notes",
+                            "",
+                            _notesController,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Job Tag", "Select", _jobTagOptions, _selectedJobTag, (v) => setState(() => _selectedJobTag = v)),
+                        MultiSelectWidget(
+                          availableOptions: _allStudents,
+                          selectedOptions: _selectedSiblings,
+                          onSelectionChanged: (siblings) {
+                            setState(() => _selectedSiblings = siblings);
+                          },
+                          isRequired: true,
+                          colorfulSelection: false,
+                          label: "Siblings",
+                          hintText: 'Select student',
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Email", "E.g. Jessica@wowcare.com", _emailController, isRequired: true),
+                        _buildCustomDropdown("Child Custody", "Select Parent", _childCustodyOptions, _selectedChildCustody, (v) => setState(() => _selectedChildCustody = v)),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Phone Number", "E.g. +19860271627", _phoneNumberController, isRequired: true),
+                        _buildCustomDropdown("State Subsidy", "", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildInputField("FTE", "E.g. 60", _FTEController, isRequired: true),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildDateField("Upcoming Move", _selectedUpcomingMoveDate, _selectUpcomingMoveDate, false),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
@@ -567,11 +547,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        // _buildPinField(responsive),
-                        // SizedBox(height: responsive.verticalSpacing),
-                        // _buildWorkTimeSection(responsive),
-                        // SizedBox(height: responsive.verticalSpacing),
-                        // _buildBreakTimeSection(responsive),
                       ],
                     ),
                   ),
@@ -726,137 +701,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     );
   }
 
-  Widget _buildPinField(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: "Manrope",
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
-            ),
-            children: const [
-              TextSpan(text: 'Clock In-Out PIN'),
-              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F7FA),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  controller: _pinController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  decoration: const InputDecoration(
-                    counterText: '',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              height: responsive.inputFieldHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: TextButton(
-                onPressed: _generatePin,
-                child: const Text(
-                  'Generate',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _generatePin() {
-    final now = DateTime.now().millisecondsSinceEpoch.toString();
-    final pin = now.substring(now.length - 4);
-    setState(() {
-      _pinController.text = pin;
-    });
-  }
-
-  Widget _buildWorkTimeSection(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Work Time',
-          style: TextStyle(
-            fontSize: responsive.labelFontSize,
-            fontFamily: "Manrope",
-            fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: responsive.inputFieldHeight,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FA),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: const Text('Select working days & time (coming soon)', style: TextStyle(color: AppColors.primaryColor)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBreakTimeSection(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Break Time',
-          style: TextStyle(
-            fontSize: responsive.labelFontSize,
-            fontFamily: "Manrope",
-            fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: responsive.inputFieldHeight,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FA),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: const Text('Select break days & time (coming soon)', style: TextStyle(color: AppColors.primaryColor)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateField(String label, DateTime? selectedDate) {
+  Widget _buildDateField(String label, DateTime? selectedDate, Future<void> Function() onTap, bool isRequired) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
@@ -868,10 +713,18 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: labelStyle),
+        RichText(
+          text: TextSpan(
+            style: labelStyle,
+            children: [
+              TextSpan(text: label),
+              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
-          onTap: _selectBirthDate,
+          onTap: onTap,
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
@@ -918,227 +771,4 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     );
   }
 
-  Widget _buildClassroomSection() {
-    final responsive = ResponsiveHelper(context);
-    final labelStyle = TextStyle(
-      fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              const TextSpan(text: 'Allowed Classrooms'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: _classroomOptions.map((classroom) {
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _classroomOptions.remove(classroom);
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F7FA),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      classroom,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.close,
-                      size: 16,
-                      color: AppColors.primaryColor,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            // Show dialog to add more classrooms
-            _showClassroomSelectionDialog();
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primaryColor.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.add,
-                  size: 16,
-                  color: AppColors.primaryColor,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Add Classroom',
-                  style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPrimaryClassroomSection() {
-    final responsive = ResponsiveHelper(context);
-    final labelStyle = TextStyle(
-      fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              const TextSpan(text: 'Primary Classroom'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        GestureDetector(
-          onTap: () {
-            _showPrimaryClassroomSelectionDialog();
-          },
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 40),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _selectedClassroom ?? 'Select Primary Classroom',
-                      style: TextStyle(
-                        color: _selectedClassroom == null
-                            ? AppColors.primaryColor.withOpacity(0.6)
-                            : AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: AppColors.primaryColor,
-                    size: 24,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showClassroomSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Classrooms'),
-        content: SingleChildScrollView(
-          child: Column(
-            children: _classroomOptions.map((classroom) {
-              final isSelected = _classroomOptions.contains(classroom);
-              return CheckboxListTile(
-                title: Text(classroom),
-                value: isSelected,
-                onChanged: (value) {
-                  setState(() {
-                    if (value == true) {
-                      _classroomOptions.add(classroom);
-                    } else {
-                      _classroomOptions.remove(classroom);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Done'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPrimaryClassroomSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Classroom'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _classroomOptions.map((classroom) {
-            return ListTile(
-              title: Text(classroom),
-              onTap: () {
-                setState(() {
-                  _selectedClassroom = classroom;
-                });
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
 }

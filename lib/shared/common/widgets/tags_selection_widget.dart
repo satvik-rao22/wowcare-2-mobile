@@ -2,29 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-class TagMultiSelectWidget extends StatefulWidget {
-  final List<String> availableTags;
-  final List<String> selectedTags;
+class MultiSelectWidget extends StatefulWidget {
+  final List<String> availableOptions;
+  final List<String> selectedOptions;
   final Function(List<String>) onSelectionChanged;
   final String label;
+  final String hintText;
   final bool isRequired;
   final String? errorText;
+  final bool colorfulSelection;
 
-  const TagMultiSelectWidget({
+  const MultiSelectWidget({
     super.key,
-    required this.availableTags,
-    required this.selectedTags,
+    required this.availableOptions,
+    required this.selectedOptions,
     required this.onSelectionChanged,
     this.label = "Select Tags",
+    this.hintText = "Select Tags",
     this.isRequired = true,
     this.errorText,
+    this.colorfulSelection = true
   });
 
   @override
-  State<TagMultiSelectWidget> createState() => _TagMultiSelectWidgetState();
+  State<MultiSelectWidget> createState() => _MultiSelectWidgetState();
 }
 
-class _TagMultiSelectWidgetState extends State<TagMultiSelectWidget> {
+class _MultiSelectWidgetState extends State<MultiSelectWidget> {
   bool _isDropdownOpen = false;
   OverlayEntry? _overlayEntry;
   final GlobalKey _fieldKey = GlobalKey();
@@ -59,8 +63,8 @@ class _TagMultiSelectWidgetState extends State<TagMultiSelectWidget> {
     final double fieldWidth = box.size.width;
 
     String searchQuery = "";
-    List<String> filteredTags = List.from(widget.availableTags);
-    List<String> localSelected = List.from(widget.selectedTags);
+    List<String> filteredTags = List.from(widget.availableOptions);
+    List<String> localSelected = List.from(widget.selectedOptions);
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Stack(
@@ -86,7 +90,7 @@ class _TagMultiSelectWidgetState extends State<TagMultiSelectWidget> {
                 ),
                 child: StatefulBuilder(
                   builder: (context, setOverlayState) {
-                    filteredTags = widget.availableTags
+                    filteredTags = widget.availableOptions
                         .where((tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()))
                         .toList();
 
@@ -96,7 +100,7 @@ class _TagMultiSelectWidgetState extends State<TagMultiSelectWidget> {
                           padding: const EdgeInsets.all(12),
                           child: TextField(
                             decoration: InputDecoration(
-                              hintText: "Search tags",
+                              hintText: widget.hintText,
                               prefixIcon: const Icon(Icons.search, size: 20),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -225,23 +229,23 @@ class _TagMultiSelectWidgetState extends State<TagMultiSelectWidget> {
             ),
             child: Stack(
               children: [
-                if (widget.selectedTags.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
+                if (widget.selectedOptions.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      "Select tags",
-                      style: TextStyle(color: Color(0xff573353), fontSize: 14),
+                      widget.hintText,
+                      style: const TextStyle(color: Color(0xff573353), fontSize: 14),
                     ),
                   )
                 else
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: widget.selectedTags.map((tag) {
+                    children: widget.selectedOptions.map((tag) {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         decoration: BoxDecoration(
-                          color: _getTagBackgroundColor(tag),
+                          color: widget.colorfulSelection ? _getTagBackgroundColor(tag) : Colors.white,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -259,7 +263,7 @@ class _TagMultiSelectWidgetState extends State<TagMultiSelectWidget> {
                             const SizedBox(width: 6),
                             GestureDetector(
                               onTap: () {
-                                final newList = widget.selectedTags.where((t) => t != tag).toList();
+                                final newList = widget.selectedOptions.where((t) => t != tag).toList();
                                 widget.onSelectionChanged(newList);
                               },
                               child: Icon(Icons.close, size: 16, color: _getTagTextColor(tag)),
