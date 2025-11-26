@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -24,8 +25,8 @@ class _BillingScreenState extends State<BillingScreen>
     'Student(s)',
     'Transactions',
     // 'Recurring Plans',
-    // 'General Ledger',
-    // 'Subsidies',
+    'General Ledger',
+    'Subsidies',
     // 'Analytics',
     // 'Billing Settings',
   ];
@@ -188,8 +189,10 @@ class _BillingScreenState extends State<BillingScreen>
                                 );
                               } else if (current == 1) {
                                 content = const TransactionsSection();
-                              } else if (current == 4){
-                                content = SubsidiesSection();
+                              } else if (current == 2) {
+                                content = const GeneralLedgerSection();
+                              } else if (current == 3) {
+                                content = const SubsidiesSection();
                               } else {
                                 final String t = _tabs[current];
                                 content = Align(

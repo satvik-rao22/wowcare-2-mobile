@@ -11,7 +11,6 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -25,9 +24,6 @@ class TransactionsSection extends StatefulWidget {
 
 class _TransactionsSectionState extends State<TransactionsSection> {
   final TextEditingController _searchController = TextEditingController();
-  final Set<TransactionStatus> _selectedStatuses = <TransactionStatus>{};
-  String? _selectedQuickRange;
-  bool _showAdvancedFilters = false;
 
   // TODO: Replace with real API data when the backend is ready.
   final List<_TransactionRecord> _transactions = <_TransactionRecord>[
@@ -210,7 +206,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
           refundPercentage: refundPercent,
         ),
         const SizedBox(height: 12),
-        _buildFilters(context),
+        _buildSearchBar(context),
         const SizedBox(height: 16),
         if (visibleTransactions.isEmpty)
           const Padding(
@@ -252,7 +248,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     );
   }
 
-  Widget _buildFilters(BuildContext context) {
+  Widget _buildSearchBar(BuildContext context) {
     return CustomSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,11 +274,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          setState(() {
-                            _showAdvancedFilters = !_showAdvancedFilters;
-                          });
-                        },
+                        onTap: () {},
                         child: Center(
                           child: SvgPicture.asset(
                             MediaRes.filterIcon,
@@ -295,118 +287,19 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                   ),
                   const SizedBox(height: 4),
                   CustomClearAllChip(
-                    onTap: _clearAllFilters,
+                    onTap: _clearSearch,
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: TransactionStatus.values
-                .map(
-                  (TransactionStatus status) => GestureDetector(
-                    onTap: () => _toggleStatusFilter(status),
-                    child: CustomChip(
-                      label: status.displayLabel,
-                      labelStyle: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _selectedStatuses.contains(status)
-                            ? AppColors.primaryColor
-                            : AppColors.primaryColor.withOpacity(0.7),
-                      ),
-                      color: _selectedStatuses.contains(status)
-                          ? AppColors.fieldBackgroundColor
-                          : Colors.white,
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          if (_showAdvancedFilters) ...<Widget>[
-            const SizedBox(height: 16),
-            Text(
-              'Quick Date Filters',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor.withOpacity(0.8),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: <String>['Last Day', 'Last 7 Days', 'Last Month', 'Custom Range']
-                  .map(
-                    (String label) => GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedQuickRange = label;
-                          // TODO: Hook up quick filter with actual API parameters.
-                        });
-                      },
-                      child: _QuickFilterChip(
-                        label: label,
-                        isSelected: _selectedQuickRange == label,
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () {
-                  // TODO: Trigger API call with selected filters.
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Filters applied (UI only).'),
-                    ),
-                  );
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.themeColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Search',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  void _toggleStatusFilter(TransactionStatus status) {
+  void _clearSearch() {
     setState(() {
-      if (_selectedStatuses.contains(status)) {
-        _selectedStatuses.remove(status);
-      } else {
-        _selectedStatuses.add(status);
-      }
-    });
-  }
-
-  void _clearAllFilters() {
-    setState(() {
-      _selectedStatuses.clear();
-      _selectedQuickRange = null;
       _searchController.clear();
     });
   }
@@ -414,14 +307,12 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   List<_TransactionRecord> _visibleTransactions() {
     final String query = _searchController.text.trim().toLowerCase();
     final Iterable<_TransactionRecord> filtered = _transactions.where((_TransactionRecord transaction) {
-      final bool matchesStatus =
-          _selectedStatuses.isEmpty || _selectedStatuses.contains(transaction.status);
       final TransactionItem item = transaction.item;
       final bool matchesQuery = query.isEmpty ||
           item.studentName.toLowerCase().contains(query) ||
           item.id.toString().contains(query) ||
           item.description.toLowerCase().contains(query);
-      return matchesStatus && matchesQuery;
+      return matchesQuery;
     });
     return filtered.toList();
   }
@@ -501,41 +392,6 @@ class _TransactionsSectionState extends State<TransactionsSection> {
       MaterialPageRoute(
         builder: (context) => ViewInvoiceScreen(
           transaction: item,
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickFilterChip extends StatelessWidget {
-  const _QuickFilterChip({
-    required this.label,
-    required this.isSelected,
-  });
-
-  final String label;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.fieldBackgroundColor : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isSelected ? AppColors.themeColor : AppColors.cardBorderColor,
-          width: isSelected ? 1.5 : 1,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: isSelected ? AppColors.themeColor : AppColors.primaryColor.withOpacity(0.8),
         ),
       ),
     );

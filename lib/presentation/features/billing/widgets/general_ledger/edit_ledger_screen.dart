@@ -1,0 +1,441 @@
+import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+
+class EditLedgerScreen extends StatefulWidget {
+  const EditLedgerScreen({
+    required this.ledger,
+    super.key,
+  });
+
+  final LedgerAccountModel ledger;
+
+  @override
+  State<EditLedgerScreen> createState() => _EditLedgerScreenState();
+}
+
+class _EditLedgerScreenState extends State<EditLedgerScreen> {
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+
+  final List<String> _types = const [
+    'Expense',
+    'General',
+    '(Legacy) Subsidy/Agency',
+  ];
+
+  String? _selectedType;
+  bool _isSubmitting = false;
+  bool _isLoading = false;
+  bool _titleError = false;
+  bool _typeError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLedgerData();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _loadLedgerData() {
+    _titleController.text = widget.ledger.name;
+    _descriptionController.text = widget.ledger.description ?? '';
+    _selectedType = widget.ledger.type;
+  }
+
+  Future<void> _initializeLedgerUpdateWithSchoolTimezone() async {
+    try {
+      debugPrint('🕐 === INITIALIZING LEDGER UPDATE WITH SCHOOL TIMEZONE ===');
+      final DateTime schoolNow = DateTime.now();
+      debugPrint('🏫 School Time: ${schoolNow.toIso8601String()}');
+      debugPrint('✅ Ledger update initialization complete');
+    } catch (e) {
+      debugPrint('❌ Error initializing ledger update: $e');
+    }
+  }
+
+  Future<void> _onSave() async {
+    await _initializeLedgerUpdateWithSchoolTimezone();
+    setState(() {
+      _titleError = _titleController.text.trim().isEmpty;
+      _typeError = _selectedType == null;
+    });
+
+    if (_titleError || _typeError) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+
+      if (!mounted) return;
+
+      final LedgerAccountModel updatedLedger = widget.ledger.copyWith(
+        name: _titleController.text.trim(),
+        type: _selectedType,
+        description: _descriptionController.text.trim().isEmpty
+            ? _titleController.text.trim()
+            : _descriptionController.text.trim(),
+      );
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Ledger updated successfully!',
+        isSuccess: true,
+      );
+
+      Navigator.of(context).pop(updatedLedger);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'An unexpected error occurred. Please try again.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ResponsiveHelper responsive = ResponsiveHelper(context);
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth > 600;
+    final bool isLargeTablet = screenWidth > 900;
+    final double containerWidth = isLargeTablet
+        ? (screenWidth * 0.8).clamp(800.0, 1200.0)
+        : isTablet
+            ? screenWidth * 0.9
+            : screenWidth - 32.0;
+    final double horizontalSpacing = isLargeTablet
+        ? (screenWidth * 0.1).clamp(32.0, 64.0)
+        : isTablet
+            ? 32.0
+            : 16.0;
+    final double verticalSpacing = isLargeTablet
+        ? 32.0
+        : isTablet
+            ? 24.0
+            : 16.0;
+    final double bottomPadding = MediaQuery.of(context).padding.bottom;
+    final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
+
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: Scaffold(
+        appBar: const CustomAppBar(hasBackButton: true),
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildScaffoldGradient(),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: Image.asset(
+                MediaRes.wowcareMobileBg,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                opacity: const AlwaysStoppedAnimation(0.08),
+              ),
+            ),
+            Positioned.fill(
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Edit Ledger',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.titleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff573353),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                    Expanded(
+                      child: Container(
+                        width: containerWidth,
+                        margin:
+                            EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                        padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(isTablet ? 40.0 : 24.0),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : ListView(
+                                padding: EdgeInsets.zero,
+                                children: [
+                                  _buildInputField(
+                                    label: 'Title',
+                                    hint:
+                                        'Ledger Account (e.g Operational Exp)',
+                                    controller: _titleController,
+                                    error: _titleError
+                                        ? '*This field is required.'
+                                        : null,
+                                  ),
+                                  SizedBox(height: verticalSpacing),
+                                  _buildDropdownField(
+                                    label: 'Type',
+                                    value: _selectedType,
+                                    items: _types,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _selectedType = val;
+                                        _typeError = false;
+                                      });
+                                    },
+                                    error: _typeError
+                                        ? '*This field is required.'
+                                        : null,
+                                  ),
+                                  SizedBox(height: verticalSpacing),
+                                  _buildInputField(
+                                    label: 'Description',
+                                    hint:
+                                        'Description (e.g Books, Activities, Postage)',
+                                    controller: _descriptionController,
+                                    maxLines: 3,
+                                    required: false,
+                                  ),
+                                  SizedBox(height: verticalSpacing),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: _isLoading
+            ? null
+            : Container(
+                padding: EdgeInsets.only(
+                  bottom: safeAreaBottom,
+                  left: 16,
+                  right: 16,
+                  top: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      offset: const Offset(0, -4),
+                      blurRadius: 16,
+                    ),
+                  ],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  ),
+                ),
+                child: Container(
+                  height: responsive.buttonHeight,
+                  decoration: BoxDecoration(
+                    gradient: _isSubmitting
+                        ? null
+                        : AppColors.buildPrimaryGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                    color: _isSubmitting ? Colors.grey[300] : null,
+                    borderRadius:
+                        BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+                  ),
+                  child: TextButton(
+                    onPressed: _isSubmitting ? null : _onSave,
+                    child: Text(
+                      _isSubmitting ? 'Updating...' : 'Update',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: responsive.buttonFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    int maxLines = 1,
+    String? error,
+    bool required = true,
+  }) {
+    final ResponsiveHelper responsive = ResponsiveHelper(context);
+    final TextStyle labelStyle = TextStyle(
+      fontSize: responsive.labelFontSize,
+      fontFamily: 'Manrope',
+      fontWeight: FontWeight.w400,
+      color: const Color(0xff573353),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            style: labelStyle,
+            children: [
+              TextSpan(text: label),
+              if (required)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        Container(
+          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0x66573353)),
+            borderRadius:
+                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+          ),
+          child: TextField(
+            controller: controller,
+            maxLines: maxLines,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
+            ),
+          ),
+        ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0, left: 2.0),
+            child: Text(
+              error,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    String? error,
+  }) {
+    final ResponsiveHelper responsive = ResponsiveHelper(context);
+    final TextStyle labelStyle = TextStyle(
+      fontSize: responsive.labelFontSize,
+      fontFamily: 'Manrope',
+      fontWeight: FontWeight.w400,
+      color: const Color(0xff573353),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            style: labelStyle,
+            children: [
+              TextSpan(text: label),
+              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        Container(
+          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0x66573353)),
+            borderRadius:
+                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+          ),
+          child: DropdownButtonFormField<String>(
+            value: value,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            hint: Text(
+              'Select Type',
+              style: labelStyle.copyWith(color: Colors.grey),
+            ),
+            items: items
+                .map(
+                  (type) => DropdownMenuItem<String>(
+                    value: type,
+                    child: Text(type, style: labelStyle),
+                  ),
+                )
+                .toList(),
+            onChanged: onChanged,
+          ),
+        ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0, left: 2.0),
+            child: Text(
+              error,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
