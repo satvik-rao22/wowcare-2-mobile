@@ -77,7 +77,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
           ),
           Positioned(
             left: position.dx,
-            top: position.dy - 320,
+            top: position.dy-10,
             width: fieldWidth,
             child: Material(
               elevation: 8,
@@ -178,7 +178,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
 
   @override
   void dispose() {
-    _closeDropdown();
+    //_closeDropdown();
     super.dispose();
   }
 

@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
+import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -251,7 +252,50 @@ class _StudentScreenState extends State<StudentScreen> {
                               color: Colors.transparent,
                               child: InkWell(
                                 onTap: () async {
-                                  // TODO: Open a student filter screen when implemented
+                                  final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FilterScreen(
+                                          sections: [
+                                            FilerSection(
+                                                label: 'Classroom',
+                                                items: ['1-Blue D', '3-Orange-D', '2-Red A'],
+                                                initialSelected: ['1-Blue D'],
+                                                isMultiSelect: false
+                                            ),
+                                            FilerSection(
+                                                label: 'Status',
+                                                items: ['Active', 'Inactive', 'Upcoming'],
+                                                initialSelected: ['Active'],
+                                                isMultiSelect: false
+                                            ),
+                                            FilerSection(
+                                                label: 'Tags',
+                                                items:  [
+                                                  '5 Days',
+                                                  'Full Day',
+                                                  'Photo Permission',
+                                                  'Vegetarian',
+                                                  'First Aid',
+                                                  'Allergy',
+                                                  'Pickup Authorized',
+                                                ],
+                                                isMultiSelect: true,
+                                                initialSelected: ['5 Days']
+                                            ),
+                                          ],
+                                          onApply: (filters) {
+                                            print(filters); // to check if it works
+                                            //Navigator.pop(context);
+                                          }
+                                      ),
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  if (result is Map) {
+                                    // TODO: apply filters to list
+                                    setState(() {});
+                                  }
                                 },
                                 borderRadius: BorderRadius.circular(100),
                                 child: Padding(

@@ -11,7 +11,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../../../../shared/common/widgets/schedule_picker.dart';
-import '../../../../shared/common/widgets/tags_selection_widget.dart';
+import '../../../../shared/common/widgets/multi_selection_widget.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({

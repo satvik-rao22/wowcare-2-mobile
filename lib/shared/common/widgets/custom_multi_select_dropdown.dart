@@ -1,6 +1,7 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
@@ -108,7 +109,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
             child: CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              offset: Offset(0.0, size.height + 5.0),
+              //offset: Offset(0.0, size.height + 5.0),
+              offset: Offset.fromDirection(pi / 2, 70),
               child: Material(
                 elevation: 8.0,
                 borderRadius: BorderRadius.circular(8),

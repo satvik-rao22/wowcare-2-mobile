@@ -202,7 +202,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 color: (widget.labelStyle?.color ?? AppColors.primaryColor),
                 fontSize: widget.labelStyle?.fontSize ?? 13,
                 fontWeight: widget.labelStyle?.fontWeight ?? FontWeight.w400,
-                fontFamily: widget.labelStyle?.fontFamily,
+                fontFamily: widget.labelStyle?.fontFamily ?? 'Manrope',
+
+
               ),
               children: [
                 TextSpan(text: widget.label!),
@@ -212,7 +214,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
             ),
           ),
         if (widget.label != null)
-          SizedBox(height: widget.labelBottomSpacing ?? 6),
+          SizedBox(height: widget.labelBottomSpacing ?? 10),
         LayoutBuilder(
           builder: (context, constraints) {
             return Container(
