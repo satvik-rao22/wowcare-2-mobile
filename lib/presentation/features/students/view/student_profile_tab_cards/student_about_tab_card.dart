@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
 
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
@@ -177,9 +178,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                               '$name ($relation)',
                               style: const TextStyle(
                                 fontFamily: 'Manrope',
-                                fontSize: 15,
+                                fontSize: 16,
                                 color: Color(0xff573353),
-                                fontWeight: FontWeight.w400,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.03 * 16,
                               ),
                             ),
                           ],
@@ -261,9 +263,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 label: 'School leaving Date',
                 value: 'Oct 29, 2001'),
             const SizedBox(height: 16),
-            _Field(
-                label: 'Upcoming move',
-                value: 'Oct 29, 2001')
+            UpcomingMoveWidget(month: 'Oct', day: '29', currentClass: '1-Blue-D', nextClass: '2-Green-D ')
+            // _Field(
+            //     label: 'Upcoming move',
+            //     value: 'Oct 29, 2001')
           ],
         ),
       ),
@@ -316,9 +319,10 @@ class _Field extends StatelessWidget {
           label,
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
+            fontSize: 15,
+            letterSpacing: -0.03 * 15,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF6C6377),
           ),
         ),
         const SizedBox(height: 6),
@@ -327,9 +331,10 @@ class _Field extends StatelessWidget {
             value ?? '- -',
             style: const TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 15,
+              fontSize: 16,
               color: Color(0xff573353),
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.03 * 16,
             ),
           )
         else
