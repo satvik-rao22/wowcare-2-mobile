@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/decorations.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
+import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
@@ -801,10 +802,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             ),
           ),
         ),
-        // Backend-dependent attendance panel disabled for UI-only mode
-        // if (hasSelectedStudents) Positioned(...)
-        // Backend-dependent FAB and forms disabled for UI-only mode
-        // Positioned(... CustomFloatingActionButton ...)
+        // FAB handled at screen level for tab-aware visibility
       ],
     );
   }
