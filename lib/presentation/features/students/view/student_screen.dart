@@ -16,7 +16,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
-import 'add_student_screen.dart';
+import 'add_student_wizard_screen.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({super.key});
@@ -108,10 +108,10 @@ class _StudentScreenState extends State<StudentScreen> {
                         onTap: () async {
                           final result = await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const AddStudentScreen()),
+                            MaterialPageRoute(builder: (_) => const AddStudentWizardScreen()),
                           );
                           if (!mounted) return;
-                          print('[StudentScreen] Received result from AddStudentScreen: ' + result.toString());
+                          print('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
                           if (result is Map && (result['showPostAddPrompt'] == true)) {
                             final studentName = (result['studentName'] as String?) ?? '';
                             WidgetsBinding.instance.addPostFrameCallback((_) {
