@@ -133,6 +133,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                             ? "Select date range"
                             : (widget.isTimePicker ? "Select date & time" : "Select date"),
                         style: TextStyle(
+                          fontFamily: 'Manrope',
                           fontSize: calHelper.headerFontSize * 0.8,
                           fontWeight: FontWeight.w500,
                         ),
@@ -147,6 +148,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                         child: Text(
                           _getHeaderText(),
                           style: TextStyle(
+                            fontFamily: 'Manrope',
                             fontSize: calHelper.headerFontSize,
                             fontWeight: FontWeight.w600,
                           ),
@@ -175,10 +177,10 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
                           controlsHeight: controlsHeight,
-                          controlsTextStyle: TextStyle(fontSize: controlsFontSize, fontWeight: FontWeight.w400),
-                          dayTextStyle: TextStyle(fontSize: dayFontSize, fontWeight: FontWeight.w400),
-                          selectedDayTextStyle: TextStyle(fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
-                          yearTextStyle: TextStyle(fontSize: yearFontSize, fontWeight: FontWeight.w400),
+                          controlsTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: controlsFontSize, fontWeight: FontWeight.w400),
+                          dayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400),
+                          selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
+                          yearTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: yearFontSize, fontWeight: FontWeight.w400),
                         ),
                         value: rangeEndDate != null ? [rangeStartDate, rangeEndDate] : [rangeStartDate],
                         onValueChanged: (dates) {
@@ -203,10 +205,10 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
                           controlsHeight: controlsHeight,
-                          controlsTextStyle: TextStyle(fontSize: controlsFontSize, fontWeight: FontWeight.w400),
-                          dayTextStyle: TextStyle(fontSize: dayFontSize, fontWeight: FontWeight.w400),
-                          selectedDayTextStyle: TextStyle(fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
-                          yearTextStyle: TextStyle(fontSize: yearFontSize, fontWeight: FontWeight.w400),
+                          controlsTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: controlsFontSize, fontWeight: FontWeight.w400),
+                          dayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400),
+                          selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
+                          yearTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: yearFontSize, fontWeight: FontWeight.w400),
                           currentDate: null,
                         ),
                         value: selectedDate == null ? [] : [selectedDate!],
@@ -258,7 +260,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                       border: InputBorder.none,
                                       contentPadding: EdgeInsets.symmetric(vertical: 12),
                                     ),
-                                    style: TextStyle(fontSize: calHelper.isTablet ? 20 : 18, fontWeight: FontWeight.w600),
+                                    style: TextStyle(fontFamily: 'Manrope', fontSize: calHelper.isTablet ? 20 : 18, fontWeight: FontWeight.w600),
                                     onChanged: (value) {
                                       if (value.isEmpty) return;
                                       final hour = int.tryParse(value);
@@ -277,7 +279,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               const SizedBox(height: 10),
                               const Text(
                                 "Hours",
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                style: TextStyle(fontFamily: 'Manrope', fontSize: 14, fontWeight: FontWeight.w500),
                               ),
                             ],
                           ),
@@ -319,7 +321,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                       border: InputBorder.none,
                                       contentPadding: EdgeInsets.symmetric(vertical: 12),
                                     ),
-                                    style: TextStyle(fontSize: calHelper.isTablet ? 20 : 18, fontWeight: FontWeight.w600),
+                                    style: TextStyle(fontFamily: 'Manrope', fontSize: calHelper.isTablet ? 20 : 18, fontWeight: FontWeight.w600),
                                     onChanged: (value) {
                                       if (value.isEmpty) return;
                                       final minute = int.tryParse(value);
@@ -338,7 +340,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               const SizedBox(height: 10),
                               const Text(
                                 "Minute",
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                style: TextStyle(fontFamily: 'Manrope', fontSize: 14, fontWeight: FontWeight.w500),
                               ),
                             ],
                           ),
@@ -367,8 +369,8 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                     });
                                   },
                                   children: const [
-                                    Text("AM", style: TextStyle(fontWeight: FontWeight.bold)),
-                                    Text("PM", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    Text("AM", style: TextStyle(fontFamily: 'Manrope', fontWeight: FontWeight.bold)),
+                                    Text("PM", style: TextStyle(fontFamily: 'Manrope', fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                               ),

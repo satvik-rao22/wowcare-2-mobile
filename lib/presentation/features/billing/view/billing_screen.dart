@@ -8,7 +8,9 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/create_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -30,6 +32,14 @@ class _BillingScreenState extends State<BillingScreen>
     // 'Analytics',
     // 'Billing Settings',
   ];
+  final ValueNotifier<LedgerAccountModel?> _ledgerCreationNotifier =
+      ValueNotifier<LedgerAccountModel?>(null);
+
+  @override
+  void dispose() {
+    _ledgerCreationNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +80,24 @@ class _BillingScreenState extends State<BillingScreen>
                                 ),
                               ),
                               GradientAddButton(
-                                onTap: () {
+                                onTap: () async {
+                                  final bool isGeneralLedgerTab =
+                                      controller.index ==
+                                          _tabs.indexOf('General Ledger');
+                                  if (isGeneralLedgerTab) {
+                                    final result =
+                                        await Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const CreateLedgerScreen(),
+                                      ),
+                                    );
+                                    if (result is LedgerAccountModel) {
+                                      _ledgerCreationNotifier.value = result;
+                                    }
+                                    return;
+                                  }
+
                                   showDialog<void>(
                                     context: context,
                                     builder: (ctx) => CreateInvoiceDialog(
@@ -78,7 +105,8 @@ class _BillingScreenState extends State<BillingScreen>
                                         Navigator.of(ctx).maybePop();
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
-                                            builder: (_) => const SelectStudentsScreen(),
+                                            builder: (_) =>
+                                                const SelectStudentsScreen(),
                                           ),
                                         );
                                       },
@@ -190,7 +218,10 @@ class _BillingScreenState extends State<BillingScreen>
                               } else if (current == 1) {
                                 content = const TransactionsSection();
                               } else if (current == 2) {
-                                content = const GeneralLedgerSection();
+                                content = GeneralLedgerSection(
+                                  ledgerCreationNotifier:
+                                      _ledgerCreationNotifier,
+                                );
                               } else if (current == 3) {
                                 content = const SubsidiesSection();
                               } else {

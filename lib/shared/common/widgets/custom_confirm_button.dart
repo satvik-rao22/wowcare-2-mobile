@@ -41,18 +41,22 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      child: ElevatedButton(
+      height: 48,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: AppColors.buildPrimaryGradient(),
+      ),
+      child: TextButton(
         onPressed: _isLoading ? null : _handlePress,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.themeColor,
+        style: TextButton.styleFrom(
+          backgroundColor: Colors.transparent,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
-          elevation: 2,
         ),
         child: _isLoading
             ? const SizedBox(
@@ -63,7 +67,15 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : widget.widget ?? Text(widget.label),
+            : widget.widget ??
+                Text(
+                  widget.label,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
       ),
     );
   }

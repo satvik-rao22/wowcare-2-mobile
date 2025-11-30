@@ -36,6 +36,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
               Text(
                 widget.value,
                 style: const TextStyle(
+                  fontFamily: 'Manrope',
                   color: AppColors.primaryColor,
                   fontSize: 18,
                   letterSpacing: 18 * (-3 / 100),
@@ -104,6 +105,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
                         title: Text(
                           widget.items[index],
                           style: const TextStyle(
+                            fontFamily: 'Manrope',
                             color: AppColors.primaryColor,
                             fontSize: 16,
                           ),

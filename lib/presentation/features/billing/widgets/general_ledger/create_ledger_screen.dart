@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -55,27 +56,52 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
 
     setState(() => _isSubmitting = true);
 
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() => _isSubmitting = false);
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Ledger created successfully!',
-      isSuccess: true,
-    );
-    Navigator.of(context).maybePop();
+      final LedgerAccountModel newLedger = LedgerAccountModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _titleController.text.trim(),
+        type: _selectedType!,
+        description: _descriptionController.text.trim().isEmpty
+            ? _titleController.text.trim()
+            : _descriptionController.text.trim(),
+        openBalance: 0,
+        invoiced: 0,
+        received: 0,
+        isSubsidy: _selectedType == '(Legacy) Subsidy/Agency',
+        status: 'A',
+      );
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Ledger created successfully!',
+        isSuccess: true,
+      );
+
+      Navigator.of(context).pop(newLedger);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'An unexpected error occurred. Please try again.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final ResponsiveHelper responsive = ResponsiveHelper(context);
-    final Size size = MediaQuery.of(context).size;
-    final double screenWidth = size.width;
+    final double screenWidth = MediaQuery.of(context).size.width;
     final bool isTablet = screenWidth > 600;
     final bool isLargeTablet = screenWidth > 900;
-
     final double containerWidth = isLargeTablet
         ? (screenWidth * 0.8).clamp(800.0, 1200.0)
         : isTablet
@@ -97,7 +123,6 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        appBar: const CustomAppBar(hasBackButton: true),
         backgroundColor: Colors.white,
         body: Stack(
           children: [
@@ -116,13 +141,18 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                 opacity: const AlwaysStoppedAnimation(0.08),
               ),
             ),
-            SafeArea(
-              bottom: false,
-              child: Column(
+            NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                const SliverToBoxAdapter(
+                  child: CustomAppBar(hasBackButton: true),
+                ),
+              ],
+              body: Column(
                 children: [
                   const SizedBox(height: 16),
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: horizontalSpacing),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -136,65 +166,62 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(height: isTablet ? 32.0 : 20.0),
+                  SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: horizontalSpacing,
-                        vertical: 12,
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: containerWidth,
-                          padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(isTablet ? 40.0 : 24.0),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildInputField(
-                                label: 'Title',
-                                hint: 'Ledger Account (e.g Operational Exp)',
-                                controller: _titleController,
-                                error:
-                                    _titleError ? '*This field is required.' : null,
-                              ),
-                              SizedBox(height: verticalSpacing),
-                              _buildDropdownField(
-                                label: 'Type',
-                                value: _selectedType,
-                                items: _types,
-                                onChanged: (val) {
-                                  setState(() {
-                                    _selectedType = val;
-                                    _typeError = false;
-                                  });
-                                },
-                                error: _typeError ? '*This field is required.' : null,
-                              ),
-                              SizedBox(height: verticalSpacing),
-                              _buildInputField(
-                                label: 'Description',
-                                hint:
-                                    'Description (e.g Books, Activities, Postage)',
-                                controller: _descriptionController,
-                                maxLines: 3,
-                                required: false,
-                              ),
-                            ],
-                          ),
+                    child: Container(
+                      width: containerWidth,
+                      margin:
+                          EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                      padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(isTablet ? 40.0 : 24.0),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        children: [
+                          _buildInputField(
+                            label: 'Title',
+                            hint: 'Ledger Account (e.g Operational Exp)',
+                            controller: _titleController,
+                            error: _titleError
+                                ? '*This field is required.'
+                                : null,
+                          ),
+                          SizedBox(height: verticalSpacing),
+                          _buildDropdownField(
+                            label: 'Type',
+                            value: _selectedType,
+                            items: _types,
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedType = val;
+                                _typeError = false;
+                              });
+                            },
+                            error:
+                                _typeError ? '*This field is required.' : null,
+                          ),
+                          SizedBox(height: verticalSpacing),
+                          _buildInputField(
+                            label: 'Description',
+                            hint:
+                                'Description (e.g Books, Activities, Postage)',
+                            controller: _descriptionController,
+                            maxLines: 3,
+                            required: false,
+                          ),
+                          SizedBox(height: verticalSpacing),
+                        ],
                       ),
                     ),
                   ),
@@ -393,4 +420,5 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
     );
   }
 }
+
 

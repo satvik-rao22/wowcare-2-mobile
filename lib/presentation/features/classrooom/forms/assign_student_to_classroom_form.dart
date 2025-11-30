@@ -246,6 +246,7 @@ class _AssignStudentToClassroomFormState
               Text(
                 'Assign to ${widget.selectedRoomName}',
                 style: const TextStyle(
+                  fontFamily: 'Manrope',
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
@@ -260,6 +261,7 @@ class _AssignStudentToClassroomFormState
           const Text(
             'Select Students',
             style: TextStyle(
+              fontFamily: 'Manrope',
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -275,7 +277,7 @@ class _AssignStudentToClassroomFormState
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search Students',
-                hintStyle: TextStyle(color: Colors.grey[700]),
+                hintStyle: TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
@@ -329,7 +331,10 @@ class _AssignStudentToClassroomFormState
                   onChanged: _toggleSelectAll, // Add the handler here
                 ),
               ),
-              const Text('Select All'),
+              const Text(
+                'Select All',
+                style: TextStyle(fontFamily: 'Manrope'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -358,6 +363,8 @@ class _AssignStudentToClassroomFormState
           const SizedBox(height: 16),
           CustomButtonLayout(
             confirmButtonLabel: 'Next',
+            cancelButtonLabel: 'Cancel',
+            onPressedCancel: () => Navigator.pop(context),
             onPressedConfirm: () {
               if (selectedStudents.isEmpty) {
                 // UI-only: no backend, show inline SnackBar
@@ -442,6 +449,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                 child: Text(
                   'Assign to ${widget.selectedRoomName}',
                   style: const TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
@@ -460,7 +468,8 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                 child: Text(
                   'No students selected',
                   style: TextStyle(
-                    color: Colors.grey,
+                    fontFamily: 'Manrope',
+                    color: const Color(0xff573353),
                     fontSize: 16,
                   ),
                 ),
@@ -499,6 +508,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                             student.fullName,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
+                              fontFamily: 'Manrope',
                               color: AppColors.primaryColor,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -518,6 +528,8 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
           const SizedBox(height: 16),
           CustomButtonLayout(
             confirmButtonLabel: 'Submit',
+            cancelButtonLabel: 'Cancel',
+            onPressedCancel: () => Navigator.pop(context),
             onPressedConfirm: () {
               if (currentSelectedStudents.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -586,6 +598,7 @@ class StudentListItem extends StatelessWidget {
                   student.fullName,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
+                    fontFamily: 'Manrope',
                     color: AppColors.primaryColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -771,7 +784,8 @@ class _CustomMultiSelectDropdownAssignStudentState
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          color: Colors.black87,
+          fontFamily: 'Manrope',
+          color: Color(0xff573353),
           fontSize: 16,
         ),
         dropdownColor: Colors.white,
@@ -823,8 +837,9 @@ class _CustomMultiSelectDropdownAssignStudentState
                         child: Text(
                           item,
                           style: const TextStyle(
+                            fontFamily: 'Manrope',
                             fontSize: 14,
-                            color: Colors.black87,
+                            color: Color(0xff573353),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -841,8 +856,9 @@ class _CustomMultiSelectDropdownAssignStudentState
         hint: Text(
           displayText,
           style: TextStyle(
+            fontFamily: 'Manrope',
             color:
-                _localSelectedItems.isEmpty ? Colors.grey[600] : Colors.black87,
+                _localSelectedItems.isEmpty ? Colors.grey[600] : const Color(0xff573353),
             fontSize: 15,
           ),
         ),

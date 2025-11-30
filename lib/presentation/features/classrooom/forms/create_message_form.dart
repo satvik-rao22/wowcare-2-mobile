@@ -32,6 +32,7 @@ class CreateMessageForm extends StatelessWidget {
             Text(
               student.name.split(' ').first,
               style: const TextStyle(
+                fontFamily: 'Manrope',
                 color: Color.fromRGBO(87, 51, 83, 1),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -58,6 +59,7 @@ class CreateMessageForm extends StatelessWidget {
                 const Text(
                   'Create Message',
                   style: TextStyle(
+                    fontFamily: 'Manrope',
                     color: Color.fromRGBO(87, 51, 82, 1),
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
@@ -82,6 +84,7 @@ class CreateMessageForm extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: 'Hello Parents, Children had a good day today!',
                     hintStyle: const TextStyle(
+                      fontFamily: 'Manrope',
                       color: const Color.fromRGBO(87, 51, 83, 0.5),
                       fontSize: 15,
                     ),

@@ -245,6 +245,7 @@ class _AssignStaffToClassroomFormState
               Text(
                 'Assign to ${widget.selectedRoomName}',
                 style: const TextStyle(
+                  fontFamily: 'Manrope',
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
@@ -259,6 +260,7 @@ class _AssignStaffToClassroomFormState
           const Text(
             'Select Staffs',
             style: TextStyle(
+              fontFamily: 'Manrope',
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -274,7 +276,7 @@ class _AssignStaffToClassroomFormState
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search Staffs',
-                hintStyle: TextStyle(color: Colors.grey[700]),
+                hintStyle: TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
@@ -328,7 +330,10 @@ class _AssignStaffToClassroomFormState
                   onChanged: _toggleSelectAll,
                 ),
               ),
-              const Text('Select All'),
+              const Text(
+                'Select All',
+                style: TextStyle(fontFamily: 'Manrope'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -357,6 +362,8 @@ class _AssignStaffToClassroomFormState
           const SizedBox(height: 16),
           CustomButtonLayout(
             confirmButtonLabel: 'Next',
+            cancelButtonLabel: 'Cancel',
+            onPressedCancel: () => Navigator.pop(context),
             onPressedConfirm: () {
               if (selectedStaffs.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -439,6 +446,7 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                 child: Text(
                   'Assign to ${widget.selectedRoomName}',
                   style: const TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
@@ -457,7 +465,8 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                 child: Text(
                   'No staff selected',
                   style: TextStyle(
-                    color: Colors.grey,
+                    fontFamily: 'Manrope',
+                    color: const Color(0xff573353),
                     fontSize: 16,
                   ),
                 ),
@@ -497,6 +506,7 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                             staff.name,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
+                              fontFamily: 'Manrope',
                               color: AppColors.primaryColor,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -516,6 +526,8 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
           const SizedBox(height: 16),
           CustomButtonLayout(
             confirmButtonLabel: 'Submit',
+            cancelButtonLabel: 'Cancel',
+            onPressedCancel: () => Navigator.pop(context),
             onPressedConfirm: () {
               if (currentSelectedStaffs.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -585,6 +597,7 @@ class StaffListItem extends StatelessWidget {
                   staff.name,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
+                    fontFamily: 'Manrope',
                     color: AppColors.primaryColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -752,7 +765,8 @@ class _CustomMultiSelectDropdownAssignStaffState
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          color: Colors.black87,
+          fontFamily: 'Manrope',
+          color: Color(0xff573353),
           fontSize: 16,
         ),
         dropdownColor: Colors.white,
@@ -798,8 +812,9 @@ class _CustomMultiSelectDropdownAssignStaffState
                     child: Text(
                       item,
                       style: const TextStyle(
+                        fontFamily: 'Manrope',
                         fontSize: 14,
-                        color: Colors.black87,
+                        color: Color(0xff573353),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -814,9 +829,10 @@ class _CustomMultiSelectDropdownAssignStaffState
         hint: Text(
           displayText,
           style: TextStyle(
+            fontFamily: 'Manrope',
             color: widget.selectedItems.isEmpty
                 ? Colors.grey[600]
-                : Colors.black87,
+                : const Color(0xff573353),
             fontSize: 14,
           ),
         ),

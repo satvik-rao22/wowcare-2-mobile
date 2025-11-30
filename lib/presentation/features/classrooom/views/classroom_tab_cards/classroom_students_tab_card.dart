@@ -2,14 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/decorations.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
-import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 // Backend/bloc and feature imports disabled for UI-only mode
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:wowcare/core/extentions/context_extentions.dart';
@@ -99,6 +98,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   List<StudentEntity> _nappingStudents = []; // List to store napping students
   List<StudentEntity> _allStudents = [];
   bool _isPresentFilter = false; // Toggle for present students
+  StudentPanelType _currentPanel = StudentPanelType.none;
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> stasuses = ['A', 'Upcoming'];
@@ -250,16 +250,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       }).toList();
       setState(() {});
       return _filteredStudents;
-    
-    return [];
-  }
-
-  void _initializeStudentSelections(List<StudentEntity> students) {
-    for (var student in students) {
-      if (!studentSelections.containsKey(student.fullName)) {
-        studentSelections[student.fullName] = false;
-      }
-    }
   }
 
   void _toggleSelectAll(bool? value) {
@@ -287,6 +277,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       isSelectAllChecked = visibleStudents.every(
         (student) => studentSelections[student.fullName] == true,
       );
+
+      // Reset panel if no students are selected
+      if (!hasSelectedStudents) {
+        _currentPanel = StudentPanelType.none;
+      }
     });
   }
 
@@ -312,8 +307,13 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _selectedStatus = ['A'];
       _selectedTag = [];
       _isNappingFilter = false;
+      _currentPanel = StudentPanelType.none;
       _filterStudents();
     });
+  }
+
+  int get _selectedCount {
+    return studentSelections.values.where((selected) => selected).length;
   }
 
   List<StudentEntity> _getSelectedStudents() {
@@ -398,6 +398,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           hintText: 'Search',
                           hintStyle: const WidgetStatePropertyAll(
                             TextStyle(
+                              fontFamily: 'Manrope',
                               color: Color.fromRGBO(87, 51, 83, 0.7),
                               fontSize: 13,
                             ),
@@ -438,7 +439,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -452,12 +452,13 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           const Text(
                             'Select All',
                             style: TextStyle(
+                              fontFamily: 'Manrope',
                               color: AppColors.primaryColor,
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const Spacer(),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -469,37 +470,29 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                   color:
                                       const Color.fromRGBO(177, 175, 233, 0.3),
                                 ),
-                                child: Column(
-                                  children: [
-                                    if (_selectedStatus.length == 1 &&
-                                            _selectedStatus.contains('A') ||
-                                        _selectedStatus.isEmpty)
-                                      TextButton(
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                            vertical: 3,
-                                          ),
-                                          minimumSize: Size.zero,
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                        onPressed: () {},
-                                        child: const Text(
-                                          'Active',
-                                          style: TextStyle(
-                                            color:
-                                                Color.fromRGBO(27, 35, 126, 1),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                                child: TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 3,
+                                    ),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: () {},
+                                  child: const Text(
+                                    'Active',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      color: Color.fromRGBO(27, 35, 126, 1),
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -527,7 +520,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                   onPressed: _clearAllSelections,
                                   child: const Text(
                                     'Clear All',
-                                    style: TextStyle(fontSize: 12),
+                                    style: TextStyle(fontFamily: 'Manrope', fontSize: 12),
                                   ),
                                 ),
                               ),
@@ -566,7 +559,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                                     child: Text(
                                                       entry.value,
                                                       style: const TextStyle(
-                                                          fontSize: 14),
+                                                          fontFamily: 'Manrope', fontSize: 14),
                                                     ),
                                                   ),
                                                 ],
@@ -596,127 +589,44 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           ),
                         ],
                       ),
-                      // Row(
-                      //   children: [
-                      //     const Text(
-                      //       'Napping',
-                      //       style: TextStyle(
-                      //         color: AppColors.primaryColor,
-                      //         fontSize: 15,
-                      //         fontWeight: FontWeight.w500,
-                      //       ),
-                      //     ),
-                      //     Switch(
-                      //       value: _isNappingFilter,
-                      //       onChanged: (value) {
-                      //         setState(() {
-                      //           _isNappingFilter = value;
-                      //           _filterStudents();
-                      //         });
-                      //       },
-                      //       activeColor: AppColors.primaryColor,
-                      //     ),
-                      //   ],
-                      // ),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          // Present toggle
-                      Row(
-                        children: [
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    width: 50,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      gradient: _isPresentFilter
-                                          ? AppColors.buildPrimaryGradient()
-                                          : null,
-                                      color: !_isPresentFilter
-                                          ? AppColors.primaryColor
-                                              .withOpacity(0.2)
-                                          : null,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                  Switch(
-                                    value: _isPresentFilter,
-                                    activeColor: Colors.white,
-                                    inactiveThumbColor: AppColors.primaryColor,
-                                    inactiveTrackColor: Colors.transparent,
-                                    activeTrackColor: Colors.transparent,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _isPresentFilter = value;
-                                        _filterStudents();
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Present',
-                                style: TextStyle(
-                                  color: AppColors.primaryColor,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 20),
-                          // Napping toggle
-                          Row(
-                            children: [
-                              Stack(
-                                alignment: Alignment.center,
-                                children: [
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                width: 50,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  gradient: _isNappingFilter
-                                      ? AppColors.buildPrimaryGradient()
-                                      : null,
-                                  color: !_isNappingFilter
-                                          ? AppColors.primaryColor
-                                              .withOpacity(0.2)
-                                      : null,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              Switch(
-                                value: _isNappingFilter,
-                                activeColor: Colors.white,
-                                inactiveThumbColor: AppColors.primaryColor,
-                                inactiveTrackColor: Colors.transparent,
-                                activeTrackColor: Colors.transparent,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _isNappingFilter = value;
-                                    _filterStudents();
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Napping',
-                            style: TextStyle(
+                          CustomToggle(
+                            label: 'Present',
+                            isToggled: _isPresentFilter,
+                            onToggle: (value) {
+                              setState(() {
+                                _isPresentFilter = value;
+                                _filterStudents();
+                              });
+                            },
+                            labelStyle: const TextStyle(
+                              fontFamily: 'Manrope',
                               color: AppColors.primaryColor,
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
-                              ),
-                            ],
+                          ),
+                          const SizedBox(width: 20),
+                          CustomToggle(
+                            label: 'Napping',
+                            isToggled: _isNappingFilter,
+                            onToggle: (value) {
+                              setState(() {
+                                _isNappingFilter = value;
+                                _filterStudents();
+                              });
+                            },
+                            labelStyle: const TextStyle(
+                              fontFamily: 'Manrope',
+                              color: AppColors.primaryColor,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -752,11 +662,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                             _isNappingFilter
                                                 ? 'No students are napping.'
                                                 : 'No students assigned.',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: AppColors.primaryColor
-                                                  .withValues(alpha: 0.6),
-                                            ),
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 16,
+                                  color: AppColors.primaryColor
+                                      .withValues(alpha: 0.6),
+                                ),
                                           ),
                                         ),
                                       ),
@@ -802,7 +713,53 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             ),
           ),
         ),
-        // FAB handled at screen level for tab-aware visibility
+        // StudentActionPanel shown when students are selected
+        if (hasSelectedStudents)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: StudentActionPanel(
+              currentPanel: _currentPanel,
+              onAttendanceTap: () {
+                // TODO: Implement attendance functionality
+              },
+              onActivitiesTap: () {
+                // TODO: Implement activities functionality
+              },
+              onMessageTap: () {
+                // TODO: Implement message functionality
+              },
+              onProfileTap: _selectedCount == 1
+                  ? () {
+                      final selectedStudents = _getSelectedStudents();
+                      if (selectedStudents.isNotEmpty) {
+                        final student = selectedStudents.first;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StudentProfileScreen(
+                              name: student.fullName,
+                              classroom: widget.selectedRoom?.name ?? 'Unknown Class',
+                              tags: student.tags.map((tag) => tag.name).toList(),
+                              schedule: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], // Default schedule
+                              sibling: {'name': [], 'relation': [], 'status': []}, // Default empty sibling data
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  : null,
+              onClearSelections: () {
+                setState(() {
+                  isSelectAllChecked = false;
+                  studentSelections.updateAll((key, val) => false);
+                  _currentPanel = StudentPanelType.none;
+                });
+              },
+              isProfileEnabled: _selectedCount == 1,
+              activitiesEnabled: _selectedCount > 0,
+            ),
+          ),
       ],
     );
   }
@@ -886,7 +843,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          color: Colors.black87,
+          fontFamily: 'Manrope',
+          color: Color(0xff573353),
           fontSize: 16,
         ),
         dropdownColor: Colors.white,
@@ -933,8 +891,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                           child: Text(
                             item,
                             style: const TextStyle(
+                              fontFamily: 'Manrope',
                               fontSize: 14,
-                              color: Colors.black87,
+                              color: Color(0xff573353),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -952,8 +911,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         hint: Text(
           displayText,
           style: TextStyle(
+            fontFamily: 'Manrope',
             color:
-                _localSelectedItems.isEmpty ? Colors.grey[600] : Colors.black87,
+                _localSelectedItems.isEmpty ? Colors.grey[600] : const Color(0xff573353),
             fontSize: 14,
           ),
           overflow: TextOverflow.ellipsis,

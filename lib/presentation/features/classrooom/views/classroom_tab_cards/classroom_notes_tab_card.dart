@@ -203,6 +203,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                     hintText: 'Search Messages',
                                   hintStyle: WidgetStatePropertyAll(
                                     TextStyle(
+                                      fontFamily: 'Manrope',
                                       color: const Color.fromRGBO(87, 51, 83, 1)
                                             .withOpacity(0.7),
                                       fontSize: 13,
@@ -290,6 +291,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                               const Text(
                                 'Show Unread Only',
                                 style: TextStyle(
+                                  fontFamily: 'Manrope',
                                   color: AppColors.primaryColor,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
@@ -329,7 +331,8 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                           const SizedBox(width: 8),
                                           Text(sender.profile.name,
                                               style: const TextStyle(
-                                                  color: Colors.black87,
+                                                  fontFamily: 'Manrope',
+                                                  color: Color(0xff573353),
                                                   fontWeight: FontWeight.w500)),
                                         ],
                                       ),
@@ -346,6 +349,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                 child: Text(
                                           m.text,
                                           style: const TextStyle(
+                                            fontFamily: 'Manrope',
                                             color:
                                                 Color.fromRGBO(87, 51, 83, 1),
                                             fontSize: 14,
@@ -357,6 +361,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                       Text(
                                         time.format(context),
                                         style: const TextStyle(
+                                          fontFamily: 'Manrope',
                                           color:
                                               Color.fromRGBO(65, 65, 78, 0.5),
                                           fontSize: 12,
@@ -432,12 +437,13 @@ class _MessageInputFieldState extends State<MessageInputField> {
             child: TextField(
               controller: _messageController,
               maxLength: 2000,
-              decoration: const InputDecoration(
-                  hintText: 'Type your message here ...',
-                  hintStyle: TextStyle(
-                    color: Color.fromRGBO(87, 51, 83, 0.6),
-                    fontSize: 14,
-                  ),
+                  decoration: const InputDecoration(
+                      hintText: 'Type your message here ...',
+                      hintStyle: TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Color.fromRGBO(87, 51, 83, 0.6),
+                        fontSize: 14,
+                      ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
                       horizontal: 12,
@@ -474,6 +480,7 @@ class _MessageInputFieldState extends State<MessageInputField> {
                   child: Text(
                     'Send',
                     style: TextStyle(
+                      fontFamily: 'Manrope',
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,

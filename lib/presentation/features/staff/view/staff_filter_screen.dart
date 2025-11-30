@@ -13,12 +13,14 @@ class FilterData {
   final List<String> classrooms;
   final List<String> statuses;
   final List<String> tags;
+  final List<String> attendanceStatuses;
 
   FilterData({
     required this.classroomIds,
     required this.classrooms,
     required this.statuses,
     required this.tags,
+    this.attendanceStatuses = const [],
   });
 
   static FilterData createWithTagMapping({
@@ -26,12 +28,14 @@ class FilterData {
     required List<String> classrooms,
     required List<String> statuses,
     required List<String> tags,
+    List<String> attendanceStatuses = const [],
   }) {
     return FilterData(
       classroomIds: classroomIds,
       classrooms: classrooms,
       statuses: statuses,
       tags: tags,
+      attendanceStatuses: attendanceStatuses,
     );
   }
 }
@@ -101,6 +105,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       _selectedPrimaryClassroomList = List.from(widget.initialFilters!.classrooms);
       _selectedStatusList = List.from(widget.initialFilters!.statuses);
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
+      _selectedAttendanceStatusList = List.from(widget.initialFilters!.attendanceStatuses);
     }
     _fetchFilterData();
   }
@@ -140,6 +145,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       classrooms: _selectedPrimaryClassroomList,
       statuses: _selectedStatusList,
       tags: _selectedDesignationList,
+      attendanceStatuses: _selectedAttendanceStatusList,
     );
     Navigator.pop(context, filterData);
   }

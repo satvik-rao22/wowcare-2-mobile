@@ -67,9 +67,9 @@ class _OverviewStatCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue)),
+              Text(value, style: const TextStyle(fontFamily: 'Manrope', fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue)),
               const SizedBox(height: 6),
-              Text(title, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500)),
+              Text(title, style: const TextStyle(fontFamily: 'Manrope', color: Color(0xff573353), fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -92,7 +92,7 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Ratio Monitoring', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Ratio Monitoring', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontFamily: 'Manrope', fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -107,9 +107,9 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                Text('Available'),
-                Text('Scheduled'),
-                Text('Unscheduled'),
+                Text('Available', style: TextStyle(fontFamily: 'Manrope')),
+                Text('Scheduled', style: TextStyle(fontFamily: 'Manrope')),
+                Text('Unscheduled', style: TextStyle(fontFamily: 'Manrope')),
               ],
             )
           ],

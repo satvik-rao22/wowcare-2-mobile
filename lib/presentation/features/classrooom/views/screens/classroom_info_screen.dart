@@ -117,6 +117,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             Text(
               room.room.name,
               style: const TextStyle(
+                fontFamily: 'Manrope',
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -143,6 +144,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                 room.room.ageRange.isNotEmpty
                     ? room.room.ageRange.trim()
                     : 'No Age Limit',
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  color: Color(0xff573353),
+                ),
               ),
               const SizedBox(height: 4),
               Row(
@@ -152,11 +157,17 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       child: Text.rich(
                     TextSpan(
                       text: 'Capacity: ',
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Color(0xff573353),
+                      ),
                       children: [
                         TextSpan(
                           text: '${room.room.maxCapacity}',
                           style: const TextStyle(
+                            fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
+                            color: Color(0xff573353),
                           ),
                         ),
                       ],
@@ -168,13 +179,19 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       child: Text.rich(
                     TextSpan(
                       text: 'Ratio: ',
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Color(0xff573353),
+                      ),
                       children: [
                         TextSpan(
                           text: room.room.staffRatio.isEmpty
                               ? '0'
                               : '${room.room.staffRatio}:1',
                           style: const TextStyle(
+                            fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
+                            color: Color(0xff573353),
                           ),
                         ),
                       ],
@@ -309,21 +326,28 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                             Text(
                               'Events',
                               style: TextStyle(
+                                fontFamily: 'Manrope',
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey[800],
+                                color: const Color(0xff573353),
                               ),
                             ),
                             const SizedBox(height: 16),
                              // Calendar header simplified for UI-only mode
-                             Row(
-                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                               children: const [
-                                 Icon(Icons.chevron_left, color: Colors.grey),
-                                 Text('Nov 2025'),
-                                 Icon(Icons.chevron_right, color: Colors.grey),
-                               ],
-                             ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Icon(Icons.chevron_left, color: Colors.grey),
+                                  const Text(
+                                    'Nov 2025',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      color: Color(0xff573353),
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right, color: Colors.grey),
+                                ],
+                              ),
                             const SizedBox(height: 16),
                             const EventsCard(),
                             const SizedBox(height: 16),
@@ -372,6 +396,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                 Text(
                   number,
                   style: const TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 32,
                     color: Colors.blue,
                     fontWeight: FontWeight.bold,
@@ -381,7 +406,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                   title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.grey.shade700,
+                    fontFamily: 'Manrope',
+                    color: const Color(0xff573353),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -437,7 +463,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               const SizedBox(width: 4),
                               Text(
                                 item.label,
-                                style: const TextStyle(fontSize: 12),
+                                style: const TextStyle(fontFamily: 'Manrope', fontSize: 12),
                               ),
                             ],
                           ),
@@ -528,8 +554,8 @@ class _EventRow extends StatelessWidget {
               children: [
                 Text(date,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(month, style: const TextStyle(fontSize: 12)),
+                        fontFamily: 'Manrope', fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xff573353))),
+                Text(month, style: const TextStyle(fontFamily: 'Manrope', fontSize: 12, color: Color(0xff573353))),
               ],
             ),
           ),
@@ -538,6 +564,7 @@ class _EventRow extends StatelessWidget {
             child: Text(
               title,
               style: const TextStyle(
+                fontFamily: 'Manrope',
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: Color.fromRGBO(87, 51, 83, 1),

@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 
 // UI-only lightweight models
 class RoomDTO {
@@ -65,6 +66,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   List<String> _selectedDesignation = [];
   List<Staff> _filteredStaff = [];
   List<Staff> _allStaff = [];
+  FilterData? _currentFilterData;
+  List<String> _selectedStatusList = [];
+  List<String> _selectedAttendanceStatusList = [];
 
   final List<String> designations = const [
     'Director',
@@ -138,6 +142,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         _searchController.clear();
         _selectedDesignation = [];
         _filteredStaff = [];
+        _currentFilterData = null;
+        _selectedStatusList = [];
+        _selectedAttendanceStatusList = [];
       });
       _loadDummyStaff();
     }
@@ -159,6 +166,8 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       _filteredStaff = allStaff.where((staff) {
         bool matchesSearch = true;
         bool matchesDesignation = true;
+        bool matchesStatus = true;
+        bool matchesAttendanceStatus = true;
         bool isNotKiosk = staff.designation != 'Kiosk';
 
         if (_searchController.text.isNotEmpty) {
@@ -171,7 +180,21 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
           matchesDesignation = _selectedDesignation.contains(staff.designation);
         }
 
-        return matchesSearch && matchesDesignation && isNotKiosk;
+        // Apply status filter (Active/Upcoming)
+        if (_selectedStatusList.isNotEmpty) {
+          matchesStatus = (_selectedStatusList.contains('Active') && staff.profileStatus == 'A') ||
+              (_selectedStatusList.contains('Upcoming') && staff.profileStatus == 'Upcoming');
+        }
+
+        // Apply attendance status filter (Expected/Present/Absent)
+        if (_selectedAttendanceStatusList.isNotEmpty) {
+          matchesAttendanceStatus = 
+              (_selectedAttendanceStatusList.contains('Expected') && staff.isExpectedToday) ||
+              (_selectedAttendanceStatusList.contains('Present') && staff.isSignedIn) ||
+              (_selectedAttendanceStatusList.contains('Absent') && staff.isAbsent);
+        }
+
+        return matchesSearch && matchesDesignation && matchesStatus && matchesAttendanceStatus && isNotKiosk;
       }).toList();
       setState(() {});
       return _filteredStaff;
@@ -213,8 +236,34 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       staffSelections.updateAll((key, val) => false);
       _searchController.clear();
       _selectedDesignation = [];
+      _currentFilterData = null;
+      _selectedStatusList = [];
+      _selectedAttendanceStatusList = [];
       _filterStaff();
     });
+  }
+
+  Future<void> _openFilterScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StaffFilterScreen(
+          initialFilters: _currentFilterData,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (result is FilterData) {
+      setState(() {
+        _currentFilterData = result;
+        _selectedDesignation = List.from(result.tags);
+        _selectedStatusList = List.from(result.statuses);
+        _selectedAttendanceStatusList = List.from(result.attendanceStatuses);
+        _filterStaff();
+      });
+    }
   }
 
   @override
@@ -248,6 +297,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   hintText: 'Search',
                                   hintStyle: const WidgetStatePropertyAll(
                                     TextStyle(
+                                      fontFamily: 'Manrope',
                                       color: Color.fromRGBO(87, 51, 83, 0.7),
                                       fontSize: 13,
                                     ),
@@ -273,9 +323,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                               ),
                               const SizedBox(width: 8),
                               IconButton(
-                                onPressed: () {
-                                  // TODO: open filters in future
-                                },
+                                onPressed: _openFilterScreen,
                                 icon: SvgPicture.asset(
                                   MediaRes.filterIcon,
                                   height: 22,
@@ -313,6 +361,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   child: const Text(
                                     'Active',
                                     style: TextStyle(
+                                      fontFamily: 'Manrope',
                                       color: Color.fromRGBO(27, 35, 126, 1),
                                       fontSize: 12,
                                     ),
@@ -344,7 +393,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   onPressed: _clearAllSelections,
                                   child: const Text(
                                     'Clear All',
-                                    style: TextStyle(fontSize: 12),
+                                    style: TextStyle(fontFamily: 'Manrope', fontSize: 12),
                                   ),
                                 ),
                               ),
@@ -494,6 +543,7 @@ class _StaffListItem extends StatelessWidget {
                     Text(
                     staff.name,
                       style: const TextStyle(
+                        fontFamily: 'Manrope',
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: Color.fromRGBO(87, 51, 83, 1),
@@ -501,8 +551,9 @@ class _StaffListItem extends StatelessWidget {
                     ),
                     Text(
                     staff.designation,
-                      style: TextStyle(
-                        color: Colors.grey[600],
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Color(0xff573353),
                       ),
                     ),
                   ],
@@ -595,7 +646,8 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          color: Colors.black87,
+          fontFamily: 'Manrope',
+          color: Color(0xff573353),
           fontSize: 16,
         ),
         dropdownColor: Colors.white,
@@ -638,8 +690,9 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
                         child: Text(
                           item,
                           style: const TextStyle(
+                            fontFamily: 'Manrope',
                             fontSize: 14,
-                            color: Colors.black87,
+                            color: Color(0xff573353),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -656,7 +709,8 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
         hint: Text(
           displayText,
           style: TextStyle(
-            color: _localSelectedItems.isEmpty ? Colors.grey[600] : Colors.black87,
+            fontFamily: 'Manrope',
+            color: _localSelectedItems.isEmpty ? Colors.grey[600] : const Color(0xff573353),
             fontSize: 14,
           ),
           overflow: TextOverflow.ellipsis,

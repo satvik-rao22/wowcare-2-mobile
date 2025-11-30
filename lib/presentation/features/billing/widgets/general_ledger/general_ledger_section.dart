@@ -12,7 +12,12 @@ import 'package:wowcare/presentation/features/billing/widgets/general_ledger/mod
 /// This widget mirrors the structure from the legacy AdminBillingScreen
 /// while remaining self-contained until data wiring is available.
 class GeneralLedgerSection extends StatefulWidget {
-  const GeneralLedgerSection({super.key});
+  const GeneralLedgerSection({
+    this.ledgerCreationNotifier,
+    super.key,
+  });
+
+  final ValueNotifier<LedgerAccountModel?>? ledgerCreationNotifier;
 
   @override
   State<GeneralLedgerSection> createState() => _GeneralLedgerSectionState();
@@ -86,6 +91,21 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   String? _selectedType;
 
   @override
+  void initState() {
+    super.initState();
+    widget.ledgerCreationNotifier?.addListener(_handleLedgerCreated);
+  }
+
+  @override
+  void didUpdateWidget(covariant GeneralLedgerSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ledgerCreationNotifier != widget.ledgerCreationNotifier) {
+      oldWidget.ledgerCreationNotifier?.removeListener(_handleLedgerCreated);
+      widget.ledgerCreationNotifier?.addListener(_handleLedgerCreated);
+    }
+  }
+
+  @override
   void reassemble() {
     super.reassemble();
     if (_allLedgers.isNotEmpty &&
@@ -117,6 +137,19 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     });
   }
 
+  void _handleLedgerCreated() {
+    final LedgerAccountModel? newLedger =
+        widget.ledgerCreationNotifier?.value;
+    if (newLedger == null) {
+      return;
+    }
+
+    setState(() {
+      _allLedgers.insert(0, newLedger);
+    });
+    widget.ledgerCreationNotifier?.value = null;
+  }
+
   Future<void> _onEditLedger(LedgerAccountModel ledger) async {
     final LedgerAccountModel? updatedLedger = await Navigator.of(context).push(
       MaterialPageRoute(
@@ -146,6 +179,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
 
   @override
   void dispose() {
+    widget.ledgerCreationNotifier?.removeListener(_handleLedgerCreated);
     _searchController.dispose();
     super.dispose();
   }

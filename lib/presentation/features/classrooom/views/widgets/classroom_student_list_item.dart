@@ -148,6 +148,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                           ? widget.name.split(' ').first
                           : '',
                       style: const TextStyle(
+                        fontFamily: 'Manrope',
                         color: AppColors.primaryColor,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -167,6 +168,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                   title: const Text(
                     'Details',
                     style: TextStyle(
+                      fontFamily: 'Manrope',
                       color: AppColors.primaryColor,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -192,8 +194,9 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                                 entry.value["info"] ??
                                     getDefaultIconDetail(entry.key),
                                 style: const TextStyle(
+                                  fontFamily: 'Manrope',
                                   fontSize: 14,
-                                  color: Colors.black87,
+                                  color: Color(0xff573353),
                                 ),
                               ),
                             ),
@@ -208,6 +211,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                       child: const Text(
                         'Close',
                         style: TextStyle(
+                          fontFamily: 'Manrope',
                           color: AppColors.primaryColor,
                           fontWeight: FontWeight.w500,
                         ),
