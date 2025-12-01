@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
 
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
+import '../edit_student_profile_details_screen.dart';
 
 
 class StudentAboutTabCard extends StatefulWidget {
@@ -61,7 +63,27 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               children: [
                 _Field(label: 'Name', value: widget.name),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditStudentProfileDetailsScreen(
+                          initialFirstName: 'Jessica',
+                          initialLastName: 'Rhodes',
+                          initialStatus: 'Active',
+                          initialClassroom: '1-Blue D X',
+                          initialBirthDate: null,
+                          initialNotes: '',
+                          initialFTE: '80',
+                          initialStreet: '',
+                          initialCity: '',
+                          initialState: 'New Hampshire',
+                          initialCountry: 'United States',
+                          initialZipCode: '',
+                        ),
+                      ),
+                    );
+                  },
                   child: Container(
                     width: 38,
                     height: 38,
@@ -89,6 +111,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             _Field(label: 'Classroom', value: widget.classroom),
             const SizedBox(height: 16),
             _Field(label: 'Tags', value:null, trailing: _tags(tags: widget.tags,),),
+            const SizedBox(height: 16),
+            _Field(
+                label: 'Gender',
+                value: 'Male/Female'),
             const SizedBox(height: 16),
             _Field(
               label: 'Birth Date',
@@ -152,9 +178,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                               '$name ($relation)',
                               style: const TextStyle(
                                 fontFamily: 'Manrope',
-                                fontSize: 15,
+                                fontSize: 16,
                                 color: Color(0xff573353),
-                                fontWeight: FontWeight.w400,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.03 * 16,
                               ),
                             ),
                           ],
@@ -236,9 +263,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 label: 'School leaving Date',
                 value: 'Oct 29, 2001'),
             const SizedBox(height: 16),
-            _Field(
-                label: 'Upcoming move',
-                value: 'Oct 29, 2001')
+            UpcomingMoveWidget(month: 'Oct', day: '29', currentClass: '1-Blue-D', nextClass: '2-Green-D ')
+            // _Field(
+            //     label: 'Upcoming move',
+            //     value: 'Oct 29, 2001')
           ],
         ),
       ),
@@ -291,9 +319,10 @@ class _Field extends StatelessWidget {
           label,
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
+            fontSize: 15,
+            letterSpacing: -0.03 * 15,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF6C6377),
           ),
         ),
         const SizedBox(height: 6),
@@ -302,9 +331,10 @@ class _Field extends StatelessWidget {
             value ?? '- -',
             style: const TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 15,
+              fontSize: 16,
               color: Color(0xff573353),
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.03 * 16,
             ),
           )
         else
@@ -368,51 +398,44 @@ class _tags extends StatelessWidget{
                 ),
               ),
             if (tagList.length > 2)
-              Tooltip(
-                message: tagList
-                    .skip(2)
-                    .join(', '),
-                child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0x66D9FFCB),
-                    borderRadius:
-                    BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '+${tagList.length - 2}',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xFF1B237E),
-                      height: 15 / 12,
-                    ),
-                  ),
-                ),
-              ),
-            Tooltip(
-              message: 'Edit tags',
-              child: Container(
+              Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.transparent,
+                  color: const Color(0x66D9FFCB),
                   borderRadius:
                   BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  Icons.mode_edit_outline_outlined,
-                  color: const Color(0xFFCECECE),
+                child: Text(
+                  tagList[1],
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Color(0xFF1B237E),
+                  ),
                 ),
               ),
-            ),
+            // Tooltip(
+            //   message: 'Edit tags',
+            //   child: Container(
+            //     padding: const EdgeInsets.symmetric(
+            //       horizontal: 10,
+            //       vertical: 4,
+            //     ),
+            //     decoration: BoxDecoration(
+            //       color: Colors.transparent,
+            //       borderRadius:
+            //       BorderRadius.circular(8),
+            //     ),
+            //     child: Icon(
+            //       Icons.mode_edit_outline_outlined,
+            //       color: const Color(0xFFCECECE),
+            //     ),
+            //   ),
+            // ),
           ],
         );
 

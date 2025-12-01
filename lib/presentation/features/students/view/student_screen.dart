@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
+import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -15,7 +16,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
-import 'add_student_screen.dart';
+import 'add_student_wizard_screen.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({super.key});
@@ -107,10 +108,10 @@ class _StudentScreenState extends State<StudentScreen> {
                         onTap: () async {
                           final result = await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const AddStudentScreen()),
+                            MaterialPageRoute(builder: (_) => const AddStudentWizardScreen()),
                           );
                           if (!mounted) return;
-                          print('[StudentScreen] Received result from AddStudentScreen: ' + result.toString());
+                          print('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
                           if (result is Map && (result['showPostAddPrompt'] == true)) {
                             final studentName = (result['studentName'] as String?) ?? '';
                             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -251,7 +252,50 @@ class _StudentScreenState extends State<StudentScreen> {
                               color: Colors.transparent,
                               child: InkWell(
                                 onTap: () async {
-                                  // TODO: Open a student filter screen when implemented
+                                  final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FilterScreen(
+                                          sections: [
+                                            FilerSection(
+                                                label: 'Classroom',
+                                                items: ['1-Blue D', '3-Orange-D', '2-Red A'],
+                                                initialSelected: ['1-Blue D'],
+                                                isMultiSelect: false
+                                            ),
+                                            FilerSection(
+                                                label: 'Status',
+                                                items: ['Active', 'Inactive', 'Upcoming'],
+                                                initialSelected: ['Active'],
+                                                isMultiSelect: false
+                                            ),
+                                            FilerSection(
+                                                label: 'Tags',
+                                                items:  [
+                                                  '5 Days',
+                                                  'Full Day',
+                                                  'Photo Permission',
+                                                  'Vegetarian',
+                                                  'First Aid',
+                                                  'Allergy',
+                                                  'Pickup Authorized',
+                                                ],
+                                                isMultiSelect: true,
+                                                initialSelected: ['5 Days']
+                                            ),
+                                          ],
+                                          onApply: (filters) {
+                                            print(filters); // to check if it works
+                                            //Navigator.pop(context);
+                                          }
+                                      ),
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  if (result is Map) {
+                                    // TODO: apply filters to list
+                                    setState(() {});
+                                  }
                                 },
                                 borderRadius: BorderRadius.circular(100),
                                 child: Padding(

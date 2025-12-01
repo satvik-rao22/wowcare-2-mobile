@@ -86,4 +86,20 @@ class AppColors {
     Color(0xFFF67EAF), // pink
     Color(0xFFCB9AFC), // lavender (new)
   ];
+
+  static const List<Color> tagColors = [
+    Color(0xFFFFF8E1), // amber pastel
+    Color(0x4DB1AFE9), // 5 Days
+    Color(0x66CBF6FF), // Full Day
+    Color(0x66D9FFCB), // Photo Permission
+    Color(0xFFFCE4EC), // soft pink
+    Color(0xFFF3E5F5), // purple pastel
+    Color(0xFFE0F7FA), // cyan pastel
+
+  ];
+
+
+  static const List<Color> tagTextColors = [
+    Color(0xFF1B237E),
+  ];
 }
