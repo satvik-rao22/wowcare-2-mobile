@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:sizer/sizer.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 
 import 'src/app_router.dart';
@@ -131,13 +131,17 @@ class _MyAppState extends State<MyApp> {
             data: MediaQuery.of(
               context,
             ).copyWith(textScaler: TextScaler.linear(customScaler)),
-            child: MaterialApp(
-              debugShowCheckedModeBanner: false,
-              title: 'WowCare',
-              theme: themeProvider.currentTheme,
-              home: const SplashScreenWrapper(),
-              onGenerateRoute: generateRoute,
-              navigatorKey: navigatorKey,
+            child: Sizer(
+              builder: (context, orientation, screenType) {
+                return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: 'WowCare',
+                theme: themeProvider.currentTheme,
+                home: const SplashScreenWrapper(),
+                onGenerateRoute: generateRoute,
+                navigatorKey: navigatorKey,
+
+              );}
             ),
           );
         },

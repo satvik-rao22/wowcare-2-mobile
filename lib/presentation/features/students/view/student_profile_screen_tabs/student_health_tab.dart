@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sizer/sizer.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
@@ -66,11 +67,12 @@ class _StudentHealthTabState extends State<StudentHealthTab>
   Tab _buildTab({
     required String label,
     required Color color,
-    required double width,
+    //required double width,
   }) {
     return Tab(
       child: Container(
-        width: width,
+        //width: width,
+        padding: EdgeInsets.symmetric(horizontal: 4.w,),
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: color,
@@ -196,7 +198,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               Padding(
                 padding: const EdgeInsets.only(right: 2),
                 child: _buildTab(
-                  width: 80,
+                  //width: 80,
                   label: 'Health',
                   color: AppColors.classroomStudentTabColor,
                 ),
@@ -204,7 +206,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildTab(
-                  width: 90,
+                  //width: 90,
                   label: 'Physician',
                   color: AppColors.classroomStaffTabColor,
                 ),
@@ -212,7 +214,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildTab(
-                  width: 200,
+                  //width: 200,
                   label: 'Physical Examination Dates',
                   color: AppColors.classroomNotesTabColor,
                 ),
@@ -220,7 +222,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               Padding(
                 padding: const EdgeInsets.only(left: 2),
                 child: _buildTab(
-                  width: 120,
+                  //width: 120,
                   label: 'Immunization',
                   color: Color(0x66EAD6FF),
                 ),
