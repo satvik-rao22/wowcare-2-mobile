@@ -4,10 +4,12 @@ import 'package:wowcare/app/theme/colors.dart';
 class CustomClearAllChip extends StatelessWidget {
   const CustomClearAllChip({
     required this.onTap,
+    this.label = 'Clear All',
     super.key,
   });
 
   final void Function()? onTap;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -26,9 +28,9 @@ class CustomClearAllChip extends StatelessWidget {
             horizontal: 8,
             vertical: 4,
           ),
-          child: const Center(
+          child: Center(
             child: Text(
-              'Clear All',
+              label,
               textAlign: TextAlign.center,
               maxLines: 2,
               softWrap: true,

@@ -265,24 +265,24 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        Tooltip(
-                                          message: 'Edit tags',
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.transparent,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Icon(
-                                              Icons.mode_edit_outline_outlined,
-                                              color: const Color(0xFFCECECE),
-                                            ),
-                                          ),
-                                        ),
+                                        // Tooltip(
+                                        //   message: 'Edit tags',
+                                        //   child: Container(
+                                        //     padding: const EdgeInsets.symmetric(
+                                        //       horizontal: 10,
+                                        //       vertical: 4,
+                                        //     ),
+                                        //     decoration: BoxDecoration(
+                                        //       color: Colors.transparent,
+                                        //       borderRadius:
+                                        //           BorderRadius.circular(8),
+                                        //     ),
+                                        //     child: Icon(
+                                        //       Icons.mode_edit_outline_outlined,
+                                        //       color: const Color(0xFFCECECE),
+                                        //     ),
+                                        //   ),
+                                        // ),
                                       ],
                                     ),
                                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -7,6 +8,7 @@ import '../../../app/theme/colors.dart';
 import '../../../app/theme/media_res.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_dropdown.dart';
+import '../widgets/multi_selection_widget.dart';
 
 class FilterScreen extends StatefulWidget {
   final String title;
@@ -119,7 +121,8 @@ class _FilterScreenState extends State<FilterScreen> {
                       ),
                     ],
                   ),
-                  child: widget.showLoading ? _buildShimmer() : _buildGrid(),
+                  //child: widget.showLoading ? _buildShimmer() : _buildGrid(),
+                  child: widget.showLoading ? _buildShimmer() : _buildMasonryGrid(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -172,6 +175,58 @@ class _FilterScreenState extends State<FilterScreen> {
     );
   }
 
+  Widget _buildMasonryGrid() {
+    return StaggeredGrid.count(
+      crossAxisCount: 2,
+      mainAxisSpacing: 20,
+      crossAxisSpacing: 16,
+      children: List.generate(widget.sections.length, (index) {
+        final section = widget.sections[index];
+        final selected = _selectedValues[index];
+
+        return StaggeredGridTile.fit(
+          crossAxisCellCount: 1,
+          child: section.isSingleSelect ?
+          CustomDropdown(
+              label: section.label,
+              hintText: section.hintText,
+              items: section.items,
+              selectedItem: selected.isNotEmpty ? selected.first : null,
+              isField: true,
+              showAsterisk: false,
+              onSelect: (String? value) {
+                setState(() {
+                  _selectedValues[index] = value != null ? [value] : [];
+                });
+              })
+          :section.isMultiSelectDropDown
+              ? CustomMultiSelectDropdown(
+            label: section.label,
+            hintText: section.hintText,
+            items: section.items,
+            selectedItems: selected,
+            onChanged: (List<String> values) {
+              setState(() => _selectedValues[index] = values);
+            },
+          )
+              : MultiSelectWidget(
+            label: section.label,
+            availableOptions: section.items,
+            selectedOptions: selected,
+            onSelectionChanged: (List<String> values) {
+              setState(() => _selectedValues[index] = values);
+            },
+            colorfulSelection: false,
+            isRequired: false,
+          ),
+
+
+        );
+      }),
+    );
+  }
+
+// this was causing the last dropdown to be pushed to the bottom for bigger screens like tablet
   Widget _buildGrid() {
     return GridView.builder(
         padding: EdgeInsets.zero,
@@ -188,7 +243,7 @@ class _FilterScreenState extends State<FilterScreen> {
           final section = widget.sections[index];
           final currentSelection = _selectedValues[index];
 
-          if (section.isMultiSelect) {
+          if (section.isMultiSelectDropDown) {
             return CustomMultiSelectDropdown(
               label: section.label,
               hintText: section.hintText,
@@ -258,14 +313,16 @@ class FilerSection {
   final String hintText;
   final List<String> items;
   final List<String> initialSelected;
-  final bool isMultiSelect;
+  final bool isMultiSelectDropDown;
   final bool colorfulChips;
+  final bool isSingleSelect;
   FilerSection({
     required this.label,
     required this.items,
     this.hintText = 'Select',
     this.initialSelected = const [],
-    this.isMultiSelect = true,
-    this.colorfulChips = false
+    this.isMultiSelectDropDown = true,
+    this.colorfulChips = false,
+    this.isSingleSelect = false
   });
 }

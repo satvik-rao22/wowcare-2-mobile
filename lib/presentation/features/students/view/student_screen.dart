@@ -6,12 +6,10 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -29,7 +27,7 @@ class StudentScreen extends StatefulWidget {
 
 class _StudentScreenState extends State<StudentScreen> {
   final TextEditingController _searchController = TextEditingController();
-  bool _showInactive = false;
+  //bool _showInactive = false;
   final List<bool> _selectedDemo = [false, false, false];
   bool _selectAll = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
@@ -142,26 +140,26 @@ class _StudentScreenState extends State<StudentScreen> {
                       ),
                       SizedBox(width: 10,),
                       // Clock action button
-                      Container(
-                        width: 38,
-                        height: 38,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          gradient: AppColors.buildPrimaryGradient(),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: GestureDetector(
-                          onTap: () {},
-                          child: SvgPicture.asset(
-                            MediaRes.calenderClockIcon,
-                            width: 22,
-                            height: 22,
-                            fit: BoxFit.contain,
-                            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                          ),
-                        ),
-                      ),
+                      // Container(
+                      //   width: 38,
+                      //   height: 38,
+                      //   margin: const EdgeInsets.only(right: 8),
+                      //   decoration: BoxDecoration(
+                      //     gradient: AppColors.buildPrimaryGradient(),
+                      //     borderRadius: BorderRadius.circular(8),
+                      //   ),
+                      //   alignment: Alignment.center,
+                      //   child: GestureDetector(
+                      //     onTap: () {},
+                      //     child: SvgPicture.asset(
+                      //       MediaRes.calenderClockIcon,
+                      //       width: 22,
+                      //       height: 22,
+                      //       fit: BoxFit.contain,
+                      //       colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -244,7 +242,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             Expanded(
                               child: CustomSearchBar(
                                 controller: _searchController,
-                                hintText: 'Search Students',
+                                hintText: 'Search student by student/parent name',
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -261,13 +259,13 @@ class _StudentScreenState extends State<StudentScreen> {
                                                 label: 'Classroom',
                                                 items: ['1-Blue D', '3-Orange-D', '2-Red A'],
                                                 initialSelected: ['1-Blue D'],
-                                                isMultiSelect: false
+                                                isMultiSelectDropDown: false
                                             ),
                                             FilerSection(
                                                 label: 'Status',
                                                 items: ['Active', 'Inactive', 'Upcoming'],
                                                 initialSelected: ['Active'],
-                                                isMultiSelect: false
+                                                isMultiSelectDropDown: false,
                                             ),
                                             FilerSection(
                                                 label: 'Tags',
@@ -280,8 +278,19 @@ class _StudentScreenState extends State<StudentScreen> {
                                                   'Allergy',
                                                   'Pickup Authorized',
                                                 ],
-                                                isMultiSelect: true,
+                                                isMultiSelectDropDown: false,
                                                 initialSelected: ['5 Days']
+                                            ),
+                                            FilerSection(
+                                                label: 'Parents',
+                                                items:  ['Parent name1', 'Parent name2', 'Parent name3', 'Parent name4', 'Parent name5', 'Parent name6'],
+                                                isMultiSelectDropDown: false,
+                                            ),
+                                            FilerSection(
+                                                label: 'Attendance status',
+                                                items:  ['Expected', 'Present', 'Absent'],
+                                                isMultiSelectDropDown: false,
+                                                initialSelected: ['Present']
                                             ),
                                           ],
                                           onApply: (filters) {
@@ -316,24 +325,25 @@ class _StudentScreenState extends State<StudentScreen> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const CustomChip(
-                                  label: 'Active',
-                                  labelStyle: TextStyle(
-                                    color: AppColors.secondaryColor,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  color: Color.fromRGBO(177, 175, 233, 0.3),
-                                ),
+                                // const CustomChip(
+                                //   label: 'Active',
+                                //   labelStyle: TextStyle(
+                                //     color: AppColors.secondaryColor,
+                                //     fontSize: 13,
+                                //     fontWeight: FontWeight.w500,
+                                //   ),
+                                //   color: Color.fromRGBO(177, 175, 233, 0.3),
+                                // ),
+                                const CustomClearAllChip(onTap: null, label: 'Active'),// should be turned on by default and show active students
                                 const SizedBox(width: 8),
                                 const CustomClearAllChip(onTap: null),
                               ],
                             ),
-                            CustomToggle(
-                              label: '',
-                              isToggled: _showInactive,
-                              onToggle: (v) => setState(() => _showInactive = v),
-                            ),
+                            // CustomToggle(
+                            //   label: '',
+                            //   isToggled: _showInactive,
+                            //   onToggle: (v) => setState(() => _showInactive = v),
+                            // ),
                           ],
                         ),
                       ],
