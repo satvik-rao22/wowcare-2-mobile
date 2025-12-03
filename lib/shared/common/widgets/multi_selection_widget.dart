@@ -13,6 +13,8 @@ class MultiSelectWidget extends StatefulWidget {
   final bool isRequired;
   final String? errorText;
   final bool colorfulSelection;
+  final bool showClearAllOption;
+  final String clearSelectionText;
 
   const MultiSelectWidget({
     super.key,
@@ -22,8 +24,10 @@ class MultiSelectWidget extends StatefulWidget {
     this.label = "Select Tags",
     this.hintText = "Select Tags",
     this.isRequired = true,
-    this.errorText,
-    this.colorfulSelection = true
+    this.errorText = "This is a mandatory field please select one option",
+    this.colorfulSelection = true,
+    this.showClearAllOption = false,
+    this.clearSelectionText = 'Clear All'
   });
 
   @override
@@ -122,9 +126,52 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                           Expanded(
                             child: ListView.builder(
                               padding: EdgeInsets.zero,
-                              itemCount: filteredTags.length,
+                              itemCount: filteredTags.length + (widget.showClearAllOption ? 1 : 0),
                               itemBuilder: (context, index) {
-                                final tag = filteredTags[index];
+                                // for clear all selections option
+                                if (widget.showClearAllOption && index == 0){
+                                  final hasSelections = localSelected.isNotEmpty;
+                                  return Column(
+                                    children: [
+                                      InkWell(
+                                        onTap: hasSelections ? () {
+                                          setOverlayState((){
+                                            localSelected.clear();
+                                            widget.onSelectionChanged([]);
+                                          });
+                                        }: null,
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                          color: hasSelections? Color(0xFFF8F7FA) : Colors.transparent,
+                                          child: Row(
+                                            children: [
+                                              const SizedBox(width: 34,),
+                                              Expanded(
+                                                  child: Text(
+                                                    widget.clearSelectionText,
+                                                    style: TextStyle(
+                                                      fontFamily: "Manrope",
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: hasSelections
+                                                          ? Color(0xff573353)
+                                                          : Colors.grey.shade400,
+                                                    ),
+                                                  )
+                                              ),
+
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      Divider(height: 1,),
+                                    ],
+                                  );
+                                }
+                                // all options
+                                final tagIndex = widget.showClearAllOption ? index -1 : index;
+                                final tag = filteredTags[tagIndex];
                                 final isSelected = localSelected.contains(tag);
               
                                 return InkWell(
@@ -298,7 +345,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
           ),
       
       
-          if (widget.errorText != null)
+          if (widget.errorText != null && widget.isRequired && widget.selectedOptions.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(

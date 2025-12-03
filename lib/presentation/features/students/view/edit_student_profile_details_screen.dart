@@ -63,13 +63,13 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   final ImagePicker _picker = ImagePicker();
 
   String? _selectedStatus;
-  String? _selectedStateSubsidyOption;
+  String? _selectedStateSubsidyOption ;
   List<String> _selectedSiblings = [];
   List<String> _selectedTags = ['Full Day'];
   String? _selectedClassroom;
   DateTime? _selectedBirthDate;
   DateTime? _selectedUpcomingMoveDate;
-  String? _selectedChildCustody;
+  List<String> _selectedChildCustody = ['Mother'];
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
@@ -110,6 +110,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     _notesController.text = widget.initialNotes ?? '';
     _FTEController.text = widget.initialFTE ?? '';
     _selectedStatus = widget.initialStatus ?? 'Active';
+    _selectedStateSubsidyOption ='No';
     _selectedClassroom = widget.initialClassroom ?? '1-Blue D';
     _selectedBirthDate = widget.initialBirthDate;
     _streetController.text = widget.initialStreet ?? '';
@@ -491,7 +492,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           onSelectionChanged: (tags) {
                             setState(() => _selectedTags = tags);
                           },
-                          isRequired: true,
+                          isRequired: false,
+                          showClearAllOption: true,
+                          clearSelectionText: "Select Tags",
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         Text(
@@ -521,20 +524,33 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           onSelectionChanged: (siblings) {
                             setState(() => _selectedSiblings = siblings);
                           },
-                          isRequired: true,
+                          isRequired: false,
                           colorfulSelection: false,
                           label: "Siblings",
                           hintText: 'Select student',
+                          showClearAllOption: true,
+                          clearSelectionText: "Select Sibling/s",
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Child Custody", "Select Parent", _childCustodyOptions, _selectedChildCustody, (v) => setState(() => _selectedChildCustody = v)),
+                        MultiSelectWidget(
+                          availableOptions: _childCustodyOptions,
+                          selectedOptions: _selectedChildCustody,
+                          onSelectionChanged: (custodyOptions) {
+                            setState(() => _selectedChildCustody = custodyOptions);
+                          },
+                          isRequired: true,
+                          colorfulSelection: false,
+                          label: "Child Custody",
+                          hintText: 'Select guardian',
+                        ),
+                        //_buildCustomDropdown("Child Custody", "Select Parent", _childCustodyOptions, _selectedChildCustody, (v) => setState(() => _selectedChildCustody = v)),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State Subsidy", "", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("FTE", "E.g. 60", _FTEController, isRequired: true),
-                        SizedBox(height: responsive.verticalSpacing),
-                        _buildDateField("Upcoming Move", _selectedUpcomingMoveDate, _selectUpcomingMoveDate, false),
-                        SizedBox(height: responsive.verticalSpacing),
+                        // _buildInputField("FTE", "E.g. 60", _FTEController, isRequired: true),
+                        // SizedBox(height: responsive.verticalSpacing),
+                        // _buildDateField("Upcoming Move", _selectedUpcomingMoveDate, _selectUpcomingMoveDate, false),
+                        // SizedBox(height: responsive.verticalSpacing),
                         _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField("Address line 2", "(Optional)", _street2Controller, isRequired: false),
@@ -543,7 +559,67 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RichText(
+                              text: TextSpan(
+                              style: TextStyle(
+                              color: AppColors.primaryColor,
+                              fontSize:  13,
+                              fontWeight: FontWeight.w400,
+                              fontFamily: 'Manrope',
+                              ),
+                              children: [
+                                TextSpan(text: 'Country'),
+                                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                              ],
+                              ),
+                            ),
+                            SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
+                            InkWell(
+                              onTap: (){
+                                _showWarningMessage("Can not be edited.");
+                              },
+                              child: Container(
+                                constraints: BoxConstraints(minHeight: responsive.isTablet ? 64.0 : 56.0 ),
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8F7FA),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child:Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: responsive.isTablet ? 16.0 : 12.0,
+                                    vertical: responsive.isTablet ? 16.0 : 12.0,
+                                    ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          "United States",
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: responsive.inputFontSize,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey.shade600,
+                                            height: 19 / 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.left,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+
+                                    ],
+                                  ),
+                                ),
+                                ),
+                            ),
+                          ],
+                        ),
+                        //_buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),

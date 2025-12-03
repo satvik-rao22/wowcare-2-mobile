@@ -4,7 +4,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../view/add_student_screen.dart';
+import '../view/edit_student_profile_details_screen.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
@@ -483,18 +483,38 @@ class _StudentCardState extends State<StudentCard> {
                                         final initialFirstName = parts.isNotEmpty ? parts.first : '';
                                         final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
-                                        Navigator.of(context).push(
+                                        Navigator.push(
+                                          context,
                                           MaterialPageRoute(
-                                            builder: (_) => AddStudentScreen(
-                                              isEdit: true,
+                                            builder: (context) => EditStudentProfileDetailsScreen(
                                               initialFirstName: initialFirstName,
                                               initialLastName: initialLastName,
-                                              initialClassroom: widget.classroom,
-                                              //initialStatus: widget.status,
-                                              // initialEmail and initialStatus not available here
+                                              initialStatus: 'Active',
+                                              initialClassroom: '1-Blue D X',
+                                              initialBirthDate: null,
+                                              initialNotes: '',
+                                              initialFTE: '80',
+                                              initialStreet: '',
+                                              initialCity: '',
+                                              initialState: 'New Hampshire',
+                                              initialCountry: 'United States',
+                                              initialZipCode: '',
                                             ),
                                           ),
                                         );
+
+                                        // Navigator.of(context).push(
+                                        //   MaterialPageRoute(
+                                        //     builder: (_) => AddStudentScreen(
+                                        //       isEdit: true,
+                                        //       initialFirstName: initialFirstName,
+                                        //       initialLastName: initialLastName,
+                                        //       initialClassroom: widget.classroom,
+                                        //       //initialStatus: widget.status,
+                                        //       // initialEmail and initialStatus not available here
+                                        //     ),
+                                        //   ),
+                                        // );
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,

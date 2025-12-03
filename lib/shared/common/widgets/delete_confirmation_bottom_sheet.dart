@@ -105,6 +105,8 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
 
     String buttonText = type == 'complete_purchase'
         ? "Mark Complete"
+        : type == 'student'
+        ? "Deactivate"
         : type == 'order_purchase'
         ? "Mark as Ordered"
         : type == 'reject_request'

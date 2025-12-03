@@ -102,32 +102,41 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CustomToggle(
-                  key: ValueKey(false),
-                  label: '',
-                  isToggled: false,
-                  onToggle: (v) => setState(() {
-                    // _searchController.clear();
-                    // _isToggled = v;
-                  }),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: const Text(
-                    'Exempt students from immunizations',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xff573353),
-                      height: 16 / 13,
-                    ),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomToggle(
+                        key: ValueKey(false),
+                        label: '',
+                        isToggled: false,
+                        onToggle: (v) => setState(() {
+                          // _searchController.clear();
+                          // _isToggled = v;
+                        }),
+                      ),
+                      SizedBox(width: 10),
+                      Flexible(
+                        child: const Text(
+                          'Exempt students from immunizations',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xff573353),
+                            height: 16 / 13,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10,),
+                    ],
                   ),
                 ),
-                SizedBox(width: 10,),
-                Expanded(
+
+                Flexible(
                   child: Container(
-                    height: 30,
+                    height: 35,
+                    padding: EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       gradient:
