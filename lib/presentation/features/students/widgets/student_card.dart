@@ -104,11 +104,11 @@ class _StudentCardState extends State<StudentCard> {
                                   width: 12,
                                   height: 12,
                                   decoration: BoxDecoration(
-                                    color: widget.status == 'upcoming'
+                                    color: widget.status == 'Upcoming'
                                         ? const Color.fromARGB(255, 253, 205, 22)
-                                        : widget.status == 'signedIn'
+                                        : widget.status == 'Active'
                                         ? const Color.fromRGBO(0, 177, 21, 1)
-                                        : widget.status == 'isAbsent'
+                                        : widget.status == 'Inactive'
                                         ? const Color.fromRGBO(200, 32, 32, 1)
                                         : Colors.white,
                                     shape: BoxShape.circle,

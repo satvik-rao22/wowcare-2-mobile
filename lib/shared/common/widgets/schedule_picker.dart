@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class SchedulePicker extends StatefulWidget {
   const SchedulePicker({super.key});
@@ -228,88 +229,221 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
     final period = t.period == DayPeriod.am ? 'AM' : 'PM';
     return '$h:$m $period';
   }
+  // replaced with warning text under the listtiles
+  void _showWarningMessage(String message) {
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    final snackBar = SnackBar(
+      content: Row(
+        children: [
+          const Icon(Icons.warning, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.orange,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.orange.shade50,
+      duration: const Duration(seconds: 2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.orange.shade100),
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
 
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initialSlot != null;
+    String? startError;
+    String? endError;
 
     return AlertDialog(
       title: Text(isEditing ? 'Edit Shift' : 'Add Shift'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('Start Time'),
-            trailing: Text(_format12(start), style: const TextStyle(fontWeight: FontWeight.w600)),
-            onTap: () async {
-              final clampedInitial = _clampTime(start, widget.openTime, widget.closeTime);
-
-              final picked = await showTimePicker(
-                context: context,
-                initialTime: clampedInitial,
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(primary: const Color(0xFF7B7EFB)),
+      content: StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.cardColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.cardBorderColor),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.access_time, size: 16, color: AppColors.primaryColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Allowed: ${_format12(widget.openTime)} – ${_format12(widget.closeTime)}',
+                      style: TextStyle(fontSize: 13, color: AppColors.primaryColor),
                     ),
-                    child: MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        alwaysUse24HourFormat: true,
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListTile(
+                    title: const Text('Start Time'),
+                    trailing: Text(_format12(start), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () async {
+                      final clampedInitial = _clampTime(start, widget.openTime, widget.closeTime);
+
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: clampedInitial,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(primary: const Color(0xFF7B7EFB)),
+                            ),
+                            child: MediaQuery(
+                              data: MediaQuery.of(context).copyWith(
+                                alwaysUse24HourFormat: true,
+                              ),
+                              child: child!,
+                            ),
+                            //child: child!,
+                          );
+                        },
+                      );
+                      if (picked == null) return;
+                      setDialogState(() {
+                        if (_toMinutes(picked) < _toMinutes(widget.openTime)) {
+                          startError = 'Cannot be earlier than ${_format12(widget.openTime)}';
+                        } else if (!_isBefore(picked, widget.closeTime)) {
+                          startError = 'Must be before closing time';
+                        } else {
+                          startError = null;
+                          start = picked;
+
+                          // Auto-adjust end time if it becomes invalid
+                          if (!_isAfter(end, start)) {
+                            end = _addMinutes(start, 60);
+                            if (_toMinutes(end) > _toMinutes(widget.closeTime)) {
+                              end = widget.closeTime;
+                            }
+                            endError = null;
+                          }
+                        }
+                      });
+
+
+
+                      // if (_toMinutes(picked) < _toMinutes(widget.openTime)) {
+                      //   _showWarningMessage('Start time cannot be earlier than ${_format12(widget.openTime)}');
+                      //   return;
+                      // }
+                      // if (!_isBefore(picked, widget.closeTime)) {
+                      //   _showWarningMessage('Start time must be before closing time');
+                      //   return;
+                      // }
+
+                      // if (!_isBefore(picked, widget.openTime) &&
+                      //     _isBefore(picked, widget.closeTime)) {
+                      //   setState(() {
+                      //     start = picked;
+                      //     if (!_isAfter(end, start)) {
+                      //       end = _addMinutes(start, 60);
+                      //       if (_toMinutes(end) > _toMinutes(widget.closeTime)) {
+                      //         end = widget.closeTime;
+                      //         _showWarningMessage('End time adjusted to closing time of school.');
+                      //       }
+                      //     }
+                      //   });
+
+                    },
+                  ),
+                  if (startError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, top: 4),
+                      child: Text(
+                        startError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12.5),
                       ),
-                      child: child!,
                     ),
-                    //child: child!,
-                  );
-                },
-              );
+                ],
+              ),
+              const SizedBox(height: 16,),
 
-              if (picked != null &&
-                  !_isBefore(picked, widget.openTime) &&
-                  _isBefore(picked, widget.closeTime)) {
-                setState(() {
-                  start = picked;
-                  if (!_isAfter(end, start)) {
-                    end = _addMinutes(start, 60);
-                    if (_toMinutes(end) > _toMinutes(widget.closeTime)) {
-                      end = widget.closeTime;
-                    }
-                  }
-                });
-              }
-            },
-          ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListTile(
+                    title: const Text('End Time'),
+                    trailing: Text(_format12(end), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: end,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(primary: const Color(0xFF7B7EFB)),
+                            ),
+                            child: MediaQuery(
+                              data: MediaQuery.of(context).copyWith(
+                                alwaysUse24HourFormat: true,
+                              ),
+                              child: child!,
+                            ),
+                            //child: child!,
+                          );
+                        },
+                      );
 
-          ListTile(
-            title: const Text('End Time'),
-            trailing: Text(_format12(end), style: const TextStyle(fontWeight: FontWeight.w600)),
-            onTap: () async {
-              final picked = await showTimePicker(
-                context: context,
-                initialTime: end,
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(primary: const Color(0xFF7B7EFB)),
-                    ),
-                    child: MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        alwaysUse24HourFormat: true,
+                      if (picked == null) return;
+                      setDialogState(() {
+                        if (!_isAfter(picked, start)) {
+                          endError = 'Must be after start time';
+                        } else if (_toMinutes(picked) > _toMinutes(widget.closeTime)) {
+                          endError = 'Cannot be later than ${_format12(widget.closeTime)}';
+                        } else {
+                          endError = null;
+                          end = picked;
+                        }
+                      });
+
+                      // if (!_isAfter(picked, start)) {
+                      //   _showWarningMessage('End time must be after start time');
+                      //   return;
+                      // }
+                      // if (_toMinutes(picked) > _toMinutes(widget.closeTime)) {
+                      //   _showWarningMessage('End time cannot be later than ${_format12(widget.closeTime)}');
+                      //   return;
+                      // }
+                      //
+                      // if (_isAfter(picked, start) &&
+                      //     !_isAfter(picked, widget.closeTime)) {
+                      //   setState(() => end = picked);
+                      // }
+                    },
+                  ),
+                  if (endError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, top: 4),
+                      child: Text(
+                        endError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12.5),
                       ),
-                      child: child!,
                     ),
-                    //child: child!,
-                  );
-                },
-              );
+                ],
+              ),
+            ],
+          );
+        },
 
-              if (picked != null &&
-                  _isAfter(picked, start) &&
-                  !_isAfter(picked, widget.closeTime)) {
-                setState(() => end = picked);
-              }
-            },
-          ),
-        ],
       ),
       actions: [
         if (isEditing)

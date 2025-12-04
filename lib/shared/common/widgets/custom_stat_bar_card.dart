@@ -6,11 +6,13 @@ class ProgressItemHelper {
     required this.label,
     required this.value,
     required this.color,
+    this.filterValue
   });
 
   final String label;
   final double value;
   final Color color;
+  final String? filterValue;
 }
 
 class CustomStatBarCard extends StatelessWidget {
@@ -24,6 +26,7 @@ class CustomStatBarCard extends StatelessWidget {
     this.numberFontSize,
     this.titleFontSize,
     this.footer,
+    this.selectedFilterValue,
     super.key,
   });
 
@@ -31,11 +34,12 @@ class CustomStatBarCard extends StatelessWidget {
   final String number;
   final List<ProgressItemHelper> items;
   final List<ProgressItemHelper>? progressItems;
-  final void Function(String label)? onLegendTap;
+  final void Function(String label, String? filterValue)? onLegendTap;
   final bool fullWidthBar;
   final double? numberFontSize;
   final double? titleFontSize;
   final Widget? footer;
+  final String? selectedFilterValue;
 
   @override
   Widget build(BuildContext context) {
@@ -49,51 +53,68 @@ class CustomStatBarCard extends StatelessWidget {
     }
 
     Widget buildLegendItem(ProgressItemHelper item) {
+      final isSelected = selectedFilterValue != null && selectedFilterValue == item.filterValue;
       final labelParts = item.label.split('\n');
       final titleText = labelParts.first;
       final valueText =
           labelParts.length > 1 ? labelParts.sublist(1).join('\n') : '';
       final labelWidget = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            titleText,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.8),
-              fontSize: 16,
-            ),
-          ),
-          if (valueText.isNotEmpty)
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Text(
-              valueText,
-              style: const TextStyle(
-                color: AppColors.themeColor,
+              titleText,
+              style: TextStyle(
+                color: AppColors.primaryColor.withOpacity(0.8),
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
               ),
             ),
-        ],
-      );
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 10,
-            width: 10,
-            decoration: BoxDecoration(
-              color: item.color,
-              shape: BoxShape.circle,
+            if (valueText.isNotEmpty)
+              Text(
+                valueText,
+                style: const TextStyle(
+                  color: AppColors.themeColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
+        );
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 1, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 10,
+              width: 10,
+              decoration: BoxDecoration(
+                color: item.color,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(width: 6),
-          onLegendTap != null
-              ? GestureDetector(
-                  onTap: () => onLegendTap!(item.label),
-                  child: labelWidget,
-                )
-              : labelWidget,
-        ],
+            const SizedBox(width: 6),
+            onLegendTap != null
+                ? GestureDetector(
+                    onTap: () => onLegendTap!(item.label, item.filterValue),
+                    child: labelWidget,
+                  )
+                : labelWidget,
+          ],
+        ),
+            decoration: BoxDecoration(
+              shape: BoxShape.rectangle,
+              color: isSelected
+                  ? Colors.white
+                  : Colors.transparent,
+              border: Border(
+                bottom: BorderSide(
+                  color: isSelected ? AppColors.themeColor : Colors.transparent,
+                  width: 2,
+                ),
+
+              ),
+            )
       );
     }
 

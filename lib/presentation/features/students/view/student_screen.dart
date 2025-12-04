@@ -27,47 +27,113 @@ class StudentScreen extends StatefulWidget {
 
 class _StudentScreenState extends State<StudentScreen> {
   final TextEditingController _searchController = TextEditingController();
-  //bool _showInactive = false;
-  final List<bool> _selectedDemo = [false, false, false];
+  bool _showInactive = false;
+  List<bool> _selectedDemo = [false, false, false];
   bool _selectAll = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
+  Map<String, List<String>> _currentFilters = {'Status': ['Active']};
   List<Map<String, dynamic>> _demoStudentData =  [
     {
       'name': 'Kabir Mehta',
-      'classroom': 'Nursery A',
-      'tags': ['5 days', 'Full day', 'Allergies', 'Medication'],
+      'Classroom': '1-Blue D',
+      'Tags': ['5 Days', 'Full Day', 'Allergies', 'Medication'],
       'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
-      'status': 'signedIn',
+      'Status': 'Active',
+      'Attendance': 'Present',
+      'Parents': ['Father Mehta', 'Mother Mehta'],
       'sibling': {'name': ['Anya Mehta'], 'relation': ['sister'], 'status': ['upcoming']}
     },
     {
       'name': 'Sara Khan',
-      'classroom': 'Nursery B',
-      'tags': ['3 days', 'Full day', 'Allergies'],
+      'Classroom': '3-Orange-D',
+      'Tags': ['3 Days', 'Full Day', 'Allergies'],
       'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
-      'status': 'isAbsent',
+      'Status': 'Inactive',
+      'Attendance': 'Absent',
+      'Parents': ['Father Khan', 'Mother Khan'],
       'sibling': {'name': [], 'relation': [], 'status': []}
     },
     {
       'name': 'Rohan Gupta',
-      'classroom': 'Playgroup',
-      'tags': [ 'Half day', 'Medication'],
+      'Classroom': '2-Red A',
+      'Tags': [ 'Half Day', 'Medication'],
       'schedule': ['Mon', 'Wed', 'Thu', 'Fri'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
-      'status': 'upcoming',
+      'Status': 'Upcoming',
+      'Attendance': 'Expected',
+      'Parents': ['Father Gupta', 'Mother Gupta'],
       'sibling': {'name': ['Raghave Gupta', 'Ruhi Gupta'], 'relation': ['brother', 'sister'], 'status': ['signedIn', 'isAbsent']}
     },
   ];
 
+  late List<Map<String, dynamic>> _filteredStudents;
+
+  @override
+  void initState(){
+    super.initState();
+    _applyFilters();
+    _searchController.addListener(_applyFilters);
+  }
+
   @override
   void dispose() {
+    _searchController.removeListener(_applyFilters);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _applyFilters(){
+    final query = _searchController.text.trim().toLowerCase();
+
+    setState(() {
+      _filteredStudents = _demoStudentData.where((student) {
+        final name = (student['name'] as String).toLowerCase();
+        if(query.isNotEmpty && !name.contains(query)){
+          return false;
+        }
+
+        bool matches = true; // will stay true if for a student all filters applied are true
+
+        _currentFilters.forEach((filterKey, selectedValues) {
+          if (selectedValues.isEmpty) return;
+          switch (filterKey) {
+            case 'Classroom':
+              if (!selectedValues.contains(student['Classroom'])) matches = false;
+              break;
+            case 'Status' :
+              if (!selectedValues.contains(student['Status'])) matches = false;
+              break;
+            case 'Attendance':
+              if (!selectedValues.contains(student['Attendance'])) matches = false;
+              break;
+            case 'Tags':
+              final studentTags = student['Tags'] as List<String>;
+              if (!selectedValues.any((tag) => studentTags.contains(tag))) matches = false;
+              break;
+            case 'Parents':
+              final studentParents = student['Parents'] as List<String>;
+              if(!selectedValues.any((parent) => studentParents.contains(parent))) matches = false;
+              break;
+          }
+        });
+        return matches;
+      }).toList();
+      _selectedDemo = List.filled(_filteredStudents.length, false);
+      _selectAll = false;
+    });
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _currentFilters.clear();
+      _currentFilters['Status'] = ['Active']; // active filter is always on by default
+    });
+    _applyFilters();
   }
 
   @override
@@ -176,11 +242,13 @@ class _StudentScreenState extends State<StudentScreen> {
                           label: 'Active (${active.toInt()})',
                           value: active,
                           color: AppColors.lightBlueProgressBar,
+                          filterValue: 'Active'
                         ),
                         ProgressItemHelper(
                           label: 'Upcoming (${upcoming.toInt()})',
                           value: upcoming,
                           color: AppColors.mustardProgressBar,
+                          filterValue: 'Upcoming'
                         ),
                       ];
                       return Container(
@@ -190,6 +258,19 @@ class _StudentScreenState extends State<StudentScreen> {
                           number: total,
                           items: items,
                           fullWidthBar: false,
+                          selectedFilterValue: (_currentFilters['Status']?.length == 1) ? _currentFilters['Status']!.first : null,
+                          onLegendTap: (String label, String? filterValue){
+                            setState(() {
+                              final current = _currentFilters['Status'];
+                              if (current != null && current.length == 1 && current.first == filterValue){
+                                _currentFilters.remove('Status');
+                              } else {
+                                _currentFilters['Status'] = [filterValue!];
+                              }
+                            });
+                            _applyFilters();
+                          },
+
                         ),
                       );
                     },
@@ -208,11 +289,13 @@ class _StudentScreenState extends State<StudentScreen> {
                           label: 'Present (${present.toInt()})',
                           value: present,
                           color: AppColors.lightGreenProgressBar,
+                          filterValue: 'Present'
                         ),
                         ProgressItemHelper(
                           label: 'Absent (${absent.toInt()})',
                           value: absent,
                           color: AppColors.redProgressBar,
+                          filterValue: 'Absent'
                         ),
                       ];
                       return Container(
@@ -220,8 +303,22 @@ class _StudentScreenState extends State<StudentScreen> {
                         child: CustomStatBarCard(
                           title: 'Expected\nAttendance',
                           number: total,
+                          selectedFilterValue: (_currentFilters['Attendance']?.length == 1) ? _currentFilters['Attendance']!.first : null,
                           items: items,
                           fullWidthBar: false,
+                          onLegendTap: (String label, String? filterValue){
+                            setState(() {
+                              setState(() {
+                                final current = _currentFilters['Attendance'];
+                                if (current != null && current.length == 1 && current.first == filterValue) {
+                                  _currentFilters.remove('Attendance');
+                                } else {
+                                  _currentFilters['Attendance'] = [filterValue!];
+                                }
+                              });
+                              _applyFilters();
+                            });
+                          },
                         ),
                       );
                     },
@@ -258,13 +355,13 @@ class _StudentScreenState extends State<StudentScreen> {
                                             FilerSection(
                                                 label: 'Classroom',
                                                 items: ['1-Blue D', '3-Orange-D', '2-Red A'],
-                                                initialSelected: ['1-Blue D'],
+                                                initialSelected: _currentFilters['Classroom'] ?? [],
                                                 isMultiSelectDropDown: false
                                             ),
                                             FilerSection(
                                                 label: 'Status',
                                                 items: ['Active', 'Inactive', 'Upcoming'],
-                                                initialSelected: ['Active'],
+                                                initialSelected: _currentFilters['Status'] ?? [],
                                                 isMultiSelectDropDown: false,
                                             ),
                                             FilerSection(
@@ -279,23 +376,26 @@ class _StudentScreenState extends State<StudentScreen> {
                                                   'Pickup Authorized',
                                                 ],
                                                 isMultiSelectDropDown: false,
-                                                initialSelected: ['5 Days']
+                                                initialSelected: _currentFilters['Tags'] ?? []
                                             ),
                                             FilerSection(
                                                 label: 'Parents',
-                                                items:  ['Parent name1', 'Parent name2', 'Parent name3', 'Parent name4', 'Parent name5', 'Parent name6'],
+                                                items:  ['Father Mehta', 'Mother Mehta', 'Father Khan', 'Mother Khan', 'Father Gupta', 'Mother Gupta'],
                                                 isMultiSelectDropDown: false,
+                                                initialSelected: _currentFilters['Parent'] ?? []
                                             ),
                                             FilerSection(
-                                                label: 'Attendance status',
+                                                label: 'Attendance',
                                                 items:  ['Expected', 'Present', 'Absent'],
                                                 isMultiSelectDropDown: false,
-                                                initialSelected: ['Present']
+                                                initialSelected: _currentFilters['Attendance'] ?? []
                                             ),
                                           ],
                                           onApply: (filters) {
-                                            print(filters); // to check if it works
-                                            //Navigator.pop(context);
+                                            setState(() {
+                                              _currentFilters = filters;
+                                            });
+                                            _applyFilters();
                                           }
                                       ),
                                     ),
@@ -336,7 +436,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 // ),
                                 const CustomClearAllChip(onTap: null, label: 'Active'),// should be turned on by default and show active students
                                 const SizedBox(width: 8),
-                                const CustomClearAllChip(onTap: null),
+                                CustomClearAllChip(onTap: _clearAllFilters),
                               ],
                             ),
                             // CustomToggle(
@@ -360,44 +460,49 @@ class _StudentScreenState extends State<StudentScreen> {
                         final newVal = v ?? false;
                         setState(() {
                           _selectAll = newVal;
-                          for (int i = 0; i < _selectedDemo.length; i++) {
-                            _selectedDemo[i] = newVal;
-                          }
+                          _selectedDemo = List.filled(_filteredStudents.length, newVal);
+                          // for (int i = 0; i < _selectedDemo.length; i++) {
+                          //   _selectedDemo[i] = newVal;
+                          // }
                         });
                       },
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Demo student list
+                  // Demo student list - filtered according to selected filters
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 3,
+                    itemCount: _filteredStudents.length,
                     itemBuilder: (context, index) {
-                      final demo = _demoStudentData[index];
+                      final demo = _filteredStudents[index];
+
                       return Column(
                         children: [
                           StudentCard(
                             name: demo['name'] as String,
-                            classroom: demo['classroom'] as String,
-                            tags: (demo['tags'] as List<String>),
+                            classroom: demo['Classroom'] as String,
+                            tags: (demo['Tags'] as List<String>),
                             sibling: demo['sibling'] as Map<String, dynamic>,
                             schedule: (demo['schedule'] as List<String>),
                             birthDate: (demo['birthDate'] as String),
                             movementDate: (demo['movementDate'] as String),
-                            status: (demo['status'] as String),
-                            isSelected: _selectedDemo[index],
+                            status: (demo['Status'] as String),
+                            isSelected: index < _selectedDemo.length ? _selectedDemo[index]: false,
                             onSelected: (v) => setState(() {
-                              _selectedDemo[index] = v ?? false;
+                              if (index < _selectedDemo.length){
+                                _selectedDemo[index] = v ?? false;
+                              }
                               if (!_selectedDemo.any((e) => e)) {
                                 _currentPanel = StudentPanelType.none;
                               }
+                              _selectAll = _selectedDemo.every((e) => (e));
 
                             }),
                             onEdit: () {},
                             onDeactivate: () {},
                           ),
-                          if (index != 2) const SizedBox(height: 10),
+                          if (index != _filteredStudents.length -1) const SizedBox(height: 10),
                         ],
                       );
                     },
