@@ -211,6 +211,7 @@ class _FilterScreenState extends State<FilterScreen> {
           )
               : MultiSelectWidget(
             label: section.label,
+            hintText: section.hintText,
             availableOptions: section.items,
             selectedOptions: selected,
             onSelectionChanged: (List<String> values) {

@@ -91,7 +91,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     'Kabir Mehta',
     'Sara Khan',
   ];
-  final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
+  final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<String> _childCustodyOptions = ['Mother', 'Father', 'Both Mother and Father'];

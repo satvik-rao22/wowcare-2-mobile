@@ -354,18 +354,21 @@ class _StudentScreenState extends State<StudentScreen> {
                                           sections: [
                                             FilerSection(
                                                 label: 'Classroom',
+                                                hintText: 'Select classroom',
                                                 items: ['1-Blue D', '3-Orange-D', '2-Red A'],
                                                 initialSelected: _currentFilters['Classroom'] ?? [],
                                                 isMultiSelectDropDown: false
                                             ),
                                             FilerSection(
                                                 label: 'Status',
+                                                hintText: 'Select status',
                                                 items: ['Active', 'Inactive', 'Upcoming'],
                                                 initialSelected: _currentFilters['Status'] ?? [],
                                                 isMultiSelectDropDown: false,
                                             ),
                                             FilerSection(
                                                 label: 'Tags',
+                                                hintText: 'Select tags',
                                                 items:  [
                                                   '5 Days',
                                                   'Full Day',
@@ -380,6 +383,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                             ),
                                             FilerSection(
                                                 label: 'Parents',
+                                                hintText: 'Select parents',
                                                 items:  ['Father Mehta', 'Mother Mehta', 'Father Khan', 'Mother Khan', 'Father Gupta', 'Mother Gupta'],
                                                 isMultiSelectDropDown: false,
                                                 initialSelected: _currentFilters['Parent'] ?? []
