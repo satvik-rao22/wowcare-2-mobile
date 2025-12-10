@@ -15,19 +15,18 @@ class ActivityFeedScreen extends StatefulWidget {
 class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerProviderStateMixin{
   late TabController _tabController;
   final ScrollController _dailyScrollController = ScrollController();
-  final ScrollController _customScrollController = ScrollController();
+  final bool isNotParent = true; // if false than parent persona screen will be shown
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2 , vsync: this);
+    _tabController = TabController(length: 1 , vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _dailyScrollController.dispose();
-    _customScrollController.dispose();
     super.dispose();
   }
   @override
@@ -35,66 +34,65 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
-      body: Column(
+      body: isNotParent ?
+      Column(
         children: [
-           Row(
-             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-             children: [
-               TabBar(
-                  isScrollable: true,
-                  controller: _tabController,
-                  dividerColor: Colors.transparent,
-                  indicator: const UnderlineTabIndicator(
-                    borderSide: BorderSide(color: AppColors.themeColor),
-                  ),
-                  indicatorPadding: const EdgeInsets.only(bottom: 8),
-                  labelStyle: const TextStyle(
-                    color: Colors.black,
-                    fontFamily: 'Manrope',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  unselectedLabelStyle: TextStyle(
-                    color: AppColors.primaryColor.withOpacity(0.5),
-                    fontFamily: 'Manrope',
-                    fontSize: 16,
-                  ),
-                  labelColor: Colors.black,
-                  unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
-                  tabAlignment: TabAlignment.start,
-                  tabs: const [
-                    Tab(text: 'Daily'),
-                    Tab(text: 'Custom'),
-                    // Billing settings can be added based on role
-                  ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TabBar(
+                isScrollable: true,
+                controller: _tabController,
+                dividerColor: Colors.transparent,
+                indicator: const UnderlineTabIndicator(
+                  borderSide: BorderSide(color: AppColors.themeColor),
                 ),
-               Row(
-                 children: [
-                   GradientAddButton(
-                     onTap: () async {},
-                     isTablet: MediaQuery.of(context).size.width >= 600,
-                     isLargeTablet: MediaQuery.of(context).size.width >= 900,
-                   ),
-                   SizedBox(width: 10,)
-                 ],
-               ),
-             ],
-           ),
+                indicatorPadding: const EdgeInsets.only(bottom: 8),
+                labelStyle: const TextStyle(
+                  color: Colors.black,
+                  fontFamily: 'Manrope',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                unselectedLabelStyle: TextStyle(
+                  color: AppColors.primaryColor.withOpacity(0.5),
+                  fontFamily: 'Manrope',
+                  fontSize: 16,
+                ),
+                labelColor: Colors.black,
+                unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
+                tabAlignment: TabAlignment.start,
+                tabs: const [
+                  Tab(text: 'Daily'),
+                ],
+              ),
+              Row(
+                children: [
+                  GradientAddButton(
+                    onTap: () async {},
+                    isTablet: MediaQuery.of(context).size.width >= 600,
+                    isLargeTablet: MediaQuery.of(context).size.width >= 900,
+                  ),
+                  SizedBox(width: 10,)
+                ],
+              ),
+            ],
+          ),
 
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
                 ActivityDailyTab(),
-                Card(
-                )
+
               ],
             ),
           ),
 
           const SizedBox(height: 16),
         ],
-      ),
+      )
+      : ActivityDailyTab(),
     );
   }
 }

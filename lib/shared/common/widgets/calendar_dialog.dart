@@ -13,6 +13,7 @@ class CalendarDialog extends StatefulWidget {
   final DateTime? initialDate;
   final DateTime? initialEndDate;
   final TimeOfDay? initialTime;
+  final bool whiteBgColor;
 
   const CalendarDialog({
     Key? key,
@@ -21,6 +22,7 @@ class CalendarDialog extends StatefulWidget {
     this.initialDate,
     this.initialEndDate,
     this.initialTime,
+    this.whiteBgColor = false,
   }) : super(key: key);
 
   @override
@@ -101,6 +103,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
     final double amPmMinWidth = calHelper.isTablet ? 80 : 64;
 
     return Dialog(
+      backgroundColor: widget.whiteBgColor ? Colors.white : null,
       insetPadding: EdgeInsets.symmetric(
         vertical: calHelper.calendarMargin * 0.5,
         horizontal: calHelper.calendarMargin,
