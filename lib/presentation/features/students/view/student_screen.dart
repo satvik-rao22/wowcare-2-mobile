@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/shared/common/views/filter_screen.dart';
+import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -28,6 +29,7 @@ class StudentScreen extends StatefulWidget {
 class _StudentScreenState extends State<StudentScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _showInactive = false;
+  bool _showActivitiesPanel = false;
   List<bool> _selectedDemo = [false, false, false];
   bool _selectAll = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
@@ -43,19 +45,21 @@ class _StudentScreenState extends State<StudentScreen> {
       'Status': 'Active',
       'Attendance': 'Present',
       'Parents': ['Father Mehta', 'Mother Mehta'],
-      'sibling': {'name': ['Anya Mehta'], 'relation': ['sister'], 'status': ['upcoming']}
+      'sibling': {'name': ['Anya Mehta'], 'relation': ['sister'], 'status': ['upcoming']},
+      'activities' : ['Nap start']
     },
     {
       'name': 'Sara Khan',
-      'Classroom': '3-Orange-D',
+      'Classroom': '1-Blue D',
       'Tags': ['3 Days', 'Full Day', 'Allergies'],
       'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
-      'Status': 'Inactive',
-      'Attendance': 'Absent',
+      'Status': 'Active',
+      'Attendance': 'Present',
       'Parents': ['Father Khan', 'Mother Khan'],
-      'sibling': {'name': [], 'relation': [], 'status': []}
+      'sibling': {'name': [], 'relation': [], 'status': []},
+      'activities' : ['Meal']
     },
     {
       'name': 'Rohan Gupta',
@@ -67,7 +71,8 @@ class _StudentScreenState extends State<StudentScreen> {
       'Status': 'Upcoming',
       'Attendance': 'Expected',
       'Parents': ['Father Gupta', 'Mother Gupta'],
-      'sibling': {'name': ['Raghave Gupta', 'Ruhi Gupta'], 'relation': ['brother', 'sister'], 'status': ['signedIn', 'isAbsent']}
+      'sibling': {'name': ['Raghave Gupta', 'Ruhi Gupta'], 'relation': ['brother', 'sister'], 'status': ['signedIn', 'isAbsent']},
+      'activities' : ['Bathroom']
     },
   ];
 
@@ -136,12 +141,60 @@ class _StudentScreenState extends State<StudentScreen> {
     _applyFilters();
   }
 
+  bool _canShowActivitiesButton(selectedCount) {
+    if (selectedCount == 0) return false;
+
+    final selectedIndices = <int>[];
+    for (int i = 0; i < _selectedDemo.length; i++) {
+      if (_selectedDemo[i]) selectedIndices.add(i);
+    }
+
+    // Must all be Present
+    final allPresent = selectedIndices.every((i) {
+      final student = _filteredStudents[i];
+      return student['Attendance'] == 'Present';
+    });
+    if (!allPresent) return false;
+
+    // If more than one selected → must be in same classroom
+    if (selectedCount > 1) {
+      final firstClassroom = _filteredStudents[selectedIndices.first]['Classroom'] as String;
+      return selectedIndices.every((i) => _filteredStudents[i]['Classroom'] == firstClassroom);
+    }
+
+    return true; // Single student + Present → allowed
+  }
+
+  bool _shouldShowActivityPanel(selectedCount) {
+    return _showActivitiesPanel && _canShowActivitiesButton(selectedCount);
+  }
+
+  List<String> _getCombinedOngoingActivities(selectedCount) {
+    if (!_canShowActivitiesButton(selectedCount)) return [];
+
+    final selectedIndices = <int>[];
+    for (int i = 0; i < _selectedDemo.length; i++) {
+      if (_selectedDemo[i]) selectedIndices.add(i);
+    }
+
+    final Set<String> activities = {};
+
+    for (final i in selectedIndices) {
+      final student = _filteredStudents[i];
+      final acts = (student['activities'] as List<dynamic>?) ?? [];
+      activities.addAll(acts.map((e) => e.toString()));
+    }
+
+    return activities.toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
 
     final bool anySelected = _selectedDemo.any((e) => e);
+    final bool showActivities = _showActivitiesPanel;
     final int selectedCount = _selectedDemo.where((e) => e).length;
 
     return GlobalScaffold(
@@ -499,6 +552,7 @@ class _StudentScreenState extends State<StudentScreen> {
                               }
                               if (!_selectedDemo.any((e) => e)) {
                                 _currentPanel = StudentPanelType.none;
+                                _showActivitiesPanel = false;
                               }
                               _selectAll = _selectedDemo.every((e) => (e));
 
@@ -519,47 +573,77 @@ class _StudentScreenState extends State<StudentScreen> {
             Positioned(
                 right: 16,
               bottom: 16,
-              child: StudentActionPanel(
-                  currentPanel: _currentPanel,
-                onAttendanceTap: (){},
-                onActivitiesTap: (){},
-                onMessageTap: (){},
-                onProfileTap: selectedCount == 1 ? (){
-                    final idx = _selectedDemo.indexWhere((e) => e);
-                    if(idx != -1){
-                      final demo = _demoStudentData[idx];
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => StudentProfileScreen(
-                                  name: demo['name'] as String? ?? "Unknown Student",
-                                  sibling: demo['sibling'] as Map<String, dynamic>,
-                                  schedule : (demo['schedule'] as List<dynamic>?)
-                                      ?.map((e) => e.toString())
-                                      .toList() ??
-                                      ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-                                  classroom: demo['classroom'] as String? ?? "Unknown Class",
-                                  tags: (demo['tags'] as List<dynamic>?)
-                                      ?.map((e) => e.toString())
-                                      .toList() ??
-                                      ['5 days', 'Full day', 'Allergies', 'Medication'],
+              child: Row(
+                children: [
+                  if(_shouldShowActivityPanel(selectedCount))
+                    ActivityStatusPanel(
+                      onGoingActivities: _getCombinedOngoingActivities(selectedCount),
+                      // onGoingActivities: () {
+                      //   final selectedIndex = _selectedDemo.indexWhere((e) => e);
+                      //   if (selectedIndex == -1) return <String>[];
+                      //   final student = _filteredStudents[selectedIndex];
+                      //   return (student['activities'] as List<dynamic>)
+                      //       .map((e) => e.toString())
+                      //       .toList();
+                      // }(),
+                      isSignedIN: true,
+                    ),
+                  const SizedBox(width: 10,),
+                  StudentActionPanel(
+                      currentPanel: _currentPanel,
+                    onAttendanceTap: (){},
+                    onActivitiesTap: _canShowActivitiesButton(selectedCount) ? () {
+                        setState(() {
+                          _showActivitiesPanel = !_showActivitiesPanel;
+                          _currentPanel = _showActivitiesPanel ? StudentPanelType.activities : StudentPanelType.none;
+                        });
+                    } : null,
+                    // onActivitiesTap: selectedCount == 1? (){
+                    //     setState(() {
+                    //       _showActivitiesPanel = true;
+                    //       _currentPanel = StudentPanelType.activities;
+                    //     });
+                    // } : null,
+                    onMessageTap: (){},
+                    onProfileTap: selectedCount == 1 ? (){
+                        final idx = _selectedDemo.indexWhere((e) => e);
+                        if(idx != -1){
+                          final demo = _filteredStudents[idx];
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => StudentProfileScreen(
+                                      name: demo['name'] as String? ?? "Unknown Student",
+                                      sibling: demo['sibling'] as Map<String, dynamic>,
+                                      schedule : (demo['schedule'] as List<dynamic>?)
+                                          ?.map((e) => e.toString())
+                                          .toList() ??
+                                          ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                                      classroom: demo['classroom'] as String? ?? "Unknown Class",
+                                      tags: (demo['tags'] as List<dynamic>?)
+                                          ?.map((e) => e.toString())
+                                          .toList() ??
+                                          ['5 days', 'Full day', 'Allergies', 'Medication'],
+                                  )
                               )
-                          )
-                      );
-                    }
+                          );
+                        }
 
-                }: null,
-                onClearSelections: (){
-                    setState(() {
-                      for (int i = 0; i < _selectedDemo.length; i++){
-                        _selectedDemo[i] = false;
-                      }
-                      _selectAll = false;
-                      _currentPanel = StudentPanelType.none;
-                    });
-                },
-                isProfileEnabled: selectedCount == 1,
-                activitiesEnabled: selectedCount > 0,
+                    }: null,
+                    onClearSelections: (){
+                        setState(() {
+                          for (int i = 0; i < _selectedDemo.length; i++){
+                            _selectedDemo[i] = false;
+                          }
+                          _selectAll = false;
+                          _showActivitiesPanel = false;
+                          _currentPanel = StudentPanelType.none;
+                        });
+                    },
+                    isProfileEnabled: selectedCount == 1,
+                    activitiesEnabled: _canShowActivitiesButton(selectedCount),
+                  ),
+                ],
               ),
             )
 

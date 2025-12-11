@@ -6,7 +6,14 @@ import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 
 class ActivityFeedScreen extends StatefulWidget {
-  const ActivityFeedScreen({super.key});
+  const ActivityFeedScreen({
+    super.key,
+    this.fromStudentProfile = false,
+    this.studentName = '',
+  });
+
+  final bool fromStudentProfile;
+  final String studentName;
 
   @override
   State<ActivityFeedScreen> createState() => _ActivityFeedScreenState();
@@ -83,7 +90,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
             child: TabBarView(
               controller: _tabController,
               children: [
-                ActivityDailyTab(),
+                ActivityDailyTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName,),
 
               ],
             ),

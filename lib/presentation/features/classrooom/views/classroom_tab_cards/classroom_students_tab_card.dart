@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -48,6 +49,7 @@ class StudentEntity {
   final int roomId;
   final int? schoolId;
   final List<_Tag> tags;
+  final List<String>? ongoingActivities;
 
   StudentEntity({
     required this.id,
@@ -64,6 +66,7 @@ class StudentEntity {
     required this.roomId,
     this.schoolId,
     this.tags = const [],
+    this.ongoingActivities,
   });
 }
 
@@ -99,6 +102,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   List<StudentEntity> _allStudents = [];
   bool _isPresentFilter = false; // Toggle for present students
   StudentPanelType _currentPanel = StudentPanelType.none;
+  bool _showActivitiesPanel = false;
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> stasuses = ['A', 'Upcoming'];
@@ -126,6 +130,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         dietRestriction: 'Vegetarian',
         roomId: roomId,
         tags: const [_Tag('Tag 1')],
+        ongoingActivities: ['Nap start']
       ),
       StudentEntity(
         id: 2,
@@ -136,6 +141,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         isExpectedToday: false,
         roomId: roomId,
         tags: const [_Tag('Tag 2')],
+        ongoingActivities: ['Bathroom']
       ),
       StudentEntity(
         id: 3,
@@ -146,6 +152,22 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         isExpectedToday: true,
         roomId: roomId,
         tags: const [_Tag('Tag 3')],
+        ongoingActivities: ['Medication']
+      ),
+      StudentEntity(
+          id: 4,
+          fullName: 'Alex Song',
+          profileStatus: 'A',
+          isSignedIn: true,
+          isAbsent: false,
+          isExpectedToday: true,
+          medications: 'Asthma Inhaler',
+          note: 'Bring homework',
+          allergies: 'Peanuts',
+          dietRestriction: 'Vegetarian',
+          roomId: roomId,
+          tags: const [_Tag('Tag 1')],
+          ongoingActivities: ['Meal']
       ),
     ];
     // Mark first student as napping for demo
@@ -364,6 +386,22 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
 
     return icons;
+  }
+
+  List<String> _getCombinedOngoingActivities(){
+    final selectedStudents = _getSelectedStudents();
+    final Set<String> activities = {};
+    for (final student in selectedStudents){
+      activities.addAll(student.ongoingActivities as Iterable<String>);
+    }
+    return activities.toList();
+  }
+
+  bool _canShowActivitiesPanel() {
+    if(!hasSelectedStudents) return false;
+
+    final selectedStudents = _getSelectedStudents();
+    return selectedStudents.every((student) => student.isSignedIn);
   }
 
   // Backend disabled
@@ -718,46 +756,57 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           Positioned(
             right: 16,
             bottom: 16,
-            child: StudentActionPanel(
-              currentPanel: _currentPanel,
-              onAttendanceTap: () {
-                // TODO: Implement attendance functionality
-              },
-              onActivitiesTap: () {
-                // TODO: Implement activities functionality
-              },
-              onMessageTap: () {
-                // TODO: Implement message functionality
-              },
-              onProfileTap: _selectedCount == 1
-                  ? () {
-                      final selectedStudents = _getSelectedStudents();
-                      if (selectedStudents.isNotEmpty) {
-                        final student = selectedStudents.first;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => StudentProfileScreen(
-                              name: student.fullName,
-                              classroom: widget.selectedRoom?.name ?? 'Unknown Class',
-                              tags: student.tags.map((tag) => tag.name).toList(),
-                              schedule: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], // Default schedule
-                              sibling: {'name': [], 'relation': [], 'status': []}, // Default empty sibling data
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  : null,
-              onClearSelections: () {
-                setState(() {
-                  isSelectAllChecked = false;
-                  studentSelections.updateAll((key, val) => false);
-                  _currentPanel = StudentPanelType.none;
-                });
-              },
-              isProfileEnabled: _selectedCount == 1,
-              activitiesEnabled: _selectedCount > 0,
+            child: Row(
+              children: [
+                if(_showActivitiesPanel && _canShowActivitiesPanel())
+                  ActivityStatusPanel(onGoingActivities: _getCombinedOngoingActivities(), isSignedIN: true,),
+                const SizedBox(width: 10,),
+                StudentActionPanel(
+                  currentPanel: _currentPanel,
+                  onAttendanceTap: () {
+                    // TODO: Implement attendance functionality
+                  },
+                  onMessageTap: () {
+                    // TODO: Implement message functionality
+                  },
+                  onActivitiesTap: _canShowActivitiesPanel() ? () {
+                    setState(() {
+                      _showActivitiesPanel = !_showActivitiesPanel;
+                      _currentPanel = _showActivitiesPanel ? StudentPanelType.activities : StudentPanelType.none;
+                    });
+                  } : null,
+                  onProfileTap: _selectedCount == 1
+                      ? () {
+                          final selectedStudents = _getSelectedStudents();
+                          if (selectedStudents.isNotEmpty) {
+                            final student = selectedStudents.first;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StudentProfileScreen(
+                                  name: student.fullName,
+                                  classroom: widget.selectedRoom?.name ?? 'Unknown Class',
+                                  tags: student.tags.map((tag) => tag.name).toList(),
+                                  schedule: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], // Default schedule
+                                  sibling: {'name': [], 'relation': [], 'status': []}, // Default empty sibling data
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      : null,
+                  onClearSelections: () {
+                    setState(() {
+                      isSelectAllChecked = false;
+                      studentSelections.updateAll((key, val) => false);
+                      _showActivitiesPanel = false;
+                      _currentPanel = StudentPanelType.none;
+                    });
+                  },
+                  isProfileEnabled: _selectedCount == 1,
+                  activitiesEnabled: _canShowActivitiesPanel(),
+                ),
+              ],
             ),
           ),
       ],

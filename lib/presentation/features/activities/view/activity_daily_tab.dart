@@ -12,13 +12,15 @@ import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 
-
-
-
-
-
 class ActivityDailyTab extends StatefulWidget {
-  const ActivityDailyTab({super.key});
+  const ActivityDailyTab({
+    super.key,
+    this.fromStudentProfile = false,
+    this.studentName = '',
+  });
+
+  final bool fromStudentProfile;
+  final String studentName;
 
   static const String routeName = '/activityDailyTab';
 
@@ -33,6 +35,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   DateTime? _selectedDate = DateTime.now();
   String? _selectdClassroom;
   String? _selectedStudent;
+  String? _selectedActivityType;
+  final List<String> activityType = [
+    'Nap Start',
+    'Nap End',
+    'Bathroom',
+    'Bottle',
+    'Meal',
+    'Incident',
+    'Photo',
+    'Outdoor',
+    'Medication',
+    'Notes',
+    'Learning',
+    'Sign-in',
+    'Sign-out',
+    'Absent',
+  ];
   final List<String> _allStudents = [
     'Raghave Gupta',
     'Rohan Gupta',
@@ -42,54 +61,70 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     'Sara Khan',
   ];
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
-  final List<ActivityItem> activities =  [
+  final List<ActivityItem> activities = [
     ActivityItem(
       time: "05.00 PM",
       name: "Outdoor",
       description: "Outdoor Activity",
       color: Color(0xFFFFE0B2), // orange
-      photoUrl: "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
-      studentList: ['Kabir Mehta', 'Sara Khan']
+      photoUrl:
+          "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
+      studentList: ['Kabir Mehta', 'Sara Khan'],
+      createdBy: 'Staff A'
     ),
     ActivityItem(
       time: "04.30 PM",
       name: "Learning",
       description: "Drawing Activity",
       color: Color(0xFFB3E5FC), // blue
-      photoUrl: "https://images.unsplash.com/photo-1587653915930-8d17f0e7ff5d?w=400",
-      studentList: ['Raghav Gupta']
+      photoUrl:
+          "https://images.unsplash.com/photo-1587653915930-8d17f0e7ff5d?w=400",
+      studentList: ['Raghav Gupta'],
+      createdBy: 'Staff B'
     ),
     ActivityItem(
       time: "04.00 PM",
       name: "Nap",
       description: "Nap Time",
       color: Color(0xFFFFCCBC), // pink
-      photoUrl: "https://images.unsplash.com/photo-1603394152748-9625e4419c7a?w=400",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta']
+      photoUrl:
+          "https://images.unsplash.com/photo-1603394152748-9625e4419c7a?w=400",
+      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
+      createdBy: 'Staff C'
     ),
     ActivityItem(
       time: "02.22 PM",
       name: "Meal",
       description: "Lunch (Finished)",
       color: Color(0xFFC8E6C9), // green
-      photoUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta', 'Sara Khan', 'Raghav Gupta', 'Kabir Mehta']
+      photoUrl:
+          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+      studentList: [
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+      ],
+      createdBy: 'Staff A'
     ),
     ActivityItem(
       time: "01.00 PM",
       name: "Meal",
       description: "Drawing Activity",
       color: Color(0xFFD1C4E9), // purple
-      photoUrl: "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta']
+      photoUrl:
+          "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
+      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
+      createdBy: 'Staff B'
     ),
   ];
 
-
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    _selectdClassroom = _classroomOptions[0] ;
+    _selectdClassroom = _classroomOptions[0];
     _selectedStudent = _allStudents[0];
   }
 
@@ -101,10 +136,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
 
   @override
   Widget build(BuildContext context) {
-
     return Column(
       children: [
-
         Padding(
           padding: ResponsiveSizing.contentPadding(context),
           child: Container(
@@ -114,98 +147,24 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
               borderRadius: BorderRadius.circular(12),
               color: AppColors.cardColor,
             ),
-            child: isNotParent ?
-            Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildCustomDropdown('Select Classroom', _classroomOptions, _selectdClassroom, (v) => setState(() {
-                        _selectdClassroom = v;
-                      })),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildCustomDropdown('Select Student', _allStudents, _selectedStudent, (v) => setState(() {
-                        _selectedStudent = v;
-                      })),
-                    ),
-                    const SizedBox(width: 8),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(100),
-                        onTap: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FilterScreen(
-                                  sections: [
-                                    FilerSection(
-                                      label: 'Tags',
-                                      hintText: 'Select tags',
-                                      items:  [
-                                        '5 Days',
-                                        'Full Day',
-                                        'Photo Permission',
-                                        'Vegetarian',
-                                        'First Aid',
-                                        'Allergy',
-                                        'Pickup Authorized',
-                                        'Medication',
-                                        'Half Day',
-                                        'Boy',
-                                        'Girl'
-                                      ],
-                                      isMultiSelectDropDown: false,
-                                    ),
-                                    FilerSection(
-                                      label: 'Activity Type',
-                                      hintText: 'Select Activity',
-                                      items:  [
-                                        'Nap Start',
-                                        'Nap End',
-                                        'Bathroom',
-                                        'Bottle',
-                                        'Meal',
-                                        'Incident',
-                                        'Photo',
-                                        'Outdoor',
-                                        'Medication',
-                                        'Notes',
-                                        'Learning',
-                                        'Sign-in',
-                                        'Sign-out',
-                                        'Absent'
-                                      ],
-                                      isMultiSelectDropDown: false,
-                                    ),
-
-                                  ],
-                                  onApply: (filters) {
-                                  }
-                              ),
-                            ),
-                          );
-                          if (!mounted) return;
-                          if (result is Map) {
-                            // TODO: apply filters to list
-                            setState(() {});
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: SvgPicture.asset(MediaRes.filterIcon, height: 20),
+            child: widget.fromStudentProfile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 60,
+                        child: _buildCustomDropdown(
+                          'Select Student',
+                          [widget.studentName],
+                          widget.studentName,
+                          (v) => setState(() {
+                            _selectedStudent = v;
+                          }),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 60,
                         child: _datePickerFilter(
                           selectedDate: _selectedDate,
                           onDateSelected: (date) {
@@ -213,47 +172,165 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               _selectedDate = date;
                             });
                           },
-                        )
-                    ),
-                    const SizedBox(width: 8),
-                    CustomClearAllChip(onTap: () {}, label: 'Clear All'),
-                  ],
-                ),
-              ],
-            )
-                : Row(
-                              children: [
-                Expanded(
-                    child: SizedBox(
-                      height: 60,
-                      child: _datePickerFilter(
-                        selectedDate: _selectedDate,
-                        onDateSelected: (date) {
-                          setState(() {
-                            _selectedDate = date;
-                          });
-                        },
+                        ),
                       ),
-                    )
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 60,
-                    child: _buildCustomDropdown('Select Student', _allStudents, _selectedStudent, (v) => setState(() {
-                      _selectedStudent = v;
-                    })),
-                  ),
-                ),
-
-                              ],
+                    ],
+                  )
+                : isNotParent
+                ? Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildCustomDropdown(
+                              'Select Classroom',
+                              _classroomOptions,
+                              _selectdClassroom,
+                              (v) => setState(() {
+                                _selectdClassroom = v;
+                              }),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildCustomDropdown(
+                              'Select Student',
+                              _allStudents,
+                              _selectedStudent,
+                              (v) => setState(() {
+                                _selectedStudent = v;
+                              }),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(100),
+                              onTap: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => FilterScreen(
+                                      sections: [
+                                        FilerSection(
+                                          label: 'Tags',
+                                          hintText: 'Select tags',
+                                          items: [
+                                            '5 Days',
+                                            'Full Day',
+                                            'Photo Permission',
+                                            'Vegetarian',
+                                            'First Aid',
+                                            'Allergy',
+                                            'Pickup Authorized',
+                                            'Medication',
+                                            'Half Day',
+                                            'Boy',
+                                            'Girl',
+                                          ],
+                                          isMultiSelectDropDown: false,
+                                        ),
+                                        FilerSection(
+                                          label: 'Activity Type',
+                                          hintText: 'Select Activity',
+                                          items: [
+                                            'Nap Start',
+                                            'Nap End',
+                                            'Bathroom',
+                                            'Bottle',
+                                            'Meal',
+                                            'Incident',
+                                            'Photo',
+                                            'Outdoor',
+                                            'Medication',
+                                            'Notes',
+                                            'Learning',
+                                            'Sign-in',
+                                            'Sign-out',
+                                            'Absent',
+                                          ],
+                                          isMultiSelectDropDown: false,
+                                        ),
+                                      ],
+                                      onApply: (filters) {},
+                                    ),
+                                  ),
+                                );
+                                if (!mounted) return;
+                                if (result is Map) {
+                                  // TODO: apply filters to list
+                                  setState(() {});
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: SvgPicture.asset(
+                                  MediaRes.filterIcon,
+                                  height: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: _datePickerFilter(
+                              selectedDate: _selectedDate,
+                              onDateSelected: (date) {
+                                setState(() {
+                                  _selectedDate = date;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          CustomClearAllChip(onTap: () {}, label: 'Clear All'),
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 60,
+                          child: _datePickerFilter(
+                            selectedDate: _selectedDate,
+                            onDateSelected: (date) {
+                              setState(() {
+                                _selectedDate = date;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SizedBox(
+                          height: 60,
+                          child: _buildCustomDropdown(
+                            'Activity Type',
+                            activityType,
+                            _selectedActivityType,
+                            (v) => setState(() {
+                              _selectedActivityType = v;
+                            }),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ),
 
         const SizedBox(height: 12),
 
-        if(activities.length == 0)
+        if (activities.length == 0)
           Expanded(
             child: Padding(
               padding: ResponsiveSizing.contentPadding(context),
@@ -275,21 +352,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                     ),
                   ),
                 ),
-
               ),
             ),
           ),
 
-        if(activities.length != 0)
+        if (activities.length != 0)
           Expanded(
             child: Padding(
               padding: ResponsiveSizing.contentPadding(context),
               child: Column(
                 children: [
-                  const SizedBox(height: 10,),
+                  const SizedBox(height: 10),
                   Expanded(
                     child: ListView.builder(
-
                       padding: const EdgeInsets.only(right: 16),
                       itemCount: activities.length,
                       itemBuilder: (context, index) {
@@ -315,7 +390,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                       height: 2,
                                       color: activity.color,
                                     ),
-
                                   ],
                                 ),
                                 Container(
@@ -331,7 +405,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                     shape: BoxShape.circle,
                                   ),
                                 ),
-                                const SizedBox(width: 20,),
+                                const SizedBox(width: 20),
                                 SizedBox(
                                   height: 20,
                                   child: Text(
@@ -343,16 +417,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                     ),
                                   ),
                                 ),
-
                               ],
                             ),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const SizedBox(width: 7,),
+                                const SizedBox(width: 7),
                                 Container(
                                   width: 4,
-                                  height: 180,
+                                  height: 220,
                                   color: activity.color,
                                 ),
 
@@ -362,128 +435,201 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                 Expanded(
                                   child: Column(
                                     children: [
-
-                                      const SizedBox(height: 15,),
+                                      const SizedBox(height: 15),
                                       Container(
-                                        height: 140,
-                                        margin: const EdgeInsets.only(bottom: 24),
+                                        height: 180,
+                                        margin: const EdgeInsets.only(
+                                          bottom: 24,
+                                        ),
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: activity.color.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(color: activity.color.withOpacity(0.4)),
+                                          color: activity.color.withOpacity(
+                                            0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: activity.color.withOpacity(
+                                              0.4,
+                                            ),
+                                          ),
                                         ),
                                         child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          // crossAxisAlignment:
+                                          //     CrossAxisAlignment.center,
                                           children: [
-
                                             ClipRRect(
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                               child: SizedBox(
-                                                width: 122,
-                                                height: 76,
+                                                width: 140,
+                                                height: 120,
                                                 child: Image.network(
                                                   activity.photoUrl,
                                                   fit: BoxFit.cover,
-                                                  loadingBuilder: (context, child, loadingProgress) {
-                                                    if (loadingProgress == null) return child;
-                                                    return Container(
-                                                      color: Colors.transparent,
-                                                      child: const Center(
-                                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                                      ),
-                                                    );
-                                                  },
-                                                  errorBuilder: (context, error, stackTrace) {
-                                                    return Container(
-                                                      width: 122,
-                                                      height: 76,
-                                                      color: activity.color.withOpacity(0.25),
-                                                      child: Center(
-                                                        child: Image.asset(
-                                                          MediaRes.napActivityIcon,
-                                                          //'assets/icons/activity-nap-icon.png',
-                                                          fit: BoxFit.fill,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
+                                                  loadingBuilder:
+                                                      (
+                                                        context,
+                                                        child,
+                                                        loadingProgress,
+                                                      ) {
+                                                        if (loadingProgress ==
+                                                            null)
+                                                          return child;
+                                                        return Container(
+                                                          color: Colors
+                                                              .transparent,
+                                                          child: const Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                                  strokeWidth:
+                                                                      2,
+                                                                ),
+                                                          ),
+                                                        );
+                                                      },
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) {
+                                                        return Container(
+                                                          width: 122,
+                                                          height: 76,
+                                                          color: activity.color
+                                                              .withOpacity(
+                                                                0.25,
+                                                              ),
+                                                          child: Center(
+                                                            child: Image.asset(
+                                                              MediaRes
+                                                                  .napActivityIcon,
+                                                              //'assets/icons/activity-nap-icon.png',
+                                                              fit: BoxFit.fill,
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
                                                 ),
                                               ),
                                             ),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisAlignment : MainAxisAlignment.spaceEvenly,
                                                 children: [
-                                                  Expanded(
-                                                    child: Row(
-                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                      children: [
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                          decoration: BoxDecoration(
-                                                            color: activity.color,
-                                                            borderRadius: BorderRadius.circular(20),
-                                                          ),
-                                                          child: Text(
-                                                            activity.name,
-                                                            style: const TextStyle(
-                                                              color: Colors.white,
-                                                              fontSize: 11,
-                                                              fontWeight: FontWeight.bold,
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 12,
+                                                              vertical: 6,
                                                             ),
-                                                          ),
-                                                        ),
-                                                        PopupMenuButton<String>(
-                                                          icon: const Icon(Icons.more_horiz, size: 20),
-                                                          onSelected: null,
-                                                          itemBuilder: (context) => [
-                                                            PopupMenuItem<String>(
-                                                              value: 'edit',
-                                                              child: PopupItem(
-                                                                title: 'Edit',
+                                                        decoration: BoxDecoration(
+                                                          color:
+                                                              activity.color,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                20,
                                                               ),
-                                                            ),
-                                                            PopupMenuItem<String>(
-                                                              value: 'delete',
-                                                              child: PopupItem(
-                                                                title: 'Delete',
-
-                                                              ),
-                                                            ),
-
-                                                          ],
                                                         ),
-                                                      ],
-                                                    ),
+                                                        child: Text(
+                                                          activity.name,
+                                                          style:
+                                                              const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                      PopupMenuButton<String>(
+                                                        icon: const Icon(
+                                                          Icons.more_horiz,
+                                                          size: 20,
+                                                        ),
+                                                        onSelected: null,
+                                                        itemBuilder: (context) => [
+                                                          PopupMenuItem<
+                                                              String
+                                                          >(
+                                                            value: 'view',
+                                                            child: PopupItem(
+                                                              title: 'View',
+                                                              icon: Icon( Icons.visibility_outlined, color: AppColors.themeColor,),
+                                                            ),
+                                                          ),
+                                                          PopupMenuItem<
+                                                            String
+                                                          >(
+                                                            value: 'edit',
+                                                            child: PopupItem(
+                                                              title: 'Edit',
+                                                              icon: Icon(Icons.edit, color: AppColors.themeColor),
+                                                            ),
+                                                          ),
+                                                          PopupMenuItem<
+                                                            String
+                                                          >(
+                                                            value: 'delete',
+                                                            child: PopupItem(
+                                                              title: 'Delete',
+                                                              icon: Icon(Icons.delete, color : AppColors.themeColor),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
                                                   ),
-                                                  const SizedBox(height: 8),
+                                                  const SizedBox(height: 10),
 
                                                   SizedBox(
                                                     height: 32,
                                                     child: Stack(
                                                       children: [
-                                                        for (int i = 0; i < students.length && i < 4; i++)
+                                                        for (
+                                                          int i = 0;
+                                                          i < students.length &&
+                                                              i < 4;
+                                                          i++
+                                                        )
                                                           Positioned(
                                                             left: i * 20,
-                                                            child: DocumentImageWidget(
-                                                              fileUuid: '',
-                                                              name: students[i],
-                                                              size: 28,
-                                                              fontSize: 10,
-                                                            ),
+                                                            child:
+                                                                DocumentImageWidget(
+                                                                  fileUuid: '',
+                                                                  name:
+                                                                      students[i],
+                                                                  size: 28,
+                                                                  fontSize: 10,
+                                                                ),
                                                           ),
 
                                                         // Extra count tooltip
                                                         if (students.length > 4)
                                                           Positioned(
-                                                            left: 4 * 20, // after 4 avatars
+                                                            left:
+                                                                4 *
+                                                                20, // after 4 avatars
                                                             child: Tooltip(
-                                                              message: students.skip(4).join(', '),
+                                                              message: students
+                                                                  .skip(4)
+                                                                  .join(', '),
                                                               child: DocumentImageWidget(
                                                                 fileUuid: '',
-                                                                name: '+${students.length - 4}',
+                                                                name:
+                                                                    '+${students.length - 4}',
                                                                 size: 28,
                                                                 fontSize: 10,
                                                               ),
@@ -492,18 +638,37 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                       ],
                                                     ),
                                                   ),
+                                                  const SizedBox(height: 10,),
 
                                                   Text(
                                                     activity.description,
 
                                                     style: TextStyle(
-                                                        color: AppColors.primaryColor,
-                                                        fontSize: 14,
-                                                        fontWeight: FontWeight.w600
+                                                      color: AppColors
+                                                          .primaryColor,
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                     ),
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
+                                                  const SizedBox(height: 10,),
+                                                  Text(
+                                                    'Created By - ${activity.createdBy}',
+
+                                                    style: TextStyle(
+                                                      color: AppColors
+                                                          .primaryColor,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                      FontWeight.w500,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                    TextOverflow.ellipsis,
+                                                  )
                                                 ],
                                               ),
                                             ),
@@ -524,8 +689,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
               ),
             ),
           ),
-
-
       ],
     );
   }
@@ -537,12 +700,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     return GestureDetector(
       onTap: () async {
         final result = await showDialog<Map<String, dynamic>>(
-            context: context,
-            builder: (context) => CalendarDialog(
-              isTimePicker: false,
-              initialDate: selectedDate,
-              whiteBgColor: true,
-            )
+          context: context,
+          builder: (context) => CalendarDialog(
+            isTimePicker: false,
+            initialDate: selectedDate,
+            whiteBgColor: true,
+          ),
         );
 
         if (result != null && result['date'] != null) {
@@ -580,7 +743,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
               SvgPicture.asset(
                 MediaRes.calender_icon,
                 height: 20.0,
-                colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn),
+                colorFilter: const ColorFilter.mode(
+                  AppColors.primaryColor,
+                  BlendMode.srcIn,
+                ),
               ),
             ],
           ),
@@ -590,12 +756,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   }
 
   Widget _buildCustomDropdown(
-      String hintText,
-      List<String> items,
-      String? selectedItem,
-      ValueChanged<String?> onSelect, {
-        bool isRequired = false,
-      }) {
+    String hintText,
+    List<String> items,
+    String? selectedItem,
+    ValueChanged<String?> onSelect, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: null,
@@ -631,27 +797,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       ),
     );
   }
-
 }
 
 class PopupItem extends StatelessWidget {
   final String title;
+  final Icon icon;
 
-  const PopupItem({
-    super.key,
-    required this.title,
-  });
+  const PopupItem({super.key, required this.title, required this.icon});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Colors.black,
-      ),
+    return Row(
+      children: [
+        icon,
+        const SizedBox(width: 5,),
+        Text(
+          title,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -663,6 +832,7 @@ class ActivityItem {
   final Color color;
   final String photoUrl;
   final List<String> studentList;
+  final String createdBy;
 
   const ActivityItem({
     required this.time,
@@ -670,6 +840,7 @@ class ActivityItem {
     required this.description,
     required this.color,
     required this.photoUrl,
-    required this.studentList
+    required this.studentList,
+    required this.createdBy
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
@@ -459,14 +460,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     ),
                   ),
 
-                  _buildStudentActionButtons(context),
+                  _buildStudentActionButtons(context, widget.name),
                 ],
               ),
             ),
           );
   }
 
-  Widget _buildStudentActionButtons(BuildContext context) {
+  Widget _buildStudentActionButtons(BuildContext context, studentName) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -477,7 +478,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildActionIcon(MediaRes.attendanceIcon, onTap: () {}),
-          _buildActionIcon(MediaRes.activitesIcon, onTap: () {}),
+          _buildActionIcon(
+              MediaRes.activitesIcon, onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityFeedScreen(fromStudentProfile: true, studentName: studentName,)));
+
+          }
+          ),
           _buildActionIcon(MediaRes.message_panel_icon, onTap: () {}),
           _buildActionIcon(MediaRes.billing_drawer_icon, onTap: () {}),
         ],
