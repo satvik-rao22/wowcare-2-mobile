@@ -152,7 +152,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SizedBox(
-                        height: 60,
+                        height: 65,
                         child: _buildCustomDropdown(
                           'Select Student',
                           [widget.studentName],
@@ -160,11 +160,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                           (v) => setState(() {
                             _selectedStudent = v;
                           }),
+                          height: 65
                         ),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
-                        height: 60,
+                        height: 65,
                         child: _datePickerFilter(
                           selectedDate: _selectedDate,
                           onDateSelected: (date) {
@@ -298,7 +299,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: 60,
+                          height: 65,
                           child: _datePickerFilter(
                             selectedDate: _selectedDate,
                             onDateSelected: (date) {
@@ -312,7 +313,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: SizedBox(
-                          height: 60,
+                          height: 65,
                           child: _buildCustomDropdown(
                             'Activity Type',
                             activityType,
@@ -320,6 +321,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                             (v) => setState(() {
                               _selectedActivityType = v;
                             }),
+                            height: 65
                           ),
                         ),
                       ),
@@ -761,11 +763,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
+        double? height = null
   }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: null,
       hintText: hintText,
+      height: height,
       items: items,
       selectedItem: selectedItem,
       onSelect: onSelect,

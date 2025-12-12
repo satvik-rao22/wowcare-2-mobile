@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
@@ -22,18 +24,20 @@ class ActivityFeedScreen extends StatefulWidget {
 class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerProviderStateMixin{
   late TabController _tabController;
   final ScrollController _dailyScrollController = ScrollController();
+  final ScrollController _customScrollController = ScrollController();
   final bool isNotParent = true; // if false than parent persona screen will be shown
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 1 , vsync: this);
+    _tabController = TabController(length: 2 , vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _dailyScrollController.dispose();
+    _customScrollController.dispose();
     super.dispose();
   }
   @override
@@ -71,12 +75,15 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                 tabAlignment: TabAlignment.start,
                 tabs: const [
                   Tab(text: 'Daily'),
+                  Tab(text: 'Custom',)
                 ],
               ),
               Row(
                 children: [
                   GradientAddButton(
-                    onTap: () async {},
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityStudentSelection()));
+                    },
                     isTablet: MediaQuery.of(context).size.width >= 600,
                     isLargeTablet: MediaQuery.of(context).size.width >= 900,
                   ),
@@ -91,6 +98,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
               controller: _tabController,
               children: [
                 ActivityDailyTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName,),
+                ActivityCustomTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName,)
 
               ],
             ),

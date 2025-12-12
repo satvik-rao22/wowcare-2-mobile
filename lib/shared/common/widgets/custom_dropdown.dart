@@ -146,6 +146,7 @@ class CustomDropdown extends StatefulWidget {
     this.selectedTextStyle,
     this.popupItemTextStyle,
     this.contentPadding,
+    this.height = null
   });
 
   final String? label;
@@ -165,6 +166,7 @@ class CustomDropdown extends StatefulWidget {
   final TextStyle? selectedTextStyle;
   final TextStyle? popupItemTextStyle;
   final EdgeInsets? contentPadding;
+  final double? height;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -218,7 +220,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
         LayoutBuilder(
           builder: (context, constraints) {
             return Container(
-              constraints: BoxConstraints(minHeight: widget.fieldHeight ?? (widget.isField ? 40 : 30)),
+              constraints: BoxConstraints(minHeight: widget.height ?? widget.fieldHeight ?? (widget.isField ? 40 : 30)),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFFF8F7FA),

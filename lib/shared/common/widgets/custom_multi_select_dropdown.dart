@@ -12,6 +12,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
   final ValueChanged<List<String>> onChanged;
   final bool isField;
   final double? width;
+  final double gapHeight;
 
   const CustomMultiSelectDropdown({
     Key? key,
@@ -22,6 +23,8 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.label,
     this.isField = false,
     this.width,
+    this.gapHeight = 70
+
   }) : super(key: key);
 
   @override
@@ -34,6 +37,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   bool isDropdownOpen = false;
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
+
 
   @override
   void initState() {
@@ -110,7 +114,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               link: _layerLink,
               showWhenUnlinked: false,
               //offset: Offset(0.0, size.height + 5.0),
-              offset: Offset.fromDirection(pi / 2, 70),
+              offset: Offset.fromDirection(pi / 2, widget.gapHeight),
               child: Material(
                 elevation: 8.0,
                 borderRadius: BorderRadius.circular(8),
