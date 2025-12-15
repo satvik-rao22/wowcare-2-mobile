@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
-
+// changed some github settings
 class ActivityTile extends StatelessWidget {
   const ActivityTile({
     super.key,
