@@ -3,24 +3,41 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
+import '../widgets/activity_tile.dart';
+import 'edit_create_activity_screens/nap_start_activity.dart';
 
 class ChooseActivity extends StatelessWidget {
-  const ChooseActivity({super.key});
+  const ChooseActivity({super.key, required this.selectedStudents});
 
+  final List<String> selectedStudents ;
   static const Map<String, String> activityIcons = { 'Nap start' : MediaRes.napActivityIcon, 'Nap end' : MediaRes.napActivityIcon, 'Bathroom' : MediaRes.bathroomActivityIcon, 'Bottle' : MediaRes.bottleActivityIcon, 'Meal': MediaRes.mealActivityIcon, 'Incident' : MediaRes.incidentActivityIcon, 'Photo': MediaRes.photoVideoActivityIcon, 'Medication': MediaRes.medicationActivityIcon, 'Notes' : MediaRes.notesActivityIcon, 'Outdoor' : MediaRes.outdoorActivityIcon, 'Learning' : MediaRes.learningActivityIcon};
-  static const List<String> _allLabels = [
-    'Nap start',
-    'Nap end',
-    'Bathroom',
-    'Bottle',
-    'Meal',
-    'Incident',
-    'Photo',
-    'Medication',
-    'Notes',
-    'Outdoor',
-    'Learning',
-  ];
+  static const Map<String, bool> _allLabels = {
+    'Nap start' : false,
+    'Nap end': true,
+    'Bathroom' : false,
+    'Bottle' : false,
+    'Meal' : false,
+    'Incident' : false,
+    'Photo' : false,
+    'Medication' : false,
+    'Notes' : false,
+    'Outdoor' : false,
+    'Learning' : false,
+  };
+  // Map activity name to the destination widget/screen
+  static final Map<String, Widget Function(List<String>)> activityRoutes = {
+    'Nap start': (students) => NapStartScreen(selectedStudents: students),
+    'Nap end': (students) => NapStartScreen(selectedStudents: students),
+    'Bathroom': (students) => NapStartScreen(selectedStudents: students),
+    'Bottle': (students) => NapStartScreen(selectedStudents: students),
+    'Meal': (students) => NapStartScreen(selectedStudents: students),
+    'Incident': (students) => NapStartScreen(selectedStudents: students),
+    'Photo': (students) => NapStartScreen(selectedStudents: students),
+    'Medication': (students) => NapStartScreen(selectedStudents: students),
+    'Notes': (students) => NapStartScreen(selectedStudents: students),
+    'Outdoor': (students) => NapStartScreen(selectedStudents: students),
+    'Learning': (students) => NapStartScreen(selectedStudents: students),
+  };
 
 
   @override
@@ -74,6 +91,41 @@ class ChooseActivity extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 10,),
+                    Expanded(
+                        child: GridView.builder(
+                            padding: EdgeInsets.all(10),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: responsive.isTablet ? 3 : 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: responsive.isTablet ? 3.8 : 3
+                            ),
+                            itemCount: activityIcons.length,
+                            itemBuilder: (context, index) {
+                              final entry = activityIcons.entries.toList()[index];
+                              final iconPath = entry.value;
+                              final String activityName = entry.key;
+                              final bool unavailableActivity = _allLabels[activityName] ?? false;
+
+                              return ActivityTile(
+                                iconPath: iconPath,
+                                label: activityName,
+                                unavailableActivity: unavailableActivity,
+                                onTap: unavailableActivity
+                                    ? null
+                                    : (){
+                                      final destinationBuilder = activityRoutes[activityName];
+                                      if(destinationBuilder != null) {
+                                        final nextScreen = destinationBuilder(selectedStudents);
+                                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => nextScreen));
+                                      }
+                                    }
+                                ,
+                              );
+                            }
+                        )
+                    ),
+
 
                   ],
                 ),

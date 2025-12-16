@@ -119,11 +119,17 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     allStudents.removeWhere(
             (name, tags) => !name.toLowerCase().contains(query));
 
-    // If classroom is selected, further restrict to that classroom
+    // If classroom is selected, restrict search results to that classroom
     if (_selectedClassroom != null) {
-      allStudents.removeWhere((name, tags) =>
-          _studentsInSelectedClassroom[_selectedClassroom]!.containsKey(name));
+      allStudents.removeWhere((name, _) =>
+      !_studentsInSelectedClassroom[_selectedClassroom]!.containsKey(name));
     }
+
+    // // If classroom is selected, further restrict to that classroom
+    // if (_selectedClassroom != null) {
+    //   allStudents.removeWhere((name, tags) =>
+    //       _studentsInSelectedClassroom[_selectedClassroom]!.containsKey(name));
+    // }
 
     // Apply tags only if classroom is selected (optional – you can remove this if you want global tag filter)
     if (_selectedClassroom != null && _selectedTags.isNotEmpty) {
@@ -176,6 +182,34 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       _selectAll = _filteredStudents
           .every((entry) => _selectedStudents.contains(entry.key));
     }
+  }
+
+  void _showWarningMessage(String message) {
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    final snackBar = SnackBar(
+      content: Row(
+        children: [
+          const Icon(Icons.warning, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.orange,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.orange.shade50,
+      duration: const Duration(seconds: 2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.orange.shade100),
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
 
@@ -591,7 +625,12 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               ),
               child: TextButton(
                 onPressed: (){
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => ChooseActivity()));
+                  if(_selectedStudents.isNotEmpty){
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChooseActivity(selectedStudents: _selectedStudents.toList(),)));
+                  } else {
+                    _showWarningMessage('Select at least one student.');
+                  }
+                  
                 },
                 style: TextButton.styleFrom(overlayColor: Colors.transparent),
                 child: Text(
