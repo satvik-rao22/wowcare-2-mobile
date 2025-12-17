@@ -549,7 +549,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         bottom: safeAreaBottom,
         left: 16,
         right: 16,
-        top: 8,
+        top: 16,
       ),
       decoration: BoxDecoration(
         color: Colors.white,

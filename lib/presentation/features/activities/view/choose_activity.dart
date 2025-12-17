@@ -11,13 +11,13 @@ class ChooseActivity extends StatelessWidget {
 
   final List<String> selectedStudents ;
   static const Map<String, String> activityIcons = { 'Nap start' : MediaRes.napActivityIcon, 'Nap end' : MediaRes.napActivityIcon, 'Bathroom' : MediaRes.bathroomActivityIcon, 'Bottle' : MediaRes.bottleActivityIcon, 'Meal': MediaRes.mealActivityIcon, 'Incident' : MediaRes.incidentActivityIcon, 'Photo': MediaRes.photoVideoActivityIcon, 'Medication': MediaRes.medicationActivityIcon, 'Notes' : MediaRes.notesActivityIcon, 'Outdoor' : MediaRes.outdoorActivityIcon, 'Learning' : MediaRes.learningActivityIcon};
-  static const Map<String, bool> _allLabels = {
+  static const Map<String, bool> _allLabels = { // here true means the activity won't be clickable
     'Nap start' : false,
     'Nap end': true,
     'Bathroom' : false,
     'Bottle' : false,
     'Meal' : false,
-    'Incident' : false,
+    'Incident' : true,
     'Photo' : false,
     'Medication' : false,
     'Notes' : false,
