@@ -8,8 +8,9 @@ import '../../../../shared/common/widgets/calendar_dialog.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 
 class DateWidget extends StatefulWidget {
-  const DateWidget({super.key, this.isEditable = true});
+  const DateWidget({super.key, this.isEditable = true, this.isRequired = false});
   final bool isEditable;
+  final bool isRequired;
 
   @override
   State<DateWidget> createState() => _DateWidgetState();
@@ -35,7 +36,7 @@ class _DateWidgetState extends State<DateWidget> {
             ),
             children: [
               TextSpan(text: 'Date'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (widget.isRequired) TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
             ],
           ),
         ),

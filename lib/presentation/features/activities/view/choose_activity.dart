@@ -5,12 +5,13 @@ import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../widgets/activity_tile.dart';
 import 'edit_create_activity_screens/nap_start_activity.dart';
+import 'edit_create_activity_screens/photo_activity.dart';
 
 class ChooseActivity extends StatelessWidget {
   const ChooseActivity({super.key, required this.selectedStudents});
 
   final List<String> selectedStudents ;
-  static const Map<String, String> activityIcons = { 'Nap start' : MediaRes.napActivityIcon, 'Nap end' : MediaRes.napActivityIcon, 'Bathroom' : MediaRes.bathroomActivityIcon, 'Bottle' : MediaRes.bottleActivityIcon, 'Meal': MediaRes.mealActivityIcon, 'Incident' : MediaRes.incidentActivityIcon, 'Photo': MediaRes.photoVideoActivityIcon, 'Medication': MediaRes.medicationActivityIcon, 'Notes' : MediaRes.notesActivityIcon, 'Outdoor' : MediaRes.outdoorActivityIcon, 'Learning' : MediaRes.learningActivityIcon};
+  static final Map<String, String> activityIcons = { 'Nap start' : MediaRes.napActivityIcon, 'Nap end' : MediaRes.napActivityIcon, 'Bathroom' : MediaRes.bathroomActivityIcon, 'Bottle' : MediaRes.bottleActivityIcon, 'Meal': MediaRes.mealActivityIcon, 'Incident' : MediaRes.incidentActivityIcon, 'Photo': MediaRes.photoVideoActivityIcon, 'Video': MediaRes.photoVideoActivityIcon,'Medication': MediaRes.medicationActivityIcon, 'Notes' : MediaRes.notesActivityIcon, 'Outdoor' : MediaRes.outdoorActivityIcon, 'Learning' : MediaRes.learningActivityIcon};
   static const Map<String, bool> _allLabels = { // here true means the activity won't be clickable
     'Nap start' : false,
     'Nap end': true,
@@ -19,6 +20,7 @@ class ChooseActivity extends StatelessWidget {
     'Meal' : false,
     'Incident' : true,
     'Photo' : false,
+    'Video': false,
     'Medication' : false,
     'Notes' : false,
     'Outdoor' : false,
@@ -32,7 +34,8 @@ class ChooseActivity extends StatelessWidget {
     'Bottle': (students) => NapStartScreen(selectedStudents: students),
     'Meal': (students) => NapStartScreen(selectedStudents: students),
     'Incident': (students) => NapStartScreen(selectedStudents: students),
-    'Photo': (students) => NapStartScreen(selectedStudents: students),
+    'Photo': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true,),
+    'Video': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
     'Medication': (students) => NapStartScreen(selectedStudents: students),
     'Notes': (students) => NapStartScreen(selectedStudents: students),
     'Outdoor': (students) => NapStartScreen(selectedStudents: students),

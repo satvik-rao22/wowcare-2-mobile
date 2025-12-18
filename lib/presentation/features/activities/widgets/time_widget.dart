@@ -10,10 +10,12 @@ class TimeWidget extends StatefulWidget {
     super.key,
     this.isEditable = true,
     this.initialTime,
+    this.isRequired = false
   });
 
   final bool isEditable;
   final TimeOfDay? initialTime; // Optional initial time
+  final bool isRequired;
 
   @override
   State<TimeWidget> createState() => _TimeWidgetState();
@@ -79,9 +81,9 @@ class _TimeWidgetState extends State<TimeWidget> {
               fontWeight: FontWeight.w400,
               fontFamily: 'Manrope',
             ),
-            children: const [
+            children:  [
               TextSpan(text: 'Time'),
-              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if(widget.isRequired) TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
             ],
           ),
         ),
