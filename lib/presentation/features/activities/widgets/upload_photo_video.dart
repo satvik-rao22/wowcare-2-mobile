@@ -322,6 +322,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
+import '../../../../shared/utils/responsive_helper.dart';
 
 enum MediaType { photos, video }
 
@@ -334,7 +335,9 @@ class MediaUploader extends StatefulWidget {
     this.allowPhoto = true,
     this.allowVideo = true,
     this.isRequired = false,
-    this.limit = 10
+    this.limit = 10,
+    this.label = 'Upload Photos',
+    this.isPictureBox = true,
   });
 
   final List<File>? initialPhotos;
@@ -344,6 +347,8 @@ class MediaUploader extends StatefulWidget {
   final bool allowPhoto;
   final bool isRequired;
   final int limit;
+  final String label;
+  final bool isPictureBox;
 
   @override
   State<MediaUploader> createState() => _MediaUploaderState();
@@ -379,7 +384,13 @@ class _MediaUploaderState extends State<MediaUploader> {
       _photos = widget.initialPhotos!;
       _currentType = MediaType.photos;
     }
-    _notifyParent();
+
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      if(mounted){
+        _notifyParent();
+      }
+    });
+    //_notifyParent();
   }
 
   Future<void> _generateVideoThumbnail() async {
@@ -596,7 +607,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       _showWarningMessage('Video exceeds 100 MB (${sizeMB.toStringAsFixed(1)} MB).');
       return;
     }
-
+    // this part makes the the app unable to upload video on linux, but that is not our target device so should be ok
     VideoPlayerController controller = VideoPlayerController.file(file);
     await controller.initialize();
     final duration = controller.value.duration;
@@ -661,7 +672,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
-          'Select Media',
+          'Select Media Source',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Manrope',
@@ -709,11 +720,12 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Main Upload Area
-        IntrinsicHeight(
+        if (widget.isPictureBox) IntrinsicHeight(
           child: GestureDetector(
             onTap: _showPickerDialog,
             child: Container(
@@ -741,6 +753,65 @@ class _MediaUploaderState extends State<MediaUploader> {
             ),
           ),
         ),
+        if(!widget.isPictureBox)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RichText(
+                text: TextSpan(
+                style: TextStyle(
+                  fontSize: responsive.labelFontSize,
+                  fontFamily: "Manrope",
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xff573353),
+                ),
+                children: [
+                  TextSpan(text: widget.label),
+                  if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                ],
+                ),
+              ),
+              SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+              GestureDetector(
+                onTap: _showPickerDialog,
+                child: Container(
+                  constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0x66573353)),
+                    borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: responsive.isTablet ? 16.0 : 12.0,
+                      vertical: responsive.isTablet ? 16.0 : 12.0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Select Photos',
+                          style: TextStyle(
+                            fontSize: responsive.labelFontSize,
+                            fontFamily: "Manrope",
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xff573353),
+                          ),
+                        ),
+                        Opacity(
+                          opacity: 0.6,
+                          child: Icon(
+                            Icons.file_upload_outlined,
+                            color: AppColors.primaryColor,
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
         // Required Warning
         if (widget.isRequired && !_hasMedia)
@@ -755,7 +826,9 @@ class _MediaUploaderState extends State<MediaUploader> {
                   fontFamily: 'Manrope',
                 ),
                 children:  [
-                  const TextSpan(text: 'Please upload at least one photo or a video'),
+                  if(widget.allowPhoto && !widget.allowVideo)TextSpan(text: 'Please upload at least one photo'),
+                  if(!widget.allowPhoto && widget.allowVideo)TextSpan(text: 'Please upload at least one video'),
+                  if(widget.allowPhoto && widget.allowVideo)TextSpan(text: 'Please upload at least one photo or a video'),
                   const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
                 ],
               ),
@@ -769,13 +842,15 @@ class _MediaUploaderState extends State<MediaUploader> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _currentType == MediaType.video
-                    ? '1 Video selected'
-                    : '${_photos.length} Photo${_photos.length > 1 ? 's' : ''} selected',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xff573353)),
-              ),
-              const SizedBox(height: 12),
+              if(widget.allowPhoto && widget.limit!=1) ...[
+                Text(
+                  _currentType == MediaType.video
+                      ? 'New selection replaces current video'
+                      : '${_photos.length} Photo${_photos.length > 1 ? 's' : ''} selected',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xff573353)),
+                ),
+                const SizedBox(height: 12),
+              ],
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(

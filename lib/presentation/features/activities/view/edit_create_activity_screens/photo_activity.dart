@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
@@ -9,7 +10,9 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
+import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
+import '../activity_feed_screen.dart';
 
 class PhotoVideoActivityScreen extends StatefulWidget {
   const PhotoVideoActivityScreen({
@@ -30,11 +33,22 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   late final List<String> _selectedStudents;
   final TextEditingController _descriptionController = TextEditingController();
 
+  List<File> _uploadedPhotos = [];
+  File? _uploadedVideo;
+  bool get _hasMedia => _uploadedPhotos.isNotEmpty || _uploadedVideo != null;
+
   @override
   void initState() {
     super.initState();
     // Create a mutable copy of the incoming list
     _selectedStudents = List.from(widget.selectedStudents);
+  }
+
+  void _onMediaChanged(List<File> photos, File? video){
+    setState(() {
+      _uploadedPhotos = photos;
+      _uploadedVideo = video;
+    });
   }
 
   void _removeStudent(String name) {
@@ -143,7 +157,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing,),
-                          MediaUploader(isRequired: true,allowVideo: !widget.isPhoto, allowPhoto: widget.isPhoto,),
+                          MediaUploader(isRequired: true,allowVideo: !widget.isPhoto, allowPhoto: widget.isPhoto, onMediaChanged: _onMediaChanged,),
                           SizedBox(height: responsive.verticalSpacing,),
                           StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
                           SizedBox(height: responsive.verticalSpacing,),
@@ -198,8 +212,18 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           ),
         ),
         child: TextButton(
-          onPressed: (){
-
+          onPressed: _hasMedia ? (){
+           // Navigator.of(context).popUntil((route) => route.isFirst);
+            //Navigator.of(context).pop();
+            Navigator.of(context).popUntil((route) {
+              return route.settings.name == ActivityFeedScreen.routeName;
+            });
+          } : (){
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: widget.isPhoto ? 'Please upload a photo before adding activity.' : 'Please upload a video before adding activity.',
+              isWarning: true
+            );
           },
           style: TextButton.styleFrom(overlayColor: Colors.transparent),
           child: Text(

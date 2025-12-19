@@ -86,9 +86,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   void _closeDropdown() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    setState(() {
-      isDropdownOpen = false;
-    });
+
+
   }
 
   OverlayEntry _createOverlayEntry() {
@@ -101,7 +100,14 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           // Barrier to close dropdown when tapping outside
           Positioned.fill(
             child: GestureDetector(
-              onTap: _closeDropdown,
+              onTap: (){
+                if(mounted){
+                  setState(() {
+                    isDropdownOpen = false;
+                  });
+                }
+                _closeDropdown();
+              },
               child: Container(
                 color: Colors.transparent,
               ),

@@ -4,7 +4,9 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../widgets/activity_tile.dart';
+import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/nap_start_activity.dart';
+import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
 class ChooseActivity extends StatelessWidget {
@@ -30,7 +32,7 @@ class ChooseActivity extends StatelessWidget {
   static final Map<String, Widget Function(List<String>)> activityRoutes = {
     'Nap start': (students) => NapStartScreen(selectedStudents: students),
     'Nap end': (students) => NapStartScreen(selectedStudents: students),
-    'Bathroom': (students) => NapStartScreen(selectedStudents: students),
+    'Bathroom': (students) => BathroomActivityScreen(selectedStudents: students),
     'Bottle': (students) => NapStartScreen(selectedStudents: students),
     'Meal': (students) => NapStartScreen(selectedStudents: students),
     'Incident': (students) => NapStartScreen(selectedStudents: students),
@@ -38,14 +40,14 @@ class ChooseActivity extends StatelessWidget {
     'Video': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
     'Medication': (students) => NapStartScreen(selectedStudents: students),
     'Notes': (students) => NapStartScreen(selectedStudents: students),
-    'Outdoor': (students) => NapStartScreen(selectedStudents: students),
+    'Outdoor': (students) => OutdoorActivityScreen(selectedStudents: students),
     'Learning': (students) => NapStartScreen(selectedStudents: students),
   };
 
 
   @override
   Widget build(BuildContext context) {
-    String? selectedActivity;
+    //String? selectedActivity;
     final responsive = ResponsiveHelper(context);
     return GlobalScaffold(
       hasBackButton: true,

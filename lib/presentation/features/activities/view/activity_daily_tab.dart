@@ -29,12 +29,13 @@ class ActivityDailyTab extends StatefulWidget {
 }
 
 class _ActivityDailyTabState extends State<ActivityDailyTab> {
-  final TextEditingController _searchController = TextEditingController();
+  //final TextEditingController _searchController = TextEditingController();
   final isNotParent = true;
 
   DateTime? _selectedDate = DateTime.now();
   String? _selectdClassroom;
   String? _selectedStudent;
+  List<String> _availableStudents = [];
   String? _selectedActivityType;
   final List<String> activityType = [
     'Nap Start',
@@ -52,14 +53,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     'Sign-out',
     'Absent',
   ];
-  final List<String> _allStudents = [
-    'Raghave Gupta',
-    'Rohan Gupta',
-    'Ruhi Gupta',
-    'Anya Mehta',
-    'Kabir Mehta',
-    'Sara Khan',
-  ];
+  final Map<String, List<String>> classroomStudents = {
+    '1-Blue D': ['Raghave Gupta', 'Rohan Gupta', 'Ruhi Gupta'],
+    '3-Orange-D': ['Anya Mehta', 'Kabir Mehta'],
+    '2-Red A': ['Sara Khan'],
+  };
+  // final List<String> _allStudents = [
+  //   'Raghave Gupta',
+  //   'Rohan Gupta',
+  //   'Ruhi Gupta',
+  //   'Anya Mehta',
+  //   'Kabir Mehta',
+  //   'Sara Khan',
+  // ];
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<ActivityItem> activities = [
     ActivityItem(
@@ -125,14 +131,28 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   void initState() {
     super.initState();
     _selectdClassroom = _classroomOptions[0];
-    _selectedStudent = _allStudents[0];
+    _updateAvailableStudents();
+    //_selectedStudent = _allStudents[0];
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void _updateAvailableStudents() {
+    if (_selectdClassroom != null) {
+      _availableStudents = classroomStudents[_selectdClassroom] ?? [];
+      // If current selected student is not in the new list, clear it
+      if (_selectedStudent != null && !_availableStudents.contains(_selectedStudent)) {
+        _selectedStudent = null;
+      }
+    } else {
+      _availableStudents = [];
+      _selectedStudent = null;
+    }
   }
+
+  // @override
+  // void dispose() {
+  //  // _searchController.dispose();
+  //   super.dispose();
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -153,14 +173,16 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                     children: [
                       SizedBox(
                         height: 65,
-                        child: _buildCustomDropdown(
-                          'Select Student',
-                          [widget.studentName],
-                          widget.studentName,
-                          (v) => setState(() {
-                            _selectedStudent = v;
-                          }),
-                          height: 65
+                        child: AbsorbPointer(
+                          child: _buildCustomDropdown(
+                            'Select Student',
+                            [widget.studentName],
+                            widget.studentName,
+                            (v) => setState(() {
+                              _selectedStudent = v;
+                            }),
+                            height: 65
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -189,18 +211,34 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               _selectdClassroom,
                               (v) => setState(() {
                                 _selectdClassroom = v;
+                                _updateAvailableStudents();
                               }),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
+                            // child: _buildCustomDropdown(
+                            //   'Select Student',
+                            //   _allStudents,
+                            //   _selectedStudent,
+                            //   (v) => setState(() {
+                            //     _selectedStudent = v;
+                            //   }),
+                            // ),
                             child: _buildCustomDropdown(
-                              'Select Student',
-                              _allStudents,
+                              _selectdClassroom == null
+                                  ? 'Select Classroom First'
+                                  : 'Select Student',
+                              _availableStudents,
                               _selectedStudent,
-                              (v) => setState(() {
-                                _selectedStudent = v;
-                              }),
+                                  (value) {
+                                // Only update if a classroom is actually selected
+                                if (_selectdClassroom != null) {
+                                  setState(() {
+                                    _selectedStudent = value;
+                                  });
+                                }
+                              },
                             ),
                           ),
                           const SizedBox(width: 8),

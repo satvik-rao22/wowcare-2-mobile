@@ -151,10 +151,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     _CustomExpansionTile(
                       title: 'Activities',
                       icon: MediaRes.activitesIcon,
+                      isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
                       onTap: () {
                         Navigator.pop(context);
+                        if(_currentRoute != ActivityFeedScreen.routeName){
+                          Navigator.pushNamed(context, ActivityFeedScreen.routeName);
+                        }
                         //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityFeedScreen()));
+                        //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityFeedScreen()));
                       },
                     ),
                     _CustomExpansionTile(

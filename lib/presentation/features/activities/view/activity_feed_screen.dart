@@ -17,6 +17,8 @@ class ActivityFeedScreen extends StatefulWidget {
   final bool fromStudentProfile;
   final String studentName;
 
+  static const String routeName = '/activityFeed';
+
   @override
   State<ActivityFeedScreen> createState() => _ActivityFeedScreenState();
 }
