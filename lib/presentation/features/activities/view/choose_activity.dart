@@ -5,6 +5,9 @@ import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../widgets/activity_tile.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
+import 'edit_create_activity_screens/bottle_activity.dart';
+import 'edit_create_activity_screens/meal_activity.dart';
+import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/nap_start_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
@@ -33,12 +36,12 @@ class ChooseActivity extends StatelessWidget {
     'Nap start': (students) => NapStartScreen(selectedStudents: students),
     'Nap end': (students) => NapStartScreen(selectedStudents: students),
     'Bathroom': (students) => BathroomActivityScreen(selectedStudents: students),
-    'Bottle': (students) => NapStartScreen(selectedStudents: students),
-    'Meal': (students) => NapStartScreen(selectedStudents: students),
+    'Bottle': (students) => BottleActivityScreen(selectedStudents: students),
+    'Meal': (students) => MealActivityScreen(selectedStudents: students),
     'Incident': (students) => NapStartScreen(selectedStudents: students),
     'Photo': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true,),
     'Video': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
-    'Medication': (students) => NapStartScreen(selectedStudents: students),
+    'Medication': (students) => MedicationActivityScreen(selectedStudents: students),
     'Notes': (students) => NapStartScreen(selectedStudents: students),
     'Outdoor': (students) => OutdoorActivityScreen(selectedStudents: students),
     'Learning': (students) => NapStartScreen(selectedStudents: students),

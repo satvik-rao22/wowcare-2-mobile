@@ -9,6 +9,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
+import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
 import '../activity_feed_screen.dart';
 
@@ -256,6 +257,22 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         ),
         child: TextButton(
           onPressed: (){
+            if (_selectedBathroomType == null ){
+              CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Please select Bathroom Type',
+                  isWarning: true
+              );
+              return;
+            }
+            if (_selectedSubType == null ){
+              CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Please select Sub Type',
+                  isWarning: true
+              );
+              return;
+            }
             // Navigator.of(context).popUntil((route) => route.isFirst);
             //Navigator.of(context).pop();
             Navigator.of(context).popUntil((route) {
