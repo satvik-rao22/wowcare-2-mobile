@@ -518,10 +518,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         fontWeight: FontWeight.w400,
         color: const Color(0xff573353),
       ),
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: responsive.isTablet ? 16.0 : 12.0,
-        vertical: responsive.isTablet ? 16.0 : 12.0,
-      ),
+      // contentPadding: EdgeInsets.symmetric(
+      //   horizontal: responsive.isTablet ? 16.0 : 12.0,
+      //   vertical: responsive.isTablet ? 16.0 : 12.0,
+      // ),
     );
   }
 

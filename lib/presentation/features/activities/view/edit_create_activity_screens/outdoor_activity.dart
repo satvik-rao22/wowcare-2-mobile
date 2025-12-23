@@ -46,6 +46,13 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       }
     });
   }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);

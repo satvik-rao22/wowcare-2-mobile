@@ -49,6 +49,12 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     });
   }
   @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(

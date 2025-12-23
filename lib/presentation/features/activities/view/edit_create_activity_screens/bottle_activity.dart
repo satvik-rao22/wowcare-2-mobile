@@ -51,6 +51,13 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       }
     });
   }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);

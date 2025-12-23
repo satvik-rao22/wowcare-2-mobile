@@ -1,4 +1,6 @@
+
 import 'package:flutter/material.dart';
+import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/colors.dart';
@@ -10,9 +12,12 @@ class ActivityDropdownWidget extends StatefulWidget {
     required this.options,
     required this.dropDownName,
     this.selectedValue,
+    this.selectedOptions,
     this.isRequired = false,
     this.isEnabled = true,
-    this.onSelect
+    this.isMultiSelect = false,
+    this.onSelect,
+    this.onMultiSelect
 
   });
   final List<String> options;
@@ -21,6 +26,9 @@ class ActivityDropdownWidget extends StatefulWidget {
   final bool isEnabled;
   final ValueChanged<String?>? onSelect;
   final String? selectedValue;
+  final List<String>? selectedOptions;
+  final ValueChanged<List<String>>? onMultiSelect;
+  final bool isMultiSelect;
 
   @override
   State<ActivityDropdownWidget> createState() => _ActivityDropdownWidgetState();
@@ -28,12 +36,15 @@ class ActivityDropdownWidget extends StatefulWidget {
 
 class _ActivityDropdownWidgetState extends State<ActivityDropdownWidget> {
   late String? _internalSelected;
+  late List<String> _internalMultiSelected;
   String? get _effectiveSelected => widget.selectedValue ?? _internalSelected;
+
 
   @override
   void initState() {
     super.initState();
     _internalSelected = widget.selectedValue; // Sync initial value
+    _internalMultiSelected = widget.selectedOptions?.toList() ?? [];
   }
   @override
   void didUpdateWidget(covariant ActivityDropdownWidget oldWidget) {
@@ -41,6 +52,9 @@ class _ActivityDropdownWidgetState extends State<ActivityDropdownWidget> {
     // If parent now controls the value, sync internal state
     if (widget.selectedValue != oldWidget.selectedValue) {
       _internalSelected = widget.selectedValue;
+    }
+    if (widget.selectedOptions != oldWidget.selectedOptions) {
+      _internalMultiSelected = widget.selectedOptions?.toList() ?? [];
     }
   }
 
@@ -70,21 +84,44 @@ class _ActivityDropdownWidgetState extends State<ActivityDropdownWidget> {
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
 
-        CustomDropdown(
-          hintText: 'Select',
-          items: widget.options,
-          selectedItem: _effectiveSelected,
-          isEnabled: widget.isEnabled,
-          onSelect: (String? value) {
-                  if (widget.selectedValue == null) {
-                    setState(() {
-                      _internalSelected = value;
-                    });
-                  }
-                  widget.onSelect?.call(value);
+        if(!widget.isMultiSelect)
+          CustomDropdown(
+              hintText: 'Select',
+              items: widget.options,
+              selectedItem: _effectiveSelected,
+              isEnabled: widget.isEnabled,
+              onSelect: (String? value) {
+                if (widget.selectedValue == null) {
+                  setState(() {
+                    _internalSelected = value;
+                  });
                 }
+                widget.onSelect?.call(value);
+              }
 
-        ),
+          )
+        else
+          CustomMultiSelectDropdown(
+              hintText: 'Select',
+              items: widget.options,
+              selectedItems: widget.selectedOptions ?? _internalMultiSelected,
+              onChanged: (List<String> newSelectedOptions){
+                if(widget.selectedOptions == null){
+                  setState(() {
+                    _internalMultiSelected = newSelectedOptions;
+                  });
+                }
+                widget.onMultiSelect?.call(newSelectedOptions);
+              },
+              label: null,
+              suffix: 'Category',
+              gapHeight: 30,
+
+          )
+
+
+
+
       ],
     );
   }

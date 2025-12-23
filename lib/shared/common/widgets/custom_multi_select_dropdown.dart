@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
   final String? label;
+  final String? suffix;
   final String hintText;
   final List<String> items;
   final List<String> selectedItems;
@@ -21,6 +22,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     required this.selectedItems,
     required this.onChanged,
     this.label,
+    this.suffix,
     this.isField = false,
     this.width,
     this.gapHeight = 70
@@ -63,6 +65,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
       return 'status';
     } else if (widget.hintText.toLowerCase() == 'tags') {
       return 'tag${_localSelectedItems.length > 1 ? 's' : ''}';
+    } else if (widget.suffix?.toLowerCase() == 'category') {
+      return '${_localSelectedItems.length > 1 ? 'categories' : 'category'}';
     }
     return 'items';
   }

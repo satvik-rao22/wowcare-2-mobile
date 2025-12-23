@@ -61,6 +61,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       }
     });
   }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);

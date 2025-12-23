@@ -72,6 +72,12 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     });
   }
   @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(

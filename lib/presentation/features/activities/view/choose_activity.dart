@@ -6,9 +6,12 @@ import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../widgets/activity_tile.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
+import 'edit_create_activity_screens/incident_activity.dart';
+import 'edit_create_activity_screens/learning_activity.dart';
 import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/nap_start_activity.dart';
+import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
@@ -23,7 +26,7 @@ class ChooseActivity extends StatelessWidget {
     'Bathroom' : false,
     'Bottle' : false,
     'Meal' : false,
-    'Incident' : true,
+    'Incident' : false,
     'Photo' : false,
     'Video': false,
     'Medication' : false,
@@ -38,13 +41,13 @@ class ChooseActivity extends StatelessWidget {
     'Bathroom': (students) => BathroomActivityScreen(selectedStudents: students),
     'Bottle': (students) => BottleActivityScreen(selectedStudents: students),
     'Meal': (students) => MealActivityScreen(selectedStudents: students),
-    'Incident': (students) => NapStartScreen(selectedStudents: students),
+    'Incident': (students) => IncidentActivityScreen(selectedStudents: students),
     'Photo': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true,),
     'Video': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
     'Medication': (students) => MedicationActivityScreen(selectedStudents: students),
-    'Notes': (students) => NapStartScreen(selectedStudents: students),
+    'Notes': (students) => NotesActivityScreen(selectedStudents: students),
     'Outdoor': (students) => OutdoorActivityScreen(selectedStudents: students),
-    'Learning': (students) => NapStartScreen(selectedStudents: students),
+    'Learning': (students) => LearningActivityScreen(selectedStudents: students),
   };
 
 
