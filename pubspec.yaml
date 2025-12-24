@@ -132,6 +132,9 @@ flutter:
     - assets/languages/
     - assets/forte_checkout.html
   fonts:
+    - family: MervaleScript
+      fonts:
+        - asset: assets/fonts/mervale_script/MervaleScript-Regular.ttf
     - family: Inter
       fonts:
         - asset: assets/fonts/inter/Inter-Thin.ttf

@@ -22,7 +22,7 @@ class _DateWidgetState extends State<DateWidget> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final double opacity = widget.isEditable ? 1.0 : 0.4;
+    final double opacity = widget.isEditable ? 1.0 : 0.5;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -80,8 +80,9 @@ class _DateWidgetState extends State<DateWidget> {
         width: double.infinity,
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F7FA),
-          borderRadius: BorderRadius.circular(10),
+            color: const Color(0xFFB1AFE9).withOpacity(0.102),
+            //color: const Color(0xFFF8F7FA),
+            borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

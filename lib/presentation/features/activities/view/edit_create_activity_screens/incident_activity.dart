@@ -9,6 +9,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
+import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../activity_feed_screen.dart';
@@ -31,6 +32,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addNotesController = TextEditingController();
   bool _firstAidGiven = false;
+  bool _isSigned = false;
 
   @override
   void initState() {
@@ -152,6 +154,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing,),
+                          InputWidget(controller: _descriptionController, label: 'What happened?', isRequired: true,),
+                          SizedBox(height: responsive.verticalSpacing,),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start ,
                             children: [
@@ -199,11 +203,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing,),
-                          StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
+                          StaffPresentWidget(staffName: 'Staff A', isEditable: false, incidentActivity: true, onSigned: (value){ setState(() {
+                            _isSigned = value;
+                          });},),
                           SizedBox(height: responsive.verticalSpacing,),
-                          InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description'),
+                          InputWidget(controller: _addNotesController, hint: 'Enter note', label: 'Additional Notes',),
                           SizedBox(height: responsive.verticalSpacing,),
-                          MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, limit: 1, ),
+                          MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, photoSizeLimit: 20,),
                           SizedBox(height: responsive.verticalSpacing,),
 
 
@@ -255,8 +261,23 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         ),
         child: TextButton(
           onPressed: (){
-            // Navigator.of(context).popUntil((route) => route.isFirst);
-            //Navigator.of(context).pop();
+            final whatHappened = _descriptionController.text.trim();
+            if (whatHappened.isEmpty ){
+              CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Please enter what happened',
+                  isWarning: true
+              );
+              return;
+            }
+            if (!_isSigned){
+              CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Please click to sign',
+                  isWarning: true
+              );
+              return;
+            }
             Navigator.of(context).popUntil((route) {
               return route.settings.name == ActivityFeedScreen.routeName;
             });

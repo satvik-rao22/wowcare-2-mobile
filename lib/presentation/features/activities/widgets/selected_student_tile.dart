@@ -27,7 +27,8 @@ class SelectedStudentTile extends StatelessWidget {
         //height: 60,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color:  const Color(0xFFF8F7FA) ,
+          color: const Color(0xFFB1AFE9).withOpacity(0.102),
+          //color:  const Color(0xFFF8F7FA) ,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color:  AppColors.themeColor, width: 1),
         ),

@@ -338,6 +338,7 @@ class MediaUploader extends StatefulWidget {
     this.limit = 10,
     this.label = 'Upload Photos',
     this.isPictureBox = true,
+    this.photoSizeLimit
   });
 
   final List<File>? initialPhotos;
@@ -349,6 +350,7 @@ class MediaUploader extends StatefulWidget {
   final int limit;
   final String label;
   final bool isPictureBox;
+  final int? photoSizeLimit;
 
   @override
   State<MediaUploader> createState() => _MediaUploaderState();
@@ -363,7 +365,7 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   // Limits
   late int maxPhotos ;
-  static const int photoMaxSizeMB = 10;
+  late int photoMaxSizeMB;
   static const int videoMaxSizeMB = 100;
   static const int videoMaxDurationSec = 60;
 
@@ -376,6 +378,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   void initState() {
     super.initState();
     maxPhotos = widget.limit;
+    photoMaxSizeMB = widget.photoSizeLimit ?? 10;
     if (widget.initialVideo != null) {
       _videoFile = widget.initialVideo;
       _currentType = MediaType.video;

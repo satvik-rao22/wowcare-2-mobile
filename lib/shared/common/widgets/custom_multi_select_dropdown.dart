@@ -255,7 +255,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               width: widget.width,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F7FA),
+                color: const Color(0xFFB1AFE9).withOpacity(0.102),
+                //color: const Color(0xFFF8F7FA),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.transparent),
               ),

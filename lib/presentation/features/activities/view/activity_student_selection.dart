@@ -398,6 +398,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                     crossAxisCount: responsive.isTablet ? 3 : 2,
                                     crossAxisSpacing: 12,
                                     mainAxisSpacing: 12,
+                                    //childAspectRatio: 3.8
                                     childAspectRatio: responsive.isTablet ? 3.8 : 4.2
                                 ),
                                 itemCount: _filteredStudents.length,

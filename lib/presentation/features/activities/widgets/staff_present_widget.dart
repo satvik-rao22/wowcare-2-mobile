@@ -3,11 +3,14 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
 class StaffPresentWidget extends StatefulWidget {
-  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true});
+  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned});
   final String staffName;
   final bool isEditable;
+  final bool incidentActivity;
+  final ValueChanged<bool>? onSigned;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -16,6 +19,8 @@ class StaffPresentWidget extends StatefulWidget {
 class _StaffPresentWidgetState extends State<StaffPresentWidget> {
  final List<String> staffList =['Staff A', 'Staff B', 'Staff C'];
  late String? selectedStaff;
+ bool clickToSign = false;
+
 
   void _showWarningMessage(String message) {
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
@@ -57,19 +62,36 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize:  13,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Manrope',
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  color: AppColors.primaryColor,
+                  fontSize:  13,
+                  fontWeight: FontWeight.w400,
+                  fontFamily: 'Manrope',
+                ),
+                children: [
+                  TextSpan(text: 'Staff Present'),
+                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                ],
+              ),
             ),
-            children: [
-              TextSpan(text: 'Staff Present'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
+            if (widget.incidentActivity)
+              CheckboxWidget(
+                label: 'Click to sign',
+                isEditable: true,
+                isChecked: clickToSign,
+                onChecked: (newValue){
+                  setState(() {
+                    clickToSign = newValue;
+                  });
+                  widget.onSigned?.call(newValue);
+                },
+              ),
+          ],
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
         InkWell(
@@ -77,7 +99,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             _showWarningMessage("Can not be edited.");
           } : null,
           child: Opacity(
-            opacity: widget.isEditable ? 1.0 : 0.4,
+            opacity: widget.isEditable ? 1.0 : widget.incidentActivity ? 1.0 : 0.4,
             child: CustomDropdown(
               hintText: 'Select present staff',
               items: staffList,
@@ -91,7 +113,32 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
               }: null,
             ),
           ),
-        )
+        ),
+        SizedBox(height: responsive.verticalSpacing,),
+        if (widget.incidentActivity && clickToSign)
+          Container(
+            constraints: BoxConstraints(minHeight: 60),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFB1AFE9).withOpacity(0.102),
+              //color: const Color(0xFFF8F7FA),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text(
+                selectedStaff!,
+                style: TextStyle(
+                  fontFamily: 'MervaleScript',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xff573353),
+                  //height: 19 / 14,
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+              ),
+            ),
+          )
       ],
     );
   }

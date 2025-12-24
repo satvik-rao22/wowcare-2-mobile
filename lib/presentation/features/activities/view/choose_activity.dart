@@ -55,6 +55,12 @@ class ChooseActivity extends StatelessWidget {
   Widget build(BuildContext context) {
     //String? selectedActivity;
     final responsive = ResponsiveHelper(context);
+    final Map<String, bool> unavailableActivities = Map.from(_allLabels);
+    if(selectedStudents.length > 1){
+      unavailableActivities['Incident'] = true;
+    } else {
+      unavailableActivities['Incident'] = false;
+    }
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
@@ -116,7 +122,8 @@ class ChooseActivity extends StatelessWidget {
                               final entry = activityIcons.entries.toList()[index];
                               final iconPath = entry.value;
                               final String activityName = entry.key;
-                              final bool unavailableActivity = _allLabels[activityName] ?? false;
+                              final bool unavailableActivity = unavailableActivities[activityName] ?? false;
+                              //final bool unavailableActivity = _allLabels[activityName] ?? false;
 
                               return ActivityTile(
                                 iconPath: iconPath,
