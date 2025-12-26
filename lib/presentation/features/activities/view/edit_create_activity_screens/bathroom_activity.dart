@@ -19,7 +19,7 @@ class BathroomActivityScreen extends StatefulWidget {
     required this.selectedStudents,
     this.isEdit = false,
   });
-  final List<String> selectedStudents;
+  final List<Map<String,dynamic>> selectedStudents;
   final bool isEdit;
 
   @override
@@ -48,7 +48,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   void initState() {
     super.initState();
     // Create a mutable copy of the incoming list
-    _selectedStudents = List.from(widget.selectedStudents);
+    //_selectedStudents = List.from(widget.selectedStudents);
+    _selectedStudents = widget.selectedStudents.map((studentMap) => studentMap['name'] as String).toList();
   }
 
   void _updateAvailableSubTypes() {

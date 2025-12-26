@@ -10,7 +10,7 @@ import 'edit_create_activity_screens/incident_activity.dart';
 import 'edit_create_activity_screens/learning_activity.dart';
 import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
-import 'edit_create_activity_screens/nap_start_activity.dart';
+import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
@@ -18,11 +18,10 @@ import 'edit_create_activity_screens/photo_activity.dart';
 class ChooseActivity extends StatelessWidget {
   const ChooseActivity({super.key, required this.selectedStudents});
 
-  final List<String> selectedStudents ;
-  static final Map<String, String> activityIcons = { 'Nap start' : MediaRes.napActivityIcon, 'Nap end' : MediaRes.napActivityIcon, 'Bathroom' : MediaRes.bathroomActivityIcon, 'Bottle' : MediaRes.bottleActivityIcon, 'Meal': MediaRes.mealActivityIcon, 'Incident' : MediaRes.incidentActivityIcon, 'Photo': MediaRes.photoVideoActivityIcon, 'Video': MediaRes.photoVideoActivityIcon,'Medication': MediaRes.medicationActivityIcon, 'Notes' : MediaRes.notesActivityIcon, 'Outdoor' : MediaRes.outdoorActivityIcon, 'Learning' : MediaRes.learningActivityIcon};
+  final List<Map<String, dynamic>> selectedStudents ;
+  static final Map<String, String> activityIcons = { 'Nap' : MediaRes.napActivityIcon, 'Bathroom' : MediaRes.bathroomActivityIcon, 'Bottle' : MediaRes.bottleActivityIcon, 'Meal': MediaRes.mealActivityIcon, 'Incident' : MediaRes.incidentActivityIcon, 'Photo': MediaRes.photoVideoActivityIcon, 'Video': MediaRes.photoVideoActivityIcon,'Medication': MediaRes.medicationActivityIcon, 'Notes' : MediaRes.notesActivityIcon, 'Outdoor' : MediaRes.outdoorActivityIcon, 'Learning' : MediaRes.learningActivityIcon};
   static const Map<String, bool> _allLabels = { // here true means the activity won't be clickable
-    'Nap start' : false,
-    'Nap end': true,
+    'Nap' : false,
     'Bathroom' : false,
     'Bottle' : false,
     'Meal' : false,
@@ -35,9 +34,8 @@ class ChooseActivity extends StatelessWidget {
     'Learning' : false,
   };
   // Map activity name to the destination widget/screen
-  static final Map<String, Widget Function(List<String>)> activityRoutes = {
-    'Nap start': (students) => NapStartScreen(selectedStudents: students),
-    'Nap end': (students) => NapStartScreen(selectedStudents: students),
+  static final Map<String, Widget Function(List<Map<String, dynamic>>)> activityRoutes = {
+    'Nap': (students) => NapActivityScreen(selectedStudents: students),
     'Bathroom': (students) => BathroomActivityScreen(selectedStudents: students),
     'Bottle': (students) => BottleActivityScreen(selectedStudents: students),
     'Meal': (students) => MealActivityScreen(selectedStudents: students),

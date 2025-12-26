@@ -10,12 +10,16 @@ class TimeWidget extends StatefulWidget {
     super.key,
     this.isEditable = true,
     this.initialTime,
-    this.isRequired = false
+    this.isRequired = false,
+    this.label = 'Time',
+    this.doNotShowTime =false
   });
 
   final bool isEditable;
+  final String label;
   final TimeOfDay? initialTime; // Optional initial time
   final bool isRequired;
+  final bool doNotShowTime;
 
   @override
   State<TimeWidget> createState() => _TimeWidgetState();
@@ -82,7 +86,7 @@ class _TimeWidgetState extends State<TimeWidget> {
               fontFamily: 'Manrope',
             ),
             children:  [
-              TextSpan(text: 'Time'),
+              TextSpan(text: widget.label),
               if(widget.isRequired) TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
             ],
           ),
@@ -111,7 +115,7 @@ class _TimeWidgetState extends State<TimeWidget> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    formattedTime,
+                    widget.doNotShowTime ? '' : formattedTime,
                     style: TextStyle(
                       color: AppColors.primaryColor.withOpacity(
                         _selectedTime == widget.initialTime && widget.initialTime == null

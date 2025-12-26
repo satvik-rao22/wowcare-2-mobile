@@ -28,9 +28,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final Map<String, dynamic> _studentsInSelectedClassroom = {
     '1-Blue D': {
-      'Ajay': ['5 Days', 'Full Day', 'Photo Permission'],
-      'Lex': ['Full Day', 'Photo Permission', 'Vegetarian', 'First Aid'],
-      'Brinder': [
+      'Ajay': {'tags' :['5 Days', 'Full Day', 'Photo Permission'], 'nappingStatus' : true,},
+      'Lex': {'tags': ['Full Day', 'Photo Permission', 'Vegetarian', 'First Aid'], 'nappingStatus' : false},
+      'Brinder': {'tags': [
         '5 Days',
         'Photo Permission',
         'Vegetarian',
@@ -39,10 +39,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         'Pickup Authorized',
         'Medication',
         'Half Day',
-      ],
+      ], 'nappingStatus' : false}
     },
     '3-Orange-D': {
-      'Devi': [
+      'Devi': {'tags': [
         '5 Days',
         'Full Day',
         'Photo Permission',
@@ -51,23 +51,23 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         'Allergy',
         'Pickup Authorized',
         'Medication',
-      ],
-      'Jessica': [
+      ], 'nappingStatus': false},
+      'Jessica': {'tags': [
         'Allergy',
         'Pickup Authorized',
         'Medication',
         'Half Day',
         'Girl',
-      ],
-      'Kimberly': ['Allergy', 'Pickup Authorized', 'Girl'],
-      'Nichole': ['5 Days', 'Full Day', 'Photo Permission'],
+      ], 'nappingStatus' : true},
+      'Kimberly': {'tags' : ['Allergy', 'Pickup Authorized', 'Girl'], 'nappingStatus' : false},
+      'Nichole': {'tags': ['5 Days', 'Full Day', 'Photo Permission'], 'nappingStatus': true}
     },
     '2-Red A': {
-      'Sree': ['5 Days', 'Full Day', 'Photo Permission'],
-      'Aria': ['5 Days', 'Full Day', 'Photo Permission'],
-      'Kabir': ['5 Days', 'Half Day', 'Photo Permission'],
-      'Sara': ['5 Days', 'Full Day', 'Photo Permission'],
-      'Raghav': ['5 Days', 'Half Day', 'Photo Permission'],
+      'Sree': {'tags': ['5 Days', 'Full Day', 'Photo Permission'], 'nappingStatus' : false},
+      'Aria': {'tags': ['5 Days', 'Full Day', 'Photo Permission'], 'nappingStatus' : false},
+      'Kabir': {'tags': ['5 Days', 'Half Day', 'Photo Permission'], 'nappingStatus' : true},
+      'Sara': {'tags': ['5 Days', 'Full Day', 'Photo Permission'], 'nappingStatus' : true},
+      'Raghav': {'tags': ['5 Days', 'Half Day', 'Photo Permission'], 'nappingStatus' : false},
     },
   };
   final List<String> _tagOptions = [
@@ -83,61 +83,35 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     'Boy',
     'Girl',
   ];
-  Set<String> _selectedStudents = <String>{};
+  Set<Map<String, dynamic>> _selectedStudents = <Map<String, dynamic>>{};
 
-  List<MapEntry<String, List<String>>> get _filteredStudents {
+  List<MapEntry<String, Map<String, dynamic>>> get _filteredStudents {
     final query = _searchController.text.trim().toLowerCase();
+    final Map<String, Map<String, dynamic>> resultMap = {};
 
-    // If there is NO search query → show nothing unless classroom is selected
-    if (query.isEmpty) {
-      if (_selectedClassroom == null) {
-        return []; // No search + no classroom → show nothing
-      }
-
-      // Classroom selected + no search → show all from that classroom
-      final classroomStudents = _studentsInSelectedClassroom[_selectedClassroom];
-      if (classroomStudents == null) return [];
-
-      Map<String, List<String>> filtered = Map.from(classroomStudents);
-
-      // Apply tags if any
-      if (_selectedTags.isNotEmpty) {
-        filtered.removeWhere((name, tags) =>
-        !_selectedTags.every((tag) => tags.contains(tag)));
-      }
-
-      return filtered.entries.toList();
+    if (_selectedClassroom == null) {
+      return [];
     }
 
-    // There IS a search query → search across ALL classrooms
-    Map<String, List<String>> allStudents = {};
-    _studentsInSelectedClassroom.forEach((classroom, students) {
-      allStudents.addAll(students);
-    });
-
-    // Filter by search query
-    allStudents.removeWhere(
-            (name, tags) => !name.toLowerCase().contains(query));
-
-    // If classroom is selected, restrict search results to that classroom
-    if (_selectedClassroom != null) {
-      allStudents.removeWhere((name, _) =>
-      !_studentsInSelectedClassroom[_selectedClassroom]!.containsKey(name));
+    // Get the students of the selected classroom
+    final classroomStudents = _studentsInSelectedClassroom[_selectedClassroom];
+    if (classroomStudents == null) {
+      return [];
     }
 
-    // // If classroom is selected, further restrict to that classroom
-    // if (_selectedClassroom != null) {
-    //   allStudents.removeWhere((name, tags) =>
-    //       _studentsInSelectedClassroom[_selectedClassroom]!.containsKey(name));
-    // }
+    resultMap.addAll(classroomStudents);
 
-    // Apply tags only if classroom is selected (optional – you can remove this if you want global tag filter)
-    if (_selectedClassroom != null && _selectedTags.isNotEmpty) {
-      allStudents.removeWhere((name, tags) =>
-      !_selectedTags.every((tag) => tags.contains(tag)));
+    if (_selectedTags.isNotEmpty) {
+      resultMap.removeWhere((name, info) =>
+      !_selectedTags.every((tag) => (info['tags'] as List<String>).contains(tag)));
     }
 
-    return allStudents.entries.toList();
+    // Apply search filter (if there's a query)
+    if (query.isNotEmpty) {
+      resultMap.removeWhere((name, _) => !name.toLowerCase().contains(query));
+    }
+
+    return resultMap.entries.toList();
   }
 
   // List<MapEntry<String, List<String>>> get _filteredStudents {
@@ -180,7 +154,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       _selectAll = false;
     } else {
       _selectAll = _filteredStudents
-          .every((entry) => _selectedStudents.contains(entry.key));
+          .every((entry) => _selectedStudents.any((s) => s['name'] == entry.key && s['classroom'] == _selectedClassroom));
     }
   }
 
@@ -221,6 +195,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     super.initState();
     //_applyFilters();
     _searchController.addListener(_applyFilters);
+    _selectedClassroom = _classroomOptions.first;
   }
 
   void _applyFilters(){
@@ -367,12 +342,32 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                             final newVal = v ?? false;
                             setState(() {
                               _selectAll = newVal;
-                              if(newVal){
-                                _selectedStudents.addAll(_filteredStudents.map((e) => e.key));
+                              if (newVal) {
+                                for (final entry in _filteredStudents) {
+                                  final name = entry.key;
+                                  final info = entry.value;
+                                  final bool isNapping = info['nappingStatus'] as bool;
+
+                                  _selectedStudents.add({
+                                    'name': name,
+                                    'classroom': _selectedClassroom!,
+                                    'tags': info['tags'],
+                                    'nappingStatus': isNapping,
+                                  });
+                                }
                               } else {
-                                _selectedStudents.removeAll(_filteredStudents.map((e) => e.key));
+                                _selectedStudents.removeWhere(
+                                        (s) => s['classroom'] == _selectedClassroom);
                               }
                             });
+                            // setState(() {
+                            //   _selectAll = newVal;
+                            //   if(newVal){
+                            //     _selectedStudents.addAll(_filteredStudents.map((e) => e.key,));
+                            //   } else {
+                            //     _selectedStudents.removeAll(_filteredStudents.map((e) => e.key));
+                            //   }
+                            // });
                           },
                         ),
                       ),
@@ -405,7 +400,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                 itemBuilder: (context, index) {
                                   final student = _filteredStudents[index];
                                   final String name = student.key;
-                                  final bool isSelected = _selectedStudents.contains(name);
+                                  final Map<String, dynamic> studentInfo = student.value;
+                                  final bool isNapping = studentInfo['nappingStatus'] ;
+                                  final bool isSelected = _selectedStudents.any((s) => s['name'] == name && s['classroom'] == _selectedClassroom);
 
                                   return StudentTile(
                                       name: name,
@@ -414,9 +411,16 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                         ScaffoldMessenger.of(context).removeCurrentSnackBar();
                                         setState(() {
                                           if(selected == true){
-                                            _selectedStudents.add(name);
+                                            _selectedStudents.add(
+                                               {
+                                                 'name' : name,
+                                                 'classroom': _selectedClassroom!,
+                                                 'tags' : studentInfo['tags'],
+                                                 'nappingStatus': isNapping
+                                               }
+                                            );
                                           } else {
-                                            _selectedStudents.remove(name);
+                                            _selectedStudents.removeWhere((s) => s['name'] == name && s['classroom'] == _selectedClassroom);
                                           }
                                           _updateSelectAllState();
                                         });

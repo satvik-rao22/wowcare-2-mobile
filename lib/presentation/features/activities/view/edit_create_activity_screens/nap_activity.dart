@@ -10,34 +10,46 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
+import '../activity_feed_screen.dart';
 
-class NapStartScreen extends StatefulWidget {
-  const NapStartScreen({
+class NapActivityScreen extends StatefulWidget {
+  const NapActivityScreen({
     super.key,
     required this.selectedStudents,
     this.isEdit = false
   });
-  final List<String> selectedStudents;
+  final List<Map<String, dynamic>> selectedStudents;
   final bool isEdit;
 
   @override
-  State<NapStartScreen> createState() => _NapStartScreenState();
+  State<NapActivityScreen> createState() => _NapActivityScreenState();
 }
 
-class _NapStartScreenState extends State<NapStartScreen> {
+class _NapActivityScreenState extends State<NapActivityScreen> {
+  late final List<Map<String,dynamic>> _selectedStudentsData;
   late final List<String> _selectedStudents;
   final TextEditingController _descriptionController = TextEditingController();
+
+  bool get allNapping {
+    return _selectedStudentsData.every((student) => student['nappingStatus'] == true);
+  }
+  bool get noOneNapping {
+    return _selectedStudentsData.every((student) => student['nappingStatus'] == false);
+  }
 
   @override
   void initState() {
     super.initState();
     // Create a mutable copy of the incoming list
-    _selectedStudents = List.from(widget.selectedStudents);
+    _selectedStudentsData = List.from(widget.selectedStudents);
+    _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
+
   }
 
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
+      _selectedStudentsData.removeWhere((s) => s['name'] == name);
 
       // If no students left, go back to previous screen
       if (_selectedStudents.isEmpty) {
@@ -141,9 +153,15 @@ class _NapStartScreenState extends State<NapStartScreen> {
                             SizedBox(height: responsive.verticalSpacing,),
                             DateWidget(isEditable: true,),
                             SizedBox(height: responsive.verticalSpacing,),
-                            TimeWidget(isEditable: true,),
+                            Row(
+                              children: [
+                                Flexible(child: TimeWidget(label: 'Start Time',isEditable: noOneNapping || (!allNapping && !noOneNapping), isRequired: noOneNapping || (!allNapping && !noOneNapping), doNotShowTime: allNapping,)),
+                                const SizedBox(width: 10,),
+                                Flexible(child: TimeWidget(label : 'End Time', isEditable: allNapping || (!allNapping && !noOneNapping), isRequired: allNapping || (!allNapping && !noOneNapping), doNotShowTime: noOneNapping,))
+                              ],
+                            ),
                             SizedBox(height: responsive.verticalSpacing,),
-                            CheckboxWidget(label: 'Remind to check nap every 15 mins', isEditable: false,),
+                            CheckboxWidget(label: 'Remind to check nap every 15 mins', isEditable: noOneNapping || (!allNapping && !noOneNapping),),
                             SizedBox(height: responsive.verticalSpacing,),
                             StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
                             SizedBox(height: responsive.verticalSpacing,),
@@ -199,7 +217,9 @@ class _NapStartScreenState extends State<NapStartScreen> {
         ),
         child: TextButton(
           onPressed: (){
-
+            Navigator.of(context).popUntil((route) {
+              return route.settings.name == ActivityFeedScreen.routeName;
+            });
           },
           style: TextButton.styleFrom(overlayColor: Colors.transparent),
           child: Text(
