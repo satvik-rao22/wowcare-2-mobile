@@ -7,6 +7,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../shared/common/widgets/custom_search_bar.dart';
@@ -295,6 +296,24 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                               controller: _searchController,
                               hintText: 'Search Students',
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 38,
+                            child: CustomClearAllChip(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedClassroom = _classroomOptions.first;
+                                    _selectedStudents.clear();
+                                    _searchController.clear();
+                                    //_selectedTags.clear();
+                                    _selectedTags = [];
+                                    _updateSelectAllState();
+
+                                  });
+                                  //print(_filterTags);
+                                },
+                                label: 'Clear All'),
                           ),
                         ],
                       ),

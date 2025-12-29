@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -38,6 +39,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.tabController,
     this.tabBarStyle,
     this.notificationCount = 0,
+		this.isParent = false,
+		this.studentList,
     super.key,
   });
 
@@ -46,6 +49,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final TabController? tabController;
   final TabBarStyle? tabBarStyle;
   final int notificationCount;
+	final bool isParent;
+	final List<String>? studentList;
 
   @override
 	Size get preferredSize => Size.fromHeight(
@@ -61,7 +66,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       scrolledUnderElevation: 0,
       foregroundColor: Colors.black,
 			titleSpacing: 0,
-			title: null,
+			title: isParent? Padding(
+			  padding: const EdgeInsets.only(left: 20),
+			  child: SizedBox(width: 180,child: CustomDropdown(hintText: 'Select child', items: studentList!)),
+			):null,
 			leading: hasBackButton
 	          ? IconButton(
 						icon: SvgPicture.asset(MediaRes.backButton),

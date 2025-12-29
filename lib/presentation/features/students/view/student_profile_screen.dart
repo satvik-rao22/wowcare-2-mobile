@@ -480,7 +480,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
           _buildActionIcon(MediaRes.attendanceIcon, onTap: () {}),
           _buildActionIcon(
               MediaRes.activitesIcon, onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityFeedScreen(fromStudentProfile: true, studentName: studentName,)));
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityFeedScreen(fromStudentProfile: true, studentName: {'name' : widget.name, 'classroom': widget.classroom, 'tags': widget.tags, 'nappingStatus': false},))); //get this data from database for now hardcoding napping status
 
           }
           ),

@@ -308,13 +308,16 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                tag,
-                                style: TextStyle(
-                                  color: _getTagTextColor(tag),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  fontFamily: 'Manrope',
+                              Flexible(
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    color: _getTagTextColor(tag),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    fontFamily: 'Manrope',
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 6),

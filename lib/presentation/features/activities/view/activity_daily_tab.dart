@@ -16,11 +16,13 @@ class ActivityDailyTab extends StatefulWidget {
   const ActivityDailyTab({
     super.key,
     this.fromStudentProfile = false,
-    this.studentName = '',
+    this.studentName,
+    this.isNotParent = true
   });
 
   final bool fromStudentProfile;
-  final String studentName;
+  final String? studentName;
+  final bool isNotParent;
 
   static const String routeName = '/activityDailyTab';
 
@@ -30,12 +32,14 @@ class ActivityDailyTab extends StatefulWidget {
 
 class _ActivityDailyTabState extends State<ActivityDailyTab> {
   //final TextEditingController _searchController = TextEditingController();
-  final isNotParent = true;
+  late bool isNotParent;
 
   DateTime? _selectedDate = DateTime.now();
   String? _selectdClassroom;
   String? _selectedStudent;
   List<String> _availableStudents = [];
+  List<String> _filterTags =[];
+  List<String> _filterActivityTypes = [];
   String? _selectedActivityType;
   final List<String> activityType = [
     'Nap Start',
@@ -132,6 +136,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     super.initState();
     _selectdClassroom = _classroomOptions[0];
     _updateAvailableStudents();
+    isNotParent = widget.isNotParent;
     //_selectedStudent = _allStudents[0];
   }
 
@@ -176,7 +181,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                         child: AbsorbPointer(
                           child: _buildCustomDropdown(
                             'Select Student',
-                            [widget.studentName],
+                            [?widget.studentName],
                             widget.studentName,
                             (v) => setState(() {
                               _selectedStudent = v;
@@ -268,6 +273,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                             'Boy',
                                             'Girl',
                                           ],
+                                          initialSelected: _filterTags,
                                           isMultiSelectDropDown: false,
                                         ),
                                         FilerSection(
@@ -289,10 +295,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                             'Sign-out',
                                             'Absent',
                                           ],
+                                          initialSelected: _filterActivityTypes,
                                           isMultiSelectDropDown: false,
                                         ),
                                       ],
-                                      onApply: (filters) {},
+                                      onApply: (filters) {
+                                        setState(() {
+                                          _filterTags = filters['Tags']!;
+                                          _filterActivityTypes = filters['Activity Type']!;
+                                        });
+                                        //print(_filterTags);
+                                        //print(_filterActivityTypes);
+                                      },
                                     ),
                                   ),
                                 );
@@ -328,7 +342,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          CustomClearAllChip(onTap: () {}, label: 'Clear All'),
+                          CustomClearAllChip(
+                              onTap: () {
+                                setState(() {
+                                  _selectdClassroom = _classroomOptions[0];
+                                  _selectedStudent = null;
+                                  _filterActivityTypes.clear();
+                                  _filterTags.clear();
+                                });
+                                //print(_filterTags);
+                              },
+                              label: 'Clear All'),
                         ],
                       ),
                     ],
@@ -755,7 +779,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       child: Container(
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F7FA),
+          color: const Color(0xFFB1AFE9).withOpacity(0.102),
+          //color: const Color(0xFFF8F7FA),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(

@@ -6,16 +6,17 @@ import 'package:wowcare/presentation/features/activities/view/activity_student_s
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
+import 'choose_activity.dart';
 
 class ActivityFeedScreen extends StatefulWidget {
   const ActivityFeedScreen({
     super.key,
     this.fromStudentProfile = false,
-    this.studentName = '',
+    this.studentName ,
   });
 
   final bool fromStudentProfile;
-  final String studentName;
+  final Map<String, dynamic>? studentName;
 
   static const String routeName = '/activityFeed';
 
@@ -47,6 +48,8 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
+      isParent: !isNotParent,
+      studentList: ['Anya Mehta', 'Kabir Mehta'],// hardcoding right now, letter will be fetched from backend
       body: isNotParent ?
       Column(
         children: [
@@ -84,7 +87,13 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                 children: [
                   GradientAddButton(
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityStudentSelection()));
+                      if(widget.fromStudentProfile){
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => ChooseActivity(selectedStudents: [?widget.studentName],)));
+                      } else {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityStudentSelection()));
+                      }
+
+
                     },
                     isTablet: MediaQuery.of(context).size.width >= 600,
                     isLargeTablet: MediaQuery.of(context).size.width >= 900,
@@ -99,8 +108,8 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
             child: TabBarView(
               controller: _tabController,
               children: [
-                ActivityDailyTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName,),
-                ActivityCustomTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName,)
+                ActivityDailyTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName?['name'],),
+                ActivityCustomTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName?['name'],)
 
               ],
             ),
@@ -109,7 +118,50 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
           const SizedBox(height: 16),
         ],
       )
-      : ActivityDailyTab(),
+      : Column(
+        children: [
+          TabBar(
+            isScrollable: true,
+            controller: _tabController,
+            dividerColor: Colors.transparent,
+            indicator: const UnderlineTabIndicator(
+              borderSide: BorderSide(color: AppColors.themeColor),
+            ),
+            indicatorPadding: const EdgeInsets.only(bottom: 8),
+            labelStyle: const TextStyle(
+              color: Colors.black,
+              fontFamily: 'Manrope',
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+            unselectedLabelStyle: TextStyle(
+              color: AppColors.primaryColor.withOpacity(0.5),
+              fontFamily: 'Manrope',
+              fontSize: 16,
+            ),
+            labelColor: Colors.black,
+            unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
+            tabAlignment: TabAlignment.start,
+            tabs: const [
+              Tab(text: 'Daily'),
+              Tab(text: 'Custom',)
+            ],
+          ),
+
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                ActivityDailyTab(isNotParent: isNotParent,),
+                ActivityCustomTab(isNotParent: isNotParent,)
+
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }

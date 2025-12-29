@@ -176,6 +176,8 @@ class GlobalScaffold extends StatelessWidget {
     this.hasBackButton = false,
     this.floatingActionButton,
     this.showCustomNavigationBar = true,
+    this.isParent = false,
+    this.studentList,
     super.key,
   });
 
@@ -183,13 +185,15 @@ class GlobalScaffold extends StatelessWidget {
   final bool hasBackButton;
   final Widget? floatingActionButton;
   final bool showCustomNavigationBar;
+  final bool isParent;
+  final List<String>? studentList;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        appBar: CustomAppBar(hasBackButton: hasBackButton),
+        appBar: CustomAppBar(hasBackButton: hasBackButton, isParent: isParent, studentList: studentList,),
         drawer: const CustomDrawer(),
         drawerEnableOpenDragGesture: false,
         body: SafeArea(
