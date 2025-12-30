@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -17,7 +18,7 @@ class ActivityDailyTab extends StatefulWidget {
     super.key,
     this.fromStudentProfile = false,
     this.studentName,
-    this.isNotParent = true
+    this.isNotParent = true,
   });
 
   final bool fromStudentProfile;
@@ -38,7 +39,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   String? _selectdClassroom;
   String? _selectedStudent;
   List<String> _availableStudents = [];
-  List<String> _filterTags =[];
+  List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
   String? _selectedActivityType;
   final List<String> activityType = [
@@ -74,36 +75,41 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   final List<ActivityItem> activities = [
     ActivityItem(
       time: "05.00 PM",
+      date: 'December 30, 2025',
       name: "Outdoor",
       description: "Outdoor Activity",
       color: Color(0xFFFFE0B2), // orange
-      photoUrl:
-          "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
       studentList: ['Kabir Mehta', 'Sara Khan'],
-      createdBy: 'Staff A'
+      createdBy: 'Staff A',
+      categoryType: 'Self Care',
+      activityType: 'Morning Time',
     ),
     ActivityItem(
       time: "04.30 PM",
+      date: 'December 30, 2025',
       name: "Learning",
       description: "Drawing Activity",
       color: Color(0xFFB3E5FC), // blue
-      photoUrl:
-          "https://images.unsplash.com/photo-1587653915930-8d17f0e7ff5d?w=400",
+      photoUrl: 'https://images.unsplash.com/photo-1516627145494-ae3b8352f1c5?w=400',
       studentList: ['Raghav Gupta'],
-      createdBy: 'Staff B'
+      createdBy: 'Staff B',
+      categoryType: 'Self Care',
+      activityType: 'Morning Time',
     ),
     ActivityItem(
       time: "04.00 PM",
+      date: 'December 30, 2025',
       name: "Nap",
       description: "Nap Time",
       color: Color(0xFFFFCCBC), // pink
-      photoUrl:
-          "https://images.unsplash.com/photo-1603394152748-9625e4419c7a?w=400",
       studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff C'
+      createdBy: 'Staff C',
+      categoryType: 'Self Care',
+      activityType: 'Morning Time',
     ),
     ActivityItem(
       time: "02.22 PM",
+      date: 'December 30, 2025',
       name: "Meal",
       description: "Lunch (Finished)",
       color: Color(0xFFC8E6C9), // green
@@ -117,19 +123,54 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         'Raghav Gupta',
         'Kabir Mehta',
       ],
-      createdBy: 'Staff A'
+      createdBy: 'Staff A',
+      categoryType: 'Self Care',
+      activityType: 'Morning Time',
     ),
     ActivityItem(
       time: "01.00 PM",
-      name: "Meal",
+      date: 'December 30, 2025',
+      name: "Notes",
       description: "Drawing Activity",
       color: Color(0xFFD1C4E9), // purple
       photoUrl:
           "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
       studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff B'
+      createdBy: 'Staff B',
+      categoryType: 'Self Care',
+      activityType: 'Morning Time',
     ),
   ];
+
+  // Map activity label to the destination view activity screen
+  static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
+    'Nap': (activity) => ViewLearningActivity(activityData: activity),
+    'Bathroom': (activity) => ViewLearningActivity(activityData: activity),
+    'Bottle': (activity) => ViewLearningActivity(activityData: activity),
+    'Meal': (activity) => ViewLearningActivity(activityData: activity),
+    'Incident': (activity) => ViewLearningActivity(activityData: activity),
+    'Photo': (activity) => ViewLearningActivity(activityData: activity),
+    'Video': (activity) => ViewLearningActivity(activityData: activity),
+    'Medication': (activity) => ViewLearningActivity(activityData: activity),
+    'Notes': (activity) => ViewLearningActivity(activityData: activity),
+    'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
+    'Learning': (activity) => ViewLearningActivity(activityData: activity),
+  };
+
+  // Map activity label to the placeholder icon
+  static final Map<String, dynamic> activityIcons = {
+    'Nap': MediaRes.napActivityIcon,
+    'Bathroom': MediaRes.bathroomActivityIcon,
+    'Bottle': MediaRes.bottleActivityIcon,
+    'Meal': MediaRes.mealActivityIcon,
+    'Incident': MediaRes.incidentActivityIcon,
+    'Photo': MediaRes.photoVideoActivityIcon,
+    'Video': MediaRes.photoVideoActivityIcon,
+    'Medication': MediaRes.medicationActivityIcon,
+    'Notes': MediaRes.notesActivityIcon,
+    'Outdoor': MediaRes.outdoorActivityIcon,
+    'Learning': MediaRes.learningActivityIcon,
+  };
 
   @override
   void initState() {
@@ -144,7 +185,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     if (_selectdClassroom != null) {
       _availableStudents = classroomStudents[_selectdClassroom] ?? [];
       // If current selected student is not in the new list, clear it
-      if (_selectedStudent != null && !_availableStudents.contains(_selectedStudent)) {
+      if (_selectedStudent != null &&
+          !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
     } else {
@@ -186,7 +228,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                             (v) => setState(() {
                               _selectedStudent = v;
                             }),
-                            height: 65
+                            height: 65,
                           ),
                         ),
                       ),
@@ -236,7 +278,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                   : 'Select Student',
                               _availableStudents,
                               _selectedStudent,
-                                  (value) {
+                              (value) {
                                 // Only update if a classroom is actually selected
                                 if (_selectdClassroom != null) {
                                   setState(() {
@@ -302,7 +344,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                       onApply: (filters) {
                                         setState(() {
                                           _filterTags = filters['Tags']!;
-                                          _filterActivityTypes = filters['Activity Type']!;
+                                          _filterActivityTypes =
+                                              filters['Activity Type']!;
                                         });
                                         //print(_filterTags);
                                         //print(_filterActivityTypes);
@@ -343,16 +386,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                           ),
                           const SizedBox(width: 8),
                           CustomClearAllChip(
-                              onTap: () {
-                                setState(() {
-                                  _selectdClassroom = _classroomOptions[0];
-                                  _selectedStudent = null;
-                                  _filterActivityTypes.clear();
-                                  _filterTags.clear();
-                                });
-                                //print(_filterTags);
-                              },
-                              label: 'Clear All'),
+                            onTap: () {
+                              setState(() {
+                                _selectdClassroom = _classroomOptions[0];
+                                _selectedStudent = null;
+                                _filterActivityTypes.clear();
+                                _filterTags.clear();
+                              });
+                              //print(_filterTags);
+                            },
+                            label: 'Clear All',
+                          ),
                         ],
                       ),
                     ],
@@ -383,7 +427,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                             (v) => setState(() {
                               _selectedActivityType = v;
                             }),
-                            height: 65
+                            height: 65,
                           ),
                         ),
                       ),
@@ -529,54 +573,74 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                               child: SizedBox(
                                                 width: 140,
                                                 height: 120,
-                                                child: Image.network(
-                                                  activity.photoUrl,
-                                                  fit: BoxFit.cover,
-                                                  loadingBuilder:
-                                                      (
-                                                        context,
-                                                        child,
-                                                        loadingProgress,
-                                                      ) {
-                                                        if (loadingProgress ==
-                                                            null)
-                                                          return child;
-                                                        return Container(
-                                                          color: Colors
-                                                              .transparent,
-                                                          child: const Center(
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                                  strokeWidth:
-                                                                      2,
+                                                child:
+                                                    activity.photoUrl != null &&
+                                                        activity
+                                                            .photoUrl!
+                                                            .isNotEmpty
+                                                    ? Image.network(
+                                                        activity.photoUrl!,
+                                                        fit: BoxFit.cover,
+                                                        loadingBuilder:
+                                                            (
+                                                              context,
+                                                              child,
+                                                              loadingProgress,
+                                                            ) {
+                                                              if (loadingProgress ==
+                                                                  null)
+                                                                return child;
+                                                              return Container(
+                                                                color: Colors
+                                                                    .transparent,
+                                                                child: const Center(
+                                                                  child: CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
                                                                 ),
+                                                              );
+                                                            },
+                                                        errorBuilder:
+                                                            (
+                                                              context,
+                                                              error,
+                                                              stackTrace,
+                                                            ) {
+                                                              return Container(
+                                                                width: 122,
+                                                                height: 76,
+                                                                color: activity
+                                                                    .color
+                                                                    .withOpacity(
+                                                                      0.25,
+                                                                    ),
+                                                                child: Center(
+                                                                  child: Image.asset(
+                                                                    activityIcons[activity
+                                                                        .name],
+                                                                    //'assets/icons/activity-nap-icon.png',
+                                                                    fit: BoxFit
+                                                                        .fill,
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                      )
+                                                    : Container(
+                                                        width: 122,
+                                                        height: 76,
+                                                        color: activity.color
+                                                            .withOpacity(0.25),
+                                                        child: Center(
+                                                          child: Image.asset(
+                                                            activityIcons[activity
+                                                                .name],
+                                                            //'assets/icons/activity-nap-icon.png',
+                                                            fit: BoxFit.fill,
                                                           ),
-                                                        );
-                                                      },
-                                                  errorBuilder:
-                                                      (
-                                                        context,
-                                                        error,
-                                                        stackTrace,
-                                                      ) {
-                                                        return Container(
-                                                          width: 122,
-                                                          height: 76,
-                                                          color: activity.color
-                                                              .withOpacity(
-                                                                0.25,
-                                                              ),
-                                                          child: Center(
-                                                            child: Image.asset(
-                                                              MediaRes
-                                                                  .napActivityIcon,
-                                                              //'assets/icons/activity-nap-icon.png',
-                                                              fit: BoxFit.fill,
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                ),
+                                                        ),
+                                                      ),
                                               ),
                                             ),
                                             const SizedBox(width: 12),
@@ -584,7 +648,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                               child: Column(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
-                                                mainAxisAlignment : MainAxisAlignment.spaceEvenly,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
                                                 children: [
                                                   Row(
                                                     mainAxisAlignment:
@@ -598,8 +664,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                               vertical: 6,
                                                             ),
                                                         decoration: BoxDecoration(
-                                                          color:
-                                                              activity.color,
+                                                          color: activity.color,
                                                           borderRadius:
                                                               BorderRadius.circular(
                                                                 20,
@@ -625,31 +690,58 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                         ),
                                                         onSelected: null,
                                                         itemBuilder: (context) => [
-                                                          PopupMenuItem<
-                                                              String
-                                                          >(
+                                                          PopupMenuItem<String>(
                                                             value: 'view',
                                                             child: PopupItem(
                                                               title: 'View',
-                                                              icon: Icon( Icons.visibility_outlined, color: AppColors.themeColor,),
+                                                              icon: Icon(
+                                                                Icons
+                                                                    .visibility_outlined,
+                                                                color: AppColors
+                                                                    .themeColor,
+                                                              ),
                                                             ),
+                                                            onTap: () {
+                                                              final destinationBuilder =
+                                                                  activityRoutes[activity
+                                                                      .name];
+                                                              if (destinationBuilder !=
+                                                                  null) {
+                                                                final nextScreen =
+                                                                    destinationBuilder(
+                                                                      activity,
+                                                                    );
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute(
+                                                                    builder: (_) =>
+                                                                        nextScreen,
+                                                                  ),
+                                                                );
+                                                              }
+                                                            },
                                                           ),
-                                                          PopupMenuItem<
-                                                            String
-                                                          >(
+                                                          PopupMenuItem<String>(
                                                             value: 'edit',
                                                             child: PopupItem(
                                                               title: 'Edit',
-                                                              icon: Icon(Icons.edit, color: AppColors.themeColor),
+                                                              icon: Icon(
+                                                                Icons.edit,
+                                                                color: AppColors
+                                                                    .themeColor,
+                                                              ),
                                                             ),
                                                           ),
-                                                          PopupMenuItem<
-                                                            String
-                                                          >(
+                                                          PopupMenuItem<String>(
                                                             value: 'delete',
                                                             child: PopupItem(
                                                               title: 'Delete',
-                                                              icon: Icon(Icons.delete, color : AppColors.themeColor),
+                                                              icon: Icon(
+                                                                Icons.delete,
+                                                                color: AppColors
+                                                                    .themeColor,
+                                                              ),
                                                             ),
                                                           ),
                                                         ],
@@ -702,10 +794,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                       ],
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 10,),
+                                                  const SizedBox(height: 10),
 
                                                   Text(
-                                                    activity.description,
+                                                    activity.description!,
 
                                                     style: TextStyle(
                                                       color: AppColors
@@ -718,7 +810,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                     overflow:
                                                         TextOverflow.ellipsis,
                                                   ),
-                                                  const SizedBox(height: 10,),
+                                                  const SizedBox(height: 10),
                                                   Text(
                                                     'Created By - ${activity.createdBy}',
 
@@ -727,12 +819,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                           .primaryColor,
                                                       fontSize: 12,
                                                       fontWeight:
-                                                      FontWeight.w500,
+                                                          FontWeight.w500,
                                                     ),
                                                     maxLines: 1,
                                                     overflow:
-                                                    TextOverflow.ellipsis,
-                                                  )
+                                                        TextOverflow.ellipsis,
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -826,7 +918,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
-        double? height = null
+    double? height = null,
   }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
@@ -877,7 +969,7 @@ class PopupItem extends StatelessWidget {
     return Row(
       children: [
         icon,
-        const SizedBox(width: 5,),
+        const SizedBox(width: 5),
         Text(
           title,
           style: const TextStyle(
@@ -894,20 +986,28 @@ class PopupItem extends StatelessWidget {
 
 class ActivityItem {
   final String time;
+  final String date;
   final String name;
-  final String description;
+  final String? description;
   final Color color;
-  final String photoUrl;
+  final String? photoUrl;
+  final String? videoUrl;
   final List<String> studentList;
   final String createdBy;
+  final String? activityType; // for learning activity
+  final String? categoryType; // for learning activity
 
   const ActivityItem({
     required this.time,
+    required this.date,
     required this.name,
-    required this.description,
+    this.description,
     required this.color,
-    required this.photoUrl,
+    this.photoUrl,
+    this.videoUrl,
     required this.studentList,
-    required this.createdBy
+    required this.createdBy,
+    this.activityType,
+    this.categoryType,
   });
 }

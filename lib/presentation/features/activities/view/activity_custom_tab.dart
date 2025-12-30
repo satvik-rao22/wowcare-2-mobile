@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/utils/responsive_helper.dart';
+import 'activity_daily_tab.dart';
 
 class ActivityCustomTab extends StatefulWidget {
   const ActivityCustomTab({
@@ -75,6 +76,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   final List<ActivityItem> activities = [
     ActivityItem(
         time: "05.00 PM",
+        date: 'December 30, 2025',
         name: "Outdoor",
         description: "Outdoor Activity",
         color: Color(0xFFFFE0B2), // orange
@@ -85,6 +87,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     ),
     ActivityItem(
         time: "04.30 PM",
+        date: 'December 29, 2025',
         name: "Learning",
         description: "Drawing Activity",
         color: Color(0xFFB3E5FC), // blue
@@ -95,6 +98,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     ),
     ActivityItem(
         time: "04.00 PM",
+        date: 'December 20, 2025',
         name: "Nap",
         description: "Nap Time",
         color: Color(0xFFFFCCBC), // pink
@@ -105,6 +109,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     ),
     ActivityItem(
         time: "02.22 PM",
+        date: 'December 19, 2025',
         name: "Meal",
         description: "Lunch (Finished)",
         color: Color(0xFFC8E6C9), // green
@@ -122,6 +127,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     ),
     ActivityItem(
         time: "01.00 PM",
+        date: 'December 10, 2025',
         name: "Meal",
         description: "Drawing Activity",
         color: Color(0xFFD1C4E9), // purple
@@ -517,7 +523,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                 width: 140,
                                                 height: 120,
                                                 child: Image.network(
-                                                  activity.photoUrl,
+                                                  activity.photoUrl!,
                                                   fit: BoxFit.cover,
                                                   loadingBuilder:
                                                       (
@@ -692,7 +698,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                   const SizedBox(height: 10,),
 
                                                   Text(
-                                                    activity.description,
+                                                    activity.description!,
 
                                                     style: TextStyle(
                                                       color: AppColors
@@ -900,23 +906,23 @@ class PopupItem extends StatelessWidget {
     );
   }
 }
-
-class ActivityItem {
-  final String time;
-  final String name;
-  final String description;
-  final Color color;
-  final String photoUrl;
-  final List<String> studentList;
-  final String createdBy;
-
-  const ActivityItem({
-    required this.time,
-    required this.name,
-    required this.description,
-    required this.color,
-    required this.photoUrl,
-    required this.studentList,
-    required this.createdBy
-  });
-}
+//
+// class ActivityItem {
+//   final String time;
+//   final String name;
+//   final String description;
+//   final Color color;
+//   final String photoUrl;
+//   final List<String> studentList;
+//   final String createdBy;
+//
+//   const ActivityItem({
+//     required this.time,
+//     required this.name,
+//     required this.description,
+//     required this.color,
+//     required this.photoUrl,
+//     required this.studentList,
+//     required this.createdBy
+//   });
+// }

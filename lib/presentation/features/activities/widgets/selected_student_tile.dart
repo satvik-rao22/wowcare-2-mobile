@@ -10,11 +10,13 @@ class SelectedStudentTile extends StatelessWidget {
     super.key,
     required this.name,
     this.avatarUrl,
-    this.onTap
+    this.onTap,
+    this.isViewActivityScreen = false
   });
   final String name;
   final String? avatarUrl;
   final VoidCallback? onTap;
+  final bool isViewActivityScreen;
 
   @override
   Widget build(BuildContext context) {
@@ -25,40 +27,59 @@ class SelectedStudentTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         //height: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: isViewActivityScreen? 14: 12, vertical: isViewActivityScreen? 6 :4),
         decoration: BoxDecoration(
-          color: const Color(0xFFB1AFE9).withOpacity(0.102),
+          color: isViewActivityScreen ? Colors.white : Color(0xFFB1AFE9).withOpacity(0.102),
           //color:  const Color(0xFFF8F7FA) ,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isViewActivityScreen ? 24 :12),
           border: Border.all(color:  AppColors.themeColor, width: 1),
         ),
         child: Row(
+          mainAxisSize:
+          isViewActivityScreen ? MainAxisSize.min : MainAxisSize.max,
+          mainAxisAlignment: isViewActivityScreen ? MainAxisAlignment.center : MainAxisAlignment.spaceEvenly,
           children: [
             DocumentImageWidget(
               fileUuid: '',
               name: name,
               size: 35,
             ),
-            const SizedBox(width: 4,),
-            Expanded(
-              child: Text(
-                name,
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: isTablet ? 16 : 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff573353),
-                  height: 19 / 14,
+            SizedBox(width: isViewActivityScreen ? 8 :4,),
+            if(isViewActivityScreen)
+              Flexible(
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: isTablet ? 16 : 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff573353),
+                    height: 19 / 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            IconButton(
-                onPressed: onTap,
-                icon: SvgPicture.asset(
-                    MediaRes.delete_icon
-                )
-            )
+            if(!isViewActivityScreen)
+              Expanded(
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: isTablet ? 16 : 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff573353),
+                    height: 19 / 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            if(!isViewActivityScreen)
+              IconButton(
+                  onPressed: onTap,
+                  icon: SvgPicture.asset(
+                      MediaRes.delete_icon
+                  )
+              )
           ],
         ),
       ),
