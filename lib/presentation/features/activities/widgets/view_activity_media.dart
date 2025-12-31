@@ -40,6 +40,16 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
 
   void _initializeVideo() async {
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.activity.videoUrl!));
+    _controller!.addListener(() {
+      if(_controller!.value.position >= _controller!.value.duration){
+        if(mounted){
+          setState(() {
+            _isPlaying = false;
+          });
+        }
+        //_controller?.seekTo(Duration.zero);
+      }
+    });
     try {
       await _controller!.initialize();
       _controller!.setVolume(1.0); // Sound on
@@ -149,7 +159,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                     ),
                   ),
 
-                // Minimal progress bar at bottom (optional but nice)
+
                 if (hasVideo && _isInitialized && _isPlaying)
                   Positioned(
                     bottom: 0,

@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
+import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -90,7 +93,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       name: "Learning",
       description: "Drawing Activity",
       color: Color(0xFFB3E5FC), // blue
-      photoUrl: 'https://images.unsplash.com/photo-1516627145494-ae3b8352f1c5?w=400',
+      photoUrl:
+          'https://images.unsplash.com/photo-1516627145494-ae3b8352f1c5?w=400',
       studentList: ['Raghav Gupta'],
       createdBy: 'Staff B',
       categoryType: 'Self Care',
@@ -128,13 +132,33 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       activityType: 'Morning Time',
     ),
     ActivityItem(
+      time: "02.22 PM",
+      date: 'December 30, 2025',
+      name: "Photo",
+      description: "Lunch (Finished)",
+      color: Color(0xFFC8E6C9), // green
+      photoUrl:
+      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+      studentList: [
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+      ],
+      createdBy: 'Staff A',
+    ),
+    ActivityItem(
       time: "01.00 PM",
       date: 'December 30, 2025',
       name: "Notes",
       description: "Drawing Activity",
       color: Color(0xFFD1C4E9), // purple
-      photoUrl:
-          "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
+      // photoUrl:
+      //     "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
+      //videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_1MB.mp4',
+      videoUrl: "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
       studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
       createdBy: 'Staff B',
       categoryType: 'Self Care',
@@ -149,15 +173,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     'Bottle': (activity) => ViewLearningActivity(activityData: activity),
     'Meal': (activity) => ViewLearningActivity(activityData: activity),
     'Incident': (activity) => ViewLearningActivity(activityData: activity),
-    'Photo': (activity) => ViewLearningActivity(activityData: activity),
+    'Photo': (activity) => ViewPhotoActivity(activityData: activity),
     'Video': (activity) => ViewLearningActivity(activityData: activity),
     'Medication': (activity) => ViewLearningActivity(activityData: activity),
-    'Notes': (activity) => ViewLearningActivity(activityData: activity),
+    'Notes': (activity) => ViewNotesActivity(activityData: activity),
     'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
     'Learning': (activity) => ViewLearningActivity(activityData: activity),
   };
 
-  // Map activity label to the placeholder icon
   static final Map<String, dynamic> activityIcons = {
     'Nap': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
@@ -279,7 +302,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               _availableStudents,
                               _selectedStudent,
                               (value) {
-                                // Only update if a classroom is actually selected
                                 if (_selectdClassroom != null) {
                                   setState(() {
                                     _selectedStudent = value;
@@ -477,7 +499,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       itemCount: activities.length,
                       itemBuilder: (context, index) {
                         final activity = activities[index];
-                        final students = activity.studentList ?? [];
+                        final students = activity.studentList;
 
                         return Column(
                           children: [
@@ -574,59 +596,57 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                 width: 140,
                                                 height: 120,
                                                 child:
-                                                    activity.photoUrl != null &&
-                                                        activity
-                                                            .photoUrl!
-                                                            .isNotEmpty
-                                                    ? Image.network(
-                                                        activity.photoUrl!,
-                                                        fit: BoxFit.cover,
-                                                        loadingBuilder:
-                                                            (
-                                                              context,
-                                                              child,
-                                                              loadingProgress,
-                                                            ) {
-                                                              if (loadingProgress ==
-                                                                  null)
-                                                                return child;
-                                                              return Container(
-                                                                color: Colors
-                                                                    .transparent,
-                                                                child: const Center(
-                                                                  child: CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            },
-                                                        errorBuilder:
-                                                            (
-                                                              context,
-                                                              error,
-                                                              stackTrace,
-                                                            ) {
-                                                              return Container(
-                                                                width: 122,
-                                                                height: 76,
-                                                                color: activity
-                                                                    .color
-                                                                    .withOpacity(
-                                                                      0.25,
-                                                                    ),
-                                                                child: Center(
-                                                                  child: Image.asset(
-                                                                    activityIcons[activity
-                                                                        .name],
-                                                                    //'assets/icons/activity-nap-icon.png',
-                                                                    fit: BoxFit
-                                                                        .fill,
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            },
-                                                      )
+                                                    activity.photoUrl != null || activity.videoUrl != null
+                                                    ? ActivityMediaPreview(activity: activity)
+                                                    // ? Image.network(
+                                                    //     activity.photoUrl!,
+                                                    //     fit: BoxFit.cover,
+                                                    //     loadingBuilder:
+                                                    //         (
+                                                    //           context,
+                                                    //           child,
+                                                    //           loadingProgress,
+                                                    //         ) {
+                                                    //           if (loadingProgress ==
+                                                    //               null)
+                                                    //             return child;
+                                                    //           return Container(
+                                                    //             color: Colors
+                                                    //                 .transparent,
+                                                    //             child: const Center(
+                                                    //               child: CircularProgressIndicator(
+                                                    //                 strokeWidth:
+                                                    //                     2,
+                                                    //               ),
+                                                    //             ),
+                                                    //           );
+                                                    //         },
+                                                    //     errorBuilder:
+                                                    //         (
+                                                    //           context,
+                                                    //           error,
+                                                    //           stackTrace,
+                                                    //         ) {
+                                                    //           return Container(
+                                                    //             width: 122,
+                                                    //             height: 76,
+                                                    //             color: activity
+                                                    //                 .color
+                                                    //                 .withOpacity(
+                                                    //                   0.25,
+                                                    //                 ),
+                                                    //             child: Center(
+                                                    //               child: Image.asset(
+                                                    //                 activityIcons[activity
+                                                    //                     .name],
+                                                    //                 //'assets/icons/activity-nap-icon.png',
+                                                    //                 fit: BoxFit
+                                                    //                     .fill,
+                                                    //               ),
+                                                    //             ),
+                                                    //           );
+                                                    //         },
+                                                    //   )
                                                     : Container(
                                                         width: 122,
                                                         height: 76,

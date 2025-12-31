@@ -3,6 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -18,7 +21,7 @@ class ActivityCustomTab extends StatefulWidget {
     super.key,
     this.fromStudentProfile = false,
     this.studentName,
-    this.isNotParent = true
+    this.isNotParent = true,
   });
 
   final bool fromStudentProfile;
@@ -32,11 +35,18 @@ class ActivityCustomTab extends StatefulWidget {
 }
 
 class _ActivityCustomTabState extends State<ActivityCustomTab> {
-
   late bool isNotParent;
 
-  DateTime? _selectedStartDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
-  DateTime? _selectedEndDate = DateTime(DateTime.now().year, DateTime.now().month + 1, 0) ;
+  DateTime? _selectedStartDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
+  DateTime? _selectedEndDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month + 1,
+    0,
+  );
   String? _selectdClassroom;
   String? _selectedStudent;
   List<String> _availableStudents = [];
@@ -75,68 +85,117 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<ActivityItem> activities = [
     ActivityItem(
-        time: "05.00 PM",
-        date: 'December 30, 2025',
-        name: "Outdoor",
-        description: "Outdoor Activity",
-        color: Color(0xFFFFE0B2), // orange
-        photoUrl:
-        "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
-        studentList: ['Kabir Mehta', 'Sara Khan'],
-        createdBy: 'Staff A'
+      time: "05.00 PM",
+      date: 'December 30, 2025',
+      name: "Outdoor",
+      description: "Outdoor Activity",
+      color: Color(0xFFFFE0B2), // orange
+      photoUrl:
+          "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
+      studentList: ['Kabir Mehta', 'Sara Khan'],
+      createdBy: 'Staff A',
     ),
     ActivityItem(
-        time: "04.30 PM",
-        date: 'December 29, 2025',
-        name: "Learning",
-        description: "Drawing Activity",
-        color: Color(0xFFB3E5FC), // blue
-        photoUrl:
-        "https://images.unsplash.com/photo-1587653915930-8d17f0e7ff5d?w=400",
-        studentList: ['Raghav Gupta'],
-        createdBy: 'Staff B'
+      time: "04.30 PM",
+      date: 'December 29, 2025',
+      name: "Learning",
+      description: "Drawing Activity",
+      color: Color(0xFFB3E5FC), // blue
+      photoUrl:
+          "https://images.unsplash.com/photo-1587653915930-8d17f0e7ff5d?w=400",
+      studentList: ['Raghav Gupta'],
+      createdBy: 'Staff B',
+      categoryType: 'Self Care',
+      activityType: 'Morning Time',
     ),
     ActivityItem(
-        time: "04.00 PM",
-        date: 'December 20, 2025',
-        name: "Nap",
-        description: "Nap Time",
-        color: Color(0xFFFFCCBC), // pink
-        photoUrl:
-        "https://images.unsplash.com/photo-1603394152748-9625e4419c7a?w=400",
-        studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-        createdBy: 'Staff C'
+      time: "04.00 PM",
+      date: 'December 20, 2025',
+      name: "Nap",
+      description: "Nap Time",
+      color: Color(0xFFFFCCBC), // pink
+      photoUrl:
+          "https://images.unsplash.com/photo-1603394152748-9625e4419c7a?w=400",
+      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
+      createdBy: 'Staff C',
     ),
     ActivityItem(
-        time: "02.22 PM",
-        date: 'December 19, 2025',
-        name: "Meal",
-        description: "Lunch (Finished)",
-        color: Color(0xFFC8E6C9), // green
-        photoUrl:
-        "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        studentList: [
-          'Sara Khan',
-          'Raghav Gupta',
-          'Kabir Mehta',
-          'Sara Khan',
-          'Raghav Gupta',
-          'Kabir Mehta',
-        ],
-        createdBy: 'Staff A'
+      time: "02.22 PM",
+      date: 'December 19, 2025',
+      name: "Meal",
+      description: "Lunch (Finished)",
+      color: Color(0xFFC8E6C9), // green
+      photoUrl:
+          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+      studentList: [
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+      ],
+      createdBy: 'Staff A',
     ),
     ActivityItem(
-        time: "01.00 PM",
-        date: 'December 10, 2025',
-        name: "Meal",
-        description: "Drawing Activity",
-        color: Color(0xFFD1C4E9), // purple
-        photoUrl:
-        "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
-        studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-        createdBy: 'Staff B'
+      time: "02.22 PM",
+      date: 'December 12, 2025',
+      name: "Photo",
+      description: "Lunch (Finished)",
+      color: Color(0xFFC8E6C9), // green
+      photoUrl:
+      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+      studentList: [
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+      ],
+      createdBy: 'Staff A',
+    ),
+    ActivityItem(
+      time: "01.00 PM",
+      date: 'December 10, 2025',
+      name: "Meal",
+      description: "Drawing Activity",
+      color: Color(0xFFD1C4E9), // purple
+      photoUrl:
+          "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
+      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
+      createdBy: 'Staff B',
     ),
   ];
+
+  // Map activity label to the destination view activity screen
+  static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
+    'Nap': (activity) => ViewLearningActivity(activityData: activity),
+    'Bathroom': (activity) => ViewLearningActivity(activityData: activity),
+    'Bottle': (activity) => ViewLearningActivity(activityData: activity),
+    'Meal': (activity) => ViewLearningActivity(activityData: activity),
+    'Incident': (activity) => ViewLearningActivity(activityData: activity),
+    'Photo': (activity) => ViewPhotoActivity(activityData: activity),
+    'Video': (activity) => ViewLearningActivity(activityData: activity),
+    'Medication': (activity) => ViewLearningActivity(activityData: activity),
+    'Notes': (activity) => ViewNotesActivity(activityData: activity),
+    'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
+    'Learning': (activity) => ViewLearningActivity(activityData: activity),
+  };
+
+  static final Map<String, dynamic> activityIcons = {
+    'Nap': MediaRes.napActivityIcon,
+    'Bathroom': MediaRes.bathroomActivityIcon,
+    'Bottle': MediaRes.bottleActivityIcon,
+    'Meal': MediaRes.mealActivityIcon,
+    'Incident': MediaRes.incidentActivityIcon,
+    'Photo': MediaRes.photoVideoActivityIcon,
+    'Video': MediaRes.photoVideoActivityIcon,
+    'Medication': MediaRes.medicationActivityIcon,
+    'Notes': MediaRes.notesActivityIcon,
+    'Outdoor': MediaRes.outdoorActivityIcon,
+    'Learning': MediaRes.learningActivityIcon,
+  };
 
   @override
   void initState() {
@@ -151,7 +210,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     if (_selectdClassroom != null) {
       _availableStudents = classroomStudents[_selectdClassroom] ?? [];
       // If current selected student is not in the new list, clear it
-      if (_selectedStudent != null && !_availableStudents.contains(_selectedStudent)) {
+      if (_selectedStudent != null &&
+          !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
     } else {
@@ -159,7 +219,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       _selectedStudent = null;
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -177,211 +236,215 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
             ),
             child: widget.fromStudentProfile
                 ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: 65,
-                  child: _buildCustomDropdown(
-                    'Select Student',
-                    [?widget.studentName],
-                    widget.studentName,
-                        (v) => setState(() {
-                      _selectedStudent = v;
-                    }),
-                    height: 65
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 65,
-                  child: _datePickerFilter(
-                    selectedStartDate: _selectedStartDate,
-                    selectedEndDate: _selectedEndDate,
-                    // onDateRangeSelected: (date) {
-                    //   List<String>? dates = date?.split('-\n');
-                    //   setState(() {
-                    //     _selectedStartDate = dates?[0].trim() as DateTime?;
-                    //     _selectedEndDate = dates?[1].trim() as DateTime;
-                    //
-                    //   });
-                    // },
-                  ),
-                ),
-              ],
-            )
-                : isNotParent
-                ? Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildCustomDropdown(
-                        'Select Classroom',
-                        _classroomOptions,
-                        _selectdClassroom,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 65,
+                        child: AbsorbPointer(
+                          child: _buildCustomDropdown(
+                            'Select Student',
+                            [?widget.studentName],
+                            widget.studentName,
                             (v) => setState(() {
-                          _selectdClassroom = v;
-                          _updateAvailableStudents();
-                        }),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      // child: _buildCustomDropdown(
-                      //   'Select Student',
-                      //   _allStudents,
-                      //   _selectedStudent,
-                      //       (v) => setState(() {
-                      //     _selectedStudent = v;
-                      //   }),
-                      // ),
-                      child: _buildCustomDropdown(
-                        _selectdClassroom == null
-                            ? 'Select Classroom First'
-                            : 'Select Student',
-                        _availableStudents,
-                        _selectedStudent,
-                            (value) {
-                          // Only update if a classroom is actually selected
-                          if (_selectdClassroom != null) {
-                            setState(() {
-                              _selectedStudent = value;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(100),
-                        onTap: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FilterScreen(
-                                sections: [
-                                  FilerSection(
-                                    label: 'Tags',
-                                    hintText: 'Select tags',
-                                    items: [
-                                      '5 Days',
-                                      'Full Day',
-                                      'Photo Permission',
-                                      'Vegetarian',
-                                      'First Aid',
-                                      'Allergy',
-                                      'Pickup Authorized',
-                                      'Medication',
-                                      'Half Day',
-                                      'Boy',
-                                      'Girl',
-                                    ],
-                                    initialSelected: _filterTags,
-                                    isMultiSelectDropDown: false,
-                                  ),
-                                  FilerSection(
-                                    label: 'Activity Type',
-                                    hintText: 'Select Activity',
-                                    items: [
-                                      'Nap Start',
-                                      'Nap End',
-                                      'Bathroom',
-                                      'Bottle',
-                                      'Meal',
-                                      'Incident',
-                                      'Photo',
-                                      'Outdoor',
-                                      'Medication',
-                                      'Notes',
-                                      'Learning',
-                                      'Sign-in',
-                                      'Sign-out',
-                                      'Absent',
-                                    ],
-                                    initialSelected: _filterActivityTypes,
-                                    isMultiSelectDropDown: false,
-                                  ),
-                                ],
-                                onApply: (filters) {
-                                  setState(() {
-                                    _filterTags = filters['Tags']!;
-                                    _filterActivityTypes = filters['Activity Type']!;
-                                  });
-                                },
-                              ),
-                            ),
-                          );
-                          if (!mounted) return;
-                          if (result is Map) {
-                            // TODO: apply filters to list
-                            setState(() {});
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: SvgPicture.asset(
-                            MediaRes.filterIcon,
-                            height: 20,
+                              _selectedStudent = v;
+                            }),
+                            height: 65,
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: _datePickerFilter(
-                        selectedStartDate: _selectedStartDate,
-                        selectedEndDate: _selectedEndDate,
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 65,
+                        child: _datePickerFilter(
+                          selectedStartDate: _selectedStartDate,
+                          selectedEndDate: _selectedEndDate,
+                          // onDateRangeSelected: (date) {
+                          //   List<String>? dates = date?.split('-\n');
+                          //   setState(() {
+                          //     _selectedStartDate = dates?[0].trim() as DateTime?;
+                          //     _selectedEndDate = dates?[1].trim() as DateTime;
+                          //
+                          //   });
+                          // },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    CustomClearAllChip(onTap: () {
-                      setState(() {
-                        _selectdClassroom = _classroomOptions[0];
-                        _selectedStudent = null;
-                        _filterActivityTypes.clear();
-                        _filterTags.clear();
-                      });
-                    }, label: 'Clear All'),
-                  ],
-                ),
-              ],
-            )
+                    ],
+                  )
+                : isNotParent
+                ? Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildCustomDropdown(
+                              'Select Classroom',
+                              _classroomOptions,
+                              _selectdClassroom,
+                              (v) => setState(() {
+                                _selectdClassroom = v;
+                                _updateAvailableStudents();
+                              }),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            // child: _buildCustomDropdown(
+                            //   'Select Student',
+                            //   _allStudents,
+                            //   _selectedStudent,
+                            //       (v) => setState(() {
+                            //     _selectedStudent = v;
+                            //   }),
+                            // ),
+                            child: _buildCustomDropdown(
+                              _selectdClassroom == null
+                                  ? 'Select Classroom First'
+                                  : 'Select Student',
+                              _availableStudents,
+                              _selectedStudent,
+                              (value) {
+                                if (_selectdClassroom != null) {
+                                  setState(() {
+                                    _selectedStudent = value;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(100),
+                              onTap: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => FilterScreen(
+                                      sections: [
+                                        FilerSection(
+                                          label: 'Tags',
+                                          hintText: 'Select tags',
+                                          items: [
+                                            '5 Days',
+                                            'Full Day',
+                                            'Photo Permission',
+                                            'Vegetarian',
+                                            'First Aid',
+                                            'Allergy',
+                                            'Pickup Authorized',
+                                            'Medication',
+                                            'Half Day',
+                                            'Boy',
+                                            'Girl',
+                                          ],
+                                          initialSelected: _filterTags,
+                                          isMultiSelectDropDown: false,
+                                        ),
+                                        FilerSection(
+                                          label: 'Activity Type',
+                                          hintText: 'Select Activity',
+                                          items: [
+                                            'Nap Start',
+                                            'Nap End',
+                                            'Bathroom',
+                                            'Bottle',
+                                            'Meal',
+                                            'Incident',
+                                            'Photo',
+                                            'Outdoor',
+                                            'Medication',
+                                            'Notes',
+                                            'Learning',
+                                            'Sign-in',
+                                            'Sign-out',
+                                            'Absent',
+                                          ],
+                                          initialSelected: _filterActivityTypes,
+                                          isMultiSelectDropDown: false,
+                                        ),
+                                      ],
+                                      onApply: (filters) {
+                                        setState(() {
+                                          _filterTags = filters['Tags']!;
+                                          _filterActivityTypes =
+                                              filters['Activity Type']!;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                );
+                                if (!mounted) return;
+                                if (result is Map) {
+                                  // TODO: apply filters to list
+                                  setState(() {});
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: SvgPicture.asset(
+                                  MediaRes.filterIcon,
+                                  height: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: _datePickerFilter(
+                              selectedStartDate: _selectedStartDate,
+                              selectedEndDate: _selectedEndDate,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          CustomClearAllChip(
+                            onTap: () {
+                              setState(() {
+                                _selectdClassroom = _classroomOptions[0];
+                                _selectedStudent = null;
+                                _filterActivityTypes.clear();
+                                _filterTags.clear();
+                              });
+                            },
+                            label: 'Clear All',
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
                 : Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 65,
-                    child: _datePickerFilter(
-                      selectedStartDate: _selectedStartDate,
-                      selectedEndDate: _selectedEndDate,
-
-                    ),
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 65,
+                          child: _datePickerFilter(
+                            selectedStartDate: _selectedStartDate,
+                            selectedEndDate: _selectedEndDate,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SizedBox(
+                          height: 65,
+                          child: _buildCustomDropdown(
+                            'Activity Type',
+                            activityType,
+                            _selectedActivityType,
+                            (v) => setState(() {
+                              _selectedActivityType = v;
+                            }),
+                            height: 65,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 65,
-                    child: _buildCustomDropdown(
-                      'Activity Type',
-                      activityType,
-                      _selectedActivityType,
-                          (v) => setState(() {
-                        _selectedActivityType = v;
-                      }),
-                      height: 65
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
 
@@ -426,7 +489,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       itemCount: activities.length,
                       itemBuilder: (context, index) {
                         final activity = activities[index];
-                        final students = activity.studentList ?? [];
+                        final students = activity.studentList;
 
                         return Column(
                           children: [
@@ -518,97 +581,118 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                           children: [
                                             ClipRRect(
                                               borderRadius:
-                                              BorderRadius.circular(12),
+                                                  BorderRadius.circular(12),
                                               child: SizedBox(
                                                 width: 140,
                                                 height: 120,
-                                                child: Image.network(
-                                                  activity.photoUrl!,
-                                                  fit: BoxFit.cover,
-                                                  loadingBuilder:
-                                                      (
-                                                      context,
-                                                      child,
-                                                      loadingProgress,
-                                                      ) {
-                                                    if (loadingProgress ==
-                                                        null)
-                                                      return child;
-                                                    return Container(
-                                                      color: Colors
-                                                          .transparent,
-                                                      child: const Center(
-                                                        child:
-                                                        CircularProgressIndicator(
-                                                          strokeWidth:
-                                                          2,
+                                                child:
+                                                    activity.photoUrl != null &&
+                                                        activity
+                                                            .photoUrl!
+                                                            .isNotEmpty
+                                                    ? Image.network(
+                                                        activity.photoUrl!,
+                                                        fit: BoxFit.cover,
+                                                        loadingBuilder:
+                                                            (
+                                                              context,
+                                                              child,
+                                                              loadingProgress,
+                                                            ) {
+                                                              if (loadingProgress ==
+                                                                  null)
+                                                                return child;
+                                                              return Container(
+                                                                color: Colors
+                                                                    .transparent,
+                                                                child: const Center(
+                                                                  child: CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                        errorBuilder:
+                                                            (
+                                                              context,
+                                                              error,
+                                                              stackTrace,
+                                                            ) {
+                                                              return Container(
+                                                                width: 122,
+                                                                height: 76,
+                                                                color: activity
+                                                                    .color
+                                                                    .withOpacity(
+                                                                      0.25,
+                                                                    ),
+                                                                child: Center(
+                                                                  child: Image.asset(
+                                                                    activityIcons[activity
+                                                                        .name],
+                                                                    //'assets/icons/activity-nap-icon.png',
+                                                                    fit: BoxFit
+                                                                        .fill,
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                      )
+                                                    : Container(
+                                                        width: 122,
+                                                        height: 76,
+                                                        color: activity.color
+                                                            .withOpacity(0.25),
+                                                        child: Center(
+                                                          child: Image.asset(
+                                                            activityIcons[activity
+                                                                .name],
+                                                            //'assets/icons/activity-nap-icon.png',
+                                                            fit: BoxFit.fill,
+                                                          ),
                                                         ),
                                                       ),
-                                                    );
-                                                  },
-                                                  errorBuilder:
-                                                      (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                      ) {
-                                                    return Container(
-                                                      width: 122,
-                                                      height: 76,
-                                                      color: activity.color
-                                                          .withOpacity(
-                                                        0.25,
-                                                      ),
-                                                      child: Center(
-                                                        child: Image.asset(
-                                                          MediaRes
-                                                              .napActivityIcon,
-                                                          //'assets/icons/activity-nap-icon.png',
-                                                          fit: BoxFit.fill,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
                                               ),
                                             ),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Column(
                                                 crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                                mainAxisAlignment : MainAxisAlignment.spaceEvenly,
+                                                    CrossAxisAlignment.start,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
                                                 children: [
                                                   Row(
                                                     mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
                                                     children: [
                                                       Container(
                                                         padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 12,
-                                                          vertical: 6,
-                                                        ),
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 12,
+                                                              vertical: 6,
+                                                            ),
                                                         decoration: BoxDecoration(
-                                                          color:
-                                                          activity.color,
+                                                          color: activity.color,
                                                           borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ),
+                                                              BorderRadius.circular(
+                                                                20,
+                                                              ),
                                                         ),
                                                         child: Text(
                                                           activity.name,
                                                           style:
-                                                          const TextStyle(
-                                                            color: Colors
-                                                                .white,
-                                                            fontSize: 11,
-                                                            fontWeight:
-                                                            FontWeight
-                                                                .bold,
-                                                          ),
+                                                              const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
                                                         ),
                                                       ),
                                                       PopupMenuButton<String>(
@@ -618,31 +702,58 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                         ),
                                                         onSelected: null,
                                                         itemBuilder: (context) => [
-                                                          PopupMenuItem<
-                                                              String
-                                                          >(
+                                                          PopupMenuItem<String>(
                                                             value: 'view',
                                                             child: PopupItem(
                                                               title: 'View',
-                                                              icon: Icon( Icons.visibility_outlined, color: AppColors.themeColor,),
+                                                              icon: Icon(
+                                                                Icons
+                                                                    .visibility_outlined,
+                                                                color: AppColors
+                                                                    .themeColor,
+                                                              ),
                                                             ),
+                                                            onTap: () {
+                                                              final destinationBuilder =
+                                                                  activityRoutes[activity
+                                                                      .name];
+                                                              if (destinationBuilder !=
+                                                                  null) {
+                                                                final nextScreen =
+                                                                    destinationBuilder(
+                                                                      activity,
+                                                                    );
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute(
+                                                                    builder: (_) =>
+                                                                        nextScreen,
+                                                                  ),
+                                                                );
+                                                              }
+                                                            },
                                                           ),
-                                                          PopupMenuItem<
-                                                              String
-                                                          >(
+                                                          PopupMenuItem<String>(
                                                             value: 'edit',
                                                             child: PopupItem(
                                                               title: 'Edit',
-                                                              icon: Icon(Icons.edit, color: AppColors.themeColor),
+                                                              icon: Icon(
+                                                                Icons.edit,
+                                                                color: AppColors
+                                                                    .themeColor,
+                                                              ),
                                                             ),
                                                           ),
-                                                          PopupMenuItem<
-                                                              String
-                                                          >(
+                                                          PopupMenuItem<String>(
                                                             value: 'delete',
                                                             child: PopupItem(
                                                               title: 'Delete',
-                                                              icon: Icon(Icons.delete, color : AppColors.themeColor),
+                                                              icon: Icon(
+                                                                Icons.delete,
+                                                                color: AppColors
+                                                                    .themeColor,
+                                                              ),
                                                             ),
                                                           ),
                                                         ],
@@ -656,28 +767,28 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                     child: Stack(
                                                       children: [
                                                         for (
-                                                        int i = 0;
-                                                        i < students.length &&
-                                                            i < 4;
-                                                        i++
+                                                          int i = 0;
+                                                          i < students.length &&
+                                                              i < 4;
+                                                          i++
                                                         )
                                                           Positioned(
                                                             left: i * 20,
                                                             child:
-                                                            DocumentImageWidget(
-                                                              fileUuid: '',
-                                                              name:
-                                                              students[i],
-                                                              size: 28,
-                                                              fontSize: 10,
-                                                            ),
+                                                                DocumentImageWidget(
+                                                                  fileUuid: '',
+                                                                  name:
+                                                                      students[i],
+                                                                  size: 28,
+                                                                  fontSize: 10,
+                                                                ),
                                                           ),
 
                                                         // Extra count tooltip
                                                         if (students.length > 4)
                                                           Positioned(
                                                             left:
-                                                            4 *
+                                                                4 *
                                                                 20, // after 4 avatars
                                                             child: Tooltip(
                                                               message: students
@@ -686,7 +797,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                               child: DocumentImageWidget(
                                                                 fileUuid: '',
                                                                 name:
-                                                                '+${students.length - 4}',
+                                                                    '+${students.length - 4}',
                                                                 size: 28,
                                                                 fontSize: 10,
                                                               ),
@@ -695,7 +806,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                       ],
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 10,),
+                                                  const SizedBox(height: 10),
 
                                                   Text(
                                                     activity.description!,
@@ -705,13 +816,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           .primaryColor,
                                                       fontSize: 14,
                                                       fontWeight:
-                                                      FontWeight.w600,
+                                                          FontWeight.w600,
                                                     ),
                                                     maxLines: 1,
                                                     overflow:
-                                                    TextOverflow.ellipsis,
+                                                        TextOverflow.ellipsis,
                                                   ),
-                                                  const SizedBox(height: 10,),
+                                                  const SizedBox(height: 10),
                                                   Text(
                                                     'Created By - ${activity.createdBy}',
 
@@ -720,12 +831,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           .primaryColor,
                                                       fontSize: 12,
                                                       fontWeight:
-                                                      FontWeight.w500,
+                                                          FontWeight.w500,
                                                     ),
                                                     maxLines: 1,
                                                     overflow:
-                                                    TextOverflow.ellipsis,
-                                                  )
+                                                        TextOverflow.ellipsis,
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -771,7 +882,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         if (result != null) {
           setState(() {
             _selectedStartDate = result['startDate'] as DateTime?;
-            if(result['endDate'] != null) _selectedEndDate = result['endDate'] as DateTime?;
+            if (result['endDate'] != null)
+              _selectedEndDate = result['endDate'] as DateTime?;
           });
         }
       },
@@ -803,7 +915,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 4,),
+              const SizedBox(width: 4),
               // Flexible(
               //   child: Text(
               //     selectedEndDate != null
@@ -836,13 +948,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   }
 
   Widget _buildCustomDropdown(
-      String hintText,
-      List<String> items,
-      String? selectedItem,
-      ValueChanged<String?> onSelect, {
-        bool isRequired = false,
-        double? height = null
-      }) {
+    String hintText,
+    List<String> items,
+    String? selectedItem,
+    ValueChanged<String?> onSelect, {
+    bool isRequired = false,
+    double? height = null,
+  }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: null,
@@ -892,7 +1004,7 @@ class PopupItem extends StatelessWidget {
     return Row(
       children: [
         icon,
-        const SizedBox(width: 5,),
+        const SizedBox(width: 5),
         Text(
           title,
           style: const TextStyle(
@@ -906,6 +1018,7 @@ class PopupItem extends StatelessWidget {
     );
   }
 }
+
 //
 // class ActivityItem {
 //   final String time;
