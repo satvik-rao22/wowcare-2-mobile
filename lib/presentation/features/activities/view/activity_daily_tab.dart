@@ -3,7 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_meal_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
@@ -66,6 +68,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     '3-Orange-D': ['Anya Mehta', 'Kabir Mehta'],
     '2-Red A': ['Sara Khan'],
   };
+  final List<Color> _colorPalette = [
+    const Color(0xFFB3E5FC),
+    const Color(0xFFFFCCBC),
+    const Color(0xFFC8E6C9),
+    const Color(0xFFFFE0B2),
+    //const Color(0xFFFFF9C4),
+    const Color(0xFFE1BEE7),
+    //const Color(0xFFCCFF90),
+    const Color(0xFF80DEEA),
+    const Color(0xFFD1C4E9),
+    const Color(0xFFFFAB91),
+  ];
   // final List<String> _allStudents = [
   //   'Raghave Gupta',
   //   'Rohan Gupta',
@@ -81,7 +95,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       date: 'December 30, 2025',
       name: "Outdoor",
       description: "Outdoor Activity",
-      color: Color(0xFFFFE0B2), // orange
+      //color: Color(0xFFFFE0B2), // orange
       studentList: ['Kabir Mehta', 'Sara Khan'],
       createdBy: 'Staff A',
       categoryType: 'Self Care',
@@ -92,9 +106,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       date: 'December 30, 2025',
       name: "Learning",
       description: "Drawing Activity",
-      color: Color(0xFFB3E5FC), // blue
+      //color: Color(0xFFB3E5FC), // blue
       photoUrl:
-          'https://images.unsplash.com/photo-1516627145494-ae3b8352f1c5?w=400',
+          'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
       studentList: ['Raghav Gupta'],
       createdBy: 'Staff B',
       categoryType: 'Self Care',
@@ -105,7 +119,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       date: 'December 30, 2025',
       name: "Nap",
       description: "Nap Time",
-      color: Color(0xFFFFCCBC), // pink
+      //color: Color(0xFFFFCCBC), // pink
       studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
       createdBy: 'Staff C',
       categoryType: 'Self Care',
@@ -116,7 +130,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       date: 'December 30, 2025',
       name: "Meal",
       description: "Lunch (Finished)",
-      color: Color(0xFFC8E6C9), // green
+      //color: Color(0xFFC8E6C9), // green
       photoUrl:
           "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
       studentList: [
@@ -128,15 +142,35 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         'Kabir Mehta',
       ],
       createdBy: 'Staff A',
-      categoryType: 'Self Care',
-      activityType: 'Morning Time',
+      mealType: 'Lunch',
+      mealQuantity: '6 Oz',
+    ),
+    ActivityItem(
+      time: "02.22 PM",
+      date: 'December 30, 2025',
+      name: "Meal",
+      description: "Lunch (Finished)",
+      //color: Color(0xFFC8E6C9), // green
+      photoUrl:
+      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+      studentList: [
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+      ],
+      createdBy: 'Staff A',
+      mealType: 'Breakfast',
+      mealQuantity: '3 Oz'
     ),
     ActivityItem(
       time: "02.22 PM",
       date: 'December 30, 2025',
       name: "Photo",
       description: "Lunch (Finished)",
-      color: Color(0xFFC8E6C9), // green
+      //color: Color(0xFFC8E6C9), // green
       photoUrl:
       "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
       studentList: [
@@ -152,9 +186,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     ActivityItem(
       time: "01.00 PM",
       date: 'December 30, 2025',
-      name: "Notes",
+      name: "Video",
       description: "Drawing Activity",
-      color: Color(0xFFD1C4E9), // purple
+      //color: Color(0xFFD1C4E9), // purple
       // photoUrl:
       //     "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
       //videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_1MB.mp4',
@@ -164,17 +198,27 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       categoryType: 'Self Care',
       activityType: 'Morning Time',
     ),
+    ActivityItem(
+      time: "05.00 PM",
+      date: 'December 30, 2025',
+      name: "Bottle",
+      description: "Bottle Activity",
+      //color: Color(0xFFFFE0B2), // orange
+      studentList: ['Kabir Mehta', 'Sara Khan'],
+      createdBy: 'Staff A',
+      amountConsumed: '5 Oz'
+    ),
   ];
 
   // Map activity label to the destination view activity screen
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
     'Nap': (activity) => ViewLearningActivity(activityData: activity),
     'Bathroom': (activity) => ViewLearningActivity(activityData: activity),
-    'Bottle': (activity) => ViewLearningActivity(activityData: activity),
-    'Meal': (activity) => ViewLearningActivity(activityData: activity),
+    'Bottle': (activity) => ViewBottleActivity(activityData: activity),
+    'Meal': (activity) => ViewMealActivity(activityData: activity),
     'Incident': (activity) => ViewLearningActivity(activityData: activity),
-    'Photo': (activity) => ViewPhotoActivity(activityData: activity),
-    'Video': (activity) => ViewLearningActivity(activityData: activity),
+    'Photo': (activity) => ViewPhotoVideoActivity(activityData: activity),
+    'Video': (activity) => ViewPhotoVideoActivity(activityData: activity,isVideo: true,),
     'Medication': (activity) => ViewLearningActivity(activityData: activity),
     'Notes': (activity) => ViewNotesActivity(activityData: activity),
     'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
@@ -500,6 +544,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       itemBuilder: (context, index) {
                         final activity = activities[index];
                         final students = activity.studentList;
+                        final Color activityColor = _colorPalette[index % _colorPalette.length];
 
                         return Column(
                           children: [
@@ -511,27 +556,31 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                       width: 18,
                                       height: 18,
                                       decoration: BoxDecoration(
-                                        color: activity.color,
+                                        //color: activity.color,
+                                        color: activityColor,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
                                     Container(
                                       width: 4,
                                       height: 2,
-                                      color: activity.color,
+                                      //color: activity.color,
+                                      color: activityColor,
                                     ),
                                   ],
                                 ),
                                 Container(
                                   width: 100,
                                   height: 4,
-                                  color: activity.color,
+                                  //color: activity.color,
+                                  color: activityColor,
                                 ),
                                 Container(
                                   width: 18,
                                   height: 18,
                                   decoration: BoxDecoration(
-                                    color: activity.color,
+                                    //color: activity.color,
+                                    color: activityColor,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -556,7 +605,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                 Container(
                                   width: 4,
                                   height: 220,
-                                  color: activity.color,
+                                  //color: activity.color,
+                                  color: activityColor,
                                 ),
 
                                 const SizedBox(width: 16),
@@ -573,14 +623,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                         ),
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: activity.color.withOpacity(
+                                          color: activityColor.withOpacity(
                                             0.15,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             16,
                                           ),
                                           border: Border.all(
-                                            color: activity.color.withOpacity(
+                                            color: activityColor.withOpacity(
                                               0.4,
                                             ),
                                           ),
@@ -597,7 +647,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                 height: 120,
                                                 child:
                                                     activity.photoUrl != null || activity.videoUrl != null
-                                                    ? ActivityMediaPreview(activity: activity)
+                                                    ? ActivityMediaPreview(activity: activity, activityColor: activityColor,)
                                                     // ? Image.network(
                                                     //     activity.photoUrl!,
                                                     //     fit: BoxFit.cover,
@@ -650,7 +700,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                     : Container(
                                                         width: 122,
                                                         height: 76,
-                                                        color: activity.color
+                                                        color: activityColor
                                                             .withOpacity(0.25),
                                                         child: Center(
                                                           child: Image.asset(
@@ -684,7 +734,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                               vertical: 6,
                                                             ),
                                                         decoration: BoxDecoration(
-                                                          color: activity.color,
+                                                          color: activityColor,
                                                           borderRadius:
                                                               BorderRadius.circular(
                                                                 20,
@@ -1009,25 +1059,31 @@ class ActivityItem {
   final String date;
   final String name;
   final String? description;
-  final Color color;
+  //final Color color;
   final String? photoUrl;
   final String? videoUrl;
   final List<String> studentList;
   final String createdBy;
   final String? activityType; // for learning activity
   final String? categoryType; // for learning activity
+  final String? mealType; // for meal activity
+  final String? mealQuantity; // also for meal activity
+  final String? amountConsumed; // for bottle activity
 
   const ActivityItem({
     required this.time,
     required this.date,
     required this.name,
     this.description,
-    required this.color,
+    //required this.color,
     this.photoUrl,
     this.videoUrl,
     required this.studentList,
     required this.createdBy,
     this.activityType,
     this.categoryType,
+    this.mealType,
+    this.mealQuantity,
+    this.amountConsumed
   });
 }

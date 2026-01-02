@@ -10,9 +10,10 @@ import '../../widgets/selected_student_tile.dart';
 import '../activity_daily_tab.dart';
 
 
-class ViewPhotoActivity extends StatelessWidget {
+class ViewPhotoVideoActivity extends StatelessWidget {
   final ActivityItem activityData;
-  const ViewPhotoActivity({super.key, required this.activityData});
+  final bool isVideo;
+  const ViewPhotoVideoActivity({super.key, required this.activityData, this.isVideo = false});
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +50,7 @@ class ViewPhotoActivity extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Photo Shared',
+                          isVideo ? 'Video Shared' : 'Photo Shared',
                           style: TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: responsive.titleFontSize,
@@ -115,7 +116,11 @@ class ViewPhotoActivity extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: responsive.verticalSpacing,),
-                    if(activityData.photoUrl != null)
+                    if(activityData.photoUrl != null && !isVideo)
+                      Padding(padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                          child: ActivityMediaViewer(activity: activityData, label: 'Shared Media',)
+                      )
+                    else if(activityData.videoUrl != null && isVideo)
                       Padding(padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
                           child: ActivityMediaViewer(activity: activityData, label: 'Shared Media',)
                       ),

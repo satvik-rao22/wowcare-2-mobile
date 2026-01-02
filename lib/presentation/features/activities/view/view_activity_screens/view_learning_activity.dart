@@ -91,7 +91,7 @@ class ViewLearningActivity extends StatelessWidget {
                               runSpacing: 12.0,
                               alignment: WrapAlignment.start,
                               children: activityData.studentList.map((name) {
-                                return IntrinsicWidth( // Makes each tile only as wide as needed
+                                return IntrinsicWidth(
                                   child: SelectedStudentTile(
                                     name: name,
                                     isViewActivityScreen: true,

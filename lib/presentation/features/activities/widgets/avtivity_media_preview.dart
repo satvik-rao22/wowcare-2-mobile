@@ -7,7 +7,8 @@ import '../../../../app/theme/media_res.dart';
 
 class ActivityMediaPreview extends StatefulWidget {
   final ActivityItem activity;
-  const ActivityMediaPreview({super.key, required this.activity});
+  final Color activityColor;
+  const ActivityMediaPreview({super.key, required this.activity, required this.activityColor});
 
 
   @override
@@ -93,7 +94,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
             )
           else if (hasVideo)
             Container(
-              color: widget.activity.color.withOpacity(0.3),
+              color: widget.activityColor.withOpacity(0.3),
               child: const Center(
                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2,),
               ),
@@ -103,7 +104,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
             Image.network(
               photoUrl!,
               fit: BoxFit.cover,
-              loadingBuilder: (c, child, progress)=> progress == null ? child : Container(color: widget.activity.color.withOpacity(0.3)),
+              loadingBuilder: (c, child, progress)=> progress == null ? child : Container(color: widget.activityColor.withOpacity(0.3)),
               errorBuilder: (c, e, s)=> _buildIconFallback(),
 
             )
@@ -127,7 +128,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     return Container(
       width: 122,
       height: 76,
-      color: widget.activity.color
+      color: widget.activityColor
           .withOpacity(0.25),
       child: Center(
         child: Image.asset(

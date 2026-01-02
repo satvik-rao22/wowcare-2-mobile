@@ -111,7 +111,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
           child: Container(
             width: widget.width,
             height: widget.height ?? 200,
-            color: widget.activity.color.withOpacity(0.15),
+            color: Colors.black12.withOpacity(0.15),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -186,7 +186,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
 
   Widget _buildErrorPlaceholder() {
     return Container(
-      color: widget.activity.color.withOpacity(0.3),
+      color: Colors.black12.withOpacity(0.3),
       child: const Center(
         child: Icon(Icons.broken_image, size: 60, color: Colors.white70),
       ),
