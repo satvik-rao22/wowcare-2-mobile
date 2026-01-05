@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_meal_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
@@ -91,6 +92,28 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<ActivityItem> activities = [
     ActivityItem(
+        time: "07.00 PM",
+        date: 'December 30, 2025',
+        name: "Nap End",
+        description: "Nap Ended at 6:30 PM",
+        //color: Color(0xFFFFE0B2), // orange
+        studentList: ['Kabir Mehta', 'Sara Khan'],
+        createdBy: 'Staff A',
+        napStartTime: '6:00 PM',
+        napEndTime: '6:30 PM',
+    ),
+    ActivityItem(
+      time: "05.30 PM",
+      date: 'December 30, 2025',
+      name: "Nap Start",
+      description: "Nap Started at 6:00 PM",
+      //color: Color(0xFFFFE0B2), // orange
+      studentList: ['Kabir Mehta', 'Sara Khan'],
+      createdBy: 'Staff A',
+      napStartTime: '6:00 PM',
+      remainderOn: true
+    ),
+    ActivityItem(
       time: "05.00 PM",
       date: 'December 30, 2025',
       name: "Outdoor",
@@ -111,17 +134,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
           'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
       studentList: ['Raghav Gupta'],
       createdBy: 'Staff B',
-      categoryType: 'Self Care',
-      activityType: 'Morning Time',
-    ),
-    ActivityItem(
-      time: "04.00 PM",
-      date: 'December 30, 2025',
-      name: "Nap",
-      description: "Nap Time",
-      //color: Color(0xFFFFCCBC), // pink
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff C',
       categoryType: 'Self Care',
       activityType: 'Morning Time',
     ),
@@ -152,7 +164,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       description: "Lunch (Finished)",
       //color: Color(0xFFC8E6C9), // green
       photoUrl:
-      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
       studentList: [
         'Sara Khan',
         'Raghav Gupta',
@@ -163,7 +175,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       ],
       createdBy: 'Staff A',
       mealType: 'Breakfast',
-      mealQuantity: '3 Oz'
+      mealQuantity: '3 Oz',
     ),
     ActivityItem(
       time: "02.22 PM",
@@ -172,7 +184,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       description: "Lunch (Finished)",
       //color: Color(0xFFC8E6C9), // green
       photoUrl:
-      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
       studentList: [
         'Sara Khan',
         'Raghav Gupta',
@@ -192,7 +204,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       // photoUrl:
       //     "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
       //videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_1MB.mp4',
-      videoUrl: "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
+      videoUrl:
+          "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
       studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
       createdBy: 'Staff B',
       categoryType: 'Self Care',
@@ -206,19 +219,21 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       //color: Color(0xFFFFE0B2), // orange
       studentList: ['Kabir Mehta', 'Sara Khan'],
       createdBy: 'Staff A',
-      amountConsumed: '5 Oz'
+      amountConsumed: '5 Oz',
     ),
   ];
 
   // Map activity label to the destination view activity screen
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
-    'Nap': (activity) => ViewLearningActivity(activityData: activity),
+    'Nap Start': (activity) => ViewNapActivity(activityData: activity),
+    'Nap End': (activity) => ViewNapActivity(activityData: activity, isNapStart: false,),
     'Bathroom': (activity) => ViewLearningActivity(activityData: activity),
     'Bottle': (activity) => ViewBottleActivity(activityData: activity),
     'Meal': (activity) => ViewMealActivity(activityData: activity),
     'Incident': (activity) => ViewLearningActivity(activityData: activity),
     'Photo': (activity) => ViewPhotoVideoActivity(activityData: activity),
-    'Video': (activity) => ViewPhotoVideoActivity(activityData: activity,isVideo: true,),
+    'Video': (activity) =>
+        ViewPhotoVideoActivity(activityData: activity, isVideo: true),
     'Medication': (activity) => ViewLearningActivity(activityData: activity),
     'Notes': (activity) => ViewNotesActivity(activityData: activity),
     'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
@@ -226,7 +241,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   };
 
   static final Map<String, dynamic> activityIcons = {
-    'Nap': MediaRes.napActivityIcon,
+    'Nap Start': MediaRes.napActivityIcon,
+    'Nap End': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
     'Bottle': MediaRes.bottleActivityIcon,
     'Meal': MediaRes.mealActivityIcon,
@@ -544,7 +560,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       itemBuilder: (context, index) {
                         final activity = activities[index];
                         final students = activity.studentList;
-                        final Color activityColor = _colorPalette[index % _colorPalette.length];
+                        final Color activityColor =
+                            _colorPalette[index % _colorPalette.length];
 
                         return Column(
                           children: [
@@ -646,8 +663,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                 width: 140,
                                                 height: 120,
                                                 child:
-                                                    activity.photoUrl != null || activity.videoUrl != null
-                                                    ? ActivityMediaPreview(activity: activity, activityColor: activityColor,)
+                                                    activity.photoUrl != null ||
+                                                        activity.videoUrl !=
+                                                            null
+                                                    ? ActivityMediaPreview(
+                                                        activity: activity,
+                                                        activityColor:
+                                                            activityColor,
+                                                      )
                                                     // ? Image.network(
                                                     //     activity.photoUrl!,
                                                     //     fit: BoxFit.cover,
@@ -1069,6 +1092,9 @@ class ActivityItem {
   final String? mealType; // for meal activity
   final String? mealQuantity; // also for meal activity
   final String? amountConsumed; // for bottle activity
+  final String? napStartTime; // for nap activity
+  final bool? remainderOn; // for nap start activity
+  final String? napEndTime; // for nap end activity
 
   const ActivityItem({
     required this.time,
@@ -1084,6 +1110,9 @@ class ActivityItem {
     this.categoryType,
     this.mealType,
     this.mealQuantity,
-    this.amountConsumed
+    this.amountConsumed,
+    this.napStartTime,
+    this.remainderOn,
+    this.napEndTime
   });
 }

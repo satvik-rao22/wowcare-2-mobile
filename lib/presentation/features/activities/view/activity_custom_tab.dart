@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_meal_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -100,6 +101,28 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<ActivityItem> activities = [
     ActivityItem(
+      time: "07.00 PM",
+      date: 'December 31, 2025',
+      name: "Nap End",
+      description: "Nap Ended at 6:30 PM",
+      //color: Color(0xFFFFE0B2), // orange
+      studentList: ['Kabir Mehta', 'Sara Khan'],
+      createdBy: 'Staff A',
+      napStartTime: '6:00 PM',
+      napEndTime: '6:30 PM',
+    ),
+    ActivityItem(
+        time: "05.30 PM",
+        date: 'December 31, 2025',
+        name: "Nap Start",
+        description: "Nap Started at 6:00 PM",
+        //color: Color(0xFFFFE0B2), // orange
+        studentList: ['Kabir Mehta', 'Sara Khan'],
+        createdBy: 'Staff A',
+        napStartTime: '6:00 PM',
+        remainderOn: true
+    ),
+    ActivityItem(
       time: "05.00 PM",
       date: 'December 30, 2025',
       name: "Outdoor",
@@ -122,17 +145,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       createdBy: 'Staff B',
       categoryType: 'Self Care',
       activityType: 'Morning Time',
-    ),
-    ActivityItem(
-      time: "04.00 PM",
-      date: 'December 20, 2025',
-      name: "Nap",
-      description: "Nap Time",
-      //color: Color(0xFFFFCCBC), // pink
-      photoUrl:
-          "https://images.unsplash.com/photo-1603394152748-9625e4419c7a?w=400",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff C',
     ),
     ActivityItem(
       time: "02.22 PM",
@@ -213,7 +225,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
 
   // Map activity label to the destination view activity screen
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
-    'Nap': (activity) => ViewLearningActivity(activityData: activity),
+    'Nap Start': (activity) => ViewNapActivity(activityData: activity),
+    'Nap End': (activity) => ViewNapActivity(activityData: activity, isNapStart: false,),
     'Bathroom': (activity) => ViewLearningActivity(activityData: activity),
     'Bottle': (activity) => ViewBottleActivity(activityData: activity),
     'Meal': (activity) => ViewMealActivity(activityData: activity),
@@ -228,7 +241,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   };
 
   static final Map<String, dynamic> activityIcons = {
-    'Nap': MediaRes.napActivityIcon,
+    'Nap Start': MediaRes.napActivityIcon,
+    'Nap End': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
     'Bottle': MediaRes.bottleActivityIcon,
     'Meal': MediaRes.mealActivityIcon,
