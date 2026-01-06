@@ -3,9 +3,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bathroom_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_incident_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_meal_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_medication_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
@@ -92,6 +95,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<ActivityItem> activities = [
     ActivityItem(
+      time: "07.10 PM",
+      date: 'December 30, 2025',
+      name: "Incident",
+      description: "incident happened",
+      //color: Color(0xFFFFE0B2), // orange
+      studentList: ['Kabir Mehta'],
+        photoUrl:
+        'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
+      createdBy: 'Staff A',
+      whatHappened: 'incident happened',
+      firstAidAdministered: true,
+      staffPresent: 'Staff A',
+      additionalNotes: 'some notes'
+
+    ),
+    ActivityItem(
         time: "07.00 PM",
         date: 'December 30, 2025',
         name: "Nap End",
@@ -112,6 +131,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       createdBy: 'Staff A',
       napStartTime: '6:00 PM',
       remainderOn: true
+    ),
+    ActivityItem(
+        time: "05.10 PM",
+        date: 'December 30, 2025',
+        name: "Medication",
+        description: "Medication given",
+        //color: Color(0xFFFFE0B2), // orange
+        studentList: ['Sara Khan', 'Raghav Gupta'],
+        createdBy: 'Staff A',
     ),
     ActivityItem(
       time: "05.00 PM",
@@ -136,6 +164,21 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       createdBy: 'Staff B',
       categoryType: 'Self Care',
       activityType: 'Morning Time',
+    ),
+    ActivityItem(
+      time: "04.00 PM",
+      date: 'December 30, 2025',
+      name: "Bathroom",
+      description: "Bathroom Activity",
+      //color: Color(0xFFB3E5FC), // blue
+      studentList: [
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+        ],
+      createdBy: 'Staff B',
+      bathroomType: 'Pee',
+      bathroomSubType: 'Accident'
     ),
     ActivityItem(
       time: "02.22 PM",
@@ -227,14 +270,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
     'Nap Start': (activity) => ViewNapActivity(activityData: activity),
     'Nap End': (activity) => ViewNapActivity(activityData: activity, isNapStart: false,),
-    'Bathroom': (activity) => ViewLearningActivity(activityData: activity),
+    'Bathroom': (activity) => ViewBathroomActivity(activityData: activity),
     'Bottle': (activity) => ViewBottleActivity(activityData: activity),
     'Meal': (activity) => ViewMealActivity(activityData: activity),
-    'Incident': (activity) => ViewLearningActivity(activityData: activity),
+    'Incident': (activity) => ViewIncidentActivity(activityData: activity),
     'Photo': (activity) => ViewPhotoVideoActivity(activityData: activity),
     'Video': (activity) =>
         ViewPhotoVideoActivity(activityData: activity, isVideo: true),
-    'Medication': (activity) => ViewLearningActivity(activityData: activity),
+    'Medication': (activity) => ViewMedicationActivity(activityData: activity),
     'Notes': (activity) => ViewNotesActivity(activityData: activity),
     'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
     'Learning': (activity) => ViewLearningActivity(activityData: activity),
@@ -723,8 +766,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                     : Container(
                                                         width: 122,
                                                         height: 76,
-                                                        color: activityColor
-                                                            .withOpacity(0.25),
+                                                        color: Colors.white,
+                                                        // color: activityColor
+                                                        //     .withOpacity(0.25),
                                                         child: Center(
                                                           child: Image.asset(
                                                             activityIcons[activity
@@ -1095,6 +1139,12 @@ class ActivityItem {
   final String? napStartTime; // for nap activity
   final bool? remainderOn; // for nap start activity
   final String? napEndTime; // for nap end activity
+  final String? whatHappened; // for incident activity
+  final bool? firstAidAdministered; // for incident activity
+  final String? staffPresent; // can be equal to createdBy
+  final String? additionalNotes; // for incident activity
+  final String? bathroomType; // for bathroom activity
+  final String? bathroomSubType; // also for bathroom activity
 
   const ActivityItem({
     required this.time,
@@ -1113,6 +1163,12 @@ class ActivityItem {
     this.amountConsumed,
     this.napStartTime,
     this.remainderOn,
-    this.napEndTime
+    this.napEndTime,
+    this.whatHappened,
+    this.firstAidAdministered,
+    this.staffPresent,
+    this.additionalNotes,
+    this.bathroomType,
+    this.bathroomSubType
   });
 }

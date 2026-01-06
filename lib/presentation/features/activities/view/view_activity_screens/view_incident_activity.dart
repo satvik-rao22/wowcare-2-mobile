@@ -68,7 +68,7 @@ class ViewIncidentActivity extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Tagged Students',
+                            'Tagged Student',
                             style: TextStyle(
                               color: AppColors.primaryColor,
                               fontSize:  13,
@@ -115,13 +115,25 @@ class ViewIncidentActivity extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: responsive.verticalSpacing,),
+                    Padding(padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                        child: ViewWidget(label: 'What happened?', content: activityData.whatHappened ?? 'N/A')
+                    ),
+                    SizedBox(height: responsive.verticalSpacing,),
+                    Padding(padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                        child: ViewWidget(label: 'First Aid Administered', content: activityData.firstAidAdministered == true ? 'True': 'False')
+                    ),
+                    SizedBox(height: responsive.verticalSpacing,),
+                    Padding(padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                        child: ViewWidget(label: 'Staff Present', content: activityData.staffPresent ?? 'N/A')
+                    ),
+                    SizedBox(height: responsive.verticalSpacing,),
                     if(activityData.photoUrl != null)
                       Padding(padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
-                          child: ActivityMediaViewer(activity: activityData, label: 'Shared Media',)
+                          child: ActivityMediaViewer(activity: activityData, label: 'Attached Media',)
                       ),
                     SizedBox(height: responsive.verticalSpacing,),
                     Padding(padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
-                        child: ViewWidget(label: 'Description', content: activityData.description ?? 'No description')
+                        child: ViewWidget(label: 'Additional Notes', content: activityData.additionalNotes ?? 'N/A')
                     ),
 
 
