@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/activities/view/view_activity_scre
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_medication_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_outdoor_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -104,7 +105,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<ActivityItem> activities = [
     ActivityItem(
-        time: "07.10 PM",
+        time: "07:10 PM",
         date: 'December 31, 2025',
         name: "Incident",
         description: "incident happened",
@@ -118,7 +119,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
 
     ),
     ActivityItem(
-      time: "07.00 PM",
+      time: "07:00 PM",
       date: 'December 31, 2025',
       name: "Nap End",
       description: "Nap Ended at 6:30 PM",
@@ -129,7 +130,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       napEndTime: '6:30 PM',
     ),
     ActivityItem(
-        time: "05.30 PM",
+        time: "05:30 PM",
         date: 'December 31, 2025',
         name: "Nap Start",
         description: "Nap Started at 6:00 PM",
@@ -140,7 +141,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         remainderOn: true
     ),
     ActivityItem(
-      time: "05.10 PM",
+      time: "05:10 PM",
       date: 'December 30, 2025',
       name: "Medication",
       description: "Medication given",
@@ -149,10 +150,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       createdBy: 'Staff A',
     ),
     ActivityItem(
-      time: "05.00 PM",
+      time: "05:00 PM",
       date: 'December 30, 2025',
       name: "Outdoor",
       description: "Outdoor Activity",
+      photoUrl:
+      'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
       //color: Color(0xFFFFE0B2), // orange
       // photoUrl:
       //     "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
@@ -160,7 +163,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       createdBy: 'Staff A',
     ),
     ActivityItem(
-      time: "04.30 PM",
+      time: "04:30 PM",
       date: 'December 29, 2025',
       name: "Learning",
       description: "Drawing Activity",
@@ -173,7 +176,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       activityType: 'Morning Time',
     ),
     ActivityItem(
-        time: "04.00 PM",
+        time: "04:00 PM",
         date: 'December 20, 2025',
         name: "Bathroom",
         description: "Bathroom Activity",
@@ -188,7 +191,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         bathroomSubType: 'Accident'
     ),
     ActivityItem(
-      time: "02.22 PM",
+      time: "02:22 PM",
       date: 'December 19, 2025',
       name: "Meal",
       description: "Lunch (Finished)",
@@ -208,7 +211,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       mealQuantity: '8 Oz'
     ),
     ActivityItem(
-      time: "02.22 PM",
+      time: "02:22 PM",
       date: 'December 12, 2025',
       name: "Photo",
       description: "Lunch (Finished)",
@@ -226,7 +229,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       createdBy: 'Staff A',
     ),
     ActivityItem(
-      time: "01.00 PM",
+      time: "01:00 PM",
       date: 'December 10, 2025',
       name: "Meal",
       description: "Drawing Activity",
@@ -239,7 +242,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       mealQuantity: '3 Oz',
     ),
     ActivityItem(
-      time: "01.00 PM",
+      time: "01:00 PM",
       date: 'December 9, 2025',
       name: "Video",
       description: "Drawing Activity",
@@ -253,7 +256,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       createdBy: 'Staff B',
     ),
     ActivityItem(
-        time: "05.00 PM",
+        time: "05:00 PM",
         date: 'December 8, 2025',
         name: "Bottle",
         description: "Bottle Activity",
@@ -277,7 +280,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         ViewPhotoVideoActivity(activityData: activity, isVideo: true),
     'Medication': (activity) => ViewMedicationActivity(activityData: activity),
     'Notes': (activity) => ViewNotesActivity(activityData: activity),
-    'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
+    'Outdoor': (activity) => ViewOutdoorActivity(activityData: activity),
     'Learning': (activity) => ViewLearningActivity(activityData: activity),
   };
 

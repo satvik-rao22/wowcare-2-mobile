@@ -10,12 +10,14 @@ class TimeWidget extends StatefulWidget {
     super.key,
     this.isEditable = true,
     this.initialTime,
+    this.prefilledTime,
     this.isRequired = false,
     this.label = 'Time',
     this.doNotShowTime =false
   });
 
   final bool isEditable;
+  final String? prefilledTime;
   final String label;
   final TimeOfDay? initialTime; // Optional initial time
   final bool isRequired;
@@ -27,11 +29,33 @@ class TimeWidget extends StatefulWidget {
 
 class _TimeWidgetState extends State<TimeWidget> {
   late TimeOfDay _selectedTime;
+  bool _hasPrefilledTime = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedTime = widget.initialTime ?? TimeOfDay.now();
+    _selectedTime = _parseTimeOfDay(widget.prefilledTime) ?? widget.initialTime ?? TimeOfDay.now();
+    _hasPrefilledTime = widget.prefilledTime != null && widget.prefilledTime!.trim().isNotEmpty;
+  }
+
+  TimeOfDay? _parseTimeOfDay(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty) return null;
+    final cleaned = timeStr.trim().replaceAll(' ', '').toUpperCase();
+    final regex = RegExp(r'^(\d{1,2}):?(\d{2})\s*(AM|PM)?$', caseSensitive: false);
+    final match = regex.firstMatch(cleaned);
+    if (match != null) {
+      int hour = int.parse(match.group(1)!);
+      int minute = int.parse(match.group(2)!);
+      final period = match.group(3);
+
+      if (period != null) {
+        if (hour == 12) hour = period == 'AM' ? 0 : 12;
+        else if (period == 'PM') hour += 12;
+      }
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    return null;
   }
 
   Future<void> _selectTime(BuildContext context) async {
@@ -70,8 +94,6 @@ class _TimeWidgetState extends State<TimeWidget> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final double opacity = widget.isEditable ? 1.0 : 0.4;
-
-    // Format: "2:30 PM" – uses device locale
     final String formattedTime = _selectedTime.format(context);
 
     return Column(

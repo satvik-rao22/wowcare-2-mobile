@@ -10,16 +10,19 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
+import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 
 class NapActivityScreen extends StatefulWidget {
   const NapActivityScreen({
     super.key,
-    required this.selectedStudents,
+    this.selectedStudents,
+    this.activityData,
     this.isEdit = false
   });
-  final List<Map<String, dynamic>> selectedStudents;
+  final List<Map<String, dynamic>>? selectedStudents;
   final bool isEdit;
+  final ActivityItem? activityData;
 
   @override
   State<NapActivityScreen> createState() => _NapActivityScreenState();
@@ -40,11 +43,42 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   @override
   void initState() {
     super.initState();
-    // Create a mutable copy of the incoming list
-    _selectedStudentsData = List.from(widget.selectedStudents);
-    _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
+    if (widget.isEdit && widget.activityData != null) {
+      final activity = widget.activityData!;
+      _selectedStudents = List<String>.from(activity.studentList);
+      bool isOngoingNap = activity.napStartTime != null && activity.napEndTime == null;
+      bool isCompletedNap = activity.napStartTime != null && activity.napEndTime != null;
 
+      bool uniformNappingStatus = isCompletedNap || isOngoingNap;
+
+      _selectedStudentsData = _selectedStudents.map((name) => {
+        'name': name,
+        'nappingStatus': uniformNappingStatus,
+      }).toList();
+
+      _descriptionController.text = activity.description ?? '';
+
+    } else if (widget.selectedStudents != null) {
+      _selectedStudentsData = List.from(widget.selectedStudents!);
+      _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
+
+    } else {
+      _selectedStudentsData = [];
+      _selectedStudents = [];
+      _descriptionController.text = '';
+    }
   }
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   // Create a mutable copy of the incoming list
+  //   if(widget.selectedStudents != null){
+  //     _selectedStudentsData = List.from(widget.selectedStudents!);
+  //     _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
+  //   }
+  //
+  // }
 
   void _removeStudent(String name) {
     setState(() {
@@ -130,38 +164,54 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 10,),
-                            GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              shrinkWrap: true,
-                              padding: const EdgeInsets.all(10),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: responsive.isTablet ? 3 : 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
-                              ),
-                              itemCount: _selectedStudents.length,
-                              itemBuilder: (context, index) {
-                                final String name = _selectedStudents[index];
+                            if(!widget.isEdit)
+                              GridView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.all(10),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: responsive.isTablet ? 3 : 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                                ),
+                                itemCount: _selectedStudents.length,
+                                itemBuilder: (context, index) {
+                                  final String name = _selectedStudents[index];
 
-                                return SelectedStudentTile(
-                                  name: name,
-                                  onTap: () => _removeStudent(name),
-                                );
-                              },
-                            ),
+                                  return SelectedStudentTile(
+                                    name: name,
+                                    onTap: () => _removeStudent(name),
+                                  );
+                                },
+                              ),
                             SizedBox(height: responsive.verticalSpacing,),
-                            DateWidget(isEditable: true,),
+                            if(widget.isEdit)
+                              DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
+                            else
+                              DateWidget(isEditable: true, isRequired: true,),
                             SizedBox(height: responsive.verticalSpacing,),
-                            Row(
-                              children: [
-                                Flexible(child: TimeWidget(label: 'Start Time',isEditable: noOneNapping || (!allNapping && !noOneNapping), isRequired: noOneNapping || (!allNapping && !noOneNapping), doNotShowTime: allNapping,)),
-                                const SizedBox(width: 10,),
-                                Flexible(child: TimeWidget(label : 'End Time', isEditable: allNapping || (!allNapping && !noOneNapping), isRequired: allNapping || (!allNapping && !noOneNapping), doNotShowTime: noOneNapping,))
-                              ],
-                            ),
+                            if(!widget.isEdit)
+                              Row(
+                                children: [
+                                  Flexible(child: TimeWidget(label: 'Start Time',isEditable: noOneNapping || (!allNapping && !noOneNapping), isRequired: noOneNapping || (!allNapping && !noOneNapping), doNotShowTime: allNapping,)),
+                                  const SizedBox(width: 10,),
+                                  Flexible(child: TimeWidget(label : 'End Time', isEditable: allNapping || (!allNapping && !noOneNapping), isRequired: allNapping || (!allNapping && !noOneNapping), doNotShowTime: noOneNapping,))
+                                ],
+                              )
+                            else
+                              Row(
+                                children: [
+                                  Flexible(child: TimeWidget(label: 'Start Time',isEditable: true, isRequired: true, prefilledTime: widget.activityData?.napStartTime,)),
+                                  const SizedBox(width: 10,),
+                                  Flexible(child: TimeWidget(label : 'End Time', isEditable: widget.activityData?.name == 'Nap End', isRequired: widget.activityData?.name == 'Nap End', doNotShowTime: widget.activityData?.name != 'Nap End', prefilledTime: widget.activityData?.napEndTime,))
+                                ],
+                              ),
                             SizedBox(height: responsive.verticalSpacing,),
-                            CheckboxWidget(label: 'Remind to check nap every 15 mins', isEditable: noOneNapping || (!allNapping && !noOneNapping),),
+                            if(!widget.isEdit)
+                              CheckboxWidget(label: 'Remind to check nap every 15 mins', isEditable: noOneNapping || (!allNapping && !noOneNapping),)
+                            else
+                              CheckboxWidget(label: 'Remind to check nap every 15 mins', isEditable: widget.activityData?.name == 'Nap Start',),
                             SizedBox(height: responsive.verticalSpacing,),
                             StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
                             SizedBox(height: responsive.verticalSpacing,),

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bathroom_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_incident_activity.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/presentation/features/activities/view/view_activity_scre
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_medication_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_outdoor_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -95,34 +97,33 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<ActivityItem> activities = [
     ActivityItem(
-      time: "07.10 PM",
+      time: "07:10 PM",
       date: 'December 30, 2025',
       name: "Incident",
       description: "incident happened",
       //color: Color(0xFFFFE0B2), // orange
       studentList: ['Kabir Mehta'],
-        photoUrl:
-        'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
+      photoUrl:
+          'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
       createdBy: 'Staff A',
       whatHappened: 'incident happened',
       firstAidAdministered: true,
       staffPresent: 'Staff A',
-      additionalNotes: 'some notes'
-
+      additionalNotes: 'some notes',
     ),
     ActivityItem(
-        time: "07.00 PM",
-        date: 'December 30, 2025',
-        name: "Nap End",
-        description: "Nap Ended at 6:30 PM",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Kabir Mehta', 'Sara Khan'],
-        createdBy: 'Staff A',
-        napStartTime: '6:00 PM',
-        napEndTime: '6:30 PM',
+      time: "07:00 PM",
+      date: 'December 30, 2025',
+      name: "Nap End",
+      description: "Nap Ended at 6:30 PM",
+      //color: Color(0xFFFFE0B2), // orange
+      studentList: ['Kabir Mehta', 'Sara Khan'],
+      createdBy: 'Staff A',
+      napStartTime: '6:00 PM',
+      napEndTime: '7:30 PM',
     ),
     ActivityItem(
-      time: "05.30 PM",
+      time: "05:30 PM",
       date: 'December 30, 2025',
       name: "Nap Start",
       description: "Nap Started at 6:00 PM",
@@ -130,30 +131,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       studentList: ['Kabir Mehta', 'Sara Khan'],
       createdBy: 'Staff A',
       napStartTime: '6:00 PM',
-      remainderOn: true
+      remainderOn: true,
     ),
     ActivityItem(
-        time: "05.10 PM",
-        date: 'December 30, 2025',
-        name: "Medication",
-        description: "Medication given",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Sara Khan', 'Raghav Gupta'],
-        createdBy: 'Staff A',
+      time: "05:10 PM",
+      date: 'December 30, 2025',
+      name: "Medication",
+      description: "Medication given",
+      //color: Color(0xFFFFE0B2), // orange
+      studentList: ['Sara Khan', 'Raghav Gupta'],
+      createdBy: 'Staff A',
     ),
     ActivityItem(
-      time: "05.00 PM",
+      time: "05:00 PM",
       date: 'December 30, 2025',
       name: "Outdoor",
       description: "Outdoor Activity",
+      photoUrl:
+          'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
       //color: Color(0xFFFFE0B2), // orange
       studentList: ['Kabir Mehta', 'Sara Khan'],
       createdBy: 'Staff A',
-      categoryType: 'Self Care',
-      activityType: 'Morning Time',
     ),
     ActivityItem(
-      time: "04.30 PM",
+      time: "04:30 PM",
       date: 'December 30, 2025',
       name: "Learning",
       description: "Drawing Activity",
@@ -166,22 +167,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       activityType: 'Morning Time',
     ),
     ActivityItem(
-      time: "04.00 PM",
+      time: "04:00 PM",
       date: 'December 30, 2025',
       name: "Bathroom",
       description: "Bathroom Activity",
       //color: Color(0xFFB3E5FC), // blue
-      studentList: [
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-        ],
+      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
       createdBy: 'Staff B',
       bathroomType: 'Pee',
-      bathroomSubType: 'Accident'
+      bathroomSubType: 'Accident',
     ),
     ActivityItem(
-      time: "02.22 PM",
+      time: "02:22 PM",
       date: 'December 30, 2025',
       name: "Meal",
       description: "Lunch (Finished)",
@@ -201,7 +198,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       mealQuantity: '6 Oz',
     ),
     ActivityItem(
-      time: "02.22 PM",
+      time: "02:22 PM",
       date: 'December 30, 2025',
       name: "Meal",
       description: "Lunch (Finished)",
@@ -221,7 +218,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       mealQuantity: '3 Oz',
     ),
     ActivityItem(
-      time: "02.22 PM",
+      time: "02:22 PM",
       date: 'December 30, 2025',
       name: "Photo",
       description: "Lunch (Finished)",
@@ -239,7 +236,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       createdBy: 'Staff A',
     ),
     ActivityItem(
-      time: "01.00 PM",
+      time: "01:00 PM",
       date: 'December 30, 2025',
       name: "Video",
       description: "Drawing Activity",
@@ -255,7 +252,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       activityType: 'Morning Time',
     ),
     ActivityItem(
-      time: "05.00 PM",
+      time: "05:00 PM",
       date: 'December 30, 2025',
       name: "Bottle",
       description: "Bottle Activity",
@@ -266,10 +263,39 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     ),
   ];
 
+  // Map activity label to the destination edit activity screen
+  static final Map<String, Widget Function(ActivityItem)> editActivityRoutes = {
+    'Nap Start': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Nap End': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Bathroom': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Bottle': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Meal': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Incident': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Photo': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Video': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Medication': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Notes': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Outdoor': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+    'Learning': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true),
+  };
+
   // Map activity label to the destination view activity screen
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
     'Nap Start': (activity) => ViewNapActivity(activityData: activity),
-    'Nap End': (activity) => ViewNapActivity(activityData: activity, isNapStart: false,),
+    'Nap End': (activity) =>
+        ViewNapActivity(activityData: activity, isNapStart: false),
     'Bathroom': (activity) => ViewBathroomActivity(activityData: activity),
     'Bottle': (activity) => ViewBottleActivity(activityData: activity),
     'Meal': (activity) => ViewMealActivity(activityData: activity),
@@ -279,7 +305,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         ViewPhotoVideoActivity(activityData: activity, isVideo: true),
     'Medication': (activity) => ViewMedicationActivity(activityData: activity),
     'Notes': (activity) => ViewNotesActivity(activityData: activity),
-    'Outdoor': (activity) => ViewLearningActivity(activityData: activity),
+    'Outdoor': (activity) => ViewOutdoorActivity(activityData: activity),
     'Learning': (activity) => ViewLearningActivity(activityData: activity),
   };
 
@@ -869,6 +895,26 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                     .themeColor,
                                                               ),
                                                             ),
+                                                            onTap: () {
+                                                              final destinationBuilder =
+                                                              editActivityRoutes[activity
+                                                                  .name];
+                                                              if (destinationBuilder !=
+                                                                  null) {
+                                                                final nextScreen =
+                                                                destinationBuilder(
+                                                                  activity,
+                                                                );
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute(
+                                                                    builder: (_) =>
+                                                                    nextScreen,
+                                                                  ),
+                                                                );
+                                                              }
+                                                            },
                                                           ),
                                                           PopupMenuItem<String>(
                                                             value: 'delete',
@@ -1169,6 +1215,6 @@ class ActivityItem {
     this.staffPresent,
     this.additionalNotes,
     this.bathroomType,
-    this.bathroomSubType
+    this.bathroomSubType,
   });
 }
