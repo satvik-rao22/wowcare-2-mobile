@@ -12,24 +12,29 @@ import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
+import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 
 class MealActivityScreen extends StatefulWidget {
   const MealActivityScreen({
     super.key,
-    required this.selectedStudents,
+    this.selectedStudents,
     this.isEdit = false,
+    this.activityData
   });
-  final List<Map<String, dynamic>> selectedStudents;
+  final List<Map<String,dynamic>>? selectedStudents;
   final bool isEdit;
+  final ActivityItem? activityData;
 
   @override
   State<MealActivityScreen> createState() => _MealActivityScreenState();
 }
 
 class _MealActivityScreenState extends State<MealActivityScreen> {
+  late final List<Map<String,dynamic>> _selectedStudentsData;
   late final List<String> _selectedStudents;
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
 
   final List<String> _mealType = ['Breakfast', 'Lunch', 'Snack'];
   String? _selectedMealType;
@@ -42,7 +47,17 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     super.initState();
     // Create a mutable copy of the incoming list
     //_selectedStudents = List.from(widget.selectedStudents);
-    _selectedStudents = widget.selectedStudents.map((studentMap) => studentMap['name'] as String).toList();
+    //_selectedStudents = widget.selectedStudents.map((studentMap) => studentMap['name'] as String).toList();
+    if(widget.selectedStudents != null){
+      _selectedStudentsData = List.from(widget.selectedStudents!);
+      _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
+    } else if(widget.isEdit ){
+      final activity = widget.activityData!;
+      _selectedStudents = List<String>.from(activity.studentList);
+      _descriptionController.text = activity.description ?? '';
+      _selectedMealType = activity.mealType;
+      _amountController.text = activity.mealQuantity ?? '';
+    }
   }
 
   void _removeStudent(String name) {
@@ -58,6 +73,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
@@ -162,28 +178,61 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
 
                           ),
                           SizedBox(height: responsive.verticalSpacing,),
-                          OunceInputWidget(
-                            key: _ounceFiledKey,
-                            label: 'Quantity',
-                            isRequired: true,
-                            min: 0.5,
-                            max: 50.0,
-                            // onValidChanged: (value){
-                            //   setState(() {
-                            //     _ounceAmount = value;
-                            //   });
-                            // },
-                          ),
+                          if(widget.isEdit)
+                            OunceInputWidget(
+                              key: _ounceFiledKey,
+                              label: 'Quantity',
+                              isRequired: true,
+                              min: 0.5,
+                              max: 50.0,
+                              controller: _amountController,
+                              // onValidChanged: (value){
+                              //   setState(() {
+                              //     _ounceAmount = value;
+                              //   });
+                              // },
+                            )
+                          else
+                            OunceInputWidget(
+                              key: _ounceFiledKey,
+                              label: 'Quantity',
+                              isRequired: true,
+                              min: 0.5,
+                              max: 50.0,
+                              // onValidChanged: (value){
+                              //   setState(() {
+                              //     _ounceAmount = value;
+                              //   });
+                              // },
+                            ),
                           SizedBox(height: responsive.verticalSpacing,),
                           Row(
                             children: [
-                              Flexible(child: DateWidget(isEditable: false, isRequired: true,)),
+                              Flexible(
+                                child:
+                                widget.isEdit ?
+                                DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
+                                    :
+                                DateWidget(isEditable: true, isRequired: true,),
+                              ),
                               const SizedBox(width: 10,),
-                              Flexible(child: TimeWidget(isEditable: true, isRequired: true,)),
+                              Flexible(
+                                  child: widget.isEdit ?
+                                  TimeWidget(isEditable: true, isRequired: true, prefilledTime: widget.activityData?.time,)
+                                      : TimeWidget(isRequired: true, isEditable: true,)
+                              ),
                             ],
                           ),
+                          // Row(
+                          //   children: [
+                          //     Flexible(child: DateWidget(isEditable: false, isRequired: true,)),
+                          //     const SizedBox(width: 10,),
+                          //     Flexible(child: TimeWidget(isEditable: true, isRequired: true,)),
+                          //   ],
+                          // ),
                           SizedBox(height: responsive.verticalSpacing,),
-                          StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
+                          //StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
+                          StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.createdBy ?? '' :'Staff A', isEditable: false,),
                           SizedBox(height: responsive.verticalSpacing,),
                           InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description'),
                           SizedBox(height: responsive.verticalSpacing,),
@@ -262,7 +311,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           },
           style: TextButton.styleFrom(overlayColor: Colors.transparent),
           child: Text(
-            'Add',
+            widget.isEdit ? 'Save':'Add',
             style: TextStyle(
               fontFamily: 'Manrope',
               fontSize: responsive.buttonFontSize,

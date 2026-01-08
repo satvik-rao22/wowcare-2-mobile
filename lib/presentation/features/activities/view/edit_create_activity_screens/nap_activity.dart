@@ -164,27 +164,26 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 10,),
-                            if(!widget.isEdit)
-                              GridView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
-                                shrinkWrap: true,
-                                padding: const EdgeInsets.all(10),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
-                                ),
-                                itemCount: _selectedStudents.length,
-                                itemBuilder: (context, index) {
-                                  final String name = _selectedStudents[index];
-
-                                  return SelectedStudentTile(
-                                    name: name,
-                                    onTap: () => _removeStudent(name),
-                                  );
-                                },
+                            GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.all(10),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: responsive.isTablet ? 3 : 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
                               ),
+                              itemCount: _selectedStudents.length,
+                              itemBuilder: (context, index) {
+                                final String name = _selectedStudents[index];
+
+                                return SelectedStudentTile(
+                                  name: name,
+                                  onTap: () => _removeStudent(name),
+                                );
+                              },
+                            ),
                             SizedBox(height: responsive.verticalSpacing,),
                             if(widget.isEdit)
                               DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
@@ -213,7 +212,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                             else
                               CheckboxWidget(label: 'Remind to check nap every 15 mins', isEditable: widget.activityData?.name == 'Nap Start',),
                             SizedBox(height: responsive.verticalSpacing,),
-                            StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
+                            StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.staffPresent ?? '' :'Staff A', isEditable: false,),
                             SizedBox(height: responsive.verticalSpacing,),
                             InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description'),
                             SizedBox(height: responsive.verticalSpacing,),
@@ -273,7 +272,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           },
           style: TextButton.styleFrom(overlayColor: Colors.transparent),
           child: Text(
-            'Add',
+            widget.isEdit ? 'Save':'Add',
             style: TextStyle(
               fontFamily: 'Manrope',
               fontSize: responsive.buttonFontSize,

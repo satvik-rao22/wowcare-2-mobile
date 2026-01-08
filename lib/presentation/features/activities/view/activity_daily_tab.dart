@@ -23,6 +23,12 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/utils/responsive_helper.dart';
+import 'edit_create_activity_screens/bathroom_activity.dart';
+import 'edit_create_activity_screens/bottle_activity.dart';
+import 'edit_create_activity_screens/incident_activity.dart';
+import 'edit_create_activity_screens/meal_activity.dart';
+import 'edit_create_activity_screens/medication_activity.dart';
+import 'edit_create_activity_screens/photo_activity.dart';
 
 class ActivityDailyTab extends StatefulWidget {
   const ActivityDailyTab({
@@ -119,6 +125,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       //color: Color(0xFFFFE0B2), // orange
       studentList: ['Kabir Mehta', 'Sara Khan'],
       createdBy: 'Staff A',
+      staffPresent: 'Staff B',
       napStartTime: '6:00 PM',
       napEndTime: '7:30 PM',
     ),
@@ -129,7 +136,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       description: "Nap Started at 6:00 PM",
       //color: Color(0xFFFFE0B2), // orange
       studentList: ['Kabir Mehta', 'Sara Khan'],
-      createdBy: 'Staff A',
+      createdBy: 'Staff B',
+      staffPresent: 'Staff B',
       napStartTime: '6:00 PM',
       remainderOn: true,
     ),
@@ -270,19 +278,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     'Nap End': (activity) =>
         NapActivityScreen(activityData: activity, isEdit: true),
     'Bathroom': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        BathroomActivityScreen(activityData: activity, isEdit: true),
     'Bottle': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        BottleActivityScreen(activityData: activity, isEdit: true),
     'Meal': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        MealActivityScreen(activityData: activity, isEdit: true),
     'Incident': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        IncidentActivityScreen(activityData: activity, isEdit: true),
     'Photo': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        PhotoVideoActivityScreen(activityData: activity, isEdit: true, isPhoto: true,),
     'Video': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        PhotoVideoActivityScreen(activityData: activity, isEdit: true, isPhoto: false,),
     'Medication': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        MedicationActivityScreen(activityData: activity, isEdit: true),
     'Notes': (activity) =>
         NapActivityScreen(activityData: activity, isEdit: true),
     'Outdoor': (activity) =>
@@ -355,207 +363,40 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: ResponsiveSizing.contentPadding(context),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.cardColor,
-            ),
-            child: widget.fromStudentProfile
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        height: 65,
-                        child: AbsorbPointer(
-                          child: _buildCustomDropdown(
-                            'Select Student',
-                            [?widget.studentName],
-                            widget.studentName,
-                            (v) => setState(() {
-                              _selectedStudent = v;
-                            }),
-                            height: 65,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 65,
-                        child: _datePickerFilter(
-                          selectedDate: _selectedDate,
-                          onDateSelected: (date) {
-                            setState(() {
-                              _selectedDate = date;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  )
-                : isNotParent
-                ? Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
+    return OrientationBuilder(
+        builder: (context, orientation){
+          if(orientation == Orientation.landscape){
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: Padding(
+                  padding: ResponsiveSizing.contentPadding(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.cardBorderColor),
+                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.cardColor,
+                    ),
+                    child: widget.fromStudentProfile
+                        ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: 65,
+                          child: AbsorbPointer(
                             child: _buildCustomDropdown(
-                              'Select Classroom',
-                              _classroomOptions,
-                              _selectdClassroom,
-                              (v) => setState(() {
-                                _selectdClassroom = v;
-                                _updateAvailableStudents();
+                              'Select Student',
+                              [?widget.studentName],
+                              widget.studentName,
+                                  (v) => setState(() {
+                                _selectedStudent = v;
                               }),
+                              height: 65,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            // child: _buildCustomDropdown(
-                            //   'Select Student',
-                            //   _allStudents,
-                            //   _selectedStudent,
-                            //   (v) => setState(() {
-                            //     _selectedStudent = v;
-                            //   }),
-                            // ),
-                            child: _buildCustomDropdown(
-                              _selectdClassroom == null
-                                  ? 'Select Classroom First'
-                                  : 'Select Student',
-                              _availableStudents,
-                              _selectedStudent,
-                              (value) {
-                                if (_selectdClassroom != null) {
-                                  setState(() {
-                                    _selectedStudent = value;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(100),
-                              onTap: () async {
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => FilterScreen(
-                                      sections: [
-                                        FilerSection(
-                                          label: 'Tags',
-                                          hintText: 'Select tags',
-                                          items: [
-                                            '5 Days',
-                                            'Full Day',
-                                            'Photo Permission',
-                                            'Vegetarian',
-                                            'First Aid',
-                                            'Allergy',
-                                            'Pickup Authorized',
-                                            'Medication',
-                                            'Half Day',
-                                            'Boy',
-                                            'Girl',
-                                          ],
-                                          initialSelected: _filterTags,
-                                          isMultiSelectDropDown: false,
-                                        ),
-                                        FilerSection(
-                                          label: 'Activity Type',
-                                          hintText: 'Select Activity',
-                                          items: [
-                                            'Nap Start',
-                                            'Nap End',
-                                            'Bathroom',
-                                            'Bottle',
-                                            'Meal',
-                                            'Incident',
-                                            'Photo',
-                                            'Outdoor',
-                                            'Medication',
-                                            'Notes',
-                                            'Learning',
-                                            'Sign-in',
-                                            'Sign-out',
-                                            'Absent',
-                                          ],
-                                          initialSelected: _filterActivityTypes,
-                                          isMultiSelectDropDown: false,
-                                        ),
-                                      ],
-                                      onApply: (filters) {
-                                        setState(() {
-                                          _filterTags = filters['Tags']!;
-                                          _filterActivityTypes =
-                                              filters['Activity Type']!;
-                                        });
-                                        //print(_filterTags);
-                                        //print(_filterActivityTypes);
-                                      },
-                                    ),
-                                  ),
-                                );
-                                if (!mounted) return;
-                                if (result is Map) {
-                                  // TODO: apply filters to list
-                                  setState(() {});
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: SvgPicture.asset(
-                                  MediaRes.filterIcon,
-                                  height: 20,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: _datePickerFilter(
-                              selectedDate: _selectedDate,
-                              onDateSelected: (date) {
-                                setState(() {
-                                  _selectedDate = date;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          CustomClearAllChip(
-                            onTap: () {
-                              setState(() {
-                                _selectdClassroom = _classroomOptions[0];
-                                _selectedStudent = null;
-                                _filterActivityTypes.clear();
-                                _filterTags.clear();
-                              });
-                              //print(_filterTags);
-                            },
-                            label: 'Clear All',
-                          ),
-                        ],
-                      ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
                           height: 65,
                           child: _datePickerFilter(
                             selectedDate: _selectedDate,
@@ -566,78 +407,276 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                             },
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: SizedBox(
-                          height: 65,
-                          child: _buildCustomDropdown(
-                            'Activity Type',
-                            activityType,
-                            _selectedActivityType,
-                            (v) => setState(() {
-                              _selectedActivityType = v;
-                            }),
+                      ],
+                    )
+                        : isNotParent
+                        ? Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildCustomDropdown(
+                                'Select Classroom',
+                                _classroomOptions,
+                                _selectdClassroom,
+                                    (v) => setState(() {
+                                  _selectdClassroom = v;
+                                  _updateAvailableStudents();
+                                }),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              // child: _buildCustomDropdown(
+                              //   'Select Student',
+                              //   _allStudents,
+                              //   _selectedStudent,
+                              //   (v) => setState(() {
+                              //     _selectedStudent = v;
+                              //   }),
+                              // ),
+                              child: _buildCustomDropdown(
+                                _selectdClassroom == null
+                                    ? 'Select Classroom First'
+                                    : 'Select Student',
+                                _availableStudents,
+                                _selectedStudent,
+                                    (value) {
+                                  if (_selectdClassroom != null) {
+                                    setState(() {
+                                      _selectedStudent = value;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(100),
+                                onTap: () async {
+                                  final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FilterScreen(
+                                        sections: [
+                                          FilerSection(
+                                            label: 'Tags',
+                                            hintText: 'Select tags',
+                                            items: [
+                                              '5 Days',
+                                              'Full Day',
+                                              'Photo Permission',
+                                              'Vegetarian',
+                                              'First Aid',
+                                              'Allergy',
+                                              'Pickup Authorized',
+                                              'Medication',
+                                              'Half Day',
+                                              'Boy',
+                                              'Girl',
+                                            ],
+                                            initialSelected: _filterTags,
+                                            isMultiSelectDropDown: false,
+                                          ),
+                                          FilerSection(
+                                            label: 'Activity Type',
+                                            hintText: 'Select Activity',
+                                            items: [
+                                              'Nap Start',
+                                              'Nap End',
+                                              'Bathroom',
+                                              'Bottle',
+                                              'Meal',
+                                              'Incident',
+                                              'Photo',
+                                              'Outdoor',
+                                              'Medication',
+                                              'Notes',
+                                              'Learning',
+                                              'Sign-in',
+                                              'Sign-out',
+                                              'Absent',
+                                            ],
+                                            initialSelected: _filterActivityTypes,
+                                            isMultiSelectDropDown: false,
+                                          ),
+                                        ],
+                                        onApply: (filters) {
+                                          setState(() {
+                                            _filterTags = filters['Tags']!;
+                                            _filterActivityTypes =
+                                            filters['Activity Type']!;
+                                          });
+                                          //print(_filterTags);
+                                          //print(_filterActivityTypes);
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  if (result is Map) {
+                                    // TODO: apply filters to list
+                                    setState(() {});
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: SvgPicture.asset(
+                                    MediaRes.filterIcon,
+                                    height: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: _datePickerFilter(
+                                selectedDate: _selectedDate,
+                                onDateSelected: (date) {
+                                  setState(() {
+                                    _selectedDate = date;
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            CustomClearAllChip(
+                              onTap: () {
+                                setState(() {
+                                  _selectdClassroom = _classroomOptions[0];
+                                  _selectedStudent = null;
+                                  _filterActivityTypes.clear();
+                                  _filterTags.clear();
+                                });
+                                //print(_filterTags);
+                              },
+                              label: 'Clear All',
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                        : Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
                             height: 65,
+                            child: _datePickerFilter(
+                              selectedDate: _selectedDate,
+                              onDateSelected: (date) {
+                                setState(() {
+                                  _selectedDate = date;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 65,
+                            child: _buildCustomDropdown(
+                              'Activity Type',
+                              activityType,
+                              _selectedActivityType,
+                                  (v) => setState(() {
+                                _selectedActivityType = v;
+                              }),
+                              height: 65,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),),
+                SliverToBoxAdapter(child: SizedBox(height: 12,),),
+                if(activities.isEmpty)
+                  SliverToBoxAdapter(child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.cardBorderColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: AppColors.cardColor,
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No Activities found',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontFamily: 'Manrope',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        if (activities.length == 0)
-          Expanded(
-            child: Padding(
-              padding: ResponsiveSizing.contentPadding(context),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.cardBorderColor),
-                  borderRadius: BorderRadius.circular(12),
-                  color: AppColors.cardColor,
-                ),
-                child: Center(
-                  child: Text(
-                    'No Activities found',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontFamily: 'Manrope',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+                  ),),
+                // if (activities.isNotEmpty)
+                //   SliverPadding(
+                //     padding: EdgeInsets.all(16),
+                //     sliver: SliverList(
+                //       delegate: SliverChildBuilderDelegate(
+                //             (context, index) => Container(
+                //           height: 100,
+                //           margin: EdgeInsets.only(bottom: 16),
+                //           color: Colors.blue[100 * (index % 9 + 1)],
+                //           child: Center(child: Text('Test Item $index')),
+                //         ),
+                //         childCount: activities.length,
+                //       ),
+                //     ),
+                //   ),
 
-        if (activities.length != 0)
-          Expanded(
-            child: Padding(
-              padding: ResponsiveSizing.contentPadding(context),
-              child: Column(
-                children: [
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(right: 16),
-                      itemCount: activities.length,
-                      itemBuilder: (context, index) {
-                        final activity = activities[index];
-                        final students = activity.studentList;
-                        final Color activityColor =
+                if(activities.isNotEmpty)
+                  SliverPadding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                          (context, index){
+                            final activity = activities[index];
+                            final students = activity.studentList;
+                            final Color activityColor =
                             _colorPalette[index % _colorPalette.length];
 
-                        return Column(
-                          children: [
-                            Row(
+                            return Column(
                               children: [
-                                Column(
+                                Row(
                                   children: [
+                                    Column(
+                                      children: [
+                                        Container(
+                                          width: 18,
+                                          height: 18,
+                                          decoration: BoxDecoration(
+                                            //color: activity.color,
+                                            color: activityColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 4,
+                                          height: 2,
+                                          //color: activity.color,
+                                          color: activityColor,
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      width: 100,
+                                      height: 4,
+                                      //color: activity.color,
+                                      color: activityColor,
+                                    ),
                                     Container(
                                       width: 18,
                                       height: 18,
@@ -647,388 +686,1781 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    Container(
-                                      width: 4,
-                                      height: 2,
-                                      //color: activity.color,
-                                      color: activityColor,
+                                    const SizedBox(width: 20),
+                                    SizedBox(
+                                      height: 20,
+                                      child: Text(
+                                        activity.time,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.primaryColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                                Container(
-                                  width: 100,
-                                  height: 4,
-                                  //color: activity.color,
-                                  color: activityColor,
-                                ),
-                                Container(
-                                  width: 18,
-                                  height: 18,
-                                  decoration: BoxDecoration(
-                                    //color: activity.color,
-                                    color: activityColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 20),
-                                SizedBox(
-                                  height: 20,
-                                  child: Text(
-                                    activity.time,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppColors.primaryColor,
-                                      fontWeight: FontWeight.w500,
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(width: 7),
+                                    Container(
+                                      width: 4,
+                                      height: 220,
+                                      //color: activity.color,
+                                      color: activityColor,
                                     ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(width: 7),
-                                Container(
-                                  width: 4,
-                                  height: 220,
-                                  //color: activity.color,
-                                  color: activityColor,
-                                ),
 
-                                const SizedBox(width: 16),
+                                    const SizedBox(width: 16),
 
-                                // Activity Card
-                                Expanded(
-                                  child: Column(
-                                    children: [
-                                      const SizedBox(height: 15),
-                                      Container(
-                                        height: 180,
-                                        margin: const EdgeInsets.only(
-                                          bottom: 24,
-                                        ),
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: activityColor.withOpacity(
-                                            0.15,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          border: Border.all(
-                                            color: activityColor.withOpacity(
-                                              0.4,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          // crossAxisAlignment:
-                                          //     CrossAxisAlignment.center,
+                                    // Activity Card
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        child: Column(
                                           children: [
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: SizedBox(
-                                                width: 140,
-                                                height: 120,
-                                                child:
-                                                    activity.photoUrl != null ||
-                                                        activity.videoUrl !=
-                                                            null
-                                                    ? ActivityMediaPreview(
-                                                        activity: activity,
-                                                        activityColor:
-                                                            activityColor,
-                                                      )
-                                                    // ? Image.network(
-                                                    //     activity.photoUrl!,
-                                                    //     fit: BoxFit.cover,
-                                                    //     loadingBuilder:
-                                                    //         (
-                                                    //           context,
-                                                    //           child,
-                                                    //           loadingProgress,
-                                                    //         ) {
-                                                    //           if (loadingProgress ==
-                                                    //               null)
-                                                    //             return child;
-                                                    //           return Container(
-                                                    //             color: Colors
-                                                    //                 .transparent,
-                                                    //             child: const Center(
-                                                    //               child: CircularProgressIndicator(
-                                                    //                 strokeWidth:
-                                                    //                     2,
-                                                    //               ),
-                                                    //             ),
-                                                    //           );
-                                                    //         },
-                                                    //     errorBuilder:
-                                                    //         (
-                                                    //           context,
-                                                    //           error,
-                                                    //           stackTrace,
-                                                    //         ) {
-                                                    //           return Container(
-                                                    //             width: 122,
-                                                    //             height: 76,
-                                                    //             color: activity
-                                                    //                 .color
-                                                    //                 .withOpacity(
-                                                    //                   0.25,
-                                                    //                 ),
-                                                    //             child: Center(
-                                                    //               child: Image.asset(
-                                                    //                 activityIcons[activity
-                                                    //                     .name],
-                                                    //                 //'assets/icons/activity-nap-icon.png',
-                                                    //                 fit: BoxFit
-                                                    //                     .fill,
-                                                    //               ),
-                                                    //             ),
-                                                    //           );
-                                                    //         },
-                                                    //   )
-                                                    : Container(
-                                                        width: 122,
-                                                        height: 76,
-                                                        color: Colors.white,
-                                                        // color: activityColor
-                                                        //     .withOpacity(0.25),
-                                                        child: Center(
-                                                          child: Image.asset(
-                                                            activityIcons[activity
-                                                                .name],
-                                                            //'assets/icons/activity-nap-icon.png',
-                                                            fit: BoxFit.fill,
+                                            const SizedBox(height: 15),
+                                            InkWell(
+                                              onTap: () {
+                                                final destinationBuilder =
+                                                activityRoutes[activity
+                                                    .name];
+                                                if (destinationBuilder !=
+                                                    null) {
+                                                  final nextScreen =
+                                                  destinationBuilder(
+                                                    activity,
+                                                  );
+                                                  Navigator.of(
+                                                    context,
+                                                  ).push(
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                      nextScreen,
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                              child: Container(
+                                                height: 180,
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 24,
+                                                ),
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: activityColor.withOpacity(
+                                                    0.15,
+                                                  ),
+                                                  borderRadius: BorderRadius.circular(
+                                                    16,
+                                                  ),
+                                                  border: Border.all(
+                                                    color: activityColor.withOpacity(
+                                                      0.4,
+                                                    ),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  // crossAxisAlignment:
+                                                  //     CrossAxisAlignment.center,
+                                                  children: [
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                      BorderRadius.circular(12),
+                                                      child: SizedBox(
+                                                        width: 140,
+                                                        height: 120,
+                                                        child:
+                                                        activity.photoUrl != null ||
+                                                            activity.videoUrl !=
+                                                                null
+                                                            ? ActivityMediaPreview(
+                                                          activity: activity,
+                                                          activityColor:
+                                                          activityColor,
+                                                        )
+                                                        // ? Image.network(
+                                                        //     activity.photoUrl!,
+                                                        //     fit: BoxFit.cover,
+                                                        //     loadingBuilder:
+                                                        //         (
+                                                        //           context,
+                                                        //           child,
+                                                        //           loadingProgress,
+                                                        //         ) {
+                                                        //           if (loadingProgress ==
+                                                        //               null)
+                                                        //             return child;
+                                                        //           return Container(
+                                                        //             color: Colors
+                                                        //                 .transparent,
+                                                        //             child: const Center(
+                                                        //               child: CircularProgressIndicator(
+                                                        //                 strokeWidth:
+                                                        //                     2,
+                                                        //               ),
+                                                        //             ),
+                                                        //           );
+                                                        //         },
+                                                        //     errorBuilder:
+                                                        //         (
+                                                        //           context,
+                                                        //           error,
+                                                        //           stackTrace,
+                                                        //         ) {
+                                                        //           return Container(
+                                                        //             width: 122,
+                                                        //             height: 76,
+                                                        //             color: activity
+                                                        //                 .color
+                                                        //                 .withOpacity(
+                                                        //                   0.25,
+                                                        //                 ),
+                                                        //             child: Center(
+                                                        //               child: Image.asset(
+                                                        //                 activityIcons[activity
+                                                        //                     .name],
+                                                        //                 //'assets/icons/activity-nap-icon.png',
+                                                        //                 fit: BoxFit
+                                                        //                     .fill,
+                                                        //               ),
+                                                        //             ),
+                                                        //           );
+                                                        //         },
+                                                        //   )
+                                                            : Container(
+                                                          width: 122,
+                                                          height: 76,
+                                                          color: Colors.white,
+                                                          // color: activityColor
+                                                          //     .withOpacity(0.25),
+                                                          child: Center(
+                                                            child: Image.asset(
+                                                              activityIcons[activity
+                                                                  .name],
+                                                              //'assets/icons/activity-nap-icon.png',
+                                                              fit: BoxFit.fill,
+                                                            ),
                                                           ),
                                                         ),
                                                       ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceEvenly,
-                                                children: [
-                                                  Row(
-                                                    mainAxisAlignment:
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                        mainAxisAlignment:
                                                         MainAxisAlignment
-                                                            .spaceBetween,
-                                                    children: [
-                                                      Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 6,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: activityColor,
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                20,
-                                                              ),
-                                                        ),
-                                                        child: Text(
-                                                          activity.name,
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 11,
-                                                                fontWeight:
+                                                            .spaceEvenly,
+                                                        children: [
+                                                          Row(
+                                                            mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceBetween,
+                                                            children: [
+                                                              Container(
+                                                                padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 12,
+                                                                  vertical: 6,
+                                                                ),
+                                                                decoration: BoxDecoration(
+                                                                  color: activityColor,
+                                                                  borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    20,
+                                                                  ),
+                                                                ),
+                                                                child: Text(
+                                                                  activity.name,
+                                                                  style:
+                                                                  const TextStyle(
+                                                                    color: Colors
+                                                                        .white,
+                                                                    fontSize: 11,
+                                                                    fontWeight:
                                                                     FontWeight
                                                                         .bold,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      PopupMenuButton<String>(
-                                                        icon: const Icon(
-                                                          Icons.more_horiz,
-                                                          size: 20,
-                                                        ),
-                                                        onSelected: null,
-                                                        itemBuilder: (context) => [
-                                                          PopupMenuItem<String>(
-                                                            value: 'view',
-                                                            child: PopupItem(
-                                                              title: 'View',
-                                                              icon: Icon(
-                                                                Icons
-                                                                    .visibility_outlined,
-                                                                color: AppColors
-                                                                    .themeColor,
-                                                              ),
-                                                            ),
-                                                            onTap: () {
-                                                              final destinationBuilder =
-                                                                  activityRoutes[activity
-                                                                      .name];
-                                                              if (destinationBuilder !=
-                                                                  null) {
-                                                                final nextScreen =
-                                                                    destinationBuilder(
-                                                                      activity,
-                                                                    );
-                                                                Navigator.of(
-                                                                  context,
-                                                                ).push(
-                                                                  MaterialPageRoute(
-                                                                    builder: (_) =>
-                                                                        nextScreen,
                                                                   ),
-                                                                );
-                                                              }
-                                                            },
-                                                          ),
-                                                          PopupMenuItem<String>(
-                                                            value: 'edit',
-                                                            child: PopupItem(
-                                                              title: 'Edit',
-                                                              icon: Icon(
-                                                                Icons.edit,
-                                                                color: AppColors
-                                                                    .themeColor,
+                                                                ),
                                                               ),
-                                                            ),
-                                                            onTap: () {
-                                                              final destinationBuilder =
-                                                              editActivityRoutes[activity
-                                                                  .name];
-                                                              if (destinationBuilder !=
-                                                                  null) {
-                                                                final nextScreen =
-                                                                destinationBuilder(
-                                                                  activity,
-                                                                );
-                                                                Navigator.of(
-                                                                  context,
-                                                                ).push(
-                                                                  MaterialPageRoute(
-                                                                    builder: (_) =>
-                                                                    nextScreen,
+                                                              PopupMenuButton<String>(
+                                                                icon: const Icon(
+                                                                  Icons.more_horiz,
+                                                                  size: 20,
+                                                                ),
+                                                                onSelected: null,
+                                                                itemBuilder: (context) => [
+                                                                  PopupMenuItem<String>(
+                                                                    value: 'view',
+                                                                    child: PopupItem(
+                                                                      title: 'View',
+                                                                      icon: Icon(
+                                                                        Icons
+                                                                            .visibility_outlined,
+                                                                        color: AppColors
+                                                                            .themeColor,
+                                                                      ),
+                                                                    ),
+                                                                    onTap: () {
+                                                                      final destinationBuilder =
+                                                                      activityRoutes[activity
+                                                                          .name];
+                                                                      if (destinationBuilder !=
+                                                                          null) {
+                                                                        final nextScreen =
+                                                                        destinationBuilder(
+                                                                          activity,
+                                                                        );
+                                                                        Navigator.of(
+                                                                          context,
+                                                                        ).push(
+                                                                          MaterialPageRoute(
+                                                                            builder: (_) =>
+                                                                            nextScreen,
+                                                                          ),
+                                                                        );
+                                                                      }
+                                                                    },
                                                                   ),
-                                                                );
-                                                              }
-                                                            },
-                                                          ),
-                                                          PopupMenuItem<String>(
-                                                            value: 'delete',
-                                                            child: PopupItem(
-                                                              title: 'Delete',
-                                                              icon: Icon(
-                                                                Icons.delete,
-                                                                color: AppColors
-                                                                    .themeColor,
+                                                                  PopupMenuItem<String>(
+                                                                    value: 'edit',
+                                                                    child: PopupItem(
+                                                                      title: 'Edit',
+                                                                      icon: Icon(
+                                                                        Icons.edit,
+                                                                        color: AppColors
+                                                                            .themeColor,
+                                                                      ),
+                                                                    ),
+                                                                    onTap: () {
+                                                                      final destinationBuilder =
+                                                                      editActivityRoutes[activity
+                                                                          .name];
+                                                                      if (destinationBuilder !=
+                                                                          null) {
+                                                                        final nextScreen =
+                                                                        destinationBuilder(
+                                                                          activity,
+                                                                        );
+                                                                        Navigator.of(
+                                                                          context,
+                                                                        ).push(
+                                                                          MaterialPageRoute(
+                                                                            builder: (_) =>
+                                                                            nextScreen,
+                                                                          ),
+                                                                        );
+                                                                      }
+                                                                    },
+                                                                  ),
+                                                                  PopupMenuItem<String>(
+                                                                    value: 'delete',
+                                                                    child: PopupItem(
+                                                                      title: 'Delete',
+                                                                      icon: Icon(
+                                                                        Icons.delete,
+                                                                        color: AppColors
+                                                                            .themeColor,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                               ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(height: 10),
+
+                                                          SizedBox(
+                                                            height: 32,
+                                                            child: Stack(
+                                                              children: [
+                                                                for (
+                                                                int i = 0;
+                                                                i < students.length &&
+                                                                    i < 4;
+                                                                i++
+                                                                )
+                                                                  Positioned(
+                                                                    left: i * 20,
+                                                                    child:
+                                                                    DocumentImageWidget(
+                                                                      fileUuid: '',
+                                                                      name:
+                                                                      students[i],
+                                                                      size: 28,
+                                                                      fontSize: 10,
+                                                                    ),
+                                                                  ),
+
+                                                                // Extra count tooltip
+                                                                if (students.length > 4)
+                                                                  Positioned(
+                                                                    left:
+                                                                    4 *
+                                                                        20, // after 4 avatars
+                                                                    child: Tooltip(
+                                                                      message: students
+                                                                          .skip(4)
+                                                                          .join(', '),
+                                                                      child: DocumentImageWidget(
+                                                                        fileUuid: '',
+                                                                        name:
+                                                                        '+${students.length - 4}',
+                                                                        size: 28,
+                                                                        fontSize: 10,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                              ],
                                                             ),
+                                                          ),
+                                                          const SizedBox(height: 10),
+
+                                                          Text(
+                                                            activity.description ?? 'No description',
+
+                                                            style: TextStyle(
+                                                              color: AppColors
+                                                                  .primaryColor,
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                              FontWeight.w600,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                            TextOverflow.ellipsis,
+                                                          ),
+                                                          const SizedBox(height: 10),
+                                                          Text(
+                                                            'Created By - ${activity.createdBy}',
+
+                                                            style: TextStyle(
+                                                              color: AppColors
+                                                                  .primaryColor,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                              FontWeight.w500,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                            TextOverflow.ellipsis,
                                                           ),
                                                         ],
                                                       ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 10),
-
-                                                  SizedBox(
-                                                    height: 32,
-                                                    child: Stack(
-                                                      children: [
-                                                        for (
-                                                          int i = 0;
-                                                          i < students.length &&
-                                                              i < 4;
-                                                          i++
-                                                        )
-                                                          Positioned(
-                                                            left: i * 20,
-                                                            child:
-                                                                DocumentImageWidget(
-                                                                  fileUuid: '',
-                                                                  name:
-                                                                      students[i],
-                                                                  size: 28,
-                                                                  fontSize: 10,
-                                                                ),
-                                                          ),
-
-                                                        // Extra count tooltip
-                                                        if (students.length > 4)
-                                                          Positioned(
-                                                            left:
-                                                                4 *
-                                                                20, // after 4 avatars
-                                                            child: Tooltip(
-                                                              message: students
-                                                                  .skip(4)
-                                                                  .join(', '),
-                                                              child: DocumentImageWidget(
-                                                                fileUuid: '',
-                                                                name:
-                                                                    '+${students.length - 4}',
-                                                                size: 28,
-                                                                fontSize: 10,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                      ],
                                                     ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-
-                                                  Text(
-                                                    activity.description!,
-
-                                                    style: TextStyle(
-                                                      color: AppColors
-                                                          .primaryColor,
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  Text(
-                                                    'Created By - ${activity.createdBy}',
-
-                                                    style: TextStyle(
-                                                      color: AppColors
-                                                          .primaryColor,
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ],
-                            ),
-                          ],
-                        );
-                      },
+                            );
+                          },
+                          childCount: activities.length
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-      ],
+                const SliverToBoxAdapter(child: SizedBox(height: 20,),)
+              ],
+            );
+            // return SingleChildScrollView(
+            //   child: Column(
+            //     children: [
+            //       Padding(
+            //         padding: ResponsiveSizing.contentPadding(context),
+            //         child: Container(
+            //           padding: const EdgeInsets.all(12),
+            //           decoration: BoxDecoration(
+            //             border: Border.all(color: AppColors.cardBorderColor),
+            //             borderRadius: BorderRadius.circular(12),
+            //             color: AppColors.cardColor,
+            //           ),
+            //           child: widget.fromStudentProfile
+            //               ? Column(
+            //             crossAxisAlignment: CrossAxisAlignment.stretch,
+            //             children: [
+            //               SizedBox(
+            //                 height: 65,
+            //                 child: AbsorbPointer(
+            //                   child: _buildCustomDropdown(
+            //                     'Select Student',
+            //                     [?widget.studentName],
+            //                     widget.studentName,
+            //                         (v) => setState(() {
+            //                       _selectedStudent = v;
+            //                     }),
+            //                     height: 65,
+            //                   ),
+            //                 ),
+            //               ),
+            //               const SizedBox(height: 8),
+            //               SizedBox(
+            //                 height: 65,
+            //                 child: _datePickerFilter(
+            //                   selectedDate: _selectedDate,
+            //                   onDateSelected: (date) {
+            //                     setState(() {
+            //                       _selectedDate = date;
+            //                     });
+            //                   },
+            //                 ),
+            //               ),
+            //             ],
+            //           )
+            //               : isNotParent
+            //               ? Column(
+            //             children: [
+            //               Row(
+            //                 children: [
+            //                   Expanded(
+            //                     child: _buildCustomDropdown(
+            //                       'Select Classroom',
+            //                       _classroomOptions,
+            //                       _selectdClassroom,
+            //                           (v) => setState(() {
+            //                         _selectdClassroom = v;
+            //                         _updateAvailableStudents();
+            //                       }),
+            //                     ),
+            //                   ),
+            //                   const SizedBox(width: 8),
+            //                   Expanded(
+            //                     // child: _buildCustomDropdown(
+            //                     //   'Select Student',
+            //                     //   _allStudents,
+            //                     //   _selectedStudent,
+            //                     //   (v) => setState(() {
+            //                     //     _selectedStudent = v;
+            //                     //   }),
+            //                     // ),
+            //                     child: _buildCustomDropdown(
+            //                       _selectdClassroom == null
+            //                           ? 'Select Classroom First'
+            //                           : 'Select Student',
+            //                       _availableStudents,
+            //                       _selectedStudent,
+            //                           (value) {
+            //                         if (_selectdClassroom != null) {
+            //                           setState(() {
+            //                             _selectedStudent = value;
+            //                           });
+            //                         }
+            //                       },
+            //                     ),
+            //                   ),
+            //                   const SizedBox(width: 8),
+            //                   Material(
+            //                     color: Colors.transparent,
+            //                     child: InkWell(
+            //                       borderRadius: BorderRadius.circular(100),
+            //                       onTap: () async {
+            //                         final result = await Navigator.push(
+            //                           context,
+            //                           MaterialPageRoute(
+            //                             builder: (_) => FilterScreen(
+            //                               sections: [
+            //                                 FilerSection(
+            //                                   label: 'Tags',
+            //                                   hintText: 'Select tags',
+            //                                   items: [
+            //                                     '5 Days',
+            //                                     'Full Day',
+            //                                     'Photo Permission',
+            //                                     'Vegetarian',
+            //                                     'First Aid',
+            //                                     'Allergy',
+            //                                     'Pickup Authorized',
+            //                                     'Medication',
+            //                                     'Half Day',
+            //                                     'Boy',
+            //                                     'Girl',
+            //                                   ],
+            //                                   initialSelected: _filterTags,
+            //                                   isMultiSelectDropDown: false,
+            //                                 ),
+            //                                 FilerSection(
+            //                                   label: 'Activity Type',
+            //                                   hintText: 'Select Activity',
+            //                                   items: [
+            //                                     'Nap Start',
+            //                                     'Nap End',
+            //                                     'Bathroom',
+            //                                     'Bottle',
+            //                                     'Meal',
+            //                                     'Incident',
+            //                                     'Photo',
+            //                                     'Outdoor',
+            //                                     'Medication',
+            //                                     'Notes',
+            //                                     'Learning',
+            //                                     'Sign-in',
+            //                                     'Sign-out',
+            //                                     'Absent',
+            //                                   ],
+            //                                   initialSelected: _filterActivityTypes,
+            //                                   isMultiSelectDropDown: false,
+            //                                 ),
+            //                               ],
+            //                               onApply: (filters) {
+            //                                 setState(() {
+            //                                   _filterTags = filters['Tags']!;
+            //                                   _filterActivityTypes =
+            //                                   filters['Activity Type']!;
+            //                                 });
+            //                                 //print(_filterTags);
+            //                                 //print(_filterActivityTypes);
+            //                               },
+            //                             ),
+            //                           ),
+            //                         );
+            //                         if (!mounted) return;
+            //                         if (result is Map) {
+            //                           // TODO: apply filters to list
+            //                           setState(() {});
+            //                         }
+            //                       },
+            //                       child: Padding(
+            //                         padding: const EdgeInsets.all(8),
+            //                         child: SvgPicture.asset(
+            //                           MediaRes.filterIcon,
+            //                           height: 20,
+            //                         ),
+            //                       ),
+            //                     ),
+            //                   ),
+            //                 ],
+            //               ),
+            //               const SizedBox(height: 16),
+            //               Row(
+            //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //                 children: [
+            //                   Expanded(
+            //                     child: _datePickerFilter(
+            //                       selectedDate: _selectedDate,
+            //                       onDateSelected: (date) {
+            //                         setState(() {
+            //                           _selectedDate = date;
+            //                         });
+            //                       },
+            //                     ),
+            //                   ),
+            //                   const SizedBox(width: 8),
+            //                   CustomClearAllChip(
+            //                     onTap: () {
+            //                       setState(() {
+            //                         _selectdClassroom = _classroomOptions[0];
+            //                         _selectedStudent = null;
+            //                         _filterActivityTypes.clear();
+            //                         _filterTags.clear();
+            //                       });
+            //                       //print(_filterTags);
+            //                     },
+            //                     label: 'Clear All',
+            //                   ),
+            //                 ],
+            //               ),
+            //             ],
+            //           )
+            //               : Row(
+            //             children: [
+            //               Expanded(
+            //                 child: SizedBox(
+            //                   height: 65,
+            //                   child: _datePickerFilter(
+            //                     selectedDate: _selectedDate,
+            //                     onDateSelected: (date) {
+            //                       setState(() {
+            //                         _selectedDate = date;
+            //                       });
+            //                     },
+            //                   ),
+            //                 ),
+            //               ),
+            //               const SizedBox(width: 8),
+            //               Expanded(
+            //                 child: SizedBox(
+            //                   height: 65,
+            //                   child: _buildCustomDropdown(
+            //                     'Activity Type',
+            //                     activityType,
+            //                     _selectedActivityType,
+            //                         (v) => setState(() {
+            //                       _selectedActivityType = v;
+            //                     }),
+            //                     height: 65,
+            //                   ),
+            //                 ),
+            //               ),
+            //             ],
+            //           ),
+            //         ),
+            //       ),
+            //
+            //       const SizedBox(height: 12),
+            //
+            //       if (activities.length == 0)
+            //         Padding(
+            //           padding: ResponsiveSizing.contentPadding(context),
+            //           child: Container(
+            //             padding: const EdgeInsets.all(12),
+            //             decoration: BoxDecoration(
+            //               border: Border.all(color: AppColors.cardBorderColor),
+            //               borderRadius: BorderRadius.circular(12),
+            //               color: AppColors.cardColor,
+            //             ),
+            //             child: Center(
+            //               child: Text(
+            //                 'No Activities found',
+            //                 style: TextStyle(
+            //                   color: Colors.black,
+            //                   fontFamily: 'Manrope',
+            //                   fontSize: 16,
+            //                   fontWeight: FontWeight.w500,
+            //                 ),
+            //               ),
+            //             ),
+            //           ),
+            //         ),
+            //
+            //       if (activities.length != 0)
+            //         Padding(
+            //           padding: ResponsiveSizing.contentPadding(context),
+            //           child: Column(
+            //             children: [
+            //               const SizedBox(height: 10),
+            //               ListView.builder(
+            //                 padding: const EdgeInsets.only(right: 16),
+            //                 itemCount: activities.length,
+            //                 itemBuilder: (context, index) {
+            //                   final activity = activities[index];
+            //                   final students = activity.studentList;
+            //                   final Color activityColor =
+            //                   _colorPalette[index % _colorPalette.length];
+            //
+            //                   return Column(
+            //                     children: [
+            //                       Row(
+            //                         children: [
+            //                           Column(
+            //                             children: [
+            //                               Container(
+            //                                 width: 18,
+            //                                 height: 18,
+            //                                 decoration: BoxDecoration(
+            //                                   //color: activity.color,
+            //                                   color: activityColor,
+            //                                   shape: BoxShape.circle,
+            //                                 ),
+            //                               ),
+            //                               Container(
+            //                                 width: 4,
+            //                                 height: 2,
+            //                                 //color: activity.color,
+            //                                 color: activityColor,
+            //                               ),
+            //                             ],
+            //                           ),
+            //                           Container(
+            //                             width: 100,
+            //                             height: 4,
+            //                             //color: activity.color,
+            //                             color: activityColor,
+            //                           ),
+            //                           Container(
+            //                             width: 18,
+            //                             height: 18,
+            //                             decoration: BoxDecoration(
+            //                               //color: activity.color,
+            //                               color: activityColor,
+            //                               shape: BoxShape.circle,
+            //                             ),
+            //                           ),
+            //                           const SizedBox(width: 20),
+            //                           SizedBox(
+            //                             height: 20,
+            //                             child: Text(
+            //                               activity.time,
+            //                               style: TextStyle(
+            //                                 fontSize: 14,
+            //                                 color: AppColors.primaryColor,
+            //                                 fontWeight: FontWeight.w500,
+            //                               ),
+            //                             ),
+            //                           ),
+            //                         ],
+            //                       ),
+            //                       Row(
+            //                         crossAxisAlignment: CrossAxisAlignment.start,
+            //                         children: [
+            //                           const SizedBox(width: 7),
+            //                           Container(
+            //                             width: 4,
+            //                             height: 220,
+            //                             //color: activity.color,
+            //                             color: activityColor,
+            //                           ),
+            //
+            //                           const SizedBox(width: 16),
+            //
+            //                           // Activity Card
+            //                           Column(
+            //                             children: [
+            //                               const SizedBox(height: 15),
+            //                               InkWell(
+            //                                 onTap: () {
+            //                                   final destinationBuilder =
+            //                                   activityRoutes[activity
+            //                                       .name];
+            //                                   if (destinationBuilder !=
+            //                                       null) {
+            //                                     final nextScreen =
+            //                                     destinationBuilder(
+            //                                       activity,
+            //                                     );
+            //                                     Navigator.of(
+            //                                       context,
+            //                                     ).push(
+            //                                       MaterialPageRoute(
+            //                                         builder: (_) =>
+            //                                         nextScreen,
+            //                                       ),
+            //                                     );
+            //                                   }
+            //                                 },
+            //                                 child: Container(
+            //                                   height: 180,
+            //                                   margin: const EdgeInsets.only(
+            //                                     bottom: 24,
+            //                                   ),
+            //                                   padding: const EdgeInsets.all(12),
+            //                                   decoration: BoxDecoration(
+            //                                     color: activityColor.withOpacity(
+            //                                       0.15,
+            //                                     ),
+            //                                     borderRadius: BorderRadius.circular(
+            //                                       16,
+            //                                     ),
+            //                                     border: Border.all(
+            //                                       color: activityColor.withOpacity(
+            //                                         0.4,
+            //                                       ),
+            //                                     ),
+            //                                   ),
+            //                                   child: Row(
+            //                                     // crossAxisAlignment:
+            //                                     //     CrossAxisAlignment.center,
+            //                                     children: [
+            //                                       ClipRRect(
+            //                                         borderRadius:
+            //                                         BorderRadius.circular(12),
+            //                                         child: SizedBox(
+            //                                           width: 140,
+            //                                           height: 120,
+            //                                           child:
+            //                                           activity.photoUrl != null ||
+            //                                               activity.videoUrl !=
+            //                                                   null
+            //                                               ? ActivityMediaPreview(
+            //                                             activity: activity,
+            //                                             activityColor:
+            //                                             activityColor,
+            //                                           )
+            //                                           // ? Image.network(
+            //                                           //     activity.photoUrl!,
+            //                                           //     fit: BoxFit.cover,
+            //                                           //     loadingBuilder:
+            //                                           //         (
+            //                                           //           context,
+            //                                           //           child,
+            //                                           //           loadingProgress,
+            //                                           //         ) {
+            //                                           //           if (loadingProgress ==
+            //                                           //               null)
+            //                                           //             return child;
+            //                                           //           return Container(
+            //                                           //             color: Colors
+            //                                           //                 .transparent,
+            //                                           //             child: const Center(
+            //                                           //               child: CircularProgressIndicator(
+            //                                           //                 strokeWidth:
+            //                                           //                     2,
+            //                                           //               ),
+            //                                           //             ),
+            //                                           //           );
+            //                                           //         },
+            //                                           //     errorBuilder:
+            //                                           //         (
+            //                                           //           context,
+            //                                           //           error,
+            //                                           //           stackTrace,
+            //                                           //         ) {
+            //                                           //           return Container(
+            //                                           //             width: 122,
+            //                                           //             height: 76,
+            //                                           //             color: activity
+            //                                           //                 .color
+            //                                           //                 .withOpacity(
+            //                                           //                   0.25,
+            //                                           //                 ),
+            //                                           //             child: Center(
+            //                                           //               child: Image.asset(
+            //                                           //                 activityIcons[activity
+            //                                           //                     .name],
+            //                                           //                 //'assets/icons/activity-nap-icon.png',
+            //                                           //                 fit: BoxFit
+            //                                           //                     .fill,
+            //                                           //               ),
+            //                                           //             ),
+            //                                           //           );
+            //                                           //         },
+            //                                           //   )
+            //                                               : Container(
+            //                                             width: 122,
+            //                                             height: 76,
+            //                                             color: Colors.white,
+            //                                             // color: activityColor
+            //                                             //     .withOpacity(0.25),
+            //                                             child: Center(
+            //                                               child: Image.asset(
+            //                                                 activityIcons[activity
+            //                                                     .name],
+            //                                                 //'assets/icons/activity-nap-icon.png',
+            //                                                 fit: BoxFit.fill,
+            //                                               ),
+            //                                             ),
+            //                                           ),
+            //                                         ),
+            //                                       ),
+            //                                       const SizedBox(width: 12),
+            //                                       Expanded(
+            //                                         child: Column(
+            //                                           crossAxisAlignment:
+            //                                           CrossAxisAlignment.start,
+            //                                           mainAxisAlignment:
+            //                                           MainAxisAlignment
+            //                                               .spaceEvenly,
+            //                                           children: [
+            //                                             Row(
+            //                                               mainAxisAlignment:
+            //                                               MainAxisAlignment
+            //                                                   .spaceBetween,
+            //                                               children: [
+            //                                                 Container(
+            //                                                   padding:
+            //                                                   const EdgeInsets.symmetric(
+            //                                                     horizontal: 12,
+            //                                                     vertical: 6,
+            //                                                   ),
+            //                                                   decoration: BoxDecoration(
+            //                                                     color: activityColor,
+            //                                                     borderRadius:
+            //                                                     BorderRadius.circular(
+            //                                                       20,
+            //                                                     ),
+            //                                                   ),
+            //                                                   child: Text(
+            //                                                     activity.name,
+            //                                                     style:
+            //                                                     const TextStyle(
+            //                                                       color: Colors
+            //                                                           .white,
+            //                                                       fontSize: 11,
+            //                                                       fontWeight:
+            //                                                       FontWeight
+            //                                                           .bold,
+            //                                                     ),
+            //                                                   ),
+            //                                                 ),
+            //                                                 PopupMenuButton<String>(
+            //                                                   icon: const Icon(
+            //                                                     Icons.more_horiz,
+            //                                                     size: 20,
+            //                                                   ),
+            //                                                   onSelected: null,
+            //                                                   itemBuilder: (context) => [
+            //                                                     PopupMenuItem<String>(
+            //                                                       value: 'view',
+            //                                                       child: PopupItem(
+            //                                                         title: 'View',
+            //                                                         icon: Icon(
+            //                                                           Icons
+            //                                                               .visibility_outlined,
+            //                                                           color: AppColors
+            //                                                               .themeColor,
+            //                                                         ),
+            //                                                       ),
+            //                                                       onTap: () {
+            //                                                         final destinationBuilder =
+            //                                                         activityRoutes[activity
+            //                                                             .name];
+            //                                                         if (destinationBuilder !=
+            //                                                             null) {
+            //                                                           final nextScreen =
+            //                                                           destinationBuilder(
+            //                                                             activity,
+            //                                                           );
+            //                                                           Navigator.of(
+            //                                                             context,
+            //                                                           ).push(
+            //                                                             MaterialPageRoute(
+            //                                                               builder: (_) =>
+            //                                                               nextScreen,
+            //                                                             ),
+            //                                                           );
+            //                                                         }
+            //                                                       },
+            //                                                     ),
+            //                                                     PopupMenuItem<String>(
+            //                                                       value: 'edit',
+            //                                                       child: PopupItem(
+            //                                                         title: 'Edit',
+            //                                                         icon: Icon(
+            //                                                           Icons.edit,
+            //                                                           color: AppColors
+            //                                                               .themeColor,
+            //                                                         ),
+            //                                                       ),
+            //                                                       onTap: () {
+            //                                                         final destinationBuilder =
+            //                                                         editActivityRoutes[activity
+            //                                                             .name];
+            //                                                         if (destinationBuilder !=
+            //                                                             null) {
+            //                                                           final nextScreen =
+            //                                                           destinationBuilder(
+            //                                                             activity,
+            //                                                           );
+            //                                                           Navigator.of(
+            //                                                             context,
+            //                                                           ).push(
+            //                                                             MaterialPageRoute(
+            //                                                               builder: (_) =>
+            //                                                               nextScreen,
+            //                                                             ),
+            //                                                           );
+            //                                                         }
+            //                                                       },
+            //                                                     ),
+            //                                                     PopupMenuItem<String>(
+            //                                                       value: 'delete',
+            //                                                       child: PopupItem(
+            //                                                         title: 'Delete',
+            //                                                         icon: Icon(
+            //                                                           Icons.delete,
+            //                                                           color: AppColors
+            //                                                               .themeColor,
+            //                                                         ),
+            //                                                       ),
+            //                                                     ),
+            //                                                   ],
+            //                                                 ),
+            //                                               ],
+            //                                             ),
+            //                                             const SizedBox(height: 10),
+            //
+            //                                             SizedBox(
+            //                                               height: 32,
+            //                                               child: Stack(
+            //                                                 children: [
+            //                                                   for (
+            //                                                   int i = 0;
+            //                                                   i < students.length &&
+            //                                                       i < 4;
+            //                                                   i++
+            //                                                   )
+            //                                                     Positioned(
+            //                                                       left: i * 20,
+            //                                                       child:
+            //                                                       DocumentImageWidget(
+            //                                                         fileUuid: '',
+            //                                                         name:
+            //                                                         students[i],
+            //                                                         size: 28,
+            //                                                         fontSize: 10,
+            //                                                       ),
+            //                                                     ),
+            //
+            //                                                   // Extra count tooltip
+            //                                                   if (students.length > 4)
+            //                                                     Positioned(
+            //                                                       left:
+            //                                                       4 *
+            //                                                           20, // after 4 avatars
+            //                                                       child: Tooltip(
+            //                                                         message: students
+            //                                                             .skip(4)
+            //                                                             .join(', '),
+            //                                                         child: DocumentImageWidget(
+            //                                                           fileUuid: '',
+            //                                                           name:
+            //                                                           '+${students.length - 4}',
+            //                                                           size: 28,
+            //                                                           fontSize: 10,
+            //                                                         ),
+            //                                                       ),
+            //                                                     ),
+            //                                                 ],
+            //                                               ),
+            //                                             ),
+            //                                             const SizedBox(height: 10),
+            //
+            //                                             Text(
+            //                                               activity.description!,
+            //
+            //                                               style: TextStyle(
+            //                                                 color: AppColors
+            //                                                     .primaryColor,
+            //                                                 fontSize: 14,
+            //                                                 fontWeight:
+            //                                                 FontWeight.w600,
+            //                                               ),
+            //                                               maxLines: 1,
+            //                                               overflow:
+            //                                               TextOverflow.ellipsis,
+            //                                             ),
+            //                                             const SizedBox(height: 10),
+            //                                             Text(
+            //                                               'Created By - ${activity.createdBy}',
+            //
+            //                                               style: TextStyle(
+            //                                                 color: AppColors
+            //                                                     .primaryColor,
+            //                                                 fontSize: 12,
+            //                                                 fontWeight:
+            //                                                 FontWeight.w500,
+            //                                               ),
+            //                                               maxLines: 1,
+            //                                               overflow:
+            //                                               TextOverflow.ellipsis,
+            //                                             ),
+            //                                           ],
+            //                                         ),
+            //                                       ),
+            //                                     ],
+            //                                   ),
+            //                                 ),
+            //                               ),
+            //                             ],
+            //                           ),
+            //                         ],
+            //                       ),
+            //                     ],
+            //                   );
+            //                 },
+            //               ),
+            //             ],
+            //           ),
+            //         ),
+            //     ],
+            //   ),
+            // );
+          } else {
+            return Column(
+              children: [
+                Padding(
+                  padding: ResponsiveSizing.contentPadding(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.cardBorderColor),
+                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.cardColor,
+                    ),
+                    child: widget.fromStudentProfile
+                        ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: 65,
+                          child: AbsorbPointer(
+                            child: _buildCustomDropdown(
+                              'Select Student',
+                              [?widget.studentName],
+                              widget.studentName,
+                                  (v) => setState(() {
+                                _selectedStudent = v;
+                              }),
+                              height: 65,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 65,
+                          child: _datePickerFilter(
+                            selectedDate: _selectedDate,
+                            onDateSelected: (date) {
+                              setState(() {
+                                _selectedDate = date;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                        : isNotParent
+                        ? Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildCustomDropdown(
+                                'Select Classroom',
+                                _classroomOptions,
+                                _selectdClassroom,
+                                    (v) => setState(() {
+                                  _selectdClassroom = v;
+                                  _updateAvailableStudents();
+                                }),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              // child: _buildCustomDropdown(
+                              //   'Select Student',
+                              //   _allStudents,
+                              //   _selectedStudent,
+                              //   (v) => setState(() {
+                              //     _selectedStudent = v;
+                              //   }),
+                              // ),
+                              child: _buildCustomDropdown(
+                                _selectdClassroom == null
+                                    ? 'Select Classroom First'
+                                    : 'Select Student',
+                                _availableStudents,
+                                _selectedStudent,
+                                    (value) {
+                                  if (_selectdClassroom != null) {
+                                    setState(() {
+                                      _selectedStudent = value;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(100),
+                                onTap: () async {
+                                  final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FilterScreen(
+                                        sections: [
+                                          FilerSection(
+                                            label: 'Tags',
+                                            hintText: 'Select tags',
+                                            items: [
+                                              '5 Days',
+                                              'Full Day',
+                                              'Photo Permission',
+                                              'Vegetarian',
+                                              'First Aid',
+                                              'Allergy',
+                                              'Pickup Authorized',
+                                              'Medication',
+                                              'Half Day',
+                                              'Boy',
+                                              'Girl',
+                                            ],
+                                            initialSelected: _filterTags,
+                                            isMultiSelectDropDown: false,
+                                          ),
+                                          FilerSection(
+                                            label: 'Activity Type',
+                                            hintText: 'Select Activity',
+                                            items: [
+                                              'Nap Start',
+                                              'Nap End',
+                                              'Bathroom',
+                                              'Bottle',
+                                              'Meal',
+                                              'Incident',
+                                              'Photo',
+                                              'Outdoor',
+                                              'Medication',
+                                              'Notes',
+                                              'Learning',
+                                              'Sign-in',
+                                              'Sign-out',
+                                              'Absent',
+                                            ],
+                                            initialSelected: _filterActivityTypes,
+                                            isMultiSelectDropDown: false,
+                                          ),
+                                        ],
+                                        onApply: (filters) {
+                                          setState(() {
+                                            _filterTags = filters['Tags']!;
+                                            _filterActivityTypes =
+                                            filters['Activity Type']!;
+                                          });
+                                          //print(_filterTags);
+                                          //print(_filterActivityTypes);
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  if (result is Map) {
+                                    // TODO: apply filters to list
+                                    setState(() {});
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: SvgPicture.asset(
+                                    MediaRes.filterIcon,
+                                    height: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: _datePickerFilter(
+                                selectedDate: _selectedDate,
+                                onDateSelected: (date) {
+                                  setState(() {
+                                    _selectedDate = date;
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            CustomClearAllChip(
+                              onTap: () {
+                                setState(() {
+                                  _selectdClassroom = _classroomOptions[0];
+                                  _selectedStudent = null;
+                                  _filterActivityTypes.clear();
+                                  _filterTags.clear();
+                                });
+                                //print(_filterTags);
+                              },
+                              label: 'Clear All',
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                        : Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 65,
+                            child: _datePickerFilter(
+                              selectedDate: _selectedDate,
+                              onDateSelected: (date) {
+                                setState(() {
+                                  _selectedDate = date;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 65,
+                            child: _buildCustomDropdown(
+                              'Activity Type',
+                              activityType,
+                              _selectedActivityType,
+                                  (v) => setState(() {
+                                _selectedActivityType = v;
+                              }),
+                              height: 65,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                if (activities.length == 0)
+                  Expanded(
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.cardBorderColor),
+                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.cardColor,
+                        ),
+                        child: Center(
+                          child: Text(
+                            'No Activities found',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontFamily: 'Manrope',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (activities.length != 0)
+                  Expanded(
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: ListView.builder(
+                              padding: const EdgeInsets.only(right: 16),
+                              itemCount: activities.length,
+                              itemBuilder: (context, index) {
+                                final activity = activities[index];
+                                final students = activity.studentList;
+                                final Color activityColor =
+                                _colorPalette[index % _colorPalette.length];
+
+                                return Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Column(
+                                          children: [
+                                            Container(
+                                              width: 18,
+                                              height: 18,
+                                              decoration: BoxDecoration(
+                                                //color: activity.color,
+                                                color: activityColor,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            Container(
+                                              width: 4,
+                                              height: 2,
+                                              //color: activity.color,
+                                              color: activityColor,
+                                            ),
+                                          ],
+                                        ),
+                                        Container(
+                                          width: 100,
+                                          height: 4,
+                                          //color: activity.color,
+                                          color: activityColor,
+                                        ),
+                                        Container(
+                                          width: 18,
+                                          height: 18,
+                                          decoration: BoxDecoration(
+                                            //color: activity.color,
+                                            color: activityColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 20),
+                                        SizedBox(
+                                          height: 20,
+                                          child: Text(
+                                            activity.time,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: AppColors.primaryColor,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(width: 7),
+                                        Container(
+                                          width: 4,
+                                          height: 220,
+                                          //color: activity.color,
+                                          color: activityColor,
+                                        ),
+
+                                        const SizedBox(width: 16),
+
+                                        // Activity Card
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              const SizedBox(height: 15),
+                                              InkWell(
+                                                onTap: () {
+                                                  final destinationBuilder =
+                                                  activityRoutes[activity
+                                                      .name];
+                                                  if (destinationBuilder !=
+                                                      null) {
+                                                    final nextScreen =
+                                                    destinationBuilder(
+                                                      activity,
+                                                    );
+                                                    Navigator.of(
+                                                      context,
+                                                    ).push(
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                        nextScreen,
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                                child: Container(
+                                                  height: 180,
+                                                  margin: const EdgeInsets.only(
+                                                    bottom: 24,
+                                                  ),
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: activityColor.withOpacity(
+                                                      0.15,
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(
+                                                      16,
+                                                    ),
+                                                    border: Border.all(
+                                                      color: activityColor.withOpacity(
+                                                        0.4,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    // crossAxisAlignment:
+                                                    //     CrossAxisAlignment.center,
+                                                    children: [
+                                                      ClipRRect(
+                                                        borderRadius:
+                                                        BorderRadius.circular(12),
+                                                        child: SizedBox(
+                                                          width: 140,
+                                                          height: 120,
+                                                          child:
+                                                          activity.photoUrl != null ||
+                                                              activity.videoUrl !=
+                                                                  null
+                                                              ? ActivityMediaPreview(
+                                                            activity: activity,
+                                                            activityColor:
+                                                            activityColor,
+                                                          )
+                                                          // ? Image.network(
+                                                          //     activity.photoUrl!,
+                                                          //     fit: BoxFit.cover,
+                                                          //     loadingBuilder:
+                                                          //         (
+                                                          //           context,
+                                                          //           child,
+                                                          //           loadingProgress,
+                                                          //         ) {
+                                                          //           if (loadingProgress ==
+                                                          //               null)
+                                                          //             return child;
+                                                          //           return Container(
+                                                          //             color: Colors
+                                                          //                 .transparent,
+                                                          //             child: const Center(
+                                                          //               child: CircularProgressIndicator(
+                                                          //                 strokeWidth:
+                                                          //                     2,
+                                                          //               ),
+                                                          //             ),
+                                                          //           );
+                                                          //         },
+                                                          //     errorBuilder:
+                                                          //         (
+                                                          //           context,
+                                                          //           error,
+                                                          //           stackTrace,
+                                                          //         ) {
+                                                          //           return Container(
+                                                          //             width: 122,
+                                                          //             height: 76,
+                                                          //             color: activity
+                                                          //                 .color
+                                                          //                 .withOpacity(
+                                                          //                   0.25,
+                                                          //                 ),
+                                                          //             child: Center(
+                                                          //               child: Image.asset(
+                                                          //                 activityIcons[activity
+                                                          //                     .name],
+                                                          //                 //'assets/icons/activity-nap-icon.png',
+                                                          //                 fit: BoxFit
+                                                          //                     .fill,
+                                                          //               ),
+                                                          //             ),
+                                                          //           );
+                                                          //         },
+                                                          //   )
+                                                              : Container(
+                                                            width: 122,
+                                                            height: 76,
+                                                            color: Colors.white,
+                                                            // color: activityColor
+                                                            //     .withOpacity(0.25),
+                                                            child: Center(
+                                                              child: Image.asset(
+                                                                activityIcons[activity
+                                                                    .name],
+                                                                //'assets/icons/activity-nap-icon.png',
+                                                                fit: BoxFit.fill,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                          CrossAxisAlignment.start,
+                                                          mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceEvenly,
+                                                          children: [
+                                                            Row(
+                                                              mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                              children: [
+                                                                Container(
+                                                                  padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal: 12,
+                                                                    vertical: 6,
+                                                                  ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: activityColor,
+                                                                    borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      20,
+                                                                    ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    activity.name,
+                                                                    style:
+                                                                    const TextStyle(
+                                                                      color: Colors
+                                                                          .white,
+                                                                      fontSize: 11,
+                                                                      fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                PopupMenuButton<String>(
+                                                                  icon: const Icon(
+                                                                    Icons.more_horiz,
+                                                                    size: 20,
+                                                                  ),
+                                                                  onSelected: null,
+                                                                  itemBuilder: (context) => [
+                                                                    PopupMenuItem<String>(
+                                                                      value: 'view',
+                                                                      child: PopupItem(
+                                                                        title: 'View',
+                                                                        icon: Icon(
+                                                                          Icons
+                                                                              .visibility_outlined,
+                                                                          color: AppColors
+                                                                              .themeColor,
+                                                                        ),
+                                                                      ),
+                                                                      onTap: () {
+                                                                        final destinationBuilder =
+                                                                        activityRoutes[activity
+                                                                            .name];
+                                                                        if (destinationBuilder !=
+                                                                            null) {
+                                                                          final nextScreen =
+                                                                          destinationBuilder(
+                                                                            activity,
+                                                                          );
+                                                                          Navigator.of(
+                                                                            context,
+                                                                          ).push(
+                                                                            MaterialPageRoute(
+                                                                              builder: (_) =>
+                                                                              nextScreen,
+                                                                            ),
+                                                                          );
+                                                                        }
+                                                                      },
+                                                                    ),
+                                                                    PopupMenuItem<String>(
+                                                                      value: 'edit',
+                                                                      child: PopupItem(
+                                                                        title: 'Edit',
+                                                                        icon: Icon(
+                                                                          Icons.edit,
+                                                                          color: AppColors
+                                                                              .themeColor,
+                                                                        ),
+                                                                      ),
+                                                                      onTap: () {
+                                                                        final destinationBuilder =
+                                                                        editActivityRoutes[activity
+                                                                            .name];
+                                                                        if (destinationBuilder !=
+                                                                            null) {
+                                                                          final nextScreen =
+                                                                          destinationBuilder(
+                                                                            activity,
+                                                                          );
+                                                                          Navigator.of(
+                                                                            context,
+                                                                          ).push(
+                                                                            MaterialPageRoute(
+                                                                              builder: (_) =>
+                                                                              nextScreen,
+                                                                            ),
+                                                                          );
+                                                                        }
+                                                                      },
+                                                                    ),
+                                                                    PopupMenuItem<String>(
+                                                                      value: 'delete',
+                                                                      child: PopupItem(
+                                                                        title: 'Delete',
+                                                                        icon: Icon(
+                                                                          Icons.delete,
+                                                                          color: AppColors
+                                                                              .themeColor,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            const SizedBox(height: 10),
+
+                                                            SizedBox(
+                                                              height: 32,
+                                                              child: Stack(
+                                                                children: [
+                                                                  for (
+                                                                  int i = 0;
+                                                                  i < students.length &&
+                                                                      i < 4;
+                                                                  i++
+                                                                  )
+                                                                    Positioned(
+                                                                      left: i * 20,
+                                                                      child:
+                                                                      DocumentImageWidget(
+                                                                        fileUuid: '',
+                                                                        name:
+                                                                        students[i],
+                                                                        size: 28,
+                                                                        fontSize: 10,
+                                                                      ),
+                                                                    ),
+
+                                                                  // Extra count tooltip
+                                                                  if (students.length > 4)
+                                                                    Positioned(
+                                                                      left:
+                                                                      4 *
+                                                                          20, // after 4 avatars
+                                                                      child: Tooltip(
+                                                                        message: students
+                                                                            .skip(4)
+                                                                            .join(', '),
+                                                                        child: DocumentImageWidget(
+                                                                          fileUuid: '',
+                                                                          name:
+                                                                          '+${students.length - 4}',
+                                                                          size: 28,
+                                                                          fontSize: 10,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 10),
+
+                                                            Text(
+                                                              activity.description!,
+
+                                                              style: TextStyle(
+                                                                color: AppColors
+                                                                    .primaryColor,
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                FontWeight.w600,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                              TextOverflow.ellipsis,
+                                                            ),
+                                                            const SizedBox(height: 10),
+                                                            Text(
+                                                              'Created By - ${activity.createdBy}',
+
+                                                              style: TextStyle(
+                                                                color: AppColors
+                                                                    .primaryColor,
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                FontWeight.w500,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                              TextOverflow.ellipsis,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }
+        }
     );
   }
 

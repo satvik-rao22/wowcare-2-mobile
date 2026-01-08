@@ -104,7 +104,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
             ],
           ),
 
-          Expanded(
+          Flexible(
             child: TabBarView(
               controller: _tabController,
               children: [
@@ -129,7 +129,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
             ),
             indicatorPadding: const EdgeInsets.only(bottom: 8),
             labelStyle: const TextStyle(
-              color: Colors.black,
+              color: AppColors.primaryColor,
               fontFamily: 'Manrope',
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -148,7 +148,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
             ],
           ),
 
-          Expanded(
+          Flexible(
             child: TabBarView(
               controller: _tabController,
               children: [

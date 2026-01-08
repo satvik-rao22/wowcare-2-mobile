@@ -12,43 +12,66 @@ import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
+import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 
 class PhotoVideoActivityScreen extends StatefulWidget {
   const PhotoVideoActivityScreen({
     super.key,
-    required this.selectedStudents,
+    this.selectedStudents,
     this.isEdit = false,
-    required this.isPhoto
+    required this.isPhoto,
+    this.activityData
   });
-  final List<Map<String, dynamic>> selectedStudents;
+  final List<Map<String, dynamic>>? selectedStudents;
   final bool isEdit;
   final bool isPhoto;
+  final ActivityItem? activityData;
 
   @override
   State<PhotoVideoActivityScreen> createState() => _PhotoVideoActivityScreenState();
 }
 
 class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
+  late final List<Map<String, dynamic>> _selectedStudentsData;
   late final List<String> _selectedStudents;
   final TextEditingController _descriptionController = TextEditingController();
 
   List<File> _uploadedPhotos = [];
   File? _uploadedVideo;
-  bool get _hasMedia => _uploadedPhotos.isNotEmpty || _uploadedVideo != null;
+  List<String> _existingPhotoUrls =[];
+  String? _existingVideoUrl;
+  bool get _hasMedia => _uploadedPhotos.isNotEmpty || _uploadedVideo != null || _existingPhotoUrls.isNotEmpty || _existingVideoUrl != null;
 
   @override
   void initState() {
     super.initState();
     // Create a mutable copy of the incoming list
     //_selectedStudents = List.from(widget.selectedStudents);
-    _selectedStudents = widget.selectedStudents.map((studentMap) => studentMap['name'] as String).toList();
+    //_selectedStudents = widget.selectedStudents.map((studentMap) => studentMap['name'] as String).toList();
+    if(widget.selectedStudents != null){
+      _selectedStudentsData = List.from(widget.selectedStudents!);
+      _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
+    } else if(widget.isEdit ) {
+      final activity = widget.activityData!;
+      _selectedStudents = List<String>.from(activity.studentList);
+      _descriptionController.text = activity.description ?? '';
+      if (widget.isPhoto) {
+        if (activity.photoUrl != null ) {
+          _existingPhotoUrls = [activity.photoUrl!];
+        }
+      } else {
+        _existingVideoUrl = activity.videoUrl;
+      }
+    }
   }
 
-  void _onMediaChanged(List<File> photos, File? video){
+  void _onMediaChanged(List<File> photos, File? video, List<String> remainingExistingPhotoUrls, String? remainingExistingVideoUrl){
     setState(() {
       _uploadedPhotos = photos;
       _uploadedVideo = video;
+      _existingPhotoUrls = remainingExistingPhotoUrls;
+      _existingVideoUrl = remainingExistingVideoUrl;
     });
   }
 
@@ -159,15 +182,32 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                           SizedBox(height: responsive.verticalSpacing,),
                           Row(
                             children: [
-                              Flexible(child: DateWidget(isEditable: false, isRequired: true,)),
+                              Flexible(
+                                child:
+                                widget.isEdit ?
+                                DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
+                                    :
+                                DateWidget(isEditable: true, isRequired: true,),
+                              ),
                               const SizedBox(width: 10,),
-                              Flexible(child: TimeWidget(isEditable: true, isRequired: true,)),
+                              Flexible(
+                                  child: widget.isEdit ?
+                                  TimeWidget(isEditable: true, isRequired: true, prefilledTime: widget.activityData?.time,)
+                                      : TimeWidget(isRequired: true, isEditable: true,)
+                              ),
                             ],
                           ),
+                          // Row(
+                          //   children: [
+                          //     Flexible(child: DateWidget(isEditable: false, isRequired: true,)),
+                          //     const SizedBox(width: 10,),
+                          //     Flexible(child: TimeWidget(isEditable: true, isRequired: true,)),
+                          //   ],
+                          // ),
                           SizedBox(height: responsive.verticalSpacing,),
-                          MediaUploader(isRequired: true,allowVideo: !widget.isPhoto, allowPhoto: widget.isPhoto, onMediaChanged: _onMediaChanged,),
+                          MediaUploader(isRequired: true,allowVideo: !widget.isPhoto, allowPhoto: widget.isPhoto, onMediaChanged: _onMediaChanged, initialPhotoUrls: widget.isEdit ? _existingPhotoUrls :[], initialVideoUrl: widget.isEdit ? _existingVideoUrl: null,),
                           SizedBox(height: responsive.verticalSpacing,),
-                          StaffPresentWidget(staffName: 'Staff A', isEditable: false,),
+                          StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.createdBy ?? '':'Staff A', isEditable: false,),
                           SizedBox(height: responsive.verticalSpacing,),
                           InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description'),
                           SizedBox(height: responsive.verticalSpacing,),
@@ -235,7 +275,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           },
           style: TextButton.styleFrom(overlayColor: Colors.transparent),
           child: Text(
-            'Add',
+            widget.isEdit ?'Save':'Add',
             style: TextStyle(
               fontFamily: 'Manrope',
               fontSize: responsive.buttonFontSize,
