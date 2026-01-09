@@ -11,7 +11,9 @@ import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
+import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
+import '../../widgets/student_tile.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 
@@ -33,6 +35,8 @@ class IncidentActivityScreen extends StatefulWidget {
 class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   late final List<Map<String, dynamic>> _selectedStudentsData;
   late final List<String> _selectedStudents;
+  List<String> _studentsToEdit = [];
+  bool _selectAll = false;
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addNotesController = TextEditingController();
   bool _firstAidGiven = false;
@@ -55,6 +59,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _firstAidGiven = activity.firstAidAdministered ?? false;
       _isSigned = true;
     }
+  }
+
+  void _updateSelectAllState() {
+    _selectAll = _selectedStudents.every((student) => _studentsToEdit.contains(student));
+
   }
 
   void _removeStudent(String name) {
@@ -96,165 +105,248 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           ),
           Column(
             children: [
-              const SizedBox(height: 10),
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: responsive.horizontalSpacing,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Incident',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: responsive.titleFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xff573353),
-                    ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: responsive.horizontalSpacing,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Incident',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.titleFontSize,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff573353),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: responsive.isTablet ? 32.0 : 10.0),
+                      Container(
+                            width: responsive.containerWidth,
+                            margin: EdgeInsets.symmetric(
+                                horizontal: responsive.horizontalSpacing
+                            ),
+                            padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(responsive.isTablet ? 30.0 : 20.0),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 10,),
+                                // Select All
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Column(
+                                    children: [
+                                      RichText(
+                                        text: TextSpan(
+                                          style: TextStyle(
+                                            color: AppColors.primaryColor.withValues(alpha: 0.6),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          children: [
+                                            TextSpan(text: 'Students involved'),
+                                            TextSpan(text: ' *', style: TextStyle(
+                                              color: AppColors.primaryColor.withValues(alpha: 0.6),
+                                              fontWeight: FontWeight.w500,
+                                            ),),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(height: 10,),
+                                      CustomCheckbox(
+                                        label: 'Select All',
+                                        value: _selectAll,
+                                        borderColor: AppColors.themeColor,
+                                        onChanged: (v) {
+                                          final newVal = v ?? false;
+                                          setState(() {
+                                            _selectAll = newVal;
+                                            if (newVal) {
+                                              _studentsToEdit = List.from(_selectedStudents);
+                                            } else {
+                                              _studentsToEdit.clear();
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12,),
+                                GridView.builder(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  shrinkWrap: true,
+                                  padding: const EdgeInsets.all(10),
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: responsive.isTablet ? 3 : 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: responsive.isTablet ? 3.8 : widget.isEdit ? 4.2 : 3.0,
+                                  ),
+                                  itemCount: _selectedStudents.length,
+                                  itemBuilder: (context, index) {
+                                    final String name = _selectedStudents[index];
+                                    final bool isSelected = _studentsToEdit.contains(name);
+
+                                    return widget.isEdit ?
+                                    StudentTile(
+                                      name: name,
+                                      isSelected: isSelected,
+                                      onSelected: (bool? selected){
+                                        ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                                        setState(() {
+                                          if(selected == true){
+                                            _studentsToEdit.add(name);
+                                          } else {
+                                            _studentsToEdit.remove(name);
+                                          }
+                                          _updateSelectAllState();
+                                        });
+                                      },
+                                    )
+                                        :SelectedStudentTile(
+                                      name: name,
+                                      onTap: () => _removeStudent(name),
+                                    );
+                                  },
+                                ),
+                                // GridView.builder(
+                                //   physics: const NeverScrollableScrollPhysics(),
+                                //   shrinkWrap: true,
+                                //   padding: const EdgeInsets.all(10),
+                                //   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                //     crossAxisCount: responsive.isTablet ? 3 : 2,
+                                //     crossAxisSpacing: 12,
+                                //     mainAxisSpacing: 12,
+                                //     childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                                //   ),
+                                //   itemCount: _selectedStudents.length,
+                                //   itemBuilder: (context, index) {
+                                //     final String name = _selectedStudents[index];
+                                //
+                                //     return SelectedStudentTile(
+                                //       name: name,
+                                //       onTap: () => _removeStudent(name),
+                                //     );
+                                //   },
+                                // ),
+                                SizedBox(height: responsive.verticalSpacing,),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child:
+                                      widget.isEdit ?
+                                      DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
+                                          :
+                                      DateWidget(isEditable: true, isRequired: true,),
+                                    ),
+                                    const SizedBox(width: 10,),
+                                    Flexible(
+                                        child: widget.isEdit ?
+                                        TimeWidget(isEditable: true, isRequired: true, prefilledTime: widget.activityData?.time,)
+                                            : TimeWidget(isRequired: true, isEditable: true,)
+                                    ),
+                                  ],
+                                ),
+                                // Row(
+                                //   children: [
+                                //     Flexible(child: DateWidget(isEditable: false, isRequired: true,)),
+                                //     const SizedBox(width: 10,),
+                                //     Flexible(child: TimeWidget(isEditable: true, isRequired: true,)),
+                                //   ],
+                                // ),
+                                SizedBox(height: responsive.verticalSpacing,),
+                                InputWidget(controller: _descriptionController, label: 'What happened?', isRequired: true,),
+                                SizedBox(height: responsive.verticalSpacing,),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start ,
+                                  children: [
+                                    Text(
+                                      'First Aid Administered',
+                                      style:
+                                          TextStyle(
+                                            color: AppColors.primaryColor.withValues(alpha: 0.6),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                    SizedBox(height: responsive.isTablet ? 10.0 : 8.0,),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const Text(
+                                          'No',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: Color(0xff573353),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        CustomToggle(
+                                          label: '',
+                                          isToggled: _firstAidGiven,
+                                          onToggle: (v) => setState(() => _firstAidGiven = v),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Yes',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: Color(0xff573353),
+                                          ),
+                                        ),
+
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: responsive.verticalSpacing,),
+                                StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.staffPresent ?? '' :'Staff A', isEditable: false, isAlreadySigned: widget.isEdit ? true: false, incidentActivity: true, onSigned: (value){ setState(() {
+                                  _isSigned = value;
+                                });},),
+                                SizedBox(height: responsive.verticalSpacing,),
+                                InputWidget(controller: _addNotesController, hint: 'Enter note', label: 'Additional Notes',),
+                                SizedBox(height: responsive.verticalSpacing,),
+                                if(widget.isEdit)
+                                  MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, photoSizeLimit: 20, initialPhotoUrls: [?widget.activityData?.photoUrl], label: 'Upload Photo',)
+                                else
+                                  MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, photoSizeLimit: 20,label: 'Upload Photo'),
+                                SizedBox(height: responsive.verticalSpacing,),
+
+
+                              ],
+                            ),
+
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
                 ),
               ),
-              SizedBox(height: responsive.isTablet ? 32.0 : 10.0),
-              Expanded(
-                  child: Container(
-                    width: responsive.containerWidth,
-                    margin: EdgeInsets.symmetric(
-                        horizontal: responsive.horizontalSpacing
-                    ),
-                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 10,),
-                          GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            shrinkWrap: true,
-                            padding: const EdgeInsets.all(10),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: responsive.isTablet ? 3 : 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
-                            ),
-                            itemCount: _selectedStudents.length,
-                            itemBuilder: (context, index) {
-                              final String name = _selectedStudents[index];
-
-                              return SelectedStudentTile(
-                                name: name,
-                                onTap: () => _removeStudent(name),
-                              );
-                            },
-                          ),
-                          SizedBox(height: responsive.verticalSpacing,),
-                          Row(
-                            children: [
-                              Flexible(
-                                child:
-                                widget.isEdit ?
-                                DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
-                                    :
-                                DateWidget(isEditable: true, isRequired: true,),
-                              ),
-                              const SizedBox(width: 10,),
-                              Flexible(
-                                  child: widget.isEdit ?
-                                  TimeWidget(isEditable: true, isRequired: true, prefilledTime: widget.activityData?.time,)
-                                      : TimeWidget(isRequired: true, isEditable: true,)
-                              ),
-                            ],
-                          ),
-                          // Row(
-                          //   children: [
-                          //     Flexible(child: DateWidget(isEditable: false, isRequired: true,)),
-                          //     const SizedBox(width: 10,),
-                          //     Flexible(child: TimeWidget(isEditable: true, isRequired: true,)),
-                          //   ],
-                          // ),
-                          SizedBox(height: responsive.verticalSpacing,),
-                          InputWidget(controller: _descriptionController, label: 'What happened?', isRequired: true,),
-                          SizedBox(height: responsive.verticalSpacing,),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start ,
-                            children: [
-                              Text(
-                                'First Aid Administered',
-                                style:
-                                    TextStyle(
-                                      color: AppColors.primaryColor.withValues(alpha: 0.6),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                              ),
-                              SizedBox(height: responsive.isTablet ? 10.0 : 8.0,),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  const Text(
-                                    'No',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xff573353),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  CustomToggle(
-                                    label: '',
-                                    isToggled: _firstAidGiven,
-                                    onToggle: (v) => setState(() => _firstAidGiven = v),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Yes',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xff573353),
-                                    ),
-                                  ),
-
-                                ],
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: responsive.verticalSpacing,),
-                          StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.staffPresent ?? '' :'Staff A', isEditable: false, isAlreadySigned: widget.isEdit ? true: false, incidentActivity: true, onSigned: (value){ setState(() {
-                            _isSigned = value;
-                          });},),
-                          SizedBox(height: responsive.verticalSpacing,),
-                          InputWidget(controller: _addNotesController, hint: 'Enter note', label: 'Additional Notes',),
-                          SizedBox(height: responsive.verticalSpacing,),
-                          if(widget.isEdit)
-                            MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, photoSizeLimit: 20, initialPhotoUrls: [?widget.activityData?.photoUrl],)
-                          else
-                            MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, photoSizeLimit: 20,),
-                          SizedBox(height: responsive.verticalSpacing,),
-
-
-                        ],
-                      ),
-                    ),
-                  )
-              ),
-              const SizedBox(height: 12),
             ],
           ),
         ],
@@ -297,6 +389,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         ),
         child: TextButton(
           onPressed: (){
+            if (widget.isEdit && _studentsToEdit.isEmpty ){
+              CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Please select at least one student',
+                  isWarning: true
+              );
+              return;
+            }
             final whatHappened = _descriptionController.text.trim();
             if (whatHappened.isEmpty ){
               CoreUtils.showTopSnackBar(

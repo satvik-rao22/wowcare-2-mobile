@@ -110,7 +110,7 @@ class ViewLearningActivity extends StatelessWidget {
                         children: [
                           Flexible(child: ViewWidget(label: 'Activity', content: activityData.activityType ?? '')),
                           SizedBox(width: responsive.horizontalSpacing,),
-                          Flexible(child: ViewWidget(label: 'Category', content: activityData.categoryType ?? '')),
+                          Flexible(child: ViewWidget(label: 'Category', content: activityData.categoryType?.join(', ') ?? '')),
                         ],
                       ),
                     ),

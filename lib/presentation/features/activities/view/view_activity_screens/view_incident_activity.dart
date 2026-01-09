@@ -68,7 +68,7 @@ class ViewIncidentActivity extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Tagged Student',
+                            'Tagged Students',
                             style: TextStyle(
                               color: AppColors.primaryColor,
                               fontSize:  13,

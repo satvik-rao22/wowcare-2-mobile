@@ -26,8 +26,11 @@ import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
 import 'edit_create_activity_screens/incident_activity.dart';
+import 'edit_create_activity_screens/learning_activity.dart';
 import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
+import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
 class ActivityDailyTab extends StatefulWidget {
@@ -171,7 +174,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
           'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
       studentList: ['Raghav Gupta'],
       createdBy: 'Staff B',
-      categoryType: 'Self Care',
+      categoryType: ['Self Care', 'Communication'],
       activityType: 'Morning Time',
     ),
     ActivityItem(
@@ -256,8 +259,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
           "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
       studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
       createdBy: 'Staff B',
-      categoryType: 'Self Care',
-      activityType: 'Morning Time',
+    ),
+    ActivityItem(
+      time: "01:00 PM",
+      date: 'December 30, 2025',
+      name: "Notes",
+      description: "Notes Activity",
+      //color: Color(0xFFD1C4E9), // purple
+      // photoUrl:
+      //     "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
+      //videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_1MB.mp4',
+      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
+      createdBy: 'Staff B',
     ),
     ActivityItem(
       time: "05:00 PM",
@@ -292,11 +305,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     'Medication': (activity) =>
         MedicationActivityScreen(activityData: activity, isEdit: true),
     'Notes': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        NotesActivityScreen(activityData: activity, isEdit: true),
     'Outdoor': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        OutdoorActivityScreen(activityData: activity, isEdit: true),
     'Learning': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        LearningActivityScreen(activityData: activity, isEdit: true),
   };
 
   // Map activity label to the destination view activity screen
@@ -2610,7 +2623,7 @@ class ActivityItem {
   final List<String> studentList;
   final String createdBy;
   final String? activityType; // for learning activity
-  final String? categoryType; // for learning activity
+  final List<String>? categoryType; // for learning activity
   final String? mealType; // for meal activity
   final String? mealQuantity; // also for meal activity
   final String? amountConsumed; // for bottle activity

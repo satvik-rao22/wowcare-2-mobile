@@ -62,92 +62,92 @@ class ChooseActivity extends StatelessWidget {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
-      body: Column(
-        children: [
-          const SizedBox(height: 16),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.horizontalSpacing,
-            ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Choose Activity',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.titleFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353),
+      body: SingleChildScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.horizontalSpacing,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Choose Activity',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.titleFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff573353),
+                  ),
                 ),
               ),
             ),
-          ),
-          SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-          Expanded(
-              child: Container(
-                width: responsive.containerWidth,
-                margin: EdgeInsets.symmetric(
+            SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+            Container(
+              width: responsive.containerWidth,
+              margin: EdgeInsets.symmetric(
                   horizontal: responsive.horizontalSpacing
+              ),
+              padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.all(
+                  Radius.circular(responsive.isTablet ? 30.0 : 20.0),
                 ),
-                padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.all(
-                    Radius.circular(responsive.isTablet ? 30.0 : 20.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10,),
-                    Expanded(
-                        child: GridView.builder(
-                            padding: EdgeInsets.all(10),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: responsive.isTablet ? 3 : 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: responsive.isTablet ? 3.8 : 3
-                            ),
-                            itemCount: activityIcons.length,
-                            itemBuilder: (context, index) {
-                              final entry = activityIcons.entries.toList()[index];
-                              final iconPath = entry.value;
-                              final String activityName = entry.key;
-                              final bool unavailableActivity = unavailableActivities[activityName] ?? false;
-                              //final bool unavailableActivity = _allLabels[activityName] ?? false;
+                ],
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10,),
+                  GridView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.all(10),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: responsive.isTablet ? 3 : 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: responsive.isTablet ? 3.8 : 3
+                      ),
+                      itemCount: activityIcons.length,
+                      itemBuilder: (context, index) {
+                        final entry = activityIcons.entries.toList()[index];
+                        final iconPath = entry.value;
+                        final String activityName = entry.key;
+                        final bool unavailableActivity = unavailableActivities[activityName] ?? false;
+                        //final bool unavailableActivity = _allLabels[activityName] ?? false;
 
-                              return ActivityTile(
-                                iconPath: iconPath,
-                                label: activityName,
-                                unavailableActivity: unavailableActivity,
-                                onTap: unavailableActivity
-                                    ? null
-                                    : (){
-                                      final destinationBuilder = activityRoutes[activityName];
-                                      if(destinationBuilder != null) {
-                                        final nextScreen = destinationBuilder(selectedStudents);
-                                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => nextScreen));
-                                      }
-                                    }
-                                ,
-                              );
+                        return ActivityTile(
+                          iconPath: iconPath,
+                          label: activityName,
+                          unavailableActivity: unavailableActivity,
+                          onTap: unavailableActivity
+                              ? null
+                              : (){
+                            final destinationBuilder = activityRoutes[activityName];
+                            if(destinationBuilder != null) {
+                              final nextScreen = destinationBuilder(selectedStudents);
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => nextScreen));
                             }
-                        )
-                    ),
+                          }
+                          ,
+                        );
+                      }
+                  ),
 
 
-                  ],
-                ),
-              )
-          ),
-        ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -26,9 +26,12 @@ import 'activity_daily_tab.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
 import 'edit_create_activity_screens/incident_activity.dart';
+import 'edit_create_activity_screens/learning_activity.dart';
 import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/nap_activity.dart';
+import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
 class ActivityCustomTab extends StatefulWidget {
@@ -179,7 +182,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
           "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com",
       studentList: ['Raghav Gupta'],
       createdBy: 'Staff B',
-      categoryType: 'Self Care',
+      categoryType: ['Self Care'],
       activityType: 'Morning Time',
     ),
     ActivityItem(
@@ -249,8 +252,26 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       mealQuantity: '3 Oz',
     ),
     ActivityItem(
-      time: "01:00 PM",
+      time: "02:22 PM",
       date: 'December 9, 2025',
+      name: "Notes",
+      description: "Lunch (Finished) notes activity",
+      //color: Color(0xFFC8E6C9), // green
+      photoUrl:
+      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+      studentList: [
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+        'Sara Khan',
+        'Raghav Gupta',
+        'Kabir Mehta',
+      ],
+      createdBy: 'Staff A',
+    ),
+    ActivityItem(
+      time: "01:00 PM",
+      date: 'December 8, 2025',
       name: "Video",
       description: "Drawing Activity",
       //color: Color(0xFFD1C4E9), // purple
@@ -264,7 +285,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     ),
     ActivityItem(
         time: "05:00 PM",
-        date: 'December 8, 2025',
+        date: 'December 7, 2025',
         name: "Bottle",
         description: "Bottle Activity",
         //color: Color(0xFFFFE0B2), // orange
@@ -294,11 +315,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     'Medication': (activity) =>
         MedicationActivityScreen(activityData: activity, isEdit: true),
     'Notes': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        NotesActivityScreen(activityData: activity, isEdit: true),
     'Outdoor': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        OutdoorActivityScreen(activityData: activity, isEdit: true),
     'Learning': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
+        LearningActivityScreen(activityData: activity, isEdit: true),
   };
 
   // Map activity label to the destination view activity screen
