@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 
 class TabBarStyle {
@@ -151,7 +152,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 						switch (value) {
 							case 1:
 								// Navigate to profile if available
-								ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Profile')));
+								//ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Profile')));
+								Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfileScreen()));
 								break;
 							case 2:
 								_showChangePasswordBottomSheet(context);
