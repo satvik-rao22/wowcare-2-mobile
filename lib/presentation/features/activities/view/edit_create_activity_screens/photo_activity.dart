@@ -171,26 +171,28 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                           children: [
                             const SizedBox(height: 10,),
                             // Select All
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: CustomCheckbox(
-                                label: 'Select All',
-                                value: _selectAll,
-                                borderColor: AppColors.themeColor,
-                                onChanged: (v) {
-                                  final newVal = v ?? false;
-                                  setState(() {
-                                    _selectAll = newVal;
-                                    if (newVal) {
-                                      _studentsToEdit = List.from(_selectedStudents);
-                                    } else {
-                                      _studentsToEdit.clear();
-                                    }
-                                  });
-                                },
+                            if(widget.isEdit) ...[
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: CustomCheckbox(
+                                  label: 'Select All',
+                                  value: _selectAll,
+                                  borderColor: AppColors.themeColor,
+                                  onChanged: (v) {
+                                    final newVal = v ?? false;
+                                    setState(() {
+                                      _selectAll = newVal;
+                                      if (newVal) {
+                                        _studentsToEdit = List.from(_selectedStudents);
+                                      } else {
+                                        _studentsToEdit.clear();
+                                      }
+                                    });
+                                  },
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 12,),
+                              const SizedBox(height: 12,),
+                            ],
                             GridView.builder(
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,

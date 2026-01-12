@@ -20,8 +20,10 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
@@ -978,6 +980,31 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                             .themeColor,
                                                                       ),
                                                                     ),
+                                                                    onTap: ()  {
+                                                                      showModalBottomSheet(
+                                                                        context: context,
+                                                                        isScrollControlled: true,
+                                                                        backgroundColor: Colors.transparent,
+                                                                        builder: (ctx) {
+                                                                          return DeleteConfirmationBottomSheet(
+                                                                            name: activity.name,
+                                                                            type: 'Activity',
+                                                                            onDelete: () {
+                                                                              CoreUtils.showTopSnackBar(
+                                                                                  context: context,
+                                                                                  message: '${activity.name} activity deleted successfully',
+                                                                                  isSuccess: true
+                                                                              );
+                                                                              Navigator.of(ctx).pop();
+                                                                              //widget.onDelete?.call();
+                                                                            },
+                                                                            onCancel: () {
+                                                                              Navigator.of(ctx).pop();
+                                                                            },
+                                                                          );
+                                                                        },
+                                                                      );
+                                                                    },
                                                                   ),
                                                                 ],
                                                               ),
