@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/domain/features/onboarding/entities/page_content.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-// Removed missing context extensions and PageContent; using inline content for now
+import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 
 import '../../../../app/theme/colors.dart';
 
@@ -27,81 +25,67 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body:
-          // BlocConsumer<OnBoardingCubit, OnBoardingState>(
-          //   listener: (context, state) {
-          //     if (state is OnBoardingStatus && !state.isFirstTimer) {
-          //       Navigator.pushReplacementNamed(context, '/home');
-          //     } else if (state is UserCached) {
-          //       Navigator.pushReplacementNamed(context, '/first-screen');
-          //     }
-          //   },
-          //   builder: (context, state) {
-          //     if (state is CheckingIfUserIsFirstTimer ||
-          //         state is CachingFirstTimer) {
-          //       return const Center(child: CircularProgressIndicator());
-          //     }
-          Stack(
+      body: Stack(
+        children: [
+          PageView(
+            controller: pageController,
             children: [
-              PageView(
-                controller: pageController,
-                children: [
-                  OnboardingBody(
-                    pageContent: const PageContent.first(),
-                    onNextPressed: () {
-                      pageController.nextPage(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-                  OnboardingBody(
-                    pageContent: const PageContent.second(),
-                    onNextPressed: () {
-                      pageController.nextPage(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-                  OnboardingBody(
-                    pageContent: const PageContent.third(),
-                    onNextPressed: () {
-                      pageController.nextPage(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-                  const OnboardingBody(
-                    pageContent: PageContent.forth(),
-                    isLastPage: true,
-                  ),
-                ],
+              OnboardingBody(
+                pageContent: const PageContent.first(),
+                onNextPressed: () {
+                  pageController.nextPage(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                },
               ),
-              Align(
-                alignment: const Alignment(0, 0.06),
-                child: SmoothPageIndicator(
-                  controller: pageController,
-                  count: 4,
-                  onDotClicked: (index) {
-                    pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                  effect: WormEffect(
-                    dotHeight: 10,
-                    dotWidth: 10,
-                    spacing: 40,
-                    activeDotColor: AppColors.themeColor,
-                    dotColor: Colors.grey.shade300,
-                  ),
-                ),
+              OnboardingBody(
+                pageContent: const PageContent.second(),
+                onNextPressed: () {
+                  pageController.nextPage(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                },
+              ),
+              OnboardingBody(
+                pageContent: const PageContent.third(),
+                onNextPressed: () {
+                  pageController.nextPage(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                },
+              ),
+              const OnboardingBody(
+                pageContent: PageContent.forth(),
+                isLastPage: true,
               ),
             ],
           ),
+          Align(
+            alignment: const Alignment(0, 0.06),
+            child: SmoothPageIndicator(
+              controller: pageController,
+              count: 4,
+              onDotClicked: (index) {
+                pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                );
+              },
+              effect: WormEffect(
+                dotHeight: 10,
+                dotWidth: 10,
+                spacing: 40,
+                activeDotColor: AppColors.themeColor,
+                dotColor: Colors.grey.shade300,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -140,7 +124,10 @@ class OnboardingBody extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(pageContent.image, height: MediaQuery.of(context).size.height * 0.4),
+              Image.asset(
+                pageContent.image,
+                height: MediaQuery.of(context).size.height * 0.4,
+              ),
               SizedBox(height: MediaQuery.of(context).size.height * 0.12),
               Column(
                 children: [
@@ -186,7 +173,7 @@ class OnboardingBody extends StatelessWidget {
                 if (isLastPage) {
                   Navigator.pushReplacementNamed(
                     context,
-                    DashboardScreen.routeName,
+                    SignInScreen.routeName,
                   );
                 } else {
                   onNextPressed?.call();
@@ -213,6 +200,3 @@ class OnboardingBody extends StatelessWidget {
     );
   }
 }
-
-
-

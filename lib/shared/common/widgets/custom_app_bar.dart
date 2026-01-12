@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -164,7 +164,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 								}
 								break;
 							case 4:
-								ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logout tapped')));
+                SignOutScreen.show(context);
 								break;
 						}
 					},

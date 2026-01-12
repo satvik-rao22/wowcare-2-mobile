@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -240,6 +241,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       icon: MediaRes.logout,
                       onTap: () {
                         Navigator.pop(context);
+                        SignOutScreen.show(context);
                       },
                     ),
                   ],
@@ -259,7 +261,6 @@ class _CustomExpansionTile extends StatefulWidget {
   final String icon;
   final List<Widget> children;
   final bool isExpansionEnabled;
-  final String? routeName;
   final bool isCurrentRoute;
   final VoidCallback? onTap;
   final bool isDashboard;
@@ -269,7 +270,6 @@ class _CustomExpansionTile extends StatefulWidget {
     required this.icon,
     this.children = const [],
     this.isExpansionEnabled = false,
-    this.routeName,
     this.isCurrentRoute = false,
     this.onTap,
     this.isDashboard = false,
@@ -288,10 +288,6 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
       return;
     }
     if (!widget.isExpansionEnabled) {
-      if (widget.routeName != null) {
-        Navigator.pop(context);
-        Navigator.pushNamed(context, widget.routeName!);
-      }
       return;
     }
   }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 // import 'package:wowcare/core/extentions/context_extentions.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 // import 'package:wowcare/core/util/core_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -80,77 +81,60 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bottomSheetHeight = constraints.maxHeight;
-
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.4, // context.height * 0.4,
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(16),
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    return Container(
+      width: screenWidth,
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.45,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Image/GIF at the top - flexible size
+          Flexible(
+            child: SizedBox(
+              height: 150,
+              child: Image.asset(
+                MediaRes.logout_image,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                alignment: Alignment.center,
-                child: Image.asset(
-                  MediaRes.logoutImage, // MediaRes.logout_image,
-                  height: bottomSheetHeight * 0.4,
-                ),
-              ),
-              SizedBox(height: bottomSheetHeight * 0.04),
-              const Text(
-                'Are you sure you want to log out?',
-                style: TextStyle(
-                  color: AppColors.themeColor, // AppColors.primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: bottomSheetHeight * 0.04),
-              Container(
-                height: bottomSheetHeight * 0.1,
-                alignment: Alignment.center,
-                child: _isLogout
-                    ? const CircularProgressIndicator()
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('No'),
-                          ),
-                          ElevatedButton(
-                            onPressed: _logout,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.themeColor,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Yes'),
-                          ),
-                        ],
-                      ),
-                    // TODO: Re-enable when CustomButtonLayout is available
-                    // : CustomButtonLayout(
-                    //     isForm: false,
-                    //     confirmButtonLabel: 'Yes',
-                    //     cancelButtonLabel: 'No',
-                    //     onPressedConfirm: _logout,
-                    //   ),
-              ),
-            ],
+          const SizedBox(height: 16),
+          const Text(
+            'Are you sure you want to log out?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.themeColor,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 24),
+          _isLogout
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: CircularProgressIndicator(),
+                )
+              : CustomButtonLayout(
+                  confirmButtonLabel: 'Yes',
+                  cancelButtonLabel: 'No',
+                  onPressedConfirm: _logout,
+                  onPressedCancel: () => Navigator.pop(context),
+                  isForm: false,
+                ),
+        ],
+      ),
     );
   }
 }
