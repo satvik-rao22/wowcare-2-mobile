@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 
 import 'src/app_router.dart';
@@ -24,6 +25,10 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize dependency injection
+  await configureDependencies();
+
   // Only initialize if not already
   if (Platform.isIOS) {
     await Firebase.initializeApp(); // auto from GoogleService-Info.plist

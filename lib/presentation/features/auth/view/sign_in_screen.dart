@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
@@ -23,7 +28,6 @@ class _SignInScreenState extends State<SignInScreen>
   final passwordController = TextEditingController();
   final formKey = GlobalKey<FormState>();
   bool rememberMe = false;
-  bool isLoading = false;
 
   late final AnimationController _bottomMenuHeightAnimationController =
       AnimationController(
@@ -43,55 +47,70 @@ class _SignInScreenState extends State<SignInScreen>
   void initState() {
     super.initState();
     _bottomMenuHeightAnimationController.forward();
-    _loadSavedCredentials();
-  }
-
-  Future<void> _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      emailController.text = prefs.getString('email') ?? '';
-      passwordController.text = prefs.getString('password') ?? '';
-      rememberMe = prefs.getBool('rememberMe') ?? false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSavedCredentials();
     });
   }
 
-  Future<void> _saveCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (rememberMe) {
-      await prefs.setString('email', emailController.text.trim());
-      await prefs.setString('password', passwordController.text.trim());
-      // await prefs.setString('accessToken', accessToken);
-    } else {
-      await prefs.remove('email');
-      await prefs.remove('password');
-      await prefs.remove('accessToken');
+  Future<void> _loadSavedCredentials() async {
+    final localDataSource = serviceLocator<AuthLocalDataSource>();
+    final credentials = await localDataSource.getSavedCredentials();
+    final storage = serviceLocator<StorageService>();
+    final rememberMeValue =
+        await storage.getBool(StorageKeys.rememberMe) ?? false;
+    
+    if (mounted) {
+      setState(() {
+        emailController.text = credentials['username'] ?? '';
+        passwordController.text = credentials['password'] ?? '';
+        rememberMe = rememberMeValue;
+      });
     }
-    await prefs.setBool('rememberMe', rememberMe);
   }
 
-  Future<void> _handleSignIn() async {
-    if (formKey.currentState!.validate()) {
-      setState(() {
-        isLoading = true;
-      });
+  Future<void> _saveCredentials() async {
+    final localDataSource = serviceLocator<AuthLocalDataSource>();
+    
+    await localDataSource.saveCredentials(
+      emailController.text.trim(),
+      passwordController.text.trim(),
+      rememberMe,
+    );
+  }
 
+  Future<void> _handleSignIn(BuildContext context) async {
+    if (formKey.currentState!.validate()) {
       await _saveCredentials();
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      final authCubit = context.read<AuthCubit>();
+      await authCubit.login(
+        username: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+    }
+  }
 
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const OrganizationSelectionScreen(),
-          ),
-        );
-      }
+  void _handleAuthState(BuildContext context, AuthState state) {
+    if (state is AuthLoaded) {
+      // Save credentials after successful login
+      _saveCredentials();
+      
+      // Navigate to organization selection
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const OrganizationSelectionScreen(),
+        ),
+      );
+    } else if (state is AuthError) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.message),
+          backgroundColor: AppColors.errorColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -105,17 +124,30 @@ class _SignInScreenState extends State<SignInScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-        ),
-        child: Stack(
-          children: [
-            _buildLottieAnimation(),
-            _buildBottomMenu(context),
-          ],
-        ),
+    return BlocProvider<AuthCubit>(
+      create: (_) {
+        final cubit = serviceLocator<AuthCubit>();
+        // Initialize in the background without blocking UI
+        cubit.initialize();
+        return cubit;
+      },
+      child: BlocConsumer<AuthCubit, AuthState>(
+        listener: _handleAuthState,
+        builder: (context, state) {
+          return Scaffold(
+            body: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+              ),
+              child: Stack(
+                children: [
+                  _buildLottieAnimation(),
+                  _buildBottomMenu(context, state),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -135,7 +167,9 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 
-  Widget _buildBottomMenu(BuildContext context) {
+  Widget _buildBottomMenu(BuildContext context, AuthState state) {
+    final isLoading = state is AuthLoading;
+    
     return Align(
       alignment: Alignment.bottomCenter,
       child: AnimatedBuilder(
@@ -218,6 +252,7 @@ class _SignInScreenState extends State<SignInScreen>
                     ),
                     child: isLoading
                         ? Center(
+                            key: const ValueKey('loading'),
                             child: Container(
                               height: 50,
                               width: 50,
@@ -234,9 +269,10 @@ class _SignInScreenState extends State<SignInScreen>
                             ),
                           )
                         : RoundedButtonNew(
+                            key: const ValueKey('button'),
                             label: 'Sign-In',
                             isLoading: isLoading,
-                            onPressed: _handleSignIn,
+                            onPressed: () => _handleSignIn(context),
                             gradient: AppColors.buildPrimaryGradient(),
                             lableColor: Colors.white,
                           ),
