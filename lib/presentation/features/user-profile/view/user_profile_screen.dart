@@ -5,6 +5,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../../../../shared/utils/responsive_helper.dart';
+import 'edit_user_profile_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key, this.userName = 'Anna Smith', this.userPersona = 'Admin', this.userEmail = 'Annasmith@gmail.com', this.userPhoneNo = '(567) 303-2234', this.userAddress = '12, Main St. Nashua, NH'});
@@ -265,7 +266,35 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () {},
+                                onTap: () {
+                                  final parts = widget.userName.trim().split(' ');
+                                  final initialFirstName = parts.isNotEmpty ? parts.first : '';
+                                  final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+                                  final initialEmail = widget.userEmail;
+                                  final initialPhoneNo = widget.userPhoneNo;
+                                  final initialAddress = widget.userAddress;
+                                  final role = widget.userPersona;
+
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => EditUserProfileScreen(
+                                        initialFirstName: initialFirstName,
+                                        initialLastName: initialLastName,
+                                        initialEmail: initialEmail,
+                                        initialPhoneNo: initialPhoneNo,
+                                        initialAddressLine2: initialAddress,
+                                        role: role,
+                                        initialStreet: '',
+                                        initialCity: '',
+                                        initialState: 'New Hampshire',
+                                        initialCountry: 'United States',
+                                        initialZipCode: '',
+                                        signInPin: '5769', // hard coded for now
+                                      ),
+                                    ),
+                                  );
+                                },
                                 child: Container(
                                   width: 38,
                                   height: 38,
