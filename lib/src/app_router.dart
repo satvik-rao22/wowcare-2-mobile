@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_profile_details_sc
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
 
@@ -61,6 +62,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case SignOutScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const SignOutScreen(),
+        settings: settings,
+      );
+    case ForgotPasswordScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const ForgotPasswordScreen(),
         settings: settings,
       );
     default:

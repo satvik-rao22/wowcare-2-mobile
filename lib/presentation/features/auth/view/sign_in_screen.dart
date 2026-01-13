@@ -3,8 +3,9 @@ import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -84,10 +85,11 @@ class _SignInScreenState extends State<SignInScreen>
           isLoading = false;
         });
 
-        // Navigate to dashboard
-        Navigator.pushReplacementNamed(
+        Navigator.pushReplacement(
           context,
-          DashboardScreen.routeName,
+          MaterialPageRoute(
+            builder: (_) => const OrganizationSelectionScreen(),
+          ),
         );
       }
     }
@@ -242,7 +244,11 @@ class _SignInScreenState extends State<SignInScreen>
                   const SizedBox(height: 10),
                   TextButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/forgot-password');
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      );
                     },
                     child: const Text(
                       'Forgot Password?',
