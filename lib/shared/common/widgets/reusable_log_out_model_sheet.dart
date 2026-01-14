@@ -7,7 +7,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 // import 'package:wowcare/core/util/core_utils.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 
 class LogOutModelBottomSheet extends StatefulWidget {
   const LogOutModelBottomSheet({
@@ -22,19 +24,19 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
   bool _isLogout = false;
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isLogout = true;
     });
-    prefs.remove('accessToken');
     try {
       // TODO: Re-enable when ProfilePhotoProvider is available
       // context.read<ProfilePhotoProvider>().clearPhoto();
 
+      await context.read<AuthCubit>().logoutSession();
+
       Navigator.pushNamedAndRemoveUntil(
         context,
-        ('/sign-in'),
-        ModalRoute.withName('/first-screen'),
+        SignInScreen.routeName,
+        (route) => false,
       );
 
       // TODO: Re-enable when CoreUtils is available

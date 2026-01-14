@@ -15,10 +15,24 @@ class SchoolNamesResponseModel {
     return SchoolNamesResponseModel(
       success: json['success'] as bool? ?? false,
       message: json['message'] as String? ?? '',
-      data: (json['data'] as List<dynamic>?)
-              ?.map((item) => item as String)
-              .toList() ??
-          [],
+      // API returns a list of objects; extract the name field safely
+      data: (json['data'] as List?)
+              ?.map((item) {
+                if (item is String) return item;
+                if (item is Map<String, dynamic>) {
+                  // Try common keys; adjust if backend uses a different one
+                  return (item['schoolName'] ??
+                          item['name'] ??
+                          item['value'] ??
+                          '')
+                      .toString();
+                }
+                return item.toString();
+              })
+              .where((e) => e.isNotEmpty)
+              .toList()
+              .cast<String>() ??
+          <String>[],
       timestamp: json['timestamp'] as String? ?? '',
     );
   }
