@@ -23,21 +23,10 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, LoginResponseModel>> login(
     LoginRequestModel request,
   ) async {
-    // Check cache first if online
-    if (await _networkInfo.isConnected) {
-      final cachedResponse = await _localDataSource.getCachedLoginResponse();
-      if (cachedResponse != null && await _localDataSource.isCacheValid()) {
-        // Return cached response if valid (avoid unnecessary API call)
-        return Right(cachedResponse);
-      }
-    }
-
-    // If offline, try to return cached response
+    // Per auth flow requirement: login is not considered complete until
+    // org + school selection is completed, so we always perform a fresh login
+    // request (no cached auto-login here).
     if (!(await _networkInfo.isConnected)) {
-      final cachedResponse = await _localDataSource.getCachedLoginResponse();
-      if (cachedResponse != null) {
-        return Right(cachedResponse);
-      }
       return const Left(NetworkFailure('No internet connection'));
     }
 
@@ -45,17 +34,8 @@ class AuthRepositoryImpl implements AuthRepository {
       // Make API call
       final response = await _remoteDataSource.login(request);
 
-      // Cache the response
-      await _localDataSource.cacheLoginResponse(response);
-
       return Right(response);
     } catch (e) {
-      // Try to return cached data on error if available
-      final cachedResponse = await _localDataSource.getCachedLoginResponse();
-      if (cachedResponse != null) {
-        return Right(cachedResponse);
-      }
-
       if (e.toString().contains('Network error') ||
           e.toString().contains('connection')) {
         return const Left(NetworkFailure('Network error occurred'));

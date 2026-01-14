@@ -16,12 +16,18 @@ class AuthLoading extends AuthState {
 }
 
 class AuthLoaded extends AuthState {
-  const AuthLoaded(this.loginResponse);
+  const AuthLoaded({
+    required this.loginResponse,
+    this.schoolsByOrg = const {},
+    this.isPrefetchingSchools = false,
+  });
 
   final LoginResponseModel loginResponse;
+  final Map<String, List<String>> schoolsByOrg;
+  final bool isPrefetchingSchools;
 
   @override
-  List<Object?> get props => [loginResponse];
+  List<Object?> get props => [loginResponse, schoolsByOrg, isPrefetchingSchools];
 }
 
 class AuthError extends AuthState {

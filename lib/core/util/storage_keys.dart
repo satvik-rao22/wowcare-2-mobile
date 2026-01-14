@@ -18,6 +18,9 @@ class StorageKeys {
   static const String loginCacheKey = 'login_cache';
   static const String loginCacheTimestamp = 'login_cache_timestamp';
   static const String organizationCode = 'organizationCode';
+  static const String selectedSchoolName = 'selectedSchoolName';
+  static const String loginCompleted = 'loginCompleted';
+  static const String onboardingSeen = 'onboardingSeen';
 
   // Cache Duration
   static const Duration cacheValidDuration = Duration(minutes: 5);

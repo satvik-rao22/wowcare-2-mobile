@@ -5,6 +5,7 @@ class ApiPaths {
 
   // Auth
   static const String authLogin = '/api/v1/auth/login';
+  static const String authLogout = '/api/v1/auth/logout';
 
   // School
   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';

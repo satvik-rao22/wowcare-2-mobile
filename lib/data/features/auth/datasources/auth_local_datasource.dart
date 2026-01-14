@@ -11,6 +11,10 @@ abstract class AuthLocalDataSource {
   Future<void> saveCredentials(String username, String password, bool rememberMe);
   Future<Map<String, String?>> getSavedCredentials();
   Future<void> clearCredentials();
+  Future<void> saveOrgAndSchoolSelection({
+    required String orgCode,
+    required String schoolName,
+  });
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
@@ -90,6 +94,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.remove(StorageKeys.firstLogin);
     await _storage.remove(StorageKeys.roles);
     await _storage.remove(StorageKeys.organizationCode);
+    await _storage.remove(StorageKeys.selectedSchoolName);
+    await _storage.remove(StorageKeys.loginCompleted);
+  }
+
+  @override
+  Future<void> saveOrgAndSchoolSelection({
+    required String orgCode,
+    required String schoolName,
+  }) async {
+    await _storage.saveString(StorageKeys.organizationCode, orgCode);
+    await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
+    await _storage.saveBool(StorageKeys.loginCompleted, true);
   }
 
   @override

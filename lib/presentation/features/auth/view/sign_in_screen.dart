@@ -124,31 +124,23 @@ class _SignInScreenState extends State<SignInScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<AuthCubit>(
-      create: (_) {
-        final cubit = serviceLocator<AuthCubit>();
-        // Initialize in the background without blocking UI
-        cubit.initialize();
-        return cubit;
-      },
-      child: BlocConsumer<AuthCubit, AuthState>(
-        listener: _handleAuthState,
-        builder: (context, state) {
-          return Scaffold(
-            body: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-              ),
-              child: Stack(
-                children: [
-                  _buildLottieAnimation(),
-                  _buildBottomMenu(context, state),
-                ],
-              ),
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: _handleAuthState,
+      builder: (context, state) {
+        return Scaffold(
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: AppColors.buildPrimaryGradient(),
             ),
-          );
-        },
-      ),
+            child: Stack(
+              children: [
+                _buildLottieAnimation(),
+                _buildBottomMenu(context, state),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

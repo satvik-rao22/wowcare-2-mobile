@@ -5,10 +5,12 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
+import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/data/features/auth/models/school_names_response_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<LoginResponseModel> login(LoginRequestModel request);
+  Future<void> logout(LogoutRequestModel request);
   Future<SchoolNamesResponseModel> getSchoolNamesByOrg({
     required String organizationCode,
     required List<String> schoolCodes,
@@ -105,6 +107,72 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       throw DioException(
         requestOptions: RequestOptions(path: ApiPaths.authLogin),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
+  Future<void> logout(LogoutRequestModel request) async {
+    final url = ApiPaths.url(ApiPaths.authLogout);
+    final requestBody = jsonEncode(request.toJson());
+    try {
+      ApiLogger.logRequest(
+        url: url,
+        method: 'POST',
+        headers: const {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: requestBody,
+      );
+
+      final response = await _dio.post(
+        ApiPaths.authLogout,
+        data: requestBody,
+        options: Options(
+          headers: const {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+          },
+        ),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'POST',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode != 200) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Logout failed: Invalid response',
+        );
+      }
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: url,
+        method: 'POST',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      rethrow;
+    } catch (e, stackTrace) {
+      ApiLogger.logUnexpectedError(
+        url: url,
+        method: 'POST',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: ApiPaths.authLogout),
         type: DioExceptionType.unknown,
         error: 'Unexpected error: $e',
       );
