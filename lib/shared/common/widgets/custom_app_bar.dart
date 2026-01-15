@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -5,7 +7,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 
@@ -142,63 +146,154 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           itemBuilder: (context) => [
-            const PopupMenuItem<int>(
+            PopupMenuItem<int>(
               enabled: false,
-              height: 120,
+              height: 80,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      child: Text('W', style: TextStyle(fontSize: 24)),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'WowCare',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      'User',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: ProfileMenuHeader(),
                 ),
+                // child: Column(
+                //   mainAxisSize: MainAxisSize.min,
+                //   children: [
+                //     CircleAvatar(
+                //       radius: 30,
+                //       child: Text('W', style: TextStyle(fontSize: 24)),
+                //     ),
+                //     SizedBox(height: 8),
+                //     Text(
+                //       'WowCare',
+                //       style: TextStyle(
+                //         fontWeight: FontWeight.bold,
+                //         fontSize: 16,
+                //       ),
+                //     ),
+                //     Text(
+                //       'User',
+                //       style: TextStyle(fontSize: 12, color: Colors.grey),
+                //     ),
+                //   ],
+                // ),
               ),
             ),
             PopupMenuItem<int>(
               value: 1,
               child: Row(
-                children: const [
-                  Icon(Icons.person, color: Colors.black87),
-                  SizedBox(width: 12),
-                  Text('My Profile'),
+                children: [
+                  Icon(Icons.account_circle_outlined, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My Profile',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
                 ],
               ),
             ),
             PopupMenuItem<int>(
               value: 2,
               child: Row(
-                children: const [
-                  Icon(Icons.lock_outline, color: Colors.black87),
-                  SizedBox(width: 12),
-                  Text('Change Password'),
+                children: [
+                  Transform.rotate(angle: -pi / 4,
+                  child: Icon(Icons.vpn_key, color: AppColors.primaryColor.withValues(alpha: 0.5))),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Sign-in pin : 5769', // hardcoded for now
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 3,
+              child: Row(
+                children: [
+                  Icon(Icons.autorenew_outlined, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Switch Profile',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 4,
+              child: Row(
+                children: [
+                  Icon(Icons.business, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Switch Organisation',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 5,
+              child: Row(
+                children: [
+                  Icon(Icons.lock_outline, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  const Text('Change Password',
+                    style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
 						PopupMenuItem<int>(
-							value: 3,
+							value: 6,
 							child: Row(
 								children: [
 									Stack(
 										clipBehavior: Clip.none,
 										children: [
-											const Icon(
+											Icon(
 												Icons.notifications_outlined,
-												color: Colors.black87,
+												color: AppColors.primaryColor.withValues(alpha: 0.5),
 											),
 											Positioned(
 												right: 1,
@@ -213,17 +308,24 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 															width: 0.2,
 														),
 													),
-													child: const Icon(
+													child: Icon(
 														Icons.settings,
 														size: 10,
-														color: Colors.black87,
+														color: AppColors.primaryColor.withValues(alpha: 0.5),
 													),
 												),
 											),
 										],
 									),
 									const SizedBox(width: 12),
-									const Text('Notification settings'),
+									const Text('Notification settings', style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,),
 								],
 							),
 						),
@@ -252,22 +354,36 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             //   ),
             // ),
             PopupMenuItem<int>(
-              value: 4,
+              value: 7,
               child: Row(
-                children: const [
-                  Icon(Icons.help_outline, color: Colors.black87),
+                children: [
+                  Icon(Icons.help_outline, color: AppColors.primaryColor.withValues(alpha: 0.5)),
                   SizedBox(width: 12),
-                  Text('Help'),
+                  Text('Help', style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,),
                 ],
               ),
             ),
             PopupMenuItem<int>(
-              value: 5,
+              value: 8,
               child: Row(
-                children: const [
-                  Icon(Icons.logout, color: Colors.black87),
+                children: [
+                  Icon(Icons.logout, color: AppColors.primaryColor.withValues(alpha: 0.5)),
                   SizedBox(width: 12),
-                  Text('Logout'),
+                  Text('Logout', style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,),
                 ],
               ),
             ),
@@ -282,23 +398,24 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   MaterialPageRoute(builder: (_) => UserProfileScreen()),
                 );
                 break;
-              case 2:
+              case 5:
                 _showChangePasswordBottomSheet(context);
                 break;
-							case 3:
+							case 6:
 								Navigator.push(
 									context,
 									MaterialPageRoute(builder: (_) => NotificationSettingsScreen()),
 								);
 								break;
-              case 4:
-                const url = 'https://help.childcarewow.com/portal/en/home';
+              case 7:
+                //const url = 'https://help.childcarewow.com/portal/en/home';
+                const url = 'https://help.childcarewow.com/';
                 final uri = Uri.parse(url);
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                 }
                 break;
-              case 5:
+              case 8:
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(const SnackBar(content: Text('Logout tapped')));

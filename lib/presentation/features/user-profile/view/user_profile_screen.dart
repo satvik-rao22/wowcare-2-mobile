@@ -197,7 +197,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Container(
                                   height: 48,
@@ -215,7 +215,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       alignment: Alignment.center
                                     ),
                                     child: Text(
-                                      widget.userPersona == 'Admin' ?'View Admin Profile' : 'View Staff Profile', // or view staff profile depending on persona
+                                      widget.userPersona == 'Admin' ?'View Admin Profile' :  widget.userPersona == 'Parent' ? "View Child's Profile" : 'View Staff Profile', // or view staff profile depending on persona
                                       style: const TextStyle(
                                         fontFamily: 'Manrope',
                                         fontSize: 16,

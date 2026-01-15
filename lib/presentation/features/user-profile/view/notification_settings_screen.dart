@@ -59,6 +59,13 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     'Classroom shifts/schedule needs attention' : [true, true, true],
     'Today’s attendance is not marked for Students & Staff' : [false, false, true],
     'Incident is approved/rejected/acknowledged' : [true, true, true],
+    'My child is signed‑in/signed‑out or marked absent' : [true, true, false],
+    'New activity is recorded for my child' : [true,true, false],
+    'Invoice is received' : [true, true, true],
+    'Payment is successful / failed' : [true,true, true],
+    'My child’s profile/details are updated' : [true, true, false],
+    'Sign‑in alert just after start time (if not already done)' : [true, true, false],
+    'Sign‑out alert just after end time (if not already done)' : [true, true, false]
 
   };
 
@@ -409,6 +416,87 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
 
                               // settings for parents only
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'My child is signed‑in/signed‑out or marked absent',
+                                  inAppValue: notificationSettings['My child is signed‑in/signed‑out or marked absent']![0],
+                                  emailValue: notificationSettings['My child is signed‑in/signed‑out or marked absent']![1],
+                                  pushValue: notificationSettings['My child is signed‑in/signed‑out or marked absent']![2],
+                                  onInAppChanged: (v) => _updateSetting('My child is signed‑in/signed‑out or marked absent', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('My child is signed‑in/signed‑out or marked absent', 1, v),
+                                  onPushChanged: (v) => _updateSetting('My child is signed‑in/signed‑out or marked absent', 2, v),
+                                ),
+
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'Newsletter is received',
+                                  inAppValue: notificationSettings['Newsletter is received']![0],
+                                  emailValue: notificationSettings['Newsletter is received']![1],
+                                  pushValue: notificationSettings['Newsletter is received']![2],
+                                  onInAppChanged: (v) => _updateSetting('Newsletter is received', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('Newsletter is received', 1, v),
+                                  onPushChanged: (v) => _updateSetting('Newsletter is received', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'New activity is recorded for my child',
+                                  inAppValue: notificationSettings['New activity is recorded for my child']![0],
+                                  emailValue: notificationSettings['New activity is recorded for my child']![1],
+                                  pushValue: notificationSettings['New activity is recorded for my child']![2],
+                                  onInAppChanged: (v) => _updateSetting('New activity is recorded for my child', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('New activity is recorded for my child', 1, v),
+                                  onPushChanged: (v) => _updateSetting('New activity is recorded for my child', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'Invoice is received',
+                                  inAppValue: notificationSettings['Invoice is received']![0],
+                                  emailValue: notificationSettings['Invoice is received']![1],
+                                  pushValue: notificationSettings['Invoice is received']![2],
+                                  onInAppChanged: (v) => _updateSetting('Invoice is received', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('Invoice is received', 1, v),
+                                  onPushChanged: (v) => _updateSetting('Invoice is received', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'Payment is successful / failed',
+                                  inAppValue: notificationSettings['Payment is successful / failed']![0],
+                                  emailValue: notificationSettings['Payment is successful / failed']![1],
+                                  pushValue: notificationSettings['Payment is successful / failed']![2],
+                                  onInAppChanged: (v) => _updateSetting('Payment is successful / failed', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('Payment is successful / failed', 1, v),
+                                  onPushChanged: (v) => _updateSetting('Payment is successful / failed', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'My child’s profile/details are updated',
+                                  inAppValue: notificationSettings['My child’s profile/details are updated']![0],
+                                  emailValue: notificationSettings['My child’s profile/details are updated']![1],
+                                  pushValue: notificationSettings['My child’s profile/details are updated']![2],
+                                  onInAppChanged: (v) => _updateSetting('My child’s profile/details are updated', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('My child’s profile/details are updated', 1, v),
+                                  onPushChanged: (v) => _updateSetting('My child’s profile/details are updated', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'Sign‑in alert just after start time (if not already done)',
+                                  inAppValue: notificationSettings['Sign‑in alert just after start time (if not already done)']![0],
+                                  emailValue: notificationSettings['Sign‑in alert just after start time (if not already done)']![1],
+                                  pushValue: notificationSettings['Sign‑in alert just after start time (if not already done)']![2],
+                                  onInAppChanged: (v) => _updateSetting('Sign‑in alert just after start time (if not already done)', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('Sign‑in alert just after start time (if not already done)', 1, v),
+                                  onPushChanged: (v) => _updateSetting('Sign‑in alert just after start time (if not already done)', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'Sign‑out alert just after end time (if not already done)',
+                                  inAppValue: notificationSettings['Sign‑out alert just after end time (if not already done)']![0],
+                                  emailValue: notificationSettings['Sign‑out alert just after end time (if not already done)']![1],
+                                  pushValue: notificationSettings['Sign‑out alert just after end time (if not already done)']![2],
+                                  onInAppChanged: (v) => _updateSetting('Sign‑out alert just after end time (if not already done)', 0, v),
+                                  onEmailChanged: (v) => _updateSetting('Sign‑out alert just after end time (if not already done)', 1, v),
+                                  onPushChanged: (v) => _updateSetting('Sign‑out alert just after end time (if not already done)', 2, v),
+                                ),
 
                               // Container(
                               //   //height: 48,
@@ -599,7 +687,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 ),
               ),
               child: TextButton(
-                onPressed: (){},
+                onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(overlayColor: Colors.transparent),
                 child: Text(
                   'Save',
