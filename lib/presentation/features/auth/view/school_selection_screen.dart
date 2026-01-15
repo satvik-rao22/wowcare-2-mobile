@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -56,14 +58,40 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
           final userRole =
               login.roles.isNotEmpty ? login.roles.first.role : '';
 
+          // Get organization codes and names to find the display name
+          final orgCodes = login.roles
+              .map((r) => r.organizationCode)
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList();
+          final orgNames = state.orgNames;
+          
+          // Find the organization name for the selected org code
+          String orgDisplayName = widget.selectedOrg; // fallback to code
+          final orgIndex = orgCodes.indexOf(widget.selectedOrg);
+          if (orgIndex != -1 && 
+              orgIndex < orgNames.length && 
+              orgNames.isNotEmpty &&
+              orgNames.length == orgCodes.length) {
+            orgDisplayName = orgNames[orgIndex];
+          }
+
           final schools = state.schoolsByOrg[widget.selectedOrg] ?? const <String>[];
           final isLoading = state.isPrefetchingSchools && schools.isEmpty;
 
-          // Preselect first school for better UX
-          if (_selectedSchool == null && schools.isNotEmpty) {
+          // If school API failed (e.g. 404) we keep the flow but
+          // surface the error once using the shared top banner.
+          if (!isLoading &&
+              schools.isEmpty &&
+              (state.lastErrorMessage != null &&
+                  state.lastErrorMessage!.isNotEmpty)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
-              setState(() => _selectedSchool = schools.first);
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.lastErrorMessage!,
+                isError: true,
+              );
             });
           }
 
@@ -162,7 +190,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                               SizedBox(height: screenHeight * 0.02),
                               // Organization name (same idea as previous subtitle)
                               Text(
-                                widget.selectedOrg,
+                                orgDisplayName,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontFamily: 'Manrope',
@@ -216,7 +244,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 hintText: isLoading
                                     ? 'Loading schools...'
                                     : (schools.isNotEmpty
-                                        ? schools.first
+                                        ? 'Select school'
                                         : 'No schools found'),
                                 items: schools,
                                 selectedItem: _selectedSchool,
@@ -224,6 +252,15 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 contentPadding: EdgeInsets.symmetric(
                                   vertical: screenHeight * 0.01,
                                   horizontal: screenWidth * 0.04,
+                                ),
+                                leadingIcon: SvgPicture.asset(
+                                  MediaRes.homeIcon,
+                                  height: screenHeight * 0.022,
+                                  width: screenHeight * 0.022,
+                                  colorFilter: const ColorFilter.mode(
+                                    Color(0xFF573353),
+                                    BlendMode.srcIn,
+                                  ),
                                 ),
                                 selectedTextStyle: TextStyle(
                                   fontFamily: 'Manrope',

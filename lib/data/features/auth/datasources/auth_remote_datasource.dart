@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_logger.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/network/api_response.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
@@ -17,6 +18,11 @@ abstract class AuthRemoteDataSource {
     required bool isAdmin,
     required String accessToken,
   });
+  Future<List<String>> getOrganizationNames({
+    required List<String> organizationCodes,
+    required String accessToken,
+  });
+  Future<String> forgotPassword({required String email});
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -286,6 +292,204 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       throw DioException(
         requestOptions: RequestOptions(path: errorUrl),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
+  Future<List<String>> getOrganizationNames({
+    required List<String> organizationCodes,
+    required String accessToken,
+  }) async {
+    try {
+      // Use Sairam base URL for organization names (same as school-ms)
+      final url = ApiPaths.urlWithBase(
+        ApiPaths.organizationNames,
+        ApiConstants.Sairam,
+      );
+
+      final queryParams = <String, dynamic>{
+        'organizationCodes': organizationCodes,
+      };
+
+      ApiLogger.logRequest(
+        url: url,
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        queryParameters: queryParams,
+        body: null,
+      );
+
+      final response = await _dio.get<Map<String, dynamic>>(
+        url,
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+        ),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'GET',
+        queryParameters: queryParams,
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final apiResponse = ApiResponse<List<String>>.fromJson(
+          response.data!,
+          (dataJson) {
+            if (dataJson is List) {
+              return dataJson.map((e) => e.toString()).toList();
+            }
+            return <String>[];
+          },
+        );
+        return apiResponse.data ?? <String>[];
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Failed to get organization names: Invalid response',
+        );
+      }
+    } on DioException catch (e) {
+      final errorUrl = ApiPaths.urlWithBase(
+        ApiPaths.organizationNames,
+        ApiConstants.Sairam,
+      );
+      ApiLogger.logError(
+        url: errorUrl,
+        method: 'GET',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      if (e.response != null) {
+        final statusCode = e.response?.statusCode;
+        final errorMessage = e.response?.data?['message'] ??
+            e.response?.data?['error'] ??
+            'Failed to get organization names';
+        throw DioException(
+          requestOptions: e.requestOptions,
+          response: e.response,
+          type: DioExceptionType.badResponse,
+          error: 'Status: $statusCode - $errorMessage',
+        );
+      } else {
+        throw DioException(
+          requestOptions: e.requestOptions,
+          type: DioExceptionType.connectionTimeout,
+          error: 'Network error: ${e.message}',
+        );
+      }
+    } catch (e, stackTrace) {
+      final errorUrl = ApiPaths.urlWithBase(
+        ApiPaths.organizationNames,
+        ApiConstants.Sairam,
+      );
+      ApiLogger.logUnexpectedError(
+        url: errorUrl,
+        method: 'GET',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: errorUrl),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
+  Future<String> forgotPassword({required String email}) async {
+    final url = ApiPaths.url(ApiPaths.authForgotPassword);
+
+    final queryParams = <String, dynamic>{
+      'email': email,
+    };
+
+    try {
+      ApiLogger.logRequest(
+        url: url,
+        method: 'POST',
+        headers: const {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        queryParameters: queryParams,
+        body: null,
+      );
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiPaths.authForgotPassword,
+        queryParameters: queryParams,
+        options: Options(
+          headers: const {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+          },
+        ),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'POST',
+        queryParameters: queryParams,
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
+          response.data!,
+          (dataJson) => (dataJson as Map<String, dynamic>? ?? <String, dynamic>{}),
+        );
+        // Return the backend message so UI can display it directly.
+        return apiResponse.message;
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Forgot password failed: Invalid response',
+        );
+      }
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: url,
+        method: 'POST',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      // Always rethrow to preserve the original DioException with its message
+      // The repository layer will extract the message properly
+      rethrow;
+    } catch (e, stackTrace) {
+      ApiLogger.logUnexpectedError(
+        url: url,
+        method: 'POST',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: ApiPaths.authForgotPassword),
         type: DioExceptionType.unknown,
         error: 'Unexpected error: $e',
       );

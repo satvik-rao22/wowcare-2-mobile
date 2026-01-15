@@ -7,6 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
@@ -103,13 +104,11 @@ class _SignInScreenState extends State<SignInScreen>
         ),
       );
     } else if (state is AuthError) {
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(state.message),
-          backgroundColor: AppColors.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
+      // Show backend error message using the shared top snackbar
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: state.message,
+        isError: true,
       );
     }
   }

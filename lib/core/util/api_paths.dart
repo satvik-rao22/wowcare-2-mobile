@@ -6,9 +6,11 @@ class ApiPaths {
   // Auth
   static const String authLogin = '/api/v1/auth/login';
   static const String authLogout = '/api/v1/auth/logout';
+  static const String authForgotPassword = '/api/v1/auth/forgot-password';
 
   // School
   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
+  static const String organizationNames = '/api/v1/organizations/names';
 
   /// Helper to build a full URL from a relative path.
   static String url(String path) => '${ApiConstants.baseUrl}$path';

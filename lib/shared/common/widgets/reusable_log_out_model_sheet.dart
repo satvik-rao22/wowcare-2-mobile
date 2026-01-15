@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-// import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
@@ -39,40 +39,22 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
         (route) => false,
       );
 
-      // TODO: Re-enable when CoreUtils is available
-      // CoreUtils.showTopSnackBar(
-      //   context: context,
-      //   isError: false,
-      //   isWarning: false,
-      //   isSuccess: true,
-      //   isAdjust: false,
-      //   message: 'You are logged out successfully',
-      // );
-      
-      // Temporary snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You are logged out successfully'),
-          backgroundColor: Colors.green,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        isError: false,
+        isWarning: false,
+        isSuccess: true,
+        isAdjust: false,
+        message: 'You are logged out successfully',
       );
     } catch (e) {
-      // TODO: Re-enable when CoreUtils is available
-      // CoreUtils.showTopSnackBar(
-      //   context: context,
-      //   isError: true,
-      //   isWarning: false,
-      //   isSuccess: false,
-      //   isAdjust: false,
-      //   message: 'Logout failed. Please try again.',
-      // );
-
-      // Temporary snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Logout failed. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        isError: true,
+        isWarning: false,
+        isSuccess: false,
+        isAdjust: false,
+        message: 'Logout failed. Please try again.',
       );
 
       setState(() {
@@ -123,18 +105,14 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
             ),
           ),
           const SizedBox(height: 24),
-          _isLogout
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: CircularProgressIndicator(),
-                )
-              : CustomButtonLayout(
-                  confirmButtonLabel: 'Yes',
-                  cancelButtonLabel: 'No',
-                  onPressedConfirm: _logout,
-                  onPressedCancel: () => Navigator.pop(context),
-                  isForm: false,
-                ),
+          CustomButtonLayout(
+            confirmButtonLabel: 'Yes',
+            cancelButtonLabel: 'No',
+            onPressedConfirm: _logout,
+            onPressedCancel: () => Navigator.pop(context),
+            isForm: false,
+            isLoading: _isLogout,
+          ),
         ],
       ),
     );

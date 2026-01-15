@@ -14,6 +14,7 @@ import '../../data/features/onboarding/datasources/onboarding_remote_datasource.
 import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
+import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
@@ -70,6 +71,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Use cases
   serviceLocator.registerFactory<LoginUseCase>(
     () => LoginUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ForgotPasswordUseCase>(
+    () => ForgotPasswordUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetOnboardingContent>(
     () => GetOnboardingContent(serviceLocator()),

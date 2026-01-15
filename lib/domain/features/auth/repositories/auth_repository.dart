@@ -7,4 +7,5 @@ abstract class AuthRepository {
   Future<Either<Failure, LoginResponseModel>> login(LoginRequestModel request);
   Future<Either<Failure, LoginResponseModel?>> getCachedLoginResponse();
   Future<Either<Failure, void>> clearAuthCache();
+  Future<Either<Failure, String>> forgotPassword(String email);
 }

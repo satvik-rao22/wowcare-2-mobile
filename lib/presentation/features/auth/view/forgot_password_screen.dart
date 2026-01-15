@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -34,44 +36,41 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _isLoading = true;
     });
 
-    try {
-      // TODO: Replace with actual API endpoint
-      // For now, this is a demo screen
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        // Show success message
+    final useCase = serviceLocator<ForgotPasswordUseCase>();
+
+    final result = await useCase(email);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    result.fold(
+      (failure) {
+        final msg = failure.message ?? failure.toString();
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Password reset link sent to your email',
+          message: msg,
+          isError: true,
+        );
+      },
+      (message) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
           isSuccess: true,
           duration: const Duration(seconds: 3),
         );
-        
+
         // Wait a bit then navigate back
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
             Navigator.of(context).pop();
           }
         });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Error: ${e.toString()}',
-          isError: true,
-        );
-      }
-    }
+      },
+    );
   }
 
   @override

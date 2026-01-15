@@ -20,14 +20,21 @@ class AuthLoaded extends AuthState {
     required this.loginResponse,
     this.schoolsByOrg = const {},
     this.isPrefetchingSchools = false,
+    this.lastErrorMessage,
+    this.orgNames = const [],
   });
 
   final LoginResponseModel loginResponse;
   final Map<String, List<String>> schoolsByOrg;
   final bool isPrefetchingSchools;
+  final String? lastErrorMessage;
+   /// Organization display names, in the same order as the codes
+   /// extracted from [loginResponse.roles].
+  final List<String> orgNames;
 
   @override
-  List<Object?> get props => [loginResponse, schoolsByOrg, isPrefetchingSchools];
+  List<Object?> get props =>
+      [loginResponse, schoolsByOrg, isPrefetchingSchools, lastErrorMessage, orgNames];
 }
 
 class AuthError extends AuthState {

@@ -1,6 +1,5 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
@@ -44,7 +43,7 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final cachedResponse = await _localDataSource.getCachedLoginResponse();
       if (cachedResponse != null) {
-        emit(AuthLoaded(loginResponse: cachedResponse));
+        emit(const AuthInitial());
       }
     } catch (e) {
       // Silently fail - no cached data available
@@ -55,11 +54,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String username,
     required String password,
   }) async {
-    // Don't emit loading if we already have cached data (to show instant feedback)
-    final hasCache = state is AuthLoaded;
-    if (!hasCache) {
-      emit(const AuthLoading());
-    }
+    emit(const AuthLoading());
 
     final request = LoginRequestModel(
       username: username.trim(),
@@ -70,52 +65,46 @@ class AuthCubit extends Cubit<AuthState> {
 
     result.fold(
       (failure) {
-        if (failure is NetworkFailure) {
-          emit(AuthError('Network error. Please check your connection.'));
-        } else if (failure is ServerFailure) {
-          emit(AuthError(failure.message ?? 'Login failed. Please try again.'));
-        } else {
-          emit(AuthError(failure.message ?? 'An unexpected error occurred.'));
-        }
+        // Always surface backend / low-level error messages,
+        // instead of inventing UI text here.
+        final message = failure.message ?? failure.toString();
+        emit(AuthError(message));
       },
       (response) async {
-        // Emit immediately so UI navigates fast
-        emit(
-          AuthLoaded(
-            loginResponse: response,
-            schoolsByOrg: const {},
-            isPrefetchingSchools: true,
-          ),
-        );
-
-        // Prefetch schools for org admin (so next screens feel instant)
-        final isOrgAdmin =
-            response.roles.any((role) => role.role == 'ORGANIZATION_ADMIN');
-
-        if (!isOrgAdmin) {
-          emit(
-            AuthLoaded(
-              loginResponse: response,
-              schoolsByOrg: const {},
-              isPrefetchingSchools: false,
-            ),
-          );
-          return;
-        }
-
-        // Unique org codes from roles
+        // Prepare organization codes from roles
         final orgCodes = response.roles
             .map((r) => r.organizationCode)
             .where((c) => c.isNotEmpty)
             .toSet()
             .toList();
 
-        if (orgCodes.isEmpty) {
+        // 1) Preload organization NAMES using the new API so that the
+        //    organization selection screen can show them directly.
+        List<String> orgNames = [];
+        if (orgCodes.isNotEmpty) {
+          try {
+            orgNames = await _remoteDataSource.getOrganizationNames(
+              organizationCodes: orgCodes,
+              accessToken: response.accessToken,
+            );
+          } catch (_) {
+            // If org-names API fails, we silently fall back to showing codes.
+            orgNames = [];
+          }
+        }
+
+        // 2) Prefetch schools for org admin (so next screens feel instant)
+        final isOrgAdmin =
+            response.roles.any((role) => role.role == 'ORGANIZATION_ADMIN');
+
+        if (!isOrgAdmin || orgCodes.isEmpty) {
           emit(
             AuthLoaded(
               loginResponse: response,
               schoolsByOrg: const {},
               isPrefetchingSchools: false,
+              lastErrorMessage: null,
+              orgNames: orgNames,
             ),
           );
           return;
@@ -143,15 +132,20 @@ class AuthCubit extends Cubit<AuthState> {
               loginResponse: response,
               schoolsByOrg: map,
               isPrefetchingSchools: false,
+              lastErrorMessage: null,
+              orgNames: orgNames,
             ),
           );
         } catch (e) {
-          // Don’t block login flow; API logger already prints details
+          // Don’t block login flow; API logger already prints details.
+          // Always surface the raw message coming from the API / Dio.
           emit(
             AuthLoaded(
               loginResponse: response,
               schoolsByOrg: const {},
               isPrefetchingSchools: false,
+              lastErrorMessage: e.toString(),
+              orgNames: orgNames,
             ),
           );
         }

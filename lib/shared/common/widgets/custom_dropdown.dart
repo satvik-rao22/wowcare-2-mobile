@@ -146,7 +146,8 @@ class CustomDropdown extends StatefulWidget {
     this.selectedTextStyle,
     this.popupItemTextStyle,
     this.contentPadding,
-    this.height = null
+    this.height = null,
+    this.leadingIcon,
   });
 
   final String? label;
@@ -167,6 +168,8 @@ class CustomDropdown extends StatefulWidget {
   final TextStyle? popupItemTextStyle;
   final EdgeInsets? contentPadding;
   final double? height;
+  /// Optional leading widget (e.g. an icon) shown before the text.
+  final Widget? leadingIcon;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -194,6 +197,13 @@ class _CustomDropdownState extends State<CustomDropdown> {
 
   @override
   Widget build(BuildContext context) {
+    // Build a list where the first option is always the hint text.
+    // Selecting it will clear the current selection.
+    final List<String> displayItems = <String>[
+      widget.hintText,
+      ...widget.items,
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -235,16 +245,20 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 ),
                 onSelected: (value) {
                   setState(() {
-                    selectedItem = value; // Update the selected item
+                    // Treat selecting the hint text as "clear selection".
+                    if (value == widget.hintText) {
+                      selectedItem = null;
+                    } else {
+                      selectedItem = value; // Update the selected item
+                    }
                   });
                   // Call the onSelect callback if it's provided
                   if (widget.onSelect != null) {
-                    widget.onSelect!(value);
+                    widget.onSelect!(selectedItem);
                   }
                 },
                 itemBuilder: (BuildContext context) {
-                  return widget.items.map((String item) {
-                    final isSelected = item == selectedItem;
+                  return displayItems.map((String item) {
                     return PopupMenuItem<String>(
                       value: item,
                       child: Row(
@@ -269,6 +283,10 @@ class _CustomDropdownState extends State<CustomDropdown> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      if (widget.leadingIcon != null) ...[
+                        widget.leadingIcon!,
+                        const SizedBox(width: 8),
+                      ],
                       Flexible(
                         child: Text(
                           selectedItem ?? widget.hintText,

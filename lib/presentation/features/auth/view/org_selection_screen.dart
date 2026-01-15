@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class OrganizationSelectionScreen extends StatefulWidget {
   const OrganizationSelectionScreen({super.key});
@@ -18,7 +19,7 @@ class OrganizationSelectionScreen extends StatefulWidget {
 
 class _OrganizationSelectionScreenState
     extends State<OrganizationSelectionScreen> {
-  String? _selectedOrg;
+  String? _selectedOrgCode;
 
   @override
   Widget build(BuildContext context) {
@@ -53,21 +54,19 @@ class _OrganizationSelectionScreenState
           final userRole =
               login.roles.isNotEmpty ? login.roles.first.role : '';
 
-          final orgs = login.roles
+          final orgCodes = login.roles
               .map((r) => r.organizationCode)
               .where((c) => c.isNotEmpty)
               .toSet()
               .toList();
 
-          // Preselect first org for better UX
-          if (_selectedOrg == null && orgs.isNotEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              setState(() => _selectedOrg = orgs.first);
-            });
-          }
+          // Use API-provided organization NAMES when available, otherwise fall back to codes.
+          final orgNames = state.orgNames;
+          final List<String> orgDisplayItems = (orgNames.length == orgCodes.length && orgNames.isNotEmpty)
+              ? orgNames
+              : orgCodes;
 
-          final isNextEnabled = _selectedOrg != null && orgs.isNotEmpty;
+          final isNextEnabled = _selectedOrgCode != null && orgCodes.isNotEmpty;
 
           return Scaffold(
             body: Container(
@@ -196,15 +195,31 @@ class _OrganizationSelectionScreenState
                               ),
                               SizedBox(height: screenHeight * 0.02),
                               CustomDropdown(
-                                hintText: orgs.isNotEmpty
-                                    ? orgs.first
+                                hintText: orgDisplayItems.isNotEmpty
+                                    ? 'Select organization'
                                     : 'No organizations',
-                                items: orgs,
-                                selectedItem: _selectedOrg,
+                                items: orgDisplayItems,
+                                selectedItem: () {
+                                  if (_selectedOrgCode == null) return null;
+                                  final index = orgCodes.indexOf(_selectedOrgCode!);
+                                  if (index != -1 && index < orgDisplayItems.length) {
+                                    return orgDisplayItems[index];
+                                  }
+                                  return null;
+                                }(),
                                 height: screenHeight * 0.06,
                                 contentPadding: EdgeInsets.symmetric(
                                   vertical: screenHeight * 0.01,
                                   horizontal: screenWidth * 0.04,
+                                ),
+                                leadingIcon: SvgPicture.asset(
+                                  MediaRes.homeIcon,
+                                  height: screenHeight * 0.022,
+                                  width: screenHeight * 0.022,
+                                  colorFilter: const ColorFilter.mode(
+                                    Color(0xFF573353),
+                                    BlendMode.srcIn,
+                                  ),
                                 ),
                                 selectedTextStyle: TextStyle(
                                   fontFamily: 'Manrope',
@@ -220,7 +235,14 @@ class _OrganizationSelectionScreenState
                                 ),
                                 onSelect: (value) {
                                   setState(() {
-                                    _selectedOrg = value;
+                                    if (value == null) {
+                                      _selectedOrgCode = null;
+                                    } else {
+                                      final index = orgDisplayItems.indexOf(value);
+                                      if (index != -1 && index < orgCodes.length) {
+                                        _selectedOrgCode = orgCodes[index];
+                                      }
+                                    }
                                   });
                                 },
                               ),
@@ -238,11 +260,11 @@ class _OrganizationSelectionScreenState
                         child: InkWell(
                           onTap: isNextEnabled
                               ? () {
-                                  if (_selectedOrg == null) return;
+                                  if (_selectedOrgCode == null) return;
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => SchoolSelectionScreen(
-                                        selectedOrg: _selectedOrg!,
+                                        selectedOrg: _selectedOrgCode!,
                                       ),
                                     ),
                                   );

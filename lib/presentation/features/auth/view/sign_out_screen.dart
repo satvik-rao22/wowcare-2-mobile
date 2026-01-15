@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/shared/common/widgets/reusable_log_out_model_sheet.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 class SignOutScreen extends StatefulWidget {
   const SignOutScreen({super.key});
@@ -39,11 +40,10 @@ class _SignOutScreenState extends State<SignOutScreen> {
 
       if (mounted) {
         Navigator.pop(context); // Close bottom sheet first
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You are logged out successfully'),
-            backgroundColor: Colors.green,
-          ),
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'You are logged out successfully',
+          isSuccess: true,
         );
 
         Navigator.pushNamedAndRemoveUntil(
@@ -57,11 +57,10 @@ class _SignOutScreenState extends State<SignOutScreen> {
         setState(() {
           isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Logout failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Logout failed: ${e.toString()}',
+          isError: true,
         );
       }
     }

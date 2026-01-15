@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/network/network_info.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
@@ -23,28 +23,29 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, LoginResponseModel>> login(
     LoginRequestModel request,
   ) async {
-    // Per auth flow requirement: login is not considered complete until
-    // org + school selection is completed, so we always perform a fresh login
-    // request (no cached auto-login here).
     if (!(await _networkInfo.isConnected)) {
-      return const Left(NetworkFailure('No internet connection'));
+      return const Left(
+        NetworkFailure('Network error: please check your connection.'),
+      );
     }
 
     try {
-      // Make API call
       final response = await _remoteDataSource.login(request);
 
       return Right(response);
     } catch (e) {
-      if (e.toString().contains('Network error') ||
-          e.toString().contains('connection')) {
-        return const Left(NetworkFailure('Network error occurred'));
-      } else if (e.toString().contains('401') ||
-          e.toString().contains('Invalid credentials')) {
-        return const Left(ServerFailure('Invalid username or password'));
-      } else {
-        return Left(ServerFailure(e.toString()));
+      final message = e.toString();
+
+      if (message.toLowerCase().contains('network error') ||
+          message.toLowerCase().contains('connection')) {
+        // No backend response available here, so we keep a minimal
+        // technical message instead of inventing a user-facing one.
+        return Left(NetworkFailure(message));
       }
+
+      // For all server-side errors we simply forward the backend message
+      // (wrapped inside the exception) so the UI never hardcodes text.
+      return Left(ServerFailure(message));
     }
   }
 
@@ -65,6 +66,54 @@ class AuthRepositoryImpl implements AuthRepository {
       return const Right(null);
     } catch (e) {
       return Left(CacheFailure('Failed to clear cache: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> forgotPassword(String email) async {
+    if (!(await _networkInfo.isConnected)) {
+      return const Left(
+        NetworkFailure('Network error: please check your connection.'),
+      );
+    }
+
+    try {
+      final message = await _remoteDataSource.forgotPassword(email: email);
+      return Right(message);
+    } catch (e) {
+      // Extract error message from DioException or use toString()
+      String errorMessage;
+      if (e is DioException) {
+        final dioException = e as DioException;
+        // Try to get message from API response body first
+        final responseData = dioException.response?.data;
+        if (responseData is Map<String, dynamic>) {
+          if (responseData.containsKey('message')) {
+            errorMessage = responseData['message'].toString();
+          } else if (responseData.containsKey('error')) {
+            errorMessage = responseData['error'].toString();
+          } else {
+            // No message in response, use DioException's error or message
+            errorMessage = dioException.error?.toString() ?? 
+                          dioException.message ?? 
+                          dioException.toString();
+          }
+        } else {
+          // No response body or not a map, use DioException's error or message
+          errorMessage = dioException.error?.toString() ?? 
+                        dioException.message ?? 
+                        dioException.toString();
+        }
+      } else {
+        errorMessage = e.toString();
+      }
+
+      if (errorMessage.toLowerCase().contains('network error') ||
+          errorMessage.toLowerCase().contains('connection')) {
+        return Left(NetworkFailure(errorMessage));
+      }
+
+      return Left(ServerFailure(errorMessage));
     }
   }
 }
