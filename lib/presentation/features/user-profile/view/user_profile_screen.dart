@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -131,31 +132,40 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       SizedBox(height: 10,),
-                                      Text(
-                                        widget.userName, // hardcoded for now
-                                        style: const TextStyle(
-                                          color: const Color(0xFF573353),
-                                          fontFamily: 'Manrope',
-                                          fontSize: 23,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: -0.03 * 23,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                      CustomTextWidget(
+                                        text: widget.userName,
+                                        fontSize: 23,
                                       ),
+                                      // Text(
+                                      //   widget.userName, // hardcoded for now
+                                      //   style: const TextStyle(
+                                      //     color: const Color(0xFF573353),
+                                      //     fontFamily: 'Manrope',
+                                      //     fontSize: 23,
+                                      //     fontWeight: FontWeight.w600,
+                                      //     letterSpacing: -0.03 * 23,
+                                      //   ),
+                                      //   maxLines: 2,
+                                      //   overflow: TextOverflow.ellipsis,
+                                      // ),
                                       const SizedBox(height: 5),
-                                      Text(
-                                        widget.userPersona,
-                                        style: const TextStyle(
-                                          color: const Color(0xFF573353),
-                                          fontFamily: 'Manrope',
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w400,
-                                          letterSpacing: -0.03 * 23,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                      CustomTextWidget(
+                                        text: widget.userPersona,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w400,
                                       ),
+                                      // Text(
+                                      //   widget.userPersona,
+                                      //   style: const TextStyle(
+                                      //     color: const Color(0xFF573353),
+                                      //     fontFamily: 'Manrope',
+                                      //     fontSize: 15,
+                                      //     fontWeight: FontWeight.w400,
+                                      //     letterSpacing: -0.03 * 23,
+                                      //   ),
+                                      //   maxLines: 2,
+                                      //   overflow: TextOverflow.ellipsis,
+                                      // ),
                                     ],
                                   ),
                                 ),
@@ -182,9 +192,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       ),
                                       padding: EdgeInsets.symmetric(horizontal: 8),
                                     ),
-                                    child: const Text(
-                                      'Switch Profile',
-                                      style: TextStyle(
+                                    child: CustomTextWidget(
+                                      text: 'Switch Profile',
+                                      textStyle:  TextStyle(
                                         fontFamily: 'Manrope',
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
@@ -192,8 +202,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         height: 16 / 16,
                                       ),
                                       maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
+                                    // child: const Text(
+                                    //   'Switch Profile',
+                                    //   style: TextStyle(
+                                    //     fontFamily: 'Manrope',
+                                    //     fontSize: 16,
+                                    //     fontWeight: FontWeight.w700,
+                                    //     color: Color(0xFF6C7FD8),
+                                    //     height: 16 / 16,
+                                    //   ),
+                                    //   maxLines: 1,
+                                    //   overflow: TextOverflow.ellipsis,
+                                    // ),
                                   ),
                                 ),
                               ),
@@ -214,9 +235,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         padding: EdgeInsets.symmetric(horizontal: 8),
                                       alignment: Alignment.center
                                     ),
-                                    child: Text(
-                                      widget.userPersona == 'Admin' ?'View Admin Profile' :  widget.userPersona == 'Parent' ? "View Child's Profile" : 'View Staff Profile', // or view staff profile depending on persona
-                                      style: const TextStyle(
+                                    child: CustomTextWidget(
+                                      text: widget.userPersona == 'Admin' ?'View Admin Profile' :  widget.userPersona == 'Parent' ? "View Child's Profile" : 'View Staff Profile',
+                                      textStyle: TextStyle(
                                         fontFamily: 'Manrope',
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
@@ -224,8 +245,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         height: 16 / 16,
                                       ),
                                       maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
+                                    // child: Text(
+                                    //   widget.userPersona == 'Admin' ?'View Admin Profile' :  widget.userPersona == 'Parent' ? "View Child's Profile" : 'View Staff Profile', // or view staff profile depending on persona
+                                    //   style: const TextStyle(
+                                    //     fontFamily: 'Manrope',
+                                    //     fontSize: 16,
+                                    //     fontWeight: FontWeight.w700,
+                                    //     color: Colors.white,
+                                    //     height: 16 / 16,
+                                    //   ),
+                                    //   maxLines: 1,
+                                    //   overflow: TextOverflow.ellipsis,
+                                    // ),
                                   ),
                                 ),
                               ),
@@ -255,16 +287,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'My Profile',
-                                style: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 16,
-                                  color: Color(0xff573353),
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.03 * 16,
-                                ),
+                              CustomTextWidget(
+                                text: 'My Profile',
+                                fontSize: 16,
                               ),
+                              // Text(
+                              //   'My Profile',
+                              //   style: const TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 16,
+                              //     color: Color(0xff573353),
+                              //     fontWeight: FontWeight.w600,
+                              //     letterSpacing: -0.03 * 16,
+                              //   ),
+                              // ),
                               GestureDetector(
                                 onTap: () {
                                   final parts = widget.userName.trim().split(' ');
@@ -317,26 +353,38 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Text(
-                                'Name',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color(0xff573353),
-                                  height: 16 / 13,
-                                ),
+                              CustomTextWidget(
+                                text: 'Name',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                height: 16 / 13,
                               ),
-                              Text(
-                                widget.userName,
-                                style: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xff573353),
-                                  height: 19 / 14,
-                                ),
+                              // const Text(
+                              //   'Name',
+                              //   style: TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 13,
+                              //     fontWeight: FontWeight.w400,
+                              //     color: Color(0xff573353),
+                              //     height: 16 / 13,
+                              //   ),
+                              // ),
+                              CustomTextWidget(
+                                text: widget.userName,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 19 / 14,
                               ),
+                              // Text(
+                              //   widget.userName,
+                              //   style: const TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 14,
+                              //     fontWeight: FontWeight.w500,
+                              //     color: Color(0xff573353),
+                              //     height: 19 / 14,
+                              //   ),
+                              // ),
                             ],
                           ),
                           const SizedBox(height: 16),
@@ -344,26 +392,38 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Text(
-                                'Email',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color(0xff573353),
-                                  height: 16 / 13,
-                                ),
+                              CustomTextWidget(
+                                text: 'Email',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                height: 16 / 13,
                               ),
-                              Text(
-                                widget.userEmail,
-                                style: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xff573353),
-                                  height: 19 / 14,
-                                ),
+                              // const Text(
+                              //   'Email',
+                              //   style: TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 13,
+                              //     fontWeight: FontWeight.w400,
+                              //     color: Color(0xff573353),
+                              //     height: 16 / 13,
+                              //   ),
+                              // ),
+                              CustomTextWidget(
+                                text: widget.userEmail,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 19 / 14,
                               ),
+                              // Text(
+                              //   widget.userEmail,
+                              //   style: const TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 14,
+                              //     fontWeight: FontWeight.w500,
+                              //     color: Color(0xff573353),
+                              //     height: 19 / 14,
+                              //   ),
+                              // ),
                             ],
                           ),
                           const SizedBox(height: 16),
@@ -371,26 +431,38 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Text(
-                                'Phone Number',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color(0xff573353),
-                                  height: 16 / 13,
-                                ),
+                              CustomTextWidget(
+                                text: 'Phone Number',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                height: 16 / 13,
                               ),
-                              Text(
-                                widget.userPhoneNo,
-                                style: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xff573353),
-                                  height: 19 / 14,
-                                ),
+                              // const Text(
+                              //   'Phone Number',
+                              //   style: TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 13,
+                              //     fontWeight: FontWeight.w400,
+                              //     color: Color(0xff573353),
+                              //     height: 16 / 13,
+                              //   ),
+                              // ),
+                              CustomTextWidget(
+                                text: widget.userPhoneNo,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 19 / 14,
                               ),
+                              // Text(
+                              //   widget.userPhoneNo,
+                              //   style: const TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 14,
+                              //     fontWeight: FontWeight.w500,
+                              //     color: Color(0xff573353),
+                              //     height: 19 / 14,
+                              //   ),
+                              // ),
                             ],
                           ),
                           const SizedBox(height: 16),
@@ -398,28 +470,40 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Text(
-                                'Address',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color(0xff573353),
-                                  height: 16 / 13,
-                                ),
+                              CustomTextWidget(
+                                text: 'Address',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                height: 16 / 13,
                               ),
-                              Text(
-                                widget.userAddress,
-                                style: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xff573353),
-                                  height: 19 / 14,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                              // const Text(
+                              //   'Address',
+                              //   style: TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 13,
+                              //     fontWeight: FontWeight.w400,
+                              //     color: Color(0xff573353),
+                              //     height: 16 / 13,
+                              //   ),
+                              // ),
+                              CustomTextWidget(
+                                text: widget.userAddress,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 19 / 14,
                               ),
+                              // Text(
+                              //   widget.userAddress,
+                              //   style: const TextStyle(
+                              //     fontFamily: 'Manrope',
+                              //     fontSize: 14,
+                              //     fontWeight: FontWeight.w500,
+                              //     color: Color(0xff573353),
+                              //     height: 19 / 14,
+                              //   ),
+                              //   maxLines: 2,
+                              //   overflow: TextOverflow.ellipsis,
+                              // ),
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing),

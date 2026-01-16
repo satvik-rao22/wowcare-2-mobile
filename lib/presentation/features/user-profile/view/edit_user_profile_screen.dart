@@ -225,7 +225,7 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
                                   fontFamily: 'Manrope',
                                   fontSize: responsive.titleFontSize,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xff573353),
+                                  color: AppColors.primaryColor,
                                 ),
                               ),
                             ),
