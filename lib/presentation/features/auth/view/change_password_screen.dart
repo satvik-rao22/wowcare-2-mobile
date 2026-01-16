@@ -8,6 +8,15 @@ class ChangePasswordScreen extends StatefulWidget {
   
   static const routeName = '/change-password';
 
+  static void show(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ChangePasswordScreen(),
+    );
+  }
+
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
@@ -132,228 +141,240 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final padding = MediaQuery.of(context).padding;
     final screenHeight = size.height - padding.top - padding.bottom;
     final screenWidth = size.width;
+    final maxHeight = screenHeight * 0.9;
 
-    return Scaffold(
-      body: Container(
+    final content = Container(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Back button at top
-              Padding(
-                padding: EdgeInsets.all(screenWidth * 0.04),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: const Color(0xFF333333),
-                      size: screenHeight * 0.03,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Padding(
+              padding: EdgeInsets.only(top: screenWidth * 0.04),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.06,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Change Password',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: screenHeight * 0.022,
-                              height: 2 / 6,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF333333),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: screenHeight * 0.02),
-                        SizedBox(height: screenHeight * 0.01),
-                        Container(
-                          width: double.infinity,
-                          height: 1,
-                          color: const Color(0xFFFFF3E9),
-                        ),
-                        SizedBox(height: screenHeight * 0.02),
-                        
-                        // Current Password
-                        Text(
-                          'Current Password',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: screenHeight * 0.016,
-                            fontWeight: FontWeight.w400,
-                            color: const Color(0xFF888888),
-                          ),
-                        ),
-                        SizedBox(height: screenHeight * 0.01),
-                        _buildPasswordField(
-                          controller: _currentPasswordController,
-                          isVisible: _isCurrentPasswordVisible,
-                          onVisibilityToggle: () {
-                            setState(() {
-                              _isCurrentPasswordVisible = !_isCurrentPasswordVisible;
-                            });
-                          },
-                          hintText: 'Enter old password',
-                          screenHeight: screenHeight,
-                          screenWidth: screenWidth,
-                        ),
-                        SizedBox(height: screenHeight * 0.02),
-
-                        // New Password
-                        Text(
-                          'New Password',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: screenHeight * 0.016,
-                            fontWeight: FontWeight.w400,
-                            color: const Color(0xFF888888),
-                          ),
-                        ),
-                        SizedBox(height: screenHeight * 0.01),
-                        _buildPasswordField(
-                          controller: _newPasswordController,
-                          isVisible: _isNewPasswordVisible,
-                          onVisibilityToggle: () {
-                            setState(() {
-                              _isNewPasswordVisible = !_isNewPasswordVisible;
-                            });
-                          },
-                          hintText: 'Enter new password',
-                          screenHeight: screenHeight,
-                          screenWidth: screenWidth,
-                        ),
-                        SizedBox(height: screenHeight * 0.02),
-
-                        // Confirm New Password
-                        Text(
-                          'Confirm New Password',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: screenHeight * 0.016,
-                            fontWeight: FontWeight.w400,
-                            color: const Color(0xFF888888),
-                          ),
-                        ),
-                        SizedBox(height: screenHeight * 0.01),
-                        _buildPasswordField(
-                          controller: _confirmPasswordController,
-                          isVisible: _isConfirmPasswordVisible,
-                          onVisibilityToggle: () {
-                            setState(() {
-                              _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                            });
-                          },
-                          hintText: 'Repeat new password',
-                          screenHeight: screenHeight,
-                          screenWidth: screenWidth,
-                        ),
-                        SizedBox(height: screenHeight * 0.02),
-
-                        // Password Requirements
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              _isPasswordValid
-                                  ? Icons.check_circle
-                                  : Icons.info_outline,
-                              color: Colors.green,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEFFBEF),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Password must contain at least 8 characters, one special character',
-                                  style: TextStyle(
-                                    fontSize: screenHeight * 0.015,
-                                    color: Colors.green,
-                                    fontFamily: 'Manrope',
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF4CAF50),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: screenHeight * 0.02),
-                      ],
-                    ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.06,
                   ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(screenWidth * 0.06),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: screenHeight * 0.06,
-                  child: InkWell(
-                    onTap: _isLoading ? null : _handleSubmit,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        gradient: AppColors.buildPrimaryGradient(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(height: screenHeight * 0.02),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Change Password',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: screenHeight * 0.022,
+                            height: 2 / 6,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF333333),
+                          ),
+                        ),
                       ),
-                      child: Center(
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : Text(
-                                'Save Password',
+                      SizedBox(height: screenHeight * 0.02),
+                      SizedBox(height: screenHeight * 0.01),
+                      Container(
+                        width: double.infinity,
+                        height: 1,
+                        color: const Color(0xFFFFF3E9),
+                      ),
+                      SizedBox(height: screenHeight * 0.02),
+                      
+                      // Current Password
+                      Text(
+                        'Current Password',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: screenHeight * 0.016,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF888888),
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.01),
+                      _buildPasswordField(
+                        controller: _currentPasswordController,
+                        isVisible: _isCurrentPasswordVisible,
+                        onVisibilityToggle: () {
+                          setState(() {
+                            _isCurrentPasswordVisible = !_isCurrentPasswordVisible;
+                          });
+                        },
+                        hintText: 'Enter old password',
+                        screenHeight: screenHeight,
+                        screenWidth: screenWidth,
+                      ),
+                      SizedBox(height: screenHeight * 0.02),
+
+                      // New Password
+                      Text(
+                        'New Password',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: screenHeight * 0.016,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF888888),
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.01),
+                      _buildPasswordField(
+                        controller: _newPasswordController,
+                        isVisible: _isNewPasswordVisible,
+                        onVisibilityToggle: () {
+                          setState(() {
+                            _isNewPasswordVisible = !_isNewPasswordVisible;
+                          });
+                        },
+                        hintText: 'Enter new password',
+                        screenHeight: screenHeight,
+                        screenWidth: screenWidth,
+                      ),
+                      SizedBox(height: screenHeight * 0.02),
+
+                      // Confirm New Password
+                      Text(
+                        'Confirm New Password',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: screenHeight * 0.016,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF888888),
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.01),
+                      _buildPasswordField(
+                        controller: _confirmPasswordController,
+                        isVisible: _isConfirmPasswordVisible,
+                        onVisibilityToggle: () {
+                          setState(() {
+                            _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                          });
+                        },
+                        hintText: 'Repeat new password',
+                        screenHeight: screenHeight,
+                        screenWidth: screenWidth,
+                      ),
+                      SizedBox(height: screenHeight * 0.02),
+
+                      // Password Requirements
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            _isPasswordValid
+                                ? Icons.check_circle
+                                : Icons.info_outline,
+                            color: Colors.green,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFFBEF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Password must contain at least 8 characters, one special character',
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: screenHeight * 0.015,
+                                  color: Colors.green,
                                   fontFamily: 'Manrope',
                                 ),
                               ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF4CAF50),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                        ],
                       ),
+                      SizedBox(height: screenHeight * 0.02),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(screenWidth * 0.06),
+              child: SizedBox(
+                width: double.infinity,
+                height: screenHeight * 0.06,
+                child: InkWell(
+                  onTap: _isLoading ? null : _handleSubmit,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: AppColors.buildPrimaryGradient(),
+                    ),
+                    child: Center(
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              'Save Password',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: screenHeight * 0.022,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Manrope',
+                              ),
+                            ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: content,
     );
   }
 

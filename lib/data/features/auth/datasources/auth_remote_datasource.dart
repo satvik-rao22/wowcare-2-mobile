@@ -438,6 +438,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiPaths.authForgotPassword,
         queryParameters: queryParams,
+        data: null,
         options: Options(
           headers: const {
             'Content-Type': 'application/json',
