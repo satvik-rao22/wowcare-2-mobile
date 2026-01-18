@@ -5,6 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 
 import 'src/app_router.dart';
@@ -24,6 +30,10 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize dependency injection
+  await configureDependencies();
+
   // Only initialize if not already
   if (Platform.isIOS) {
     await Firebase.initializeApp(); // auto from GoogleService-Info.plist
@@ -135,15 +145,26 @@ class _MyAppState extends State<MyApp> {
             ).copyWith(textScaler: TextScaler.linear(customScaler)),
             child: Sizer(
               builder: (context, orientation, screenType) {
-                return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                title: 'WowCare',
-                theme: themeProvider.currentTheme,
-                home: const SplashScreenWrapper(),
-                onGenerateRoute: generateRoute,
-                navigatorKey: navigatorKey,
-
-              );}
+                return MultiBlocProvider(
+                  providers: [
+                    BlocProvider<AuthCubit>(
+                      create: (_) {
+                        final cubit = serviceLocator<AuthCubit>();
+                        cubit.initialize();
+                        return cubit;
+                      },
+                    ),
+                  ],
+                  child: MaterialApp(
+                    debugShowCheckedModeBanner: false,
+                    title: 'WowCare',
+                    theme: themeProvider.currentTheme,
+                    home: const SplashScreenWrapper(),
+                    onGenerateRoute: generateRoute,
+                    navigatorKey: navigatorKey,
+                  ),
+                );
+              },
             ),
           );
         },
@@ -180,7 +201,19 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
-      Navigator.pushReplacementNamed(context, '/first-screen');
+      final storage = serviceLocator<StorageService>();
+      final seenOnboarding =
+          await storage.getBool(StorageKeys.onboardingSeen) ?? false;
+      final loginCompleted =
+          await storage.getBool(StorageKeys.loginCompleted) ?? false;
+
+      if (!seenOnboarding) {
+        Navigator.pushReplacementNamed(context, '/first-screen');
+      } else if (!loginCompleted) {
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      } else {
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      }
     }
   }
 

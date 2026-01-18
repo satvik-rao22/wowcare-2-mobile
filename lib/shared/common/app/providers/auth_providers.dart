@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -10,9 +10,6 @@ class AuthProvider extends ChangeNotifier {
   static int refTableId = 0;
   static int schoolId = 0;
   static bool isTokenRefreshed = false;
-  static double targetLatitude = 0;
-  static double targetLongitude = 0;
-  static int userCount = 0;
 
   Future<void> setAccessToken(String accesstoken) async {
     accessToken = accesstoken;
@@ -63,25 +60,18 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setTargetLocation(double latitude, double longitude) async {
-    targetLatitude = latitude;
-    targetLongitude = longitude;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('targetLatitude', latitude);
-    await prefs.setDouble('targetLongitude', longitude);
-    notifyListeners();
-  }
-
-  Future<void> setUserCount(int userCount1) async {
-    userCount = userCount1;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('userCount', userCount1);
-    notifyListeners();
-  }
-
   Future<void> clearAllData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
+
+    // Preserve onboarding flag so intro screens are not shown again
+    // after a regular logout. This makes onboarding truly "first run only".
+    final hasSeenOnboarding = prefs.getBool('onboardingSeen') ?? false;
+
     await prefs.clear();
+
+    if (hasSeenOnboarding) {
+      await prefs.setBool('onboardingSeen', true);
+    }
     username = '';
     password = '';
     refTable = '';
@@ -90,9 +80,6 @@ class AuthProvider extends ChangeNotifier {
     refTableId = 0;
     schoolId = 0;
     isTokenRefreshed = false;
-    targetLatitude = 0;
-    targetLongitude = 0;
-    userCount = 0;
     notifyListeners();
   }
 
@@ -105,9 +92,6 @@ class AuthProvider extends ChangeNotifier {
     accessToken = prefs.getString('accessToken') ?? '';
     refTableId = prefs.getInt('refTableId') ?? 0;
     schoolId = prefs.getInt('schoolId') ?? 0;
-    targetLatitude = prefs.getDouble('targetLatitude') ?? 0;
-    targetLongitude = prefs.getDouble('targetLongitude') ?? 0;
-    userCount = prefs.getInt('userCount') ?? 0;
     notifyListeners();
   }
 

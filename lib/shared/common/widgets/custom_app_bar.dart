@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
@@ -12,6 +12,11 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -287,6 +292,37 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 						PopupMenuItem<int>(
 							value: 6,
 							child: Row(
+							value: 4,
+            child: Row(children: const [Icon(Icons.logout, color: Colors.black87), SizedBox(width: 12), Text('Logout')]),
+						),
+					],
+					onSelected: (value) async {
+						switch (value) {
+							case 1:
+								// Navigate to profile if available
+								ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Profile')));
+								break;
+							case 2:
+								_showChangePasswordBottomSheet(context);
+								break;
+							case 3:
+								const url = 'https://help.childcarewow.com/portal/en/home';
+								final uri = Uri.parse(url);
+								if (await canLaunchUrl(uri)) {
+									await launchUrl(uri, mode: LaunchMode.externalApplication);
+								}
+								break;
+							case 4:
+                SignOutScreen.show(context);
+								break;
+						}
+					},
+				),
+			],
+			bottom: hasTabs
+					? PreferredSize(
+							preferredSize: Size.fromHeight(kTextTabBarHeight + 2),
+							child: Column(
 								children: [
 									Stack(
 										clipBehavior: Clip.none,
@@ -470,33 +506,64 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 void _showChangePasswordBottomSheet(BuildContext context) {
+  final parentContext = context; // Save the parent context
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (BuildContext context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 20,
-          right: 20,
-          top: 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+    backgroundColor: Colors.transparent,
+    builder: (BuildContext bottomSheetContext) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      final isTablet = screenWidth > 600;
+      final isLargeTablet = screenWidth > 900;
+      final bottomSafe = MediaQuery.of(context).padding.bottom;
+
+      // Responsive dimensions
+      final horizontalPadding = isLargeTablet
+          ? 32.0
+          : isTablet
+          ? 24.0
+          : 16.0;
+
+      final verticalPadding = isLargeTablet
+          ? 32.0
+          : isTablet
+          ? 24.0
+          : 16.0;
+
+      final titleFontSize = isLargeTablet
+          ? 20.0
+          : isTablet
+          ? 18.0
+          : 16.0;
+
+      final buttonHeight = isLargeTablet
+          ? 56.0
+          : isTablet
+          ? 48.0
+          : 40.0;
+
+      final buttonFontSize = isLargeTablet
+          ? 18.0
+          : isTablet
+          ? 16.0
+          : 14.0;
+
+      final borderRadius = isLargeTablet
+          ? 24.0
+          : isTablet
+          ? 20.0
+          : 16.0;
+
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isLargeTablet ? 1200.0 : double.infinity,
             ),
             const SizedBox(height: 20),
             const Text(
@@ -518,9 +585,41 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                      ),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.only(
+                left: horizontalPadding,
+                right: horizontalPadding,
+                top: verticalPadding,
+                bottom: verticalPadding + bottomSafe,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(borderRadius),
+                  topRight: Radius.circular(borderRadius),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: verticalPadding / 2),
+                  // Title text centered
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding / 2,
                     ),
-                    child: const Text('Cancel'),
+                    child: Text(
+                      'Change Password',
+                      style: TextStyle(
+                        fontFamily: "Manrope",
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff573353),
+                        height: 1.2,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -540,16 +639,145 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                      ),
+                  SizedBox(height: verticalPadding),
+                  // Description text
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding / 2,
                     ),
-                    child: const Text('Yes, Change Password'),
+                    child: Text(
+                      'Are you sure you want to change your password? A password reset link will be sent to your registered email.',
+                      style: TextStyle(
+                        fontFamily: "Manrope",
+                        fontSize: buttonFontSize,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.grey,
+                        height: 1.2,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(height: verticalPadding * 1.5),
+                  // Buttons row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: buttonHeight,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF6C7FD8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  borderRadius / 2,
+                                ),
+                              ),
+                              backgroundColor: Colors.white,
+                            ),
+                            child: Text(
+                              "Cancel",
+                              style: TextStyle(
+                                fontFamily: "Manrope",
+                                fontSize: buttonFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryColor,
+                                height: 1.0,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: horizontalPadding / 2),
+                      Expanded(
+                        child: Container(
+                          height: buttonHeight,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            gradient: AppColors.buildPrimaryGradient(),
+                          ),
+                          child: TextButton(
+                            onPressed: () async {
+                              // Close bottom sheet first
+                              if (bottomSheetContext.mounted) {
+                                Navigator.pop(bottomSheetContext);
+                              }
+                              // Use the parent context saved before showing bottom sheet
+                              if (parentContext.mounted) {
+                                await _sendPasswordResetRequest(parentContext);
+                              }
+                            },
+                            style: TextButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  borderRadius / 2,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              'Yes, Change Password',
+                              style: TextStyle(
+                                fontFamily: "Manrope",
+                                fontSize: buttonFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                height: 1.0,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
+      );
+    },
+  );
+}
+
+Future<void> _sendPasswordResetRequest(BuildContext context) async {
+  // Get logged in user's email from SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  final email = prefs.getString(StorageKeys.email) ?? '';
+
+  if (email.isEmpty) {
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Unable to retrieve your email address',
+      isError: true,
+    );
+    return;
+  }
+
+  final useCase = serviceLocator<ForgotPasswordUseCase>();
+
+  final result = await useCase(email);
+
+  if (!context.mounted) return;
+
+  result.fold(
+    (failure) {
+      final msg = failure.message ?? failure.toString();
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isError: true,
+      );
+    },
+    (message) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+        duration: const Duration(seconds: 3),
       );
     },
   );
