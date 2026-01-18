@@ -361,6 +361,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 );
                 break;
               case 7:
+              
                 //const url = 'https://help.childcarewow.com/portal/en/home';
                 const url = 'https://help.childcarewow.com/';
                 final uri = Uri.parse(url);
