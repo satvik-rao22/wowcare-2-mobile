@@ -289,72 +289,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
             ),
-						PopupMenuItem<int>(
-							value: 6,
-							child: Row(
-							value: 4,
-            child: Row(children: const [Icon(Icons.logout, color: Colors.black87), SizedBox(width: 12), Text('Logout')]),
-						),
-					],
-					onSelected: (value) async {
-						switch (value) {
-							case 1:
-								// Navigate to profile if available
-								ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Profile')));
-								break;
-							case 2:
-								_showChangePasswordBottomSheet(context);
-								break;
-							case 3:
-								const url = 'https://help.childcarewow.com/portal/en/home';
-								final uri = Uri.parse(url);
-								if (await canLaunchUrl(uri)) {
-									await launchUrl(uri, mode: LaunchMode.externalApplication);
-								}
-								break;
-							case 4:
-                SignOutScreen.show(context);
-								break;
-						}
-					},
-				),
-			],
-			bottom: hasTabs
-					? PreferredSize(
-							preferredSize: Size.fromHeight(kTextTabBarHeight + 2),
-							child: Column(
-								children: [
-									Stack(
-										clipBehavior: Clip.none,
-										children: [
-											Icon(
-												Icons.notifications_outlined,
-												color: AppColors.primaryColor.withValues(alpha: 0.5),
-											),
-											Positioned(
-												right: 1,
-												top: 3,
-												child: Container(
-													padding: const EdgeInsets.all(0),
-													decoration: BoxDecoration(
-														color: Colors.white,
-														shape: BoxShape.circle,
-														border: Border.all(
-															color: Colors.white,
-															width: 0.2,
-														),
-													),
-													child: Icon(
-														Icons.settings,
-														size: 10,
-														color: AppColors.primaryColor.withValues(alpha: 0.5),
-													),
-												),
-											),
-										],
-									),
-									const SizedBox(width: 12),
-									const Text('Notification settings', style: TextStyle(
+            PopupMenuItem<int>(
+              value: 6,
+              child: Row(
+                children: [
+                  Icon(Icons.settings, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  SizedBox(width: 12),
+                  Text('Notification settings', style: TextStyle(
                     color: AppColors.primaryColor,
                     fontFamily: 'Manrope',
                     fontSize: 14,
@@ -362,33 +303,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,),
-								],
-							),
-						),
-            // PopupMenuItem<int>(
-            //   value: 3,
-            //   child: Row(
-            //     children: const [
-            //       Stack(
-            //         alignment: Alignment.bottomRight,
-            //         children: [
-            //           Icon(Icons.notifications_outlined, color: Colors.black87),
-            //           Positioned(
-            //             right: -1,
-            //             top: 2,
-            //             child: Icon(
-            //               Icons.settings,
-            //               size: 14,
-            //               color: Colors.black87,
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //       SizedBox(width: 12),
-            //       Text('Notification settings'),
-            //     ],
-            //   ),
-            // ),
+                ],
+              ),
+            ),
             PopupMenuItem<int>(
               value: 7,
               child: Row(
@@ -437,12 +354,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               case 5:
                 _showChangePasswordBottomSheet(context);
                 break;
-							case 6:
-								Navigator.push(
-									context,
-									MaterialPageRoute(builder: (_) => NotificationSettingsScreen()),
-								);
-								break;
+              case 6:
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => NotificationSettingsScreen()),
+                );
+                break;
               case 7:
                 //const url = 'https://help.childcarewow.com/portal/en/home';
                 const url = 'https://help.childcarewow.com/';
@@ -565,26 +482,6 @@ void _showChangePasswordBottomSheet(BuildContext context) {
             constraints: BoxConstraints(
               maxWidth: isLargeTablet ? 1200.0 : double.infinity,
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Change Password',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Are you sure you want to change your password? We will send a reset link to your email.',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 30),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
             child: Container(
               width: double.infinity,
               padding: EdgeInsets.only(
@@ -621,24 +518,6 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Password reset link requested'),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
                   SizedBox(height: verticalPadding),
                   // Description text
                   Padding(

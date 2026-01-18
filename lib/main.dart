@@ -201,19 +201,23 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
-      final storage = serviceLocator<StorageService>();
-      final seenOnboarding =
-          await storage.getBool(StorageKeys.onboardingSeen) ?? false;
-      final loginCompleted =
-          await storage.getBool(StorageKeys.loginCompleted) ?? false;
-
-      if (!seenOnboarding) {
-        Navigator.pushReplacementNamed(context, '/first-screen');
-      } else if (!loginCompleted) {
-        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
-      } else {
-        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-      }
+      // TEMPORARY: Bypass login flow - go directly to dashboard
+      Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      
+      // Original login flow (commented out for now):
+      // final storage = serviceLocator<StorageService>();
+      // final seenOnboarding =
+      //     await storage.getBool(StorageKeys.onboardingSeen) ?? false;
+      // final loginCompleted =
+      //     await storage.getBool(StorageKeys.loginCompleted) ?? false;
+      //
+      // if (!seenOnboarding) {
+      //   Navigator.pushReplacementNamed(context, '/first-screen');
+      // } else if (!loginCompleted) {
+      //   Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      // } else {
+      //   Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      // }
     }
   }
 
