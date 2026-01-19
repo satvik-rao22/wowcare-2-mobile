@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/billing/widgets/billing_student_ca
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentsAccountingSection extends StatefulWidget {
   final double totalAmountInvoiced;
@@ -106,7 +107,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                     width: 40,
                     height: 40,
                     child: Material(
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
@@ -141,11 +142,9 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
               CustomToggle(
                 key: ValueKey(_showOutstandingOnly),
                 label: 'Show Total Outstanding',
-                labelStyle: const TextStyle(
-                  fontFamily: 'Manrope',
+                labelStyle: AppTextStyles.title.copyWith(
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xff573353),
+                  color: AppColors.billingTextColor,
                 ),
                 isToggled: _showOutstandingOnly,
                 onToggle: (val) {
@@ -158,11 +157,9 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
               const Spacer(),
               Text(
                 '\$${_totalOutstandingAmount.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
+                style: AppTextStyles.body.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: Color(0xff5978F7),
+                  color: AppColors.themeColor,
                 ),
               ),
             ],

@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
 class TransactionsSection extends StatefulWidget {
@@ -214,10 +215,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
             child: Center(
               child: Text(
                 'No transactions match your filters.',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
+                style: AppTextStyles.title.copyWith(
                   fontSize: 15,
-                  fontWeight: FontWeight.w500,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -270,7 +269,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     width: 40,
                     height: 40,
                     child: Material(
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),

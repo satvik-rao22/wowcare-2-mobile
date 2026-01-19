@@ -162,7 +162,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Description',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.start,
                   ),
@@ -173,7 +173,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Mode',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.end,
                   ),
@@ -184,7 +184,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     child: VerticalDivider(
                       width: 2,
                       thickness: 1,
-                      color: Colors.grey,
+                      color: AppColors.billingGrey,
                     ),
                   ),
                 ),
@@ -194,7 +194,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Amount',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -203,7 +203,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             ),
             Divider(
               thickness: 0.5,
-              color: Colors.grey.withOpacity(0.3),
+              color: AppColors.billingGreyTransparent,
             ),
             // Data row
             Row(
@@ -239,7 +239,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     child: VerticalDivider(
                       width: 2,
                       thickness: 1,
-                      color: Colors.grey,
+                      color: AppColors.billingGrey,
                     ),
                   ),
                 ),
@@ -273,7 +273,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Description',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.start,
                   ),
@@ -284,7 +284,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Mode',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.end,
                   ),
@@ -295,7 +295,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     child: VerticalDivider(
                       width: 2,
                       thickness: 1,
-                      color: Colors.grey,
+                      color: AppColors.billingGrey,
                     ),
                   ),
                 ),
@@ -305,7 +305,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Amount',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -314,7 +314,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             ),
             Divider(
               thickness: 0.5,
-              color: Colors.grey.withOpacity(0.3),
+              color: AppColors.billingGreyTransparent,
             ),
             // Payment mode row
             Row(
@@ -350,7 +350,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     child: VerticalDivider(
                       width: 2,
                       thickness: 1,
-                      color: Colors.grey,
+                      color: AppColors.billingGrey,
                     ),
                   ),
                 ),
@@ -605,7 +605,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     final date = widget.transaction.date;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppColors.billingGreyLight,
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.all(8.0),
@@ -631,7 +631,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                         : 'Loading invoice items...',
                     style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey,
+                      color: AppColors.billingGrey,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -649,7 +649,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Invoice Number : ',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -657,7 +657,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     _invoiceDetails!['invoiceNumber']?.toString() ?? 'N/A',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade700,
+                      color: AppColors.billingGreyDark,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -674,7 +674,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     'Due Date : ',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade500,
+                      color: AppColors.billingGreyMedium,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -682,7 +682,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     _getDueDate(),
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.grey.shade700,
+                      color: AppColors.billingGreyDark,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

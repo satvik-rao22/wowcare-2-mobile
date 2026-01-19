@@ -5,6 +5,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CreateLedgerScreen extends StatefulWidget {
   const CreateLedgerScreen({super.key});
@@ -123,7 +124,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.billingCardColor,
         body: Stack(
           children: [
             Positioned.fill(
@@ -157,11 +158,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Create Ledger',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
+                        style: AppTextStyles.title.copyWith(
                           fontSize: responsive.titleFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
+                          color: AppColors.billingTextColor,
                         ),
                       ),
                     ),
@@ -174,13 +173,13 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                           EdgeInsets.symmetric(horizontal: horizontalSpacing),
                       padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.billingCardColor,
                         borderRadius: BorderRadius.all(
                           Radius.circular(isTablet ? 40.0 : 24.0),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: AppColors.billingShadowColorLight,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -239,7 +238,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -261,7 +260,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
-              color: _isSubmitting ? Colors.grey[300] : null,
+              color: _isSubmitting ? AppColors.billingButtonDisabled : null,
               borderRadius:
                   BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
             ),
@@ -273,7 +272,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                   fontFamily: 'Manrope',
                   fontSize: responsive.buttonFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.billingCardColor,
                 ),
               ),
             ),
@@ -292,11 +291,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
     bool required = true,
   }) {
     final ResponsiveHelper responsive = ResponsiveHelper(context);
-    final TextStyle labelStyle = TextStyle(
+    final TextStyle labelStyle = AppTextStyles.label.copyWith(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
 
     return Column(
@@ -308,9 +305,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
             children: [
               TextSpan(text: label),
               if (required)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -319,8 +316,8 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.billingCardColor,
+            border: Border.all(color: AppColors.billingBorderHeavy),
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
@@ -329,7 +326,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
             maxLines: maxLines,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -343,7 +340,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
             padding: const EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               error,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
             ),
           ),
       ],
@@ -358,11 +355,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
     String? error,
   }) {
     final ResponsiveHelper responsive = ResponsiveHelper(context);
-    final TextStyle labelStyle = TextStyle(
+    final TextStyle labelStyle = AppTextStyles.label.copyWith(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
 
     return Column(
@@ -373,7 +368,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              TextSpan(text: ' *', style: AppTextStyles.small.copyWith(color: AppColors.errorColor)),
             ],
           ),
         ),
@@ -381,8 +376,8 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.billingCardColor,
+            border: Border.all(color: AppColors.billingBorderHeavy),
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
@@ -413,7 +408,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
             padding: const EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               error,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
             ),
           ),
       ],

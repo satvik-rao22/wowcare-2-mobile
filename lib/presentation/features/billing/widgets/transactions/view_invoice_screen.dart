@@ -193,7 +193,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   Widget _buildPaymentDetailContainer() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppColors.billingGreyLight,
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.all(8.0),
@@ -217,7 +217,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                     'Loading invoice details...',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey,
+                      color: AppColors.billingGrey,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -235,7 +235,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                   'Description',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.billingGreyMedium,
                   ),
                   textAlign: TextAlign.start,
                 ),
@@ -262,7 +262,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
           ),
           Divider(
             thickness: 0.5,
-            color: Colors.grey.withOpacity(0.3),
+            color: AppColors.billingGreyTransparent,
           ),
 
           // Show invoice items if available, otherwise show basic invoice info
@@ -295,7 +295,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                           child: VerticalDivider(
                             width: 2,
                             thickness: 1,
-                            color: Colors.grey,
+                            color: AppColors.billingGrey,
                           ),
                         ),
                       ),
@@ -335,7 +335,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                     child: VerticalDivider(
                       width: 2,
                       thickness: 1,
-                      color: Colors.grey,
+                      color: AppColors.billingGrey,
                     ),
                   ),
                 ),
@@ -354,7 +354,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
 
           Divider(
             thickness: 0.5,
-            color: Colors.grey.withOpacity(0.3),
+            color: AppColors.billingGreyTransparent,
           ),
 
           // Total Amount

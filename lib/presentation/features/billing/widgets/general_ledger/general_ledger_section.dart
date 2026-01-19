@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/ledger_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/edit_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// UI-only representation of the General Ledger tab.
 /// This widget mirrors the structure from the legacy AdminBillingScreen
@@ -232,14 +233,12 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                   color: AppColors.primaryColor.withValues(alpha: 0.3),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'No ledger accounts match the current filters.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
+                  style: AppTextStyles.title.copyWith(
                     fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: AppColors.billingTextColor,
                   ),
                 ),
                 const SizedBox(height: 8),

@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class SendInvoiceScreen extends StatefulWidget {
   const SendInvoiceScreen({
@@ -204,7 +205,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Invoice sent successfully!'),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.billingSuccessColor,
       ),
     );
 
@@ -230,24 +231,20 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         const SizedBox(height: 8),
         Text(
           schoolName,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+          style: AppTextStyles.title.copyWith(
             color: AppColors.primaryColor,
           ),
         ),
         Text(
           schoolDescription,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
+          style: AppTextStyles.body.copyWith(
             color: AppColors.primaryColor,
           ),
         ),
         if (_addressEntity != null)
           Text(
             '${_addressEntity!['line']}, ${_addressEntity!['city']}, ${_addressEntity!['state']}, ${_addressEntity!['country']}, ${_addressEntity!['zipcode']}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
+            style: AppTextStyles.body.copyWith(
               color: AppColors.primaryColor,
             ),
           ),
@@ -258,12 +255,11 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   Widget _buildBilledForRow() {
     return Row(
       children: [
-        const Text(
+        Text(
           'Billed for : ',
-          style: TextStyle(
-            color: AppColors.primaryColor,
+          style: AppTextStyles.title.copyWith(
             fontSize: 16,
-            fontWeight: FontWeight.w500,
+            color: AppColors.primaryColor,
           ),
         ),
         DocumentImageWidget(
@@ -275,20 +271,17 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         const SizedBox(width: 5),
         Text(
           widget.transaction.studentName,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 14,
+          style: AppTextStyles.value.copyWith(
             fontWeight: FontWeight.bold,
+            color: AppColors.primaryColor,
           ),
         ),
         if (widget.transaction.classroom.isNotEmpty) ...[
           const SizedBox(width: 8),
           Text(
             widget.transaction.classroom,
-            style: const TextStyle(
+            style: AppTextStyles.small.copyWith(
               color: AppColors.primaryColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
             ),
           ),
         ],
@@ -300,21 +293,20 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     return Column(
       children: [
         if (_isInvoiceLoading)
-          const Padding(
-            padding: EdgeInsets.all(8.0),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   'Loading invoice details...',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.billingGrey,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -327,7 +319,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               'Invoice Number : ',
               style: TextStyle(
                 fontSize: 15,
-                color: Colors.grey.shade500,
+                color: AppColors.billingGreyMedium,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -335,7 +327,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               _invoiceNumberController.text,
               style: TextStyle(
                 fontSize: 15,
-                color: Colors.grey.shade700,
+                color: AppColors.billingGreyDark,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -353,7 +345,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 'Invoice Period : ',
                 style: TextStyle(
                   fontSize: 15,
-                  color: Colors.grey.shade500,
+                  color: AppColors.billingGreyMedium,
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.start,
@@ -363,7 +355,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 _getInvoicePeriodText(),
                 style: TextStyle(
                   fontSize: 15,
-                  color: Colors.grey.shade700,
+                  color: AppColors.billingGreyDark,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.start,
@@ -378,7 +370,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               'Due Date : ',
               style: TextStyle(
                 fontSize: 15,
-                color: Colors.grey.shade500,
+                color: AppColors.billingGreyMedium,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -386,7 +378,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               _dueDateController.text.isEmpty ? 'Not set' : _dueDateController.text,
               style: TextStyle(
                 fontSize: 15,
-                color: Colors.grey.shade700,
+                color: AppColors.billingGreyDark,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -399,7 +391,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   Widget _buildInvoiceTable() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppColors.billingGreyLight,
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.all(8.0),
@@ -414,7 +406,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                   'Description',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.billingGreyMedium,
                     fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.start,
@@ -426,7 +418,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                   'Amount',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.billingGreyMedium,
                     fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.end,
@@ -436,7 +428,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
           ),
           Divider(
             thickness: 0.5,
-            color: Colors.grey.withOpacity(0.3),
+            color: AppColors.billingGreyTransparent,
           ),
           // Table Row
           Row(
@@ -445,10 +437,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 flex: 4,
                 child: Text(
                   _descriptionController.text.isEmpty ? '-' : _descriptionController.text,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
+                  style: AppTextStyles.title.copyWith(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryColor,
                   ),
                   textAlign: TextAlign.start,
                 ),
@@ -457,10 +448,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 flex: 2,
                 child: Text(
                   '\$${_amountController.text}',
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
+                  style: AppTextStyles.title.copyWith(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryColor,
                   ),
                   textAlign: TextAlign.end,
                 ),
@@ -469,7 +459,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
           ),
           Divider(
             thickness: 0.5,
-            color: Colors.grey.withOpacity(0.3),
+            color: AppColors.billingGreyTransparent,
           ),
           // Total Row with highlighted background
           Container(
@@ -539,7 +529,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.billingCardColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
@@ -565,11 +555,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Send Invoice',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
+                        style: AppTextStyles.title.copyWith(
                           fontSize: responsive.titleFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
+                          color: AppColors.billingTextColor,
                         ),
                       ),
                     ),
@@ -580,13 +568,13 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                     margin: EdgeInsets.symmetric(horizontal: horizontalSpacing),
                     padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                       borderRadius: BorderRadius.all(
                         Radius.circular(isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: AppColors.billingShadowColorLight,
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -622,7 +610,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -652,7 +640,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.billingButtonTextColor),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -662,7 +650,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                             fontFamily: 'Manrope',
                             fontSize: responsive.buttonFontSize,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.billingCardColor,
                           ),
                         ),
                       ],
@@ -673,7 +661,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                         fontFamily: 'Manrope',
                         fontSize: responsive.buttonFontSize,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: AppColors.billingCardColor,
                       ),
                     ),
             ),

@@ -108,7 +108,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             horizontal: responsive.isTablet ? 20.0 : 12.0,
           ),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: AppColors.billingGreyLight,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
@@ -118,7 +118,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 'Invoice Details',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey.shade700,
+                  color: AppColors.billingGreyDark,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -132,7 +132,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     'Due Date: ',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: AppColors.billingGreyMedium,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -156,7 +156,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     'Service Period: ',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: AppColors.billingGreyMedium,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -183,7 +183,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     'Internal Note:',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: AppColors.billingGreyMedium,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -209,7 +209,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                   'Description',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.billingGreyMedium,
                     fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.start,
@@ -221,7 +221,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                   'Amount',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.billingGreyMedium,
                     fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.end,
@@ -229,7 +229,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               ),
             ],
           ),
-          Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           ...items.map((raw) {
             if (raw is! Map<String, dynamic>) return const SizedBox.shrink();
             final description = raw['description']?.toString() ?? 'No description';
@@ -268,7 +268,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             );
           }).toList(),
           const SizedBox(height: 10),
-          Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -292,9 +292,9 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   Widget _buildSelectedStudents() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppColors.billingGreyLight),
       ),
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -333,7 +333,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade800,
+                              color: AppColors.billingGreyDark,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -343,7 +343,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                                 : student.roomName ?? 'No details available',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade600,
+                              color: AppColors.billingGreyMedium,
                             ),
                           ),
                         ],
@@ -361,7 +361,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 if (!isLast)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Divider(thickness: 0.5, color: Colors.grey.shade300),
+                    child: Divider(thickness: 0.5, color: AppColors.billingGreyLight),
                   ),
               ],
             );
@@ -406,7 +406,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     final safeAreaBottom = MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 16.0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       appBar: const CustomAppBar(hasBackButton: true),
       body: Stack(
         children: [
@@ -474,10 +474,10 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       bottomNavigationBar: Container(
         padding: EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.billingCardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: AppColors.billingShadowColorLight,
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -504,7 +504,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 20.0 : 16.0,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                     ),
                   ),
                 ),
@@ -526,7 +526,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 20.0 : 16.0,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                     ),
                   ),
                 ),

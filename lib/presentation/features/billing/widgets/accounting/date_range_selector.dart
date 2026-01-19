@@ -114,7 +114,7 @@ class _AccountingDateRangeSelectorState
                           fontFamily: 'Manrope',
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
+                          color: AppColors.billingTextColor,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

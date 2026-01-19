@@ -375,7 +375,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
+                                    color: AppColors.billingTextColor,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -417,18 +417,18 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
+              color: AppColors.billingErrorBackgroundColor,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.shade200),
+              border: Border.all(color: AppColors.billingErrorBorderColor),
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.red.shade600, size: 20),
+                Icon(Icons.error_outline, color: AppColors.billingErrorIconColor, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Error loading family transactions: $_errorMessage',
-                    style: TextStyle(color: Colors.red.shade700, fontSize: 14),
+                    style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 14),
                   ),
                 ),
                 TextButton(
@@ -464,18 +464,18 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
+              color: AppColors.billingErrorBackgroundColor,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.shade200),
+              border: Border.all(color: AppColors.billingErrorBorderColor),
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.red.shade600, size: 20),
+                Icon(Icons.error_outline, color: AppColors.billingErrorIconColor, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Error loading family transactions: $_errorMessage',
-                    style: TextStyle(color: Colors.red.shade700, fontSize: 14),
+                    style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 14),
                   ),
                 ),
                 TextButton(
@@ -501,7 +501,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                         width: double.infinity,
                         margin: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.billingCardColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -510,7 +510,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                         width: 80,
                         margin: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.billingCardColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -520,7 +520,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                         width: 60,
                         margin: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.billingCardColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -536,7 +536,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             child: Center(
               child: Text(
                 'No family transactions found',
-                style: TextStyle(fontSize: 16, color: Color(0xff573353)),
+                style: TextStyle(fontSize: 16, color: AppColors.billingTextColor),
               ),
             ),
           )
@@ -633,7 +633,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
           height: 120,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             borderRadius: BorderRadius.circular(12),
           ),
         ),
@@ -691,7 +691,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   width: double.infinity,
                   margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.billingCardColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -700,7 +700,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   width: 120,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.billingCardColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -722,7 +722,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
         ),
         child: Text(
           'Failed to load family: $_familyError',
-          style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+          style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 12),
         ),
       );
     }
@@ -754,7 +754,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                             child: _FamilyChip(
                               name: (c['fullName'] ?? '').toString(),
                               photoUuid: c['photoUuid'],
-                              backgroundColor: const Color(0xFFFFB74D),
+                              backgroundColor: AppColors.warningColor,
                             ),
                           ))
                       .toList(),
@@ -782,7 +782,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             text: 'Parents: ',
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: Color(0xff573353),
+              color: AppColors.billingTextColor,
               fontSize: 14,
               fontFamily: 'Manrope',
             ),
@@ -791,7 +791,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             text: text,
             style: const TextStyle(
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: AppColors.billingTextColor,
               fontSize: 14,
               fontFamily: 'Manrope',
             ),
@@ -831,7 +831,7 @@ class _FamilyChip extends StatelessWidget {
           child: Text(
             initials,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),

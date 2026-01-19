@@ -150,7 +150,7 @@ class _ReceivePaymentIssueRefundScreenState
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.billingCardColor,
         body: Stack(
           children: <Widget>[
             Positioned.fill(
@@ -175,12 +175,12 @@ class _ReceivePaymentIssueRefundScreenState
                     snap: true,
                     stretch: true,
                     scrolledUnderElevation: 0,
-                    backgroundColor: Colors.white,
+                    backgroundColor: AppColors.billingCardColor,
                     leading: IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(
                         Icons.arrow_back,
-                        color: Color(0xff573353),
+                        color: AppColors.billingTextColor,
                       ),
                     ),
                     bottom: PreferredSize(
@@ -190,7 +190,7 @@ class _ReceivePaymentIssueRefundScreenState
                           border: const Border(
                             bottom: BorderSide(
                               width: 1.5,
-                              color: Colors.transparent,
+                              color: AppColors.billingTransparentColor,
                             ),
                           ),
                           gradient: AppColors.buildSecondaryGradient(),
@@ -214,7 +214,7 @@ class _ReceivePaymentIssueRefundScreenState
                           fontFamily: 'Manrope',
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
+                          color: AppColors.billingTextColor,
                         ),
                       ),
                     ),
@@ -227,13 +227,13 @@ class _ReceivePaymentIssueRefundScreenState
                           EdgeInsets.symmetric(horizontal: horizontalSpacing),
                       padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.billingCardColor,
                         borderRadius: BorderRadius.all(
                           Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                         ),
                         boxShadow: <BoxShadow>[
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: AppColors.billingShadowColorLight,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -262,14 +262,14 @@ class _ReceivePaymentIssueRefundScreenState
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w400,
                                                 color:
-                                                    const Color(0xff573353),
+                                                    AppColors.billingTextColor,
                                               ),
                                               children: const <InlineSpan>[
                                                 TextSpan(text: 'Amount'),
                                                 TextSpan(
                                                   text: ' *',
                                                   style: TextStyle(
-                                                    color: Colors.red,
+                                                    color: AppColors.errorColor,
                                                   ),
                                                 ),
                                               ],
@@ -282,7 +282,7 @@ class _ReceivePaymentIssueRefundScreenState
                                           ),
                                           Container(
                                             decoration: BoxDecoration(
-                                              color: Colors.white,
+                                              color: AppColors.billingCardColor,
                                               border: Border.all(
                                                 color: const Color(0x66573353),
                                               ),
@@ -367,7 +367,7 @@ class _ReceivePaymentIssueRefundScreenState
                                                         fontFamily: 'Manrope',
                                                         fontWeight:
                                                             FontWeight.w400,
-                                                        color: Colors.grey,
+                                                        color: AppColors.billingGrey,
                                                       ),
                                                       border: InputBorder.none,
                                                       contentPadding:
@@ -418,7 +418,7 @@ class _ReceivePaymentIssueRefundScreenState
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w400,
                                                 color:
-                                                    const Color(0xff573353),
+                                                    AppColors.billingTextColor,
                                               ),
                                               children: const <InlineSpan>[
                                                 TextSpan(
@@ -426,7 +426,7 @@ class _ReceivePaymentIssueRefundScreenState
                                                 TextSpan(
                                                   text: ' *',
                                                   style: TextStyle(
-                                                    color: Colors.red,
+                                                    color: AppColors.errorColor,
                                                   ),
                                                 ),
                                               ],
@@ -439,7 +439,7 @@ class _ReceivePaymentIssueRefundScreenState
                                           ),
                                           Container(
                                             decoration: BoxDecoration(
-                                              color: Colors.white,
+                                              color: AppColors.billingCardColor,
                                               border: Border.all(
                                                 color: const Color(0x66573353),
                                               ),
@@ -526,14 +526,14 @@ class _ReceivePaymentIssueRefundScreenState
                                                 responsive.labelFontSize,
                                             fontFamily: 'Manrope',
                                             fontWeight: FontWeight.w400,
-                                            color: const Color(0xff573353),
+                                            color: AppColors.billingTextColor,
                                           ),
                                           children: const <InlineSpan>[
                                             TextSpan(text: 'Cheque Number'),
                                             TextSpan(
                                               text: ' *',
                                               style:
-                                                  TextStyle(color: Colors.red),
+                                                  TextStyle(color: AppColors.errorColor),
                                             ),
                                           ],
                                         ),
@@ -544,7 +544,7 @@ class _ReceivePaymentIssueRefundScreenState
                                       ),
                                       Container(
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: AppColors.billingCardColor,
                                           border: Border.all(
                                             color: const Color(0x66573353),
                                           ),
@@ -593,7 +593,7 @@ class _ReceivePaymentIssueRefundScreenState
                                         fontSize: responsive.labelFontSize,
                                         fontFamily: 'Manrope',
                                         fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
+                                        color: AppColors.billingTextColor,
                                       ),
                                     ),
                                     SizedBox(
@@ -602,7 +602,7 @@ class _ReceivePaymentIssueRefundScreenState
                                     ),
                                     Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: AppColors.billingCardColor,
                                         border: Border.all(
                                           color: const Color(0x66573353),
                                         ),
@@ -653,7 +653,7 @@ class _ReceivePaymentIssueRefundScreenState
                                         });
                                       },
                                       activeColor: const Color(0xFF6B73FF),
-                                      checkColor: Colors.white,
+                                      checkColor: AppColors.billingButtonTextColor,
                                     ),
                                     Expanded(
                                       child: Text(
@@ -662,7 +662,7 @@ class _ReceivePaymentIssueRefundScreenState
                                           fontSize: responsive.labelFontSize,
                                           fontFamily: 'Manrope',
                                           fontWeight: FontWeight.w400,
-                                          color: const Color(0xff573353),
+                                          color: AppColors.billingTextColor,
                                         ),
                                       ),
                                     ),
@@ -678,7 +678,7 @@ class _ReceivePaymentIssueRefundScreenState
                                         fontSize: responsive.labelFontSize,
                                         fontFamily: 'Manrope',
                                         fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
+                                        color: AppColors.billingTextColor,
                                       ),
                                     ),
                                     SizedBox(
@@ -687,7 +687,7 @@ class _ReceivePaymentIssueRefundScreenState
                                     ),
                                     Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: AppColors.billingCardColor,
                                         border: Border.all(
                                           color: const Color(0x66573353),
                                         ),
@@ -764,7 +764,7 @@ class _ReceivePaymentIssueRefundScreenState
             decoration: BoxDecoration(
               gradient:
                   _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
+              color: _isSubmitting ? AppColors.billingGreyLight : null,
               borderRadius:
                   BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
             ),
@@ -780,7 +780,7 @@ class _ReceivePaymentIssueRefundScreenState
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                                AlwaysStoppedAnimation<Color>(AppColors.billingButtonTextColor),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -790,7 +790,7 @@ class _ReceivePaymentIssueRefundScreenState
                             fontFamily: 'Manrope',
                             fontSize: responsive.buttonFontSize,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.billingCardColor,
                           ),
                         ),
                       ],
@@ -801,7 +801,7 @@ class _ReceivePaymentIssueRefundScreenState
                         fontFamily: 'Manrope',
                         fontSize: responsive.buttonFontSize,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: AppColors.billingCardColor,
                       ),
                     ),
             ),
@@ -847,7 +847,7 @@ class _ReceivePaymentIssueRefundScreenState
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xff573353),
+                      color: AppColors.billingTextColor,
                       fontFamily: 'Manrope',
                     ),
                   ),
@@ -858,7 +858,7 @@ class _ReceivePaymentIssueRefundScreenState
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xff573353),
+                      color: AppColors.billingTextColor,
                       fontFamily: 'Manrope',
                     ),
                   ),

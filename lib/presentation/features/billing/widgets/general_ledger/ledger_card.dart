@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class LedgerCard extends StatefulWidget {
   const LedgerCard({
@@ -34,15 +35,15 @@ class _LedgerCardState extends State<LedgerCard> {
             height: _isExpanded ? null : 64,
             margin: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0x1A162831),
+                color: AppColors.billingBorderLight,
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: AppColors.billingCardShadowColor,
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -50,7 +51,7 @@ class _LedgerCardState extends State<LedgerCard> {
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.billingTransparentColor,
               child: InkWell(
                 onTap: () {
                   setState(() {
@@ -69,12 +70,8 @@ class _LedgerCardState extends State<LedgerCard> {
                           Expanded(
                             child: Text(
                               widget.ledgerName,
-                              style: const TextStyle(
-                                fontFamily: 'Manrope',
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                                color: Color(0xff573353),
-                                height: 19 / 14,
+                              style: AppTextStyles.value.copyWith(
+                                color: AppColors.billingTextColor,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -88,7 +85,7 @@ class _LedgerCardState extends State<LedgerCard> {
                         thickness: 1,
                         indent: 16,
                         endIndent: 16,
-                        color: Color(0xFFE9ECEF),
+                        color: AppColors.billingDividerLight,
                       ),
                       Padding(
                         padding: const EdgeInsets.all(16),
@@ -98,14 +95,10 @@ class _LedgerCardState extends State<LedgerCard> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Type',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 12,
+                                  style: AppTextStyles.small.copyWith(
+                                    color: AppColors.billingTextColor,
                                   ),
                                 ),
                                 ShaderMask(
@@ -122,11 +115,9 @@ class _LedgerCardState extends State<LedgerCard> {
                                   },
                                   child: Text(
                                     widget.type,
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
+                                    style: AppTextStyles.label.copyWith(
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                                      color: AppColors.billingCardColor,
                                     ),
                                   ),
                                 ),
@@ -136,23 +127,17 @@ class _LedgerCardState extends State<LedgerCard> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Open Balance',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 12,
+                                  style: AppTextStyles.small.copyWith(
+                                    color: AppColors.billingTextColor,
                                   ),
                                 ),
                                 Text(
                                   '\$${widget.openBalance.toStringAsFixed(0)}',
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
+                                  style: AppTextStyles.label.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xff573353),
+                                    color: AppColors.billingTextColor,
                                   ),
                                 ),
                               ],
@@ -167,7 +152,7 @@ class _LedgerCardState extends State<LedgerCard> {
                                       onPressed: widget.onDelete,
                                       style: OutlinedButton.styleFrom(
                                         side: const BorderSide(
-                                          color: Color(0xFF6C7FD8),
+                                          color: AppColors.themeColor,
                                         ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
@@ -175,15 +160,9 @@ class _LedgerCardState extends State<LedgerCard> {
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'Delete',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
-                                          height: 16 / 16,
-                                        ),
+                                        style: AppTextStyles.button(color: AppColors.themeColor),
                                       ),
                                     ),
                                   ),
@@ -202,15 +181,9 @@ class _LedgerCardState extends State<LedgerCard> {
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'Edit',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          height: 16 / 16,
-                                        ),
+                                        style: AppTextStyles.button(color: AppColors.billingButtonTextColor),
                                       ),
                                     ),
                                   ),

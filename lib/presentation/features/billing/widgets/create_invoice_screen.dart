@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/billing/widgets/models/student_mod
 import 'package:wowcare/presentation/features/billing/widgets/selected_students_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // NOTE: UI-only screen. All API/backend-related code has been removed or commented out.
 // Future<void> _loadBillingItemSettings() async {
@@ -307,7 +308,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.billingCardColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
@@ -332,11 +333,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Create Invoice',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
+                      style: AppTextStyles.title.copyWith(
                         fontSize: responsive.titleFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: AppColors.billingTextColor,
                       ),
                     ),
                   ),
@@ -348,13 +347,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     margin: EdgeInsets.symmetric(horizontal: horizontalSpacing),
                     padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                       borderRadius: BorderRadius.all(
                         Radius.circular(isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: AppColors.billingShadowColorLight,
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -391,10 +390,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         bottomNavigationBar: Container(
           padding: EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: AppColors.billingShadowColorLight,
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -408,18 +407,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             height: responsive.buttonHeight,
             decoration: BoxDecoration(
               gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
+              color: _isSubmitting ? AppColors.billingButtonDisabled : null,
               borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
             ),
             child: TextButton(
               onPressed: _isSubmitting ? null : _handleSubmit,
               child: Text(
                 'Save Invoice (UI Only)',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
+                style: AppTextStyles.button(color: AppColors.billingCardColor).copyWith(
                   fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
                 ),
               ),
             ),
@@ -435,11 +431,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       children: [
         _requiredLabel(
           'Invoice Due Date',
-          TextStyle(
-            fontFamily: 'Manrope',
+          AppTextStyles.label.copyWith(
             fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w500,
-            color: const Color(0xff573353),
+            color: AppColors.billingTextColor,
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -454,7 +449,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               width: 160,
               height: isTablet ? 56.0 : 44.0,
               decoration: BoxDecoration(
-                color: const Color(0x1AB1AFE9),
+                color: AppColors.billingBorderLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               padding: EdgeInsets.symmetric(horizontal: isTablet ? 16.0 : 12.0),
@@ -464,17 +459,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   Expanded(
                     child: Text(
                       _dueDate == null ? 'Select date' : _dateFormat.format(_dueDate!),
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
+                      style: AppTextStyles.value.copyWith(
                         fontSize: isTablet ? 16.0 : 14.0,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xff573353),
+                        color: AppColors.billingTextColor,
                         height: 1.2,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.calendar_today_outlined, color: Color(0xFF573353)),
+                  Icon(Icons.calendar_today_outlined, color: AppColors.billingTextColor),
                 ],
               ),
             ),
@@ -490,11 +483,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       children: [
         Text(
           'Date of Service (Optional)',
-          style: TextStyle(
-            fontFamily: 'Manrope',
+          style: AppTextStyles.label.copyWith(
             fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w500,
-            color: const Color(0xff573353),
+            color: AppColors.billingTextColor,
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -513,13 +505,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'to',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: Color(0xff573353),
+              style: AppTextStyles.small.copyWith(
+                color: AppColors.billingTextColor,
               ),
             ),
             const SizedBox(width: 8),
@@ -555,7 +544,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   fontFamily: 'Manrope',
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xff573353),
+                  color: AppColors.billingTextColor,
                 ),
               ),
             ),
@@ -578,9 +567,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             padding: EdgeInsets.only(bottom: index == _invoiceItems.length - 1 ? 0 : responsive.verticalSpacing),
             child: Container(
               decoration: BoxDecoration(
-                color: index == 0 ? Colors.white : Colors.grey.shade50,
+                color: index == 0 ? AppColors.billingCardColor : AppColors.billingGreyLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: index == 0 ? const Color(0xFF6657F8) : Colors.grey.shade200),
+                border: Border.all(color: index == 0 ? AppColors.billingInputBorderFocused : AppColors.billingInputBorderDefault),
               ),
               padding: EdgeInsets.all(isTablet ? 20.0 : 16.0),
               child: Column(
@@ -588,11 +577,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 children: [
                   Text(
                     index == 0 ? 'Primary Item' : 'Additional Item ${index + 1}',
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 13,
+                    style: AppTextStyles.label.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
+                      color: AppColors.billingTextColor,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -695,14 +682,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           height: 48,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Color(0xFFFF3B30),
+                            color: AppColors.billingStatusError,
                           ),
                           child: Center(
                             child: SvgPicture.asset(
                               MediaRes.delete_icon,
                               width: 22,
                               height: 22,
-                              color: Colors.white,
+                              color: AppColors.billingCardColor,
                             ),
                           ),
                         ),
@@ -724,17 +711,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
             color: const Color(0x1AB1AFE9),
-            border: Border.all(color: const Color(0x33573353)),
+            border: Border.all(color: AppColors.billingBorderMedium),
           ),
           child: Align(
             alignment: Alignment.centerRight,
             child: Text(
               'Total: \$${_totalAmount.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xff573353),
+              style: AppTextStyles.title.copyWith(
+                color: AppColors.billingTextColor,
               ),
             ),
           ),
@@ -753,12 +737,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         decoration: BoxDecoration(
           borderRadius: borderRadius,
           gradient: _isFormLocked ? null : AppColors.buildPrimaryGradient(),
-          color: _isFormLocked ? Colors.grey[200] : null,
+          color: _isFormLocked ? AppColors.billingInputBackgroundDisabled : null,
           boxShadow: _isFormLocked
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: AppColors.billingShadowColorMedium,
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -766,18 +750,17 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         ),
         child: TextButton.icon(
           onPressed: _isFormLocked ? null : _addInvoiceItem,
-          icon: const Icon(Icons.add, color: Colors.white, size: 18),
+          icon: Icon(Icons.add, color: AppColors.billingButtonTextColor, size: 18),
           label: Text(
             'Add Item',
-            style: TextStyle(
-              fontFamily: 'Manrope',
+            style: AppTextStyles.label.copyWith(
               fontSize: isTablet ? 15 : 13,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: AppColors.billingCardColor,
             ),
           ),
           style: TextButton.styleFrom(
-            backgroundColor: Colors.transparent,
+            backgroundColor: AppColors.billingTransparentColor,
             shape: RoundedRectangleBorder(borderRadius: borderRadius),
             padding: EdgeInsets.symmetric(
               horizontal: isTablet ? 18.0 : 14.0,
@@ -794,20 +777,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Internal Note',
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 12,
+          style: AppTextStyles.small.copyWith(
             fontWeight: FontWeight.w500,
-            color: Color(0xff573353),
+            color: AppColors.billingTextColor,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.billingCardColor,
+            border: Border.all(color: AppColors.billingBorderHeavy),
             borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
           child: TextField(
@@ -831,11 +812,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       text: TextSpan(
         text: text,
         style: style,
-        children: const [
+        children: [
           TextSpan(
             text: ' *',
-            style: TextStyle(
-              color: Color(0xffFF3B30),
+            style: AppTextStyles.small.copyWith(
+              color: AppColors.billingStatusError,
             ),
           ),
         ],
@@ -906,11 +887,9 @@ class _SelectedStudentsBanner extends StatelessWidget {
         children: [
           Text(
             '${students.length} student(s) selected',
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
+            style: AppTextStyles.label.copyWith(
               fontWeight: FontWeight.w600,
-              color: Color(0xff573353),
+              color: AppColors.billingTextColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -922,18 +901,16 @@ class _SelectedStudentsBanner extends StatelessWidget {
                   (student) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: AppColors.cardBorderColor),
                     ),
                     child: Text(
                       student.fullName,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xff573353),
-                      ),
+                    style: AppTextStyles.small.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.billingTextColor,
+                    ),
                     ),
                   ),
                 )
@@ -969,16 +946,13 @@ class _DateField extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Color(0xff573353),
+              style: AppTextStyles.value.copyWith(
+                color: AppColors.billingTextColor,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Icon(Icons.calendar_today_outlined, color: Color(0xFF573353)),
+          Icon(Icons.calendar_today_outlined, color: AppColors.billingTextColor),
         ],
       ),
     );
@@ -1009,17 +983,15 @@ class _ItemDropdown extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 12,
+          style: AppTextStyles.small.copyWith(
             fontWeight: FontWeight.w500,
-            color: Color(0xff573353),
+            color: AppColors.billingTextColor,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: isEnabled ? const Color(0x1AB1AFE9) : Colors.grey[200],
+            color: isEnabled ? AppColors.billingBorderLight : AppColors.billingInputBackgroundDisabled,
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1035,12 +1007,9 @@ class _ItemDropdown extends StatelessWidget {
                 ? null
                 : Text(
                     hint!,
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[600],
-                    ),
+                      style: AppTextStyles.value.copyWith(
+                        color: AppColors.billingGreyMedium,
+                      ),
                   ),
             items: options
                 .map(
@@ -1048,11 +1017,8 @@ class _ItemDropdown extends StatelessWidget {
                     value: option,
                     child: Text(
                       option,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xff573353),
+                      style: AppTextStyles.value.copyWith(
+                        color: AppColors.billingTextColor,
                       ),
                     ),
                   ),
@@ -1091,11 +1057,9 @@ class _ItemTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 12,
+          style: AppTextStyles.small.copyWith(
             fontWeight: FontWeight.w500,
-            color: Color(0xff573353),
+            color: AppColors.billingTextColor,
           ),
         ),
         const SizedBox(height: 8),

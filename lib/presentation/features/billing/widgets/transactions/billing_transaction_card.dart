@@ -4,6 +4,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class BillingTransactionCard extends StatefulWidget {
   const BillingTransactionCard({
@@ -88,7 +90,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.transparent,
+      barrierColor: AppColors.billingTransparentColor,
       builder: (BuildContext dialogContext) {
         bool showMoreOptions = false;
         return StatefulBuilder(
@@ -190,19 +192,19 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.billingCardBorderColor),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: AppColors.billingCardShadowColor,
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.billingTransparentColor,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: _toggleExpanded,
@@ -213,7 +215,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 SizedBox(
-                  height: 54,
+                  height: 50,
                   child: _buildHeader(type),
                 ),
                 const SizedBox(height: 4),
@@ -243,66 +245,91 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           ),
           const SizedBox(width: 8),
         ],
+        DocumentImageWidget(
+          fileUuid: widget.transaction.studentPhotoUuid ?? '',
+          name: widget.transaction.studentName,
+          size: 40,
+          shape: BoxShape.circle,
+          fit: BoxFit.cover,
+          fontSize: 14,
+        ),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              Text(
+                widget.transaction.studentName,
+                style: AppTextStyles.title.copyWith(
+                  fontSize: 15,
+                  color: AppColors.billingTextColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              const SizedBox(height: 3),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: _badgeColor(type),
+                    color: _badgeColor(type, widget.transaction.status),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
                       _badgeLabel(type),
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        color: Color(0xff573353),
+                      style: AppTextStyles.label.copyWith(
+                        fontSize: 13,
+                        color: AppColors.billingTextColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          '(${_formatStatus(widget.transaction.status)})',
+                          style: AppTextStyles.small.copyWith(
+                            color: AppColors.billingTextColor.withOpacity(0.7),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  Text(
-                    _formatCurrency(widget.transaction.amount),
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Row(
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Text(
-                    'Status: ${widget.transaction.status}',
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 12,
-                      color: Color(0xff573353),
-                      fontWeight: FontWeight.w500,
+              _formatCurrency(widget.transaction.amount),
+                    style: AppTextStyles.title.copyWith(
+                fontSize: 17,
+                color: AppColors.billingTextColor,
                     ),
                   ),
-                  const Spacer(),
+            const SizedBox(height: 3),
                   Text(
                     dateLabel,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 13,
-                      color: Color(0xff573353),
+              style: AppTextStyles.small.copyWith(
+                fontSize: 11,
+                color: AppColors.billingTextColor.withOpacity(0.7),
                     ),
                     textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
                   ),
                 ],
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -310,7 +337,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   List<Widget> _buildExpandedContent(String type) {
     final List<Widget> content = <Widget>[
-      Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+      Divider(color: AppColors.billingDividerColor),
       const SizedBox(height: 8),
       _studentInfoRow(),
       const SizedBox(height: 8),
@@ -354,11 +381,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       children: <Widget>[
         Text(
           'Student Name',
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+          style: AppTextStyles.small.copyWith(
+            color: AppColors.billingTextColor,
           ),
         ),
         const SizedBox(width: 12),
@@ -369,22 +393,18 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
               Text(
                 widget.transaction.studentName,
                 textAlign: TextAlign.end,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
+                style: AppTextStyles.value.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Color(0xff573353),
+                  color: AppColors.billingTextColor,
                 ),
               ),
               if (widget.transaction.classroom.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 4),
                 Text(
                   widget.transaction.classroom,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
+                  style: AppTextStyles.small.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: AppColors.billingTextColor,
                   ),
                 ),
               ],
@@ -408,16 +428,26 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     }
   }
 
-  Color _badgeColor(String type) {
+  Color _badgeColor(String type, String status) {
+    // Check status first for special colors
+    final String statusLower = status.toLowerCase();
+    if (statusLower.contains('in progress') || statusLower.contains('pending')) {
+      return AppColors.billingStatusInProgressColor;
+    }
+    if (statusLower.contains('cancelled') || statusLower.contains('canceled')) {
+      return AppColors.billingStatusCancelledColor;
+    }
+    
+    // Fall back to type-based colors
     switch (type) {
       case 'invoice':
-        return const Color.fromRGBO(203, 246, 255, 0.4);
+        return AppColors.billingInvoiceBadgeColor;
       case 'payment':
-        return const Color.fromRGBO(227, 255, 203, 0.4);
+        return AppColors.billingPaymentBadgeColor;
       case 'refund':
-        return const Color.fromRGBO(229, 231, 235, 0.4);
+        return AppColors.billingRefundBadgeColor;
       default:
-        return const Color(0xFFE4E7F5);
+        return AppColors.billingDefaultBadgeColor;
     }
   }
 
@@ -428,11 +458,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       children: <Widget>[
         Text(
           label,
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+          style: AppTextStyles.small.copyWith(
+            color: AppColors.billingTextColor,
           ),
         ),
         const SizedBox(width: 12),
@@ -443,11 +470,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
               Text(
                 value,
                 textAlign: TextAlign.end,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 13,
+                style: AppTextStyles.label.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Color(0xff573353),
+                  color: AppColors.billingTextColor,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 2,
@@ -456,11 +481,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
+                  style: AppTextStyles.small.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: AppColors.billingTextColor,
                   ),
                 ),
               ],
@@ -491,12 +514,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
               ),
               child: Text(
                 label,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
+                style: AppTextStyles.button(color: AppColors.billingButtonTextColor),
               ),
             ),
           ),
@@ -523,5 +541,32 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   String _formatCurrency(double value) {
     final NumberFormat formatter = NumberFormat.currency(symbol: '\$');
     return formatter.format(value);
+  }
+
+  String _formatStatus(String status) {
+    // Format status for display in badge
+    if (status.isEmpty) return 'Pending';
+    
+    // Common status mappings
+    switch (status.toLowerCase()) {
+      case 'sent':
+      case 'invoice sent':
+        return 'Sent';
+      case 'pending':
+      case 'in progress':
+        return 'In Progress';
+      case 'paid':
+      case 'completed':
+        return 'Paid';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelled';
+      default:
+        // Capitalize first letter of each word
+        return status.split(' ').map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        }).join(' ');
+    }
   }
 }

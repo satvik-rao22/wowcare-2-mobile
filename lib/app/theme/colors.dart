@@ -102,4 +102,70 @@ class AppColors {
   static const List<Color> tagTextColors = [
     Color(0xFF1B237E),
   ];
+
+  // Billing specific colors
+  static const Color billingTextColor = Color(0xff573353); // Primary text color for billing
+  static const Color billingTextSecondary = Color(0xff573353); // Secondary text (with opacity)
+  
+  // Transaction badge colors
+  static const Color billingInvoiceBadgeColor = Color.fromRGBO(203, 246, 255, 0.4);
+  static const Color billingPaymentBadgeColor = Color.fromRGBO(227, 255, 203, 0.4);
+  static const Color billingRefundBadgeColor = Color.fromRGBO(229, 231, 235, 0.4);
+  static const Color billingDefaultBadgeColor = Color(0xFFE4E7F5);
+  
+  // Transaction status colors
+  static const Color billingStatusInProgressColor = Color.fromRGBO(255, 152, 0, 0.3); // Orange
+  static const Color billingStatusCancelledColor = Color.fromRGBO(244, 67, 54, 0.3); // Red
+  
+  // Card and container colors
+  static const Color billingCardColor = Colors.white;
+  static final Color billingCardBorderColor = primaryColor.withValues(alpha: 0.2);
+  static final Color billingCardShadowColor = Colors.black.withOpacity(0.03);
+  
+  // Divider colors
+  static final Color billingDividerColor = primaryColor.withValues(alpha: 0.1);
+  
+  // Button colors
+  static const Color billingButtonTextColor = Colors.white;
+  
+  // Error/Alert colors for billing
+  static final Color billingErrorBackgroundColor = Colors.red.shade50;
+  static final Color billingErrorBorderColor = Colors.red.shade200;
+  static final Color billingErrorIconColor = Colors.red.shade600;
+  static final Color billingErrorTextColor = Colors.red.shade700;
+  
+  // Grey shades for billing
+  static const Color billingGrey = Colors.grey;
+  static final Color billingGreyLight = Colors.grey.shade100;
+  static final Color billingGreyMedium = Colors.grey.shade500;
+  static final Color billingGreyDark = Colors.grey.shade700;
+  static final Color billingGreyTransparent = Colors.grey.withOpacity(0.3);
+  
+  // Success color
+  static const Color billingSuccessColor = Colors.green;
+  
+  // Background colors
+  static const Color billingBackgroundColor = Colors.white;
+  static const Color billingTransparentColor = Colors.transparent;
+  
+  // Shadow colors
+  static final Color billingShadowColor = Colors.black.withOpacity(0.03);
+  static final Color billingShadowColorLight = Colors.black.withOpacity(0.05);
+  static final Color billingShadowColorMedium = Colors.black.withOpacity(0.08);
+  
+  // Border colors with opacity
+  static const Color billingBorderLight = Color(0x1AB1AFE9); // Light purple border
+  static final Color billingBorderMedium = primaryColor.withValues(alpha: 0.2);
+  static final Color billingBorderHeavy = primaryColor.withValues(alpha: 0.4);
+  static const Color billingDividerLight = Color(0xFFE9ECEF);
+  
+  // Button and input colors
+  static final Color billingButtonDisabled = Colors.grey[300]!;
+  static final Color billingInputBorderDefault = Colors.grey.shade200;
+  static final Color billingInputBorderFocused = const Color(0xFF6657F8);
+  static final Color billingInputBackgroundDisabled = Colors.grey[200]!;
+  
+  // Status indicator colors (for success/error states)
+  static const Color billingStatusSuccess = Colors.green;
+  static const Color billingStatusError = Color(0xFFFF3B30);
 }

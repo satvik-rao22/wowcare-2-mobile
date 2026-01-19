@@ -37,7 +37,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
           border: Border.all(color: const Color(0x1A162831), width: 1),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: AppColors.billingCardShadowColor,
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -45,7 +45,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
         ),
         clipBehavior: Clip.antiAlias,
         child: Material(
-          color: Colors.transparent,
+          color: AppColors.billingTransparentColor,
           child: InkWell(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
             onLongPress: widget.onLongPress,
@@ -98,7 +98,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
                                 showModalBottomSheet(
                                   context: context,
                                   isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
+                                  backgroundColor: AppColors.billingTransparentColor,
                                   builder: (ctx) {
                                     return DeleteConfirmationBottomSheet(
                                       name: widget.subsidy.subsidyName,
@@ -153,7 +153,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
                                   fontFamily: 'Manrope',
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                                  color: AppColors.billingButtonTextColor,
                                   height: 16 / 16,
                                 ),
                               ),
@@ -193,7 +193,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
                     fontFamily: 'Manrope',
                     fontWeight: FontWeight.w500,
                     fontSize: 15,
-                    color: Color(0xff573353),
+                    color: AppColors.billingTextColor,
                     height: 19 / 15,
                   ),
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/common/widgets/expandable_info_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -98,7 +99,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
     showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.transparent,
+      barrierColor: AppColors.billingTransparentColor,
       builder: (BuildContext dialogContext) {
         return Align(
           alignment: Alignment.centerRight,
@@ -126,16 +127,16 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
     Color statusColor;
     switch (widget.lastPaymentStatus) {
       case 'Success':
-        statusColor = Colors.green;
+        statusColor = AppColors.successColor;
         break;
       case 'Pending':
         statusColor = Colors.orange;
         break;
       case 'Failed':
-        statusColor = Colors.red;
+        statusColor = AppColors.errorColor;
         break;
       default:
-        statusColor = const Color(0xff573353);
+        statusColor = AppColors.billingTextColor;
     }
 
     return ExpandableInfoCard(
@@ -164,7 +165,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
         fontFamily: 'Manrope',
         fontWeight: FontWeight.w600,
         fontSize: 16,
-        color: Color(0xff573353),
+        color: AppColors.billingTextColor,
         height: 22 / 16,
       ),
       subtitleText: widget.classroom,

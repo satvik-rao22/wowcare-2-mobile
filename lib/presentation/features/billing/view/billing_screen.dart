@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/create_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -230,11 +231,8 @@ class _BillingScreenState extends State<BillingScreen>
                                   alignment: Alignment.topLeft,
                                   child: Text(
                                     '$t content goes here.',
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xff573353),
+                                    style: AppTextStyles.body.copyWith(
+                                      color: AppColors.billingTextColor,
                                     ),
                                   ),
                                 );

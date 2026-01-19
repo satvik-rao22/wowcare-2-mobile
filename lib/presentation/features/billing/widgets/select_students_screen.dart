@@ -119,7 +119,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
             : 16.0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       body: GlobalScaffold(
         hasBackButton: true,
         showCustomNavigationBar: false,
@@ -129,13 +129,13 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
             margin: EdgeInsets.symmetric(horizontal: horizontalSpacing, vertical: verticalSpacing),
             padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               borderRadius: BorderRadius.all(
                 Radius.circular(isTablet ? 40.0 : 24.0),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: AppColors.billingShadowColorLight,
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -227,12 +227,12 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                         });
                       },
                       activeColor: AppColors.themeColor,
-                      checkColor: Colors.white,
+                      checkColor: AppColors.billingButtonTextColor,
                       fillColor: MaterialStateProperty.resolveWith<Color>((states) {
                         if (states.contains(MaterialState.selected)) {
                           return AppColors.themeColor;
                         }
-                        return Colors.transparent;
+                        return AppColors.billingTransparentColor;
                       }),
                     ),
                     const Text(
@@ -241,7 +241,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                         fontFamily: "Manrope",
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xff573353),
+                        color: AppColors.billingTextColor,
                         height: 19 / 14,
                       ),
                     ),
@@ -292,7 +292,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                               fontFamily: 'Manrope',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w500,
-                                              color: Color(0xff573353),
+                                              color: AppColors.billingTextColor,
                                               height: 19 / 14,
                                             ),
                                           ),
@@ -322,12 +322,12 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                         });
                                       },
                                       activeColor: AppColors.themeColor,
-                                      checkColor: Colors.white,
+                                      checkColor: AppColors.billingButtonTextColor,
                                       fillColor: MaterialStateProperty.resolveWith<Color>((states) {
                                         if (states.contains(MaterialState.selected)) {
                                           return AppColors.themeColor;
                                         }
-                                        return Colors.transparent;
+                                        return AppColors.billingTransparentColor;
                                       }),
                                     ),
                                   ],
@@ -352,10 +352,10 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               top: 8,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: AppColors.billingShadowColorLight,
                   offset: const Offset(0, -4),
                   blurRadius: 16,
                 ),
@@ -399,7 +399,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                     fontFamily: 'Manrope',
                     fontSize: 16.0,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.billingCardColor,
                   ),
                 ),
               ),
