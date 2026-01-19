@@ -73,6 +73,8 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
               : 'Do you want to pause this plan - "${planName ?? ''}" for student $name?')
         : type == 'user'
         ? "Do you want to delete this User"
+        : type == 'Activity'
+        ? 'Do you want to delete this activity -\n"$name" ?'
         : type == 'staff'
         ? 'Do you want to deactivate this Staff -\n"$name" ?'
         : type == 'student'
@@ -105,6 +107,8 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
 
     String buttonText = type == 'complete_purchase'
         ? "Mark Complete"
+        : type == 'Activity'
+        ? 'Delete'
         : type == 'student'
         ? "Deactivate"
         : type == 'order_purchase'

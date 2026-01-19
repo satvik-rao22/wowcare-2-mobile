@@ -52,7 +52,7 @@ class _StudentScreenState extends State<StudentScreen> {
       'name': 'Sara Khan',
       'Classroom': '1-Blue D',
       'Tags': ['3 Days', 'Full Day', 'Allergies'],
-      'schedule': ['Mon', 'Tue', 'Wed', 'Thu'],
+      'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
       'birthDate': '12 Jan 2022',
       'movementDate': '05 Sep 2024',
       'Status': 'Active',

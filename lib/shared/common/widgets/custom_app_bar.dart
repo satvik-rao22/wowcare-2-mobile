@@ -1,10 +1,17 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -44,8 +51,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.tabController,
     this.tabBarStyle,
     this.notificationCount = 0,
-		this.isParent = false,
-		this.studentList,
+    this.isParent = false,
+    this.studentList,
     super.key,
   });
 
@@ -54,167 +61,365 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final TabController? tabController;
   final TabBarStyle? tabBarStyle;
   final int notificationCount;
-	final bool isParent;
-	final List<String>? studentList;
+  final bool isParent;
+  final List<String>? studentList;
 
   @override
-	Size get preferredSize => Size.fromHeight(
-			kToolbarHeight + (tabs != null ? kTextTabBarHeight : 0.0));
+  Size get preferredSize => Size.fromHeight(
+    kToolbarHeight + (tabs != null ? kTextTabBarHeight : 0.0),
+  );
 
   @override
   Widget build(BuildContext context) {
-		final bool hasTabs = tabs != null && tabController != null && tabs!.isNotEmpty;
+    final bool hasTabs =
+        tabs != null && tabController != null && tabs!.isNotEmpty;
 
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
       foregroundColor: Colors.black,
-			titleSpacing: 0,
-			title: isParent? Padding(
-			  padding: const EdgeInsets.only(left: 20),
-			  child: SizedBox(width: 180,child: CustomDropdown(hintText: 'Select child', items: studentList!)),
-			):null,
-			leading: hasBackButton
-	          ? IconButton(
-						icon: SvgPicture.asset(MediaRes.backButton),
-						onPressed: () => Navigator.maybePop(context),
-						)
-					: Builder(
-							builder: (context) => IconButton(
-								icon: SvgPicture.asset(MediaRes.hamburgerIcon),
-								onPressed: () => Scaffold.of(context).openDrawer(),
-							),
-					),
-			actions: [
-				IconButton(
-					icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
-					onPressed: () {},
-				),
-				Stack(
-					children: [
-						IconButton(
-							icon: SvgPicture.asset(MediaRes.notificationsIcon, width: 22, height: 22),
-							onPressed: () {},
-						),
-						if (notificationCount > 0)
-							Positioned(
-								right: 8,
-								top: 8,
-								child: Container(
-									padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-									decoration: BoxDecoration(
-										color: const Color.fromRGBO(179, 38, 30, 1),
-										borderRadius: BorderRadius.circular(10),
-									),
-									child: Text(
-										notificationCount > 99 ? '99+' : '$notificationCount',
-										style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
-									),
-								),
-						),
-					],
-				),
-				PopupMenuButton<int>(
-					icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
-					offset: const Offset(0, 48),
-					shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-					itemBuilder: (context) => [
-						const PopupMenuItem<int>(
-							enabled: false,
-							height: 120,
-							child: Center(
-								child: Column(
-									mainAxisSize: MainAxisSize.min,
-									children: [
-										CircleAvatar(radius: 30, child: Text('W', style: TextStyle(fontSize: 24))),
-										SizedBox(height: 8),
-										Text('WowCare', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-										Text('User', style: TextStyle(fontSize: 12, color: Colors.grey)),
-									],
-								),
-							),
-						),
-						PopupMenuItem<int>(
-							value: 1,
-            child: Row(children: const [Icon(Icons.person, color: Colors.black87), SizedBox(width: 12), Text('My Profile')]),
-						),
-						PopupMenuItem<int>(
-							value: 2,
-            child: Row(children: const [Icon(Icons.lock_outline, color: Colors.black87), SizedBox(width: 12), Text('Change Password')]),
-						),
-						PopupMenuItem<int>(
-							value: 3,
-            child: Row(children: const [Icon(Icons.help_outline, color: Colors.black87), SizedBox(width: 12), Text('Help')]),
-						),
-						PopupMenuItem<int>(
-							value: 4,
-            child: Row(children: const [Icon(Icons.logout, color: Colors.black87), SizedBox(width: 12), Text('Logout')]),
-						),
-					],
-					onSelected: (value) async {
-						switch (value) {
-							case 1:
-								// Navigate to profile if available
-								ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Profile')));
-								break;
-							case 2:
-								_showChangePasswordBottomSheet(context);
-								break;
-							case 3:
-								const url = 'https://help.childcarewow.com/portal/en/home';
-								final uri = Uri.parse(url);
-								if (await canLaunchUrl(uri)) {
-									await launchUrl(uri, mode: LaunchMode.externalApplication);
-								}
-								break;
-							case 4:
-                SignOutScreen.show(context);
-								break;
-						}
-					},
-				),
-			],
-			bottom: hasTabs
-					? PreferredSize(
-							preferredSize: Size.fromHeight(kTextTabBarHeight + 2),
-							child: Column(
-								children: [
-									Container(
-										height: 1.5,
-										decoration: BoxDecoration(
-											gradient: AppColors.buildSecondaryGradient(),
-										),
-									),
-									TabBar(
-										controller: tabController,
-										tabAlignment: tabBarStyle?.tabAlignment ?? TabAlignment.center,
-										indicator: tabBarStyle?.indicator,
-										indicatorPadding: tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
-										isScrollable: tabBarStyle?.isScrollable ?? false,
-										labelColor: tabBarStyle?.labelColor ?? Colors.black87,
-										unselectedLabelColor: tabBarStyle?.unselectedLabelColor ?? Colors.black54,
-										indicatorWeight: tabBarStyle?.indicatorWeight ?? 2,
-										indicatorSize: tabBarStyle?.indicatorSize,
-										splashFactory: NoSplash.splashFactory,
-										labelStyle: tabBarStyle?.labelStyle,
-										unselectedLabelStyle: tabBarStyle?.unselectedLabelStyle,
-										tabs: tabs!,
-									),
-								],
-							),
-			        )
-	            : PreferredSize(
-						preferredSize: const Size.fromHeight(1.5),
-						child: Container(
-							height: 1.5,
-							decoration: BoxDecoration(
-								gradient: AppColors.buildSecondaryGradient(),
-							),
-						),
-				),
-		);
-	}
+      titleSpacing: 0,
+      title: isParent
+          ? Padding(
+              padding: const EdgeInsets.only(left: 20),
+              child: SizedBox(
+                width: 180,
+                child: CustomDropdown(
+                  hintText: 'Select child',
+                  items: studentList!,
+                ),
+              ),
+            )
+          : null,
+      leading: hasBackButton
+          ? IconButton(
+              icon: SvgPicture.asset(MediaRes.backButton),
+              onPressed: () => Navigator.maybePop(context),
+            )
+          : Builder(
+              builder: (context) => IconButton(
+                icon: SvgPicture.asset(MediaRes.hamburgerIcon),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+      actions: [
+        IconButton(
+          icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
+          onPressed: () {},
+        ),
+        Stack(
+          children: [
+            IconButton(
+              icon: SvgPicture.asset(
+                MediaRes.notificationsIcon,
+                width: 22,
+                height: 22,
+              ),
+              onPressed: () {},
+            ),
+            if (notificationCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color.fromRGBO(179, 38, 30, 1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    notificationCount > 99 ? '99+' : '$notificationCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        PopupMenuButton<int>(
+          icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
+          offset: const Offset(0, 48),
+					color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          itemBuilder: (context) => [
+            PopupMenuItem<int>(
+              enabled: false,
+              height: 80,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: ProfileMenuHeader(),
+                ),
+                // child: Column(
+                //   mainAxisSize: MainAxisSize.min,
+                //   children: [
+                //     CircleAvatar(
+                //       radius: 30,
+                //       child: Text('W', style: TextStyle(fontSize: 24)),
+                //     ),
+                //     SizedBox(height: 8),
+                //     Text(
+                //       'WowCare',
+                //       style: TextStyle(
+                //         fontWeight: FontWeight.bold,
+                //         fontSize: 16,
+                //       ),
+                //     ),
+                //     Text(
+                //       'User',
+                //       style: TextStyle(fontSize: 12, color: Colors.grey),
+                //     ),
+                //   ],
+                // ),
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 1,
+              child: Row(
+                children: [
+                  Icon(Icons.account_circle_outlined, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My Profile',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 2,
+              child: Row(
+                children: [
+                  Transform.rotate(angle: -pi / 4,
+                  child: Icon(Icons.vpn_key, color: AppColors.primaryColor.withValues(alpha: 0.5))),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Sign-in pin : 5769', // hardcoded for now
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 3,
+              child: Row(
+                children: [
+                  Icon(Icons.autorenew_outlined, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Switch Profile',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 4,
+              child: Row(
+                children: [
+                  Icon(Icons.business, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Switch Organisation',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  //const Text('My Profile'),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 5,
+              child: Row(
+                children: [
+                  Icon(Icons.lock_outline, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  const SizedBox(width: 12),
+                  const Text('Change Password',
+                    style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 6,
+              child: Row(
+                children: [
+                  Icon(Icons.settings, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  SizedBox(width: 12),
+                  Text('Notification settings', style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 7,
+              child: Row(
+                children: [
+                  Icon(Icons.help_outline, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  SizedBox(width: 12),
+                  Text('Help', style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 8,
+              child: Row(
+                children: [
+                  Icon(Icons.logout, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  SizedBox(width: 12),
+                  Text('Logout', style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) async {
+            switch (value) {
+              case 1:
+                // Navigate to profile if available
+                //ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Profile')));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => UserProfileScreen()),
+                );
+                break;
+              case 5:
+                _showChangePasswordBottomSheet(context);
+                break;
+              case 6:
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => NotificationSettingsScreen()),
+                );
+                break;
+              case 7:
+                //const url = 'https://help.childcarewow.com/portal/en/home';
+                const url = 'https://help.childcarewow.com/';
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+                break;
+              case 8:
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Logout tapped')));
+                break;
+            }
+          },
+        ),
+      ],
+      bottom: hasTabs
+          ? PreferredSize(
+              preferredSize: Size.fromHeight(kTextTabBarHeight + 2),
+              child: Column(
+                children: [
+                  Container(
+                    height: 1.5,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buildSecondaryGradient(),
+                    ),
+                  ),
+                  TabBar(
+                    controller: tabController,
+                    tabAlignment:
+                        tabBarStyle?.tabAlignment ?? TabAlignment.center,
+                    indicator: tabBarStyle?.indicator,
+                    indicatorPadding:
+                        tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
+                    isScrollable: tabBarStyle?.isScrollable ?? false,
+                    labelColor: tabBarStyle?.labelColor ?? Colors.black87,
+                    unselectedLabelColor:
+                        tabBarStyle?.unselectedLabelColor ?? Colors.black54,
+                    indicatorWeight: tabBarStyle?.indicatorWeight ?? 2,
+                    indicatorSize: tabBarStyle?.indicatorSize,
+                    splashFactory: NoSplash.splashFactory,
+                    labelStyle: tabBarStyle?.labelStyle,
+                    unselectedLabelStyle: tabBarStyle?.unselectedLabelStyle,
+                    tabs: tabs!,
+                  ),
+                ],
+              ),
+            )
+          : PreferredSize(
+              preferredSize: const Size.fromHeight(1.5),
+              child: Container(
+                height: 1.5,
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildSecondaryGradient(),
+                ),
+              ),
+            ),
+    );
+  }
 }
 
 void _showChangePasswordBottomSheet(BuildContext context) {

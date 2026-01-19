@@ -153,46 +153,47 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                               children: [
                                 const SizedBox(height: 10,),
                                 // Select All
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Column(
-                                    children: [
-                                      RichText(
-                                        text: TextSpan(
-                                          style: TextStyle(
-                                            color: AppColors.primaryColor.withValues(alpha: 0.6),
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          children: [
-                                            TextSpan(text: 'Students involved'),
-                                            TextSpan(text: ' *', style: TextStyle(
+                                if(widget.isEdit)
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Column(
+                                      children: [
+                                        RichText(
+                                          text: TextSpan(
+                                            style: TextStyle(
                                               color: AppColors.primaryColor.withValues(alpha: 0.6),
                                               fontWeight: FontWeight.w500,
-                                            ),),
-                                          ],
+                                            ),
+                                            children: [
+                                              TextSpan(text: 'Students involved'),
+                                              TextSpan(text: ' *', style: TextStyle(
+                                                color: AppColors.primaryColor.withValues(alpha: 0.6),
+                                                fontWeight: FontWeight.w500,
+                                              ),),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                      SizedBox(height: 10,),
-                                      CustomCheckbox(
-                                        label: 'Select All',
-                                        value: _selectAll,
-                                        borderColor: AppColors.themeColor,
-                                        onChanged: (v) {
-                                          final newVal = v ?? false;
-                                          setState(() {
-                                            _selectAll = newVal;
-                                            if (newVal) {
-                                              _studentsToEdit = List.from(_selectedStudents);
-                                            } else {
-                                              _studentsToEdit.clear();
-                                            }
-                                          });
-                                        },
-                                      ),
-                                    ],
+                                        SizedBox(height: 10,),
+                                        CustomCheckbox(
+                                          label: 'Select All',
+                                          value: _selectAll,
+                                          borderColor: AppColors.themeColor,
+                                          onChanged: (v) {
+                                            final newVal = v ?? false;
+                                            setState(() {
+                                              _selectAll = newVal;
+                                              if (newVal) {
+                                                _studentsToEdit = List.from(_selectedStudents);
+                                              } else {
+                                                _studentsToEdit.clear();
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 12,),
+                                if(widget.isEdit) const SizedBox(height: 12,),
                                 GridView.builder(
                                   physics: const NeverScrollableScrollPhysics(),
                                   shrinkWrap: true,

@@ -46,7 +46,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
   @override
   Widget build(BuildContext context) {
     return GlobalScaffold(
-      hasBackButton: true,
+      //hasBackButton: true,
       showCustomNavigationBar: true,
       isParent: !isNotParent,
       studentList: ['Anya Mehta', 'Kabir Mehta'],// hardcoding right now, letter will be fetched from backend
