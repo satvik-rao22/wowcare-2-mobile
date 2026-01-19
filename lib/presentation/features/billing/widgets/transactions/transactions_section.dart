@@ -215,8 +215,10 @@ class _TransactionsSectionState extends State<TransactionsSection> {
             child: Center(
               child: Text(
                 'No transactions match your filters.',
-                style: AppTextStyles.title.copyWith(
+                style: TextStyle(
+                  fontFamily: 'Manrope',
                   fontSize: 15,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.primaryColor,
                 ),
               ),
