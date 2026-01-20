@@ -10,6 +10,8 @@ import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:provider/provider.dart';
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
 
@@ -27,229 +29,338 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   Widget _header() {
-    return Container(
-      margin: EdgeInsets.zero,
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 4),
-      decoration: BoxDecoration(
-        gradient: AppColors.buildPrimaryGradient(),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.white,
-            backgroundImage: AssetImage(MediaRes.logo_wow),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('WowCare',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                SizedBox(height: 2),
-                Text('Preschool Management',
-                    style: TextStyle(color: Colors.white70, fontSize: 12)),
-              ],
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, top: 16, bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(
+              backgroundColor: Colors.white,
+              radius: 28,
+              backgroundImage: AssetImage(MediaRes.logo_wow),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 14),
+                  const Text(
+                    'WowCare',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Text(
+                      'Demo School',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final roleProvider = context.watch<RoleProvider>();
+    final isParent = roleProvider.isParent;
+
     return Drawer(
-      width: MediaQuery.of(context).size.width * 0.7,
+      width: MediaQuery.of(context).size.width * 2 / 3,
       child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           gradient: AppColors.buildPrimaryGradient(),
         ),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _header(),
-              const Divider(color: Colors.white, thickness: 0.3, indent: 8, endIndent: 8),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  children: [
-                    _CustomExpansionTile(
-                      title: 'Dashboard',
-                      icon: MediaRes.dashboardIcon,
-                      isDashboard: true,
-                      isCurrentRoute: _currentRoute == DashboardScreen.routeName,
-                      onTap: () {
-                        Navigator.pop(context);
-                        if (_currentRoute != DashboardScreen.routeName) {
-                          Navigator.pushNamed(context, DashboardScreen.routeName);
-                        }
-                      },
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Classrooms',
-                      icon: MediaRes.classroom_drawer_icon,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const ClassroomScreen()),
-                        );                      
-                      },
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Students',
-                      icon: MediaRes.students_drawer_icon,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => StudentScreen()),
-                        );
-                      },
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Staff',
-                      icon: MediaRes.staffs_drawer_icon,
-                      isCurrentRoute: _currentRoute == StaffScreen.routeName,
-                      onTap: () {
-                        Navigator.pop(context);
-                        if (_currentRoute != StaffScreen.routeName) {
-                          Navigator.pushNamed(context, StaffScreen.routeName);
-                        }
-                      },
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Attendance',
-                      icon: MediaRes.attendanceIcon,
-                      isExpansionEnabled: true,
-                      children: [
-                        DrawerListTile(
-                          title: 'Student Attendance',
-                          leading: SvgPicture.asset(
-                            MediaRes.studentAttendanceDrawer,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
+        child: Column(
+          children: [
+            _header(),
+            const Divider(
+              color: Colors.white,
+              thickness: 0.3,
+              indent: 8,
+              endIndent: 8,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Column(
+                    children: [
+                      _CustomExpansionTile(
+                        title: 'Dashboard',
+                        icon: MediaRes.dashboardIcon,
+                        isDashboard: true,
+                        isCurrentRoute: _currentRoute == DashboardScreen.routeName,
+                        onTap: () {
+                          Navigator.pop(context);
+                          if (_currentRoute != DashboardScreen.routeName) {
+                            Navigator.pushNamed(context, DashboardScreen.routeName);
+                          }
+                        },
+                      ),
+                      if (isParent) ...[
+                        // Parent-specific menu items
+                        _CustomExpansionTile(
+                          title: 'My Child',
+                          icon: MediaRes.students_drawer_icon,
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const StudentScreen()),
+                            );
                           },
                         ),
-                        DrawerListTile(
-                          title: 'Staff Attendance',
-                          leading: SvgPicture.asset(
-                            MediaRes.staffAttendanceDrawer,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
+                        _CustomExpansionTile(
+                          title: 'Attendance',
+                          icon: MediaRes.attendanceIcon,
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+                            );
                           },
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Activities',
+                          icon: MediaRes.activitesIcon,
+                          isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != ActivityFeedScreen.routeName) {
+                              Navigator.pushNamed(context, ActivityFeedScreen.routeName);
+                            }
+                          },
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Communication',
+                          icon: MediaRes.communicationIcon,
+                          isExpansionEnabled: true,
+                          children: [
+                            DrawerListTile(
+                              title: 'Messaging',
+                              leading: SvgPicture.asset(
+                                MediaRes.parentMessaging,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+                                );
+                              },
+                            ),
+                            DrawerListTile(
+                              title: 'Newsletter',
+                              leading: SvgPicture.asset(
+                                MediaRes.newsletter,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Billing',
+                          icon: MediaRes.billing_drawer_icon,
+                          isCurrentRoute: _currentRoute == BillingScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != BillingScreen.routeName) {
+                              Navigator.pushNamed(context, BillingScreen.routeName);
+                            }
+                          },
+                        ),
+                      ] else ...[
+                        // Admin menu items
+                        _CustomExpansionTile(
+                          title: 'Classrooms',
+                          icon: MediaRes.classroom_drawer_icon,
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const ClassroomScreen()),
+                            );                      
+                          },
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Students',
+                          icon: MediaRes.students_drawer_icon,
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => StudentScreen()),
+                            );
+                          },
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Staff',
+                          icon: MediaRes.staffs_drawer_icon,
+                          isCurrentRoute: _currentRoute == StaffScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != StaffScreen.routeName) {
+                              Navigator.pushNamed(context, StaffScreen.routeName);
+                            }
+                          },
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Attendance',
+                          icon: MediaRes.attendanceIcon,
+                          isExpansionEnabled: true,
+                          children: [
+                            DrawerListTile(
+                              title: 'Student Attendance',
+                              leading: SvgPicture.asset(
+                                MediaRes.studentAttendanceDrawer,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                              },
+                            ),
+                            DrawerListTile(
+                              title: 'Staff Attendance',
+                              leading: SvgPicture.asset(
+                                MediaRes.staffAttendanceDrawer,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                              },
+                            ),
+                          ],
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Activities',
+                          icon: MediaRes.activitesIcon,
+                          isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if(_currentRoute != ActivityFeedScreen.routeName){
+                              Navigator.pushNamed(context, ActivityFeedScreen.routeName);
+                            }
+                          },
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Communication',
+                          icon: MediaRes.communicationIcon,
+                          isExpansionEnabled: true,
+                          children: [
+                            DrawerListTile(
+                              title: 'Staff Messaging',
+                              leading: SvgPicture.asset(
+                                MediaRes.staffMessaging,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                              },
+                            ),
+                            DrawerListTile(
+                              title: 'Parent Messaging',
+                              leading: SvgPicture.asset(
+                                MediaRes.parentMessaging,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                              },
+                            ),
+                            DrawerListTile(
+                              title: 'Newsletter',
+                              leading: SvgPicture.asset(
+                                MediaRes.newsletter,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                              },
+                            ),
+                          ],
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Billing',
+                          icon: MediaRes.billing_drawer_icon,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != BillingScreen.routeName) {
+                              Navigator.pushNamed(context, BillingScreen.routeName);
+                            }
+                          },
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Settings',
+                          icon: MediaRes.settings_drawer_Blue,
+                          isExpansionEnabled: true,
+                          children: [
+                            DrawerListTile(
+                              title: 'Privacy Policy',
+                              leading: SvgPicture.asset(
+                                MediaRes.settings_drawer_Blue,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {},
+                            ),
+                            DrawerListTile(
+                              title: 'Terms & Conditions',
+                              leading: SvgPicture.asset(
+                                MediaRes.settings_drawer_Blue,
+                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                              ),
+                              onTap: () {},
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Activities',
-                      icon: MediaRes.activitesIcon,
-                      isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
-                      onTap: () {
-                        Navigator.pop(context);
-                        if(_currentRoute != ActivityFeedScreen.routeName){
-                          Navigator.pushNamed(context, ActivityFeedScreen.routeName);
-                        }
-                        //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
-                        //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityFeedScreen()));
-                      },
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Communication',
-                      icon: MediaRes.communicationIcon,
-                      isExpansionEnabled: true,
-                      children: [
-                        DrawerListTile(
-                          title: 'Staff Messaging',
-                          leading: SvgPicture.asset(
-                            MediaRes.staffMessaging,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
-                          },
-                        ),
-                        DrawerListTile(
-                          title: 'Parent Messaging',
-                          leading: SvgPicture.asset(
-                            MediaRes.parentMessaging,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
-                          },
-                        ),
-                        DrawerListTile(
-                          title: 'Newsletter',
-                          leading: SvgPicture.asset(
-                            MediaRes.newsletter,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
-                          },
-                        ),
-                      ],
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Billing',
-                      icon: MediaRes.billing_drawer_icon,
-                      onTap: () {
-                        Navigator.pop(context);
-                        if (_currentRoute != BillingScreen.routeName) {
-                          Navigator.pushNamed(context, BillingScreen.routeName);
-                        }
-                      },
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Settings',
-                      icon: MediaRes.settings_drawer_Blue,
-                      isExpansionEnabled: true,
-                      children: [
-                        DrawerListTile(
-                          title: 'Privacy Policy',
-                          leading: SvgPicture.asset(
-                            MediaRes.settings_drawer_Blue,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
-                          onTap: () {},
-                        ),
-                        DrawerListTile(
-                          title: 'Terms & Conditions',
-                          leading: SvgPicture.asset(
-                            MediaRes.settings_drawer_Blue,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                    const Divider(color: Colors.white24),
-                    _CustomExpansionTile(
-                      title: 'Logout',
-                      icon: MediaRes.logout,
-                      onTap: () {
-                        Navigator.pop(context);
-                        SignOutScreen.show(context);
-                      },
-                    ),
-                  ],
+                      _CustomExpansionTile(
+                        title: 'Logout',
+                        icon: MediaRes.logout,
+                        onTap: () {
+                          Navigator.pop(context);
+                          SignOutScreen.show(context);
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      const Text(
+                        "Version : 1.3.9",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

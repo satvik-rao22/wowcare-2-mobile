@@ -169,6 +169,8 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:provider/provider.dart';
 
 class GlobalScaffold extends StatelessWidget {
   const GlobalScaffold({
@@ -190,10 +192,17 @@ class GlobalScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final roleProvider = context.watch<RoleProvider>();
+    final isParentRole = roleProvider.isParent;
+    
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        appBar: CustomAppBar(hasBackButton: hasBackButton, isParent: isParent, studentList: studentList,),
+        appBar: CustomAppBar(
+          hasBackButton: hasBackButton,
+          isParent: isParentRole || isParent,
+          studentList: studentList,
+        ),
         drawer: const CustomDrawer(),
         drawerEnableOpenDragGesture: false,
         body: SafeArea(
