@@ -67,6 +67,7 @@ class _MessagingTabState extends State<MessagingTab> with SingleTickerProviderSt
       child: Column(
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
                 child: TabBar(

@@ -6,12 +6,16 @@ class CustomSearchBar extends StatefulWidget {
     required this.controller,
     required this.hintText,
     this.onChanged,
+    this.searchBarColor,
+    this.borderColor,
     super.key,
   });
 
   final TextEditingController controller;
   final String hintText;
   final Function(String)? onChanged;
+  final WidgetStateProperty<Color>? searchBarColor;
+  final Color? borderColor;
 
   @override
   State<CustomSearchBar> createState() => _CustomSearchBarState();
@@ -33,7 +37,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
           maxHeight: 44,
         ),
         elevation: const WidgetStatePropertyAll(0),
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        backgroundColor: widget.searchBarColor ?? const WidgetStatePropertyAll(Colors.white),
         hintText: widget.hintText,
         onChanged: widget.onChanged,
         hintStyle: WidgetStatePropertyAll(
@@ -53,7 +57,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: AppColors.primaryColor.withValues(alpha: 0.2),
+              color: widget.borderColor ?? AppColors.primaryColor.withValues(alpha: 0.2),
               width: 1.2,
             ),
           ),

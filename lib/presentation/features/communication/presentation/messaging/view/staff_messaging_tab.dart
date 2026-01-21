@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
+import '../../../../../../app/theme/media_res.dart';
+import '../../../../../../shared/common/views/filter_screen.dart';
+import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
+import '../../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StaffMessagingTab extends StatefulWidget {
@@ -13,6 +20,9 @@ class StaffMessagingTab extends StatefulWidget {
 }
 
 class _StaffMessagingTabState extends State<StaffMessagingTab> {
+  final TextEditingController _searchController = TextEditingController();
+  Map<String, List<String>> _currentFilters = {};
+  bool _showUnread = false;
 
   final List<Map<String, dynamic>> staffList = [
     {
@@ -107,6 +117,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
 
   ];
 
+  late List<Map<String, dynamic>> _filteredStaffList;
+
   String _formatMessageTime(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -137,113 +149,240 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: Container(
-          color: Colors.white,
-          height: 200,
-        ),),
+        SliverToBoxAdapter(child: const SizedBox(height: 15,),),
+        // search bar and filter icon as well as clear all button and unread messages toggle
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0x33B1AFE9),
+                      ),
+                      child: CustomSearchBar(
+                        controller: _searchController,
+                        hintText: 'Search Staff',
+                        searchBarColor: WidgetStatePropertyAll(Colors.transparent),
+                        borderColor: Colors.transparent,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FilterScreen(
+                                sections: [
+                                  FilerSection(
+                                      label: 'Classroom',
+                                      hintText: 'Select classroom',
+                                      items: ['1-Blue D', '3-Orange-D', '2-Red A'],
+                                      initialSelected: _currentFilters['Classroom'] ?? [],
+                                      isMultiSelectDropDown: true
+                                  ),
+                                  FilerSection(
+                                    label: 'Status',
+                                    hintText: 'Select status',
+                                    items: ['Active', 'Upcoming'],
+                                    initialSelected: _currentFilters['Status'] ?? [],
+                                    isSingleSelect: true
+                                  ),
+                                  FilerSection(
+                                      label: 'Designation',
+                                      hintText: 'Select designation',
+                                      items:  [
+                                        'Kiosk',
+                                        'Director',
+                                        'Assistant Director',
+                                        'Admin',
+                                        'Lead Teacher',
+                                        'Associate Teacher',
+                                        'Assistant Teacher',
+                                        'Owner',
+                                        'Floater'
+                                      ],
+                                      isMultiSelectDropDown: true,
+                                      initialSelected: _currentFilters['Designation'] ?? []
+                                  ),
 
-        SliverToBoxAdapter(child: const SizedBox(height: 10)),
+                                ],
+                                onApply: (filters) {
+                                  setState(() {
+                                    _currentFilters = filters;
+                                  });
+
+                                }
+                            ),
+                          ),
+                        );
+                        if (!mounted) return;
+                        if (result is Map) {
+                          // TODO: apply filters to list
+                          setState(() {});
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(100),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: SvgPicture.asset(MediaRes.filterIcon, height: 20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10,),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 5.0),
+                    child: CustomToggle(
+                      label: 'Show Only Unread',
+                      isToggled: _showUnread,
+                      onToggle: (v) => setState(() => _showUnread = v),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                    child: CustomClearAllChip(onTap: () {  },),
+                  ),
+
+              ],)
+            ],
+          ),
+        ),
+        // SliverToBoxAdapter(
+        //     child: Column(
+        //       children: [
+        //         Row(
+        //           children: [
+        //             Expanded(
+        //                 child: CustomSearchBar(
+        //                     controller: _searchController, hintText: 'Search Staff',
+        //                     searchBarColor: WidgetStatePropertyAll(Color(0xB1AFE933)),
+        //                     borderColor: Colors.transparent,
+        //                 )
+        //             ),
+        //           ],
+        //         )
+        //       ],
+        //     )
+        // ),
+
+        SliverToBoxAdapter(child: const SizedBox(height: 15)),
 
         SliverList(
           delegate: SliverChildBuilderDelegate(
                 (context, index) {
               final staff = staffList[index];
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: const Border(
-                    bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+              return InkWell(
+                onTap: (){
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffMessagingThread(staffInfo: staff)));
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: const Border(
+                      bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+                    ),
                   ),
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  leading: Stack(
-                    children: [
-                      DocumentImageWidget(
-                        fileUuid: staff['avatar'],
-                        name: staff['name'],
-                        size: 45,
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color:  staff['isSigned']
-                                ? const Color.fromRGBO(0, 177, 21, 1)
-                                : Colors.transparent,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: staff['isSigned'] ? Colors.white : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    leading: Stack(
+                      children: [
+                        DocumentImageWidget(
+                          fileUuid: staff['avatar'],
+                          name: staff['name'],
+                          size: 45,
                         ),
-                      ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color:  staff['isSigned']
+                                  ? const Color.fromRGBO(0, 177, 21, 1)
+                                  : Colors.transparent,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: staff['isSigned'] ? Colors.white : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
 
-                    ],
-                  ),
-                  title: CustomTextWidget(
-                    text: staff['name'],
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                  subtitle: Text(
-                    staff['message'],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Color(0x8041414E)),
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            color: Color(0x8041414E),
                           ),
-                          const SizedBox(width: 4,),
-                          Text(
-                            staff['dateTime'] != null
-                                ? _formatMessageTime(staff['dateTime'] as DateTime)
-                                : '—',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0x8041414E)
-                              //color: Colors.grey[600],
+                        ),
+
+                      ],
+                    ),
+                    title: CustomTextWidget(
+                      text: staff['name'],
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                    subtitle: Text(
+                      staff['message'],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Color(0x8041414E)),
+                    ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.access_time,
+                              color: Color(0x8041414E),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      if (staff['unreadCount'] != null && staff['unreadCount'] > 0)
-                        Container(
-                          width: 20,
-                          height: 20,
-                          alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            staff['unreadCount'].toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                            const SizedBox(width: 4,),
+                            Text(
+                              staff['dateTime'] != null
+                                  ? _formatMessageTime(staff['dateTime'] as DateTime)
+                                  : '—',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0x8041414E)
+                                //color: Colors.grey[600],
+                              ),
                             ),
-                          ),
-                        )
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        if (staff['unreadCount'] != null && staff['unreadCount'] > 0)
+                          Container(
+                            width: 20,
+                            height: 20,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              staff['unreadCount'].toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                      ],
+                    ),
                   ),
                 ),
               );
