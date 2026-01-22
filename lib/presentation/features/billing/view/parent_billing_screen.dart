@@ -135,6 +135,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   Widget _builtRangeSelector() {
     return Card(
       elevation: 0,
+      color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
@@ -152,7 +153,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 AppText.label(
                   'Select Date Range',
                   style: AppTextStyles.label.copyWith(
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    color: AppColors.billingGreyMedium,
                   ),
                 ),
               ],
@@ -175,11 +176,11 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   }
 
   Widget _builtStudentGridSkeleton() {
-    return Container(
-      color: AppColors.cardColor,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Card(
         elevation: 0,
+        color: AppColors.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
@@ -223,19 +224,21 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                             children: [
                               AppText.value(
                                 item['name'] ?? '',
-                                maxLines: 2,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.value.copyWith(
                                   color: AppColors.primaryColor,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               AppText.value(
                                 item['room'] ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.value.copyWith(
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   color: AppColors.primaryColor,
                                 ),
                               ),
@@ -250,108 +253,108 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               const SizedBox(height: 10),
               // Balance and payment buttons
               Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: Column(
                 children: [
-                  Text(
-                    '\$0.00',
-                    style: AppTextStyles.title.copyWith(
-                      color: AppColors.themeColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Current\nBalance',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.title.copyWith(
-                      color: AppColors.primaryColor.withValues(alpha: 0.8),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 3,
-              child: _isPaymentLoading
-                  ? Container(
-                      height: 45,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          valueColor:
-                              const AlwaysStoppedAnimation<Color>(AppColors.cardColor),
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
+                  Expanded(
+                    flex: 2,
+                    child: Column(
                       children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: CustomFloatingTextButton(
-                            height: 45,
-                            onPressed: () async {
-                              if (_isPaymentLoading) return;
-                              setState(() => _isPaymentLoading = true);
-                              await Future<void>.delayed(
-                                const Duration(milliseconds: 250),
-                              );
-                              if (!mounted) return;
-                              setState(() => _isPaymentLoading = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Pay Now (parent)'),
-                                ),
-                              );
-                            },
-                            label: 'Pay Now',
-                            textStyle: AppTextStyles.button(
-                              color: AppColors.themeColor,
-                            ).copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            isFilled: false,
+                        Text(
+                          '\$0.00',
+                          style: AppTextStyles.title.copyWith(
+                            color: AppColors.themeColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: CustomFloatingTextButton(
-                            height: 45,
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Auto Pay (parent)'),
-                                ),
-                              );
-                            },
-                            label: 'Auto Pay',
-                            textStyle: AppTextStyles.button(
-                              color: AppColors.themeColor,
-                            ).copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            isFilled: false,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Current\nBalance',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.title.copyWith(
+                            color: AppColors.primaryColor.withValues(alpha: 0.8),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-            ),
-          ],
-        ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 3,
+                    child: _isPaymentLoading
+                        ? Container(
+                            height: 45,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.buildPrimaryGradient(),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                valueColor:
+                                    const AlwaysStoppedAnimation<Color>(AppColors.cardColor),
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                child: CustomFloatingTextButton(
+                                  height: 45,
+                                  onPressed: () async {
+                                    if (_isPaymentLoading) return;
+                                    setState(() => _isPaymentLoading = true);
+                                    await Future<void>.delayed(
+                                      const Duration(milliseconds: 250),
+                                    );
+                                    if (!mounted) return;
+                                    setState(() => _isPaymentLoading = false);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Pay Now (parent)'),
+                                      ),
+                                    );
+                                  },
+                                  label: 'Pay Now',
+                                  textStyle: AppTextStyles.button(
+                                    color: AppColors.themeColor,
+                                  ).copyWith(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  isFilled: false,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: CustomFloatingTextButton(
+                                  height: 45,
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Auto Pay (parent)'),
+                                      ),
+                                    );
+                                  },
+                                  label: 'Auto Pay',
+                                  textStyle: AppTextStyles.button(
+                                    color: AppColors.themeColor,
+                                  ).copyWith(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  isFilled: false,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -393,18 +396,13 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 ],
               ),
             ),
-            // White background container for sibling cards and date range
-            Container(
-              width: double.infinity,
-              color: AppColors.cardColor,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Column(
-                children: [
-                  _builtStudentGridSkeleton(),
-                  const SizedBox(height: 15),
-                  _builtRangeSelector(),
-                ],
-              ),
+            // Sibling cards and date range
+            Column(
+              children: [
+                _builtStudentGridSkeleton(),
+                const SizedBox(height: 15),
+                _builtRangeSelector(),
+              ],
             ),
             const SizedBox(height: 15),
             // Transaction list below
@@ -517,5 +515,3 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
     );
   }
 }
-
-

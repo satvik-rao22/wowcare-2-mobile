@@ -41,6 +41,7 @@ class ParentTransactionCard extends StatelessWidget {
 
   Widget _buildPaymentTile() {
     return ExpansionTile(
+      controlAffinity: ListTileControlAffinity.trailing,
       title: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,30 +70,45 @@ class ParentTransactionCard extends StatelessWidget {
               color: AppColors.primaryColor,
               fontWeight: FontWeight.w500,
             ),
-            textAlign: TextAlign.end,
           ),
         ],
       ),
-      trailing: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            '\$${transaction.amount.toStringAsFixed(2)}',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 20,
-              color: AppColors.primaryColor,
+      trailing: Padding(
+        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '\$${transaction.amount.toStringAsFixed(2)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 20,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Paid On: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 14,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Paid On: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 14,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+      iconColor: Colors.transparent,
+      collapsedIconColor: Colors.transparent,
       backgroundColor: AppColors.cardColor,
       collapsedBackgroundColor: AppColors.cardColor,
       collapsedShape: RoundedRectangleBorder(
@@ -110,7 +126,7 @@ class ParentTransactionCard extends StatelessWidget {
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
         Divider(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
+          color: AppColors.billingDividerColor,
         ),
         const SizedBox(height: 5),
         Row(
@@ -169,7 +185,10 @@ class ParentTransactionCard extends StatelessWidget {
                   // TODO: Navigate to receipt view
                 },
                 label: 'View Receipt',
-                textStyle: AppTextStyles.button(),
+                textStyle: AppTextStyles.button(
+                  color: AppColors.billingButtonTextColor,
+                ),
+                isFilled: true,
               ),
             ),
           ],
@@ -180,6 +199,7 @@ class ParentTransactionCard extends StatelessWidget {
 
   Widget _buildInvoiceTile() {
     return ExpansionTile(
+      controlAffinity: ListTileControlAffinity.trailing,
       title: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,30 +228,45 @@ class ParentTransactionCard extends StatelessWidget {
               color: AppColors.primaryColor,
               fontWeight: FontWeight.w500,
             ),
-            textAlign: TextAlign.end,
           ),
         ],
       ),
-      trailing: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            '\$${transaction.amount.toStringAsFixed(2)}',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 20,
-              color: AppColors.primaryColor,
+      trailing: Padding(
+        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '\$${transaction.amount.toStringAsFixed(2)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 20,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Due Date: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 14,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Due Date: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 14,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+      iconColor: Colors.transparent,
+      collapsedIconColor: Colors.transparent,
       backgroundColor: AppColors.cardColor,
       collapsedBackgroundColor: AppColors.cardColor,
       collapsedShape: RoundedRectangleBorder(
@@ -249,7 +284,7 @@ class ParentTransactionCard extends StatelessWidget {
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
         Divider(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
+          color: AppColors.billingDividerColor,
         ),
         const SizedBox(height: 5),
         Row(
@@ -341,7 +376,10 @@ class ParentTransactionCard extends StatelessWidget {
                   // TODO: Navigate to invoice view
                 },
                 label: 'View Invoice',
-                textStyle: AppTextStyles.button(),
+                textStyle: AppTextStyles.button(
+                  color: AppColors.billingButtonTextColor,
+                ),
+                isFilled: true,
               ),
             ),
           ],
@@ -352,6 +390,7 @@ class ParentTransactionCard extends StatelessWidget {
 
   Widget _buildRefundTile() {
     return ExpansionTile(
+      controlAffinity: ListTileControlAffinity.trailing,
       title: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,30 +419,45 @@ class ParentTransactionCard extends StatelessWidget {
               color: AppColors.primaryColor,
               fontWeight: FontWeight.w500,
             ),
-            textAlign: TextAlign.end,
           ),
         ],
       ),
-      trailing: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            '\$${transaction.amount.toStringAsFixed(2)}',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 20,
-              color: AppColors.primaryColor,
+      trailing: Padding(
+        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '\$${transaction.amount.toStringAsFixed(2)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 20,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Paid On: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 14,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Paid On: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 14,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+      iconColor: Colors.transparent,
+      collapsedIconColor: Colors.transparent,
       backgroundColor: AppColors.cardColor,
       collapsedBackgroundColor: AppColors.cardColor,
       collapsedShape: RoundedRectangleBorder(
@@ -421,7 +475,7 @@ class ParentTransactionCard extends StatelessWidget {
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
         Divider(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
+          color: AppColors.billingDividerColor,
         ),
         const SizedBox(height: 5),
         Row(
