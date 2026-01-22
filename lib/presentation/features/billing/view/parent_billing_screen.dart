@@ -491,12 +491,78 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
         children: [
           Container(
             color: AppColors.cardColor,
-            child: TabBar(
-              labelColor: AppColors.themeColor,
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Billing'),
-                Tab(text: 'Statements'),
+            child: Column(
+              children: [
+                TabBar(
+                  labelColor: AppColors.themeColor,
+                  unselectedLabelColor: AppColors.primaryColor.withValues(alpha: 0.6),
+                  controller: _tabController,
+                  dividerColor: Colors.transparent,
+                  indicatorColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  tabs: const [
+                    Tab(text: 'Billing'),
+                    Tab(text: 'Statements'),
+                  ],
+                ),
+                // Custom gradient indicator line positioned below tabs
+                SizedBox(
+                  height: 2.5,
+                  child: AnimatedBuilder(
+                    animation: _tabController.animation ?? const AlwaysStoppedAnimation(0),
+                    builder: (context, child) {
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final tabWidth = screenWidth / 2;
+                      
+                      // Get text width using default TabBar text style
+                      final defaultTextStyle = DefaultTextStyle.of(context).style;
+                      final textStyle = defaultTextStyle.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      );
+                      
+                      final billingText = TextPainter(
+                        text: TextSpan(text: 'Billing', style: textStyle),
+                        textDirection: TextDirection.ltr,
+                      )..layout();
+                      
+                      final statementsText = TextPainter(
+                        text: TextSpan(text: 'Statements', style: textStyle),
+                        textDirection: TextDirection.ltr,
+                      )..layout();
+                      
+                      // Smooth animation between tabs
+                      final animationValue = _tabController.animation?.value ?? 0.0;
+                      
+                      // Interpolate between text widths
+                      final currentTextWidth = (statementsText.size.width - billingText.size.width) * animationValue + billingText.size.width;
+                      
+                      // Calculate center position for each tab
+                      final billingCenter = tabWidth / 2;
+                      final statementsCenter = tabWidth + tabWidth / 2;
+                      
+                      // Interpolate between centers
+                      final currentCenter = (statementsCenter - billingCenter) * animationValue + billingCenter;
+                      
+                      final leftOffset = currentCenter - currentTextWidth / 2;
+                      
+                      return Stack(
+                        children: [
+                          Positioned(
+                            left: leftOffset,
+                            width: currentTextWidth,
+                            child: Container(
+                              height: 2.5,
+                              decoration: BoxDecoration(
+                                gradient: AppColors.buildPrimaryGradient(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           ),

@@ -283,10 +283,6 @@ class ParentTransactionCard extends StatelessWidget {
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
-        const SizedBox(height: 5),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
