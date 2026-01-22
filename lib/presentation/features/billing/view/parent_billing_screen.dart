@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_floating_text_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
+import 'package:wowcare/presentation/features/billing/widgets/parent_statements_tab.dart';
 
 /// Parent Billing UI (ported layout from legacy `lib copy/.../billing_screen.dart`).
 ///
@@ -176,189 +176,31 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   }
 
   Widget _builtStudentGridSkeleton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Card(
-        elevation: 0,
-        color: AppColors.cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: AppColors.primaryColor.withValues(alpha: 0.1),
+    return SiblingCardsWidget(
+      siblings: _demoSiblings,
+      currentBalance: 0.0, // TODO: Calculate from actual data
+      isPaymentLoading: _isPaymentLoading,
+      onPayNow: () async {
+        if (_isPaymentLoading) return;
+        setState(() => _isPaymentLoading = true);
+        await Future<void>.delayed(
+          const Duration(milliseconds: 250),
+        );
+        if (!mounted) return;
+        setState(() => _isPaymentLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pay Now (parent)'),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            children: [
-              // Student grid - 2 columns like original
-              GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 0,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 2,
-                ),
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _demoSiblings.length,
-                shrinkWrap: true,
-                itemBuilder: (context, index) {
-                  final item = _demoSiblings[index];
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DocumentImageWidget(
-                          fileUuid: '',
-                          name: item['name'] ?? '',
-                          size: 30,
-                          fontSize: 12,
-                        ),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AppText.value(
-                                item['name'] ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.value.copyWith(
-                                  color: AppColors.primaryColor,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              AppText.value(
-                                item['room'] ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.value.copyWith(
-                                  fontSize: 12,
-                                  color: AppColors.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 10),
-              // Balance and payment buttons
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      children: [
-                        Text(
-                          '\$0.00',
-                          style: AppTextStyles.title.copyWith(
-                            color: AppColors.themeColor,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Current\nBalance',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.title.copyWith(
-                            color: AppColors.primaryColor.withValues(alpha: 0.8),
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 3,
-                    child: _isPaymentLoading
-                        ? Container(
-                            height: 45,
-                            decoration: BoxDecoration(
-                              gradient: AppColors.buildPrimaryGradient(),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                valueColor:
-                                    const AlwaysStoppedAnimation<Color>(AppColors.cardColor),
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          )
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: double.infinity,
-                                child: CustomFloatingTextButton(
-                                  height: 45,
-                                  onPressed: () async {
-                                    if (_isPaymentLoading) return;
-                                    setState(() => _isPaymentLoading = true);
-                                    await Future<void>.delayed(
-                                      const Duration(milliseconds: 250),
-                                    );
-                                    if (!mounted) return;
-                                    setState(() => _isPaymentLoading = false);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Pay Now (parent)'),
-                                      ),
-                                    );
-                                  },
-                                  label: 'Pay Now',
-                                  textStyle: AppTextStyles.button(
-                                    color: AppColors.themeColor,
-                                  ).copyWith(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  isFilled: false,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: CustomFloatingTextButton(
-                                  height: 45,
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Auto Pay (parent)'),
-                                      ),
-                                    );
-                                  },
-                                  label: 'Auto Pay',
-                                  textStyle: AppTextStyles.button(
-                                    color: AppColors.themeColor,
-                                  ).copyWith(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  isFilled: false,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ],
-              ),
-            ],
+        );
+      },
+      onAutoPay: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Auto Pay (parent)'),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -459,28 +301,18 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   }
 
   Widget _buildStatementsTab() {
-    // UI-only placeholder matching the two-tab structure.
-    return CustomRefreshIndicator(
-      onRefresh: _refresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
-        children: [
-          AppText.title(
-            'Statements',
-            style: AppTextStyles.title.copyWith(
-              color: AppColors.primaryColor.withValues(alpha: 0.9),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Statements UI will appear here once connected to your billing data source.',
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.primaryColor.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
+    return ParentStatementsTab(
+      familyChildren: _demoSiblings.map((sibling) {
+        return {
+          'id': sibling.hashCode,
+          'name': sibling['name'],
+          'fullName': sibling['name'],
+          'room': sibling['room'],
+          'roomName': sibling['room'],
+        };
+      }).toList(),
+      customStartDate: _startDate,
+      customEndDate: _endDate,
     );
   }
 
