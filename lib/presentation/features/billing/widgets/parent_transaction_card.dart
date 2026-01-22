@@ -283,9 +283,12 @@ class ParentTransactionCard extends StatelessWidget {
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
+        Divider(
+          color: AppColors.billingDividerColor,
+        ),
+        const SizedBox(height: 5),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Student Name',
@@ -293,9 +296,7 @@ class ParentTransactionCard extends StatelessWidget {
                 fontSize: 14,
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
               ),
-              textAlign: TextAlign.end,
             ),
-            const SizedBox(height: 5),
             Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -309,7 +310,7 @@ class ParentTransactionCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Flexible(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
@@ -321,6 +322,7 @@ class ParentTransactionCard extends StatelessWidget {
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
+                        textAlign: TextAlign.end,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -329,6 +331,7 @@ class ParentTransactionCard extends StatelessWidget {
                           fontSize: 13,
                           color: AppColors.primaryColor,
                         ),
+                        textAlign: TextAlign.end,
                       ),
                     ],
                   ),

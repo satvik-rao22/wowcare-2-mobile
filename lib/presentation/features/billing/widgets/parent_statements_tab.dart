@@ -205,71 +205,86 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
 
     return CustomRefreshIndicator(
       onRefresh: _refresh,
-      child: ListView(
+      child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: [
-          AppText.title(
-            'Statements',
-            style: AppTextStyles.title.copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ParentStatementsWidget(
-            isLoading: _isGenerating,
-            familyChildren: formattedChildren,
-            currentBalance: currentBalance,
-            onGenerate: _onGenerate,
-          ),
-          const SizedBox(height: 16),
-          _buildDateFilterCard(),
-          const SizedBox(height: 30),
-          // Statements list
-          if (_isStatementsLoading)
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
             const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: CircularProgressIndicator(),
+              padding: EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  AppText.title('Statements'),
+                ],
               ),
-            )
-          else if (filteredStatements.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.description_outlined,
-                      size: 48,
-                      color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: 16),
-                    AppText.value('No statements found'),
-                    const SizedBox(height: 8),
-                    Text(
-                      _customStartDate != null && _customEndDate != null
-                          ? 'No statements available for the selected date range'
-                          : 'No statements available',
-                      style: AppTextStyles.body.copyWith(
-                        color: AppColors.primaryColor.withValues(alpha: 0.7),
+            ),
+            // Sibling cards and balance - matching billing tab structure
+            Column(
+              children: [
+                ParentStatementsWidget(
+                  isLoading: _isGenerating,
+                  familyChildren: formattedChildren,
+                  currentBalance: currentBalance,
+                  onGenerate: _onGenerate,
+                ),
+                const SizedBox(height: 15),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: _buildDateFilterCard(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            // Statements list
+            if (_isStatementsLoading)
+              const Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (filteredStatements.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.description_outlined,
+                        size: 48,
+                        color: AppColors.primaryColor.withValues(alpha: 0.5),
                       ),
-                      textAlign: TextAlign.center,
+                      const SizedBox(height: 16),
+                      AppText.value('No statements found'),
+                      const SizedBox(height: 8),
+                      Text(
+                        _customStartDate != null && _customEndDate != null
+                            ? 'No statements available for the selected date range'
+                            : 'No statements available',
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.primaryColor.withValues(alpha: 0.7),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Column(
+                  children: filteredStatements.map(
+                    (statement) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: ParentStatementCard(statement: statement),
                     ),
-                  ],
+                  ).toList(),
                 ),
               ),
-            )
-          else
-            ...filteredStatements.map(
-              (statement) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: ParentStatementCard(statement: statement),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

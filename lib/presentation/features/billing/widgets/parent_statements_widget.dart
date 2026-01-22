@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Widget displaying siblings, current balance, and generate button
 class ParentStatementsWidget extends StatelessWidget {
@@ -32,14 +33,15 @@ class ParentStatementsWidget extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorderColor, width: 1),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+        ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -61,17 +63,11 @@ class ParentStatementsWidget extends StatelessWidget {
 
               return Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.primaryColor.withValues(alpha: 0.15),
-                    child: Text(
-                      _getInitials(name),
-                      style: AppTextStyles.value.copyWith(
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
+                  DocumentImageWidget(
+                    fileUuid: '',
+                    name: name,
+                    size: 30,
+                    fontSize: 12,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -155,14 +151,8 @@ class ParentStatementsWidget extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
-  }
-
-  String _getInitials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 }
 

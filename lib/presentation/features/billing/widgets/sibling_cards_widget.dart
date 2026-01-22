@@ -35,65 +35,61 @@ class SiblingCardsWidget extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(24.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Student grid - 2 columns
               GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  mainAxisSpacing: 0,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 2,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 20,
+                  childAspectRatio: 3.5,
                 ),
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: siblings.length,
                 shrinkWrap: true,
                 itemBuilder: (context, index) {
                   final item = siblings[index];
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DocumentImageWidget(
-                          fileUuid: '',
-                          name: item['name'] ?? '',
-                          size: 30,
-                          fontSize: 12,
-                        ),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AppText.value(
-                                item['name'] ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.value.copyWith(
-                                  color: AppColors.primaryColor,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                  return Row(
+                    children: [
+                      DocumentImageWidget(
+                        fileUuid: '',
+                        name: item['name'] ?? '',
+                        size: 30,
+                        fontSize: 12,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppText.value(
+                              item['name'] ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.value.copyWith(
+                                color: AppColors.primaryColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
-                              const SizedBox(height: 2),
+                            ),
+                            if (item['room'] != null && item['room']!.isNotEmpty)
                               AppText.value(
                                 item['room'] ?? '',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.value.copyWith(
                                   fontSize: 12,
-                                  color: AppColors.primaryColor,
+                                  color: AppColors.primaryColor.withValues(alpha: 0.8),
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   );
                 },
               ),
