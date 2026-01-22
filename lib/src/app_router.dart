@@ -5,6 +5,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
@@ -48,6 +49,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case BillingScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const BillingScreen(),
+        settings: settings,
+      );
+    case ParentBillingScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const ParentBillingScreen(),
         settings: settings,
       );
     case ActivityFeedScreen.routeName:

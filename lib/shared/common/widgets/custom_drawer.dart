@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 class CustomDrawer extends StatefulWidget {
@@ -186,11 +187,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         _CustomExpansionTile(
                           title: 'Billing',
                           icon: MediaRes.billing_drawer_icon,
-                          isCurrentRoute: _currentRoute == BillingScreen.routeName,
+                          isCurrentRoute: _currentRoute == ParentBillingScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
-                            if (_currentRoute != BillingScreen.routeName) {
-                              Navigator.pushNamed(context, BillingScreen.routeName);
+                            if (_currentRoute != ParentBillingScreen.routeName) {
+                              Navigator.pushNamed(context, ParentBillingScreen.routeName);
                             }
                           },
                         ),

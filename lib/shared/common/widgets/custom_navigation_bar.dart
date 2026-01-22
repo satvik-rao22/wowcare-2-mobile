@@ -7,7 +7,7 @@ import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
-import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 
 
@@ -59,7 +59,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         _index = 0;
       } else if (_currentRoute == ActivityFeedScreen.routeName) {
         _index = 1;
-      } else if (_currentRoute == BillingScreen.routeName) {
+      } else if (_currentRoute == ParentBillingScreen.routeName) {
         _index = 3;
       }
     } else {
@@ -103,7 +103,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           );
           break;
         case 3:
-          Navigator.pushReplacementNamed(context, BillingScreen.routeName);
+          Navigator.pushReplacementNamed(context, ParentBillingScreen.routeName);
           break;
       }
     } else {
