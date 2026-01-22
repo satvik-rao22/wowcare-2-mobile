@@ -294,7 +294,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                             fontFamily: 'Manrope',
                             fontSize: 14,
                             fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: selectedItem != null ? const Color(0xff573353) : Colors.grey[600],
                             height: 19 / 14,
                           ),
                           overflow: TextOverflow.ellipsis,

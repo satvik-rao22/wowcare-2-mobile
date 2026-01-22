@@ -6,8 +6,10 @@ class GradientAddButton extends StatelessWidget {
   final double? size;
   final double? iconSize;
   final double? borderRadius;
+  final double? wantedButtonSize;
   final bool isTablet;
   final bool isLargeTablet;
+  final bool isRectangle;
 
   const GradientAddButton({
     Key? key,
@@ -16,7 +18,9 @@ class GradientAddButton extends StatelessWidget {
     this.iconSize,
     this.borderRadius,
     this.isTablet = false,
+    this.isRectangle = true,
     this.isLargeTablet = false,
+    this.wantedButtonSize
   }) : super(key: key);
 
   @override
@@ -41,11 +45,12 @@ class GradientAddButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: buttonSize,
-        height: buttonSize,
+        width: wantedButtonSize ?? buttonSize,
+        height: wantedButtonSize ?? buttonSize,
         decoration: BoxDecoration(
+          shape: isRectangle ? BoxShape.rectangle : BoxShape.circle,
           gradient: AppColors.buildPrimaryGradient(), // Use your app's gradient
-          borderRadius: BorderRadius.circular(buttonBorderRadius),
+          borderRadius: isRectangle ? BorderRadius.circular(buttonBorderRadius) : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),

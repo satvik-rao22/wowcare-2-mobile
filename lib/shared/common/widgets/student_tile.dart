@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
-import '../../../../shared/common/widgets/custom_checkbox.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'custom_checkbox.dart';
+import 'profile_show_widget.dart';
 
 class StudentTile extends StatelessWidget {
   const StudentTile({

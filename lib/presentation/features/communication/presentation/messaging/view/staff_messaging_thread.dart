@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
+import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
+import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../widgets/message_bubble_widget.dart';
 
@@ -15,6 +17,7 @@ class StaffMessagingThread extends StatefulWidget {
 
 class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _controller = TextEditingController();
   final List<Message> _messages = [
     Message(
       text: "Hello! I want to take day off tomorrow ?",
@@ -62,6 +65,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       time: DateTime(2026, 1, 21, 11, 11),
     ),
   ];
+
+  void _sendMessage(){
+    if(_controller.text.trim().isEmpty) return;
+
+    setState(() {
+      _messages.add(Message(text: _controller.text.trim(), isSentByMe: true, time: DateTime.now()));
+    });
+
+    _controller.clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -184,12 +198,80 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
               ),
               const SizedBox(height: 10,),
               Container(
-                color: Colors.white,
-                height: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                  child: _buildMessageInput(),
+                ),
               )
             ],
           ),
         )
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,  
+                    end:   Alignment.centerRight,
+                    colors: [
+                      Color.fromRGBO(89, 120, 247, 0.1),   
+                      Color.fromRGBO(156, 132, 255, 0.1),  
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        minLines: 1,
+                        maxLines: 10,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: "Type your message here...",
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12),
+                      child: GradientAddButton(
+                        onTap: () {},
+                        wantedButtonSize: 26,
+                        isRectangle: false,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            CustomClearAllChip(onTap: () { _sendMessage(); },label: 'Send', fontSize: 16, fontWeight: FontWeight.w600, borderRadius: 8,),
+
+          ],
+        ),
+      ),
     );
   }
 

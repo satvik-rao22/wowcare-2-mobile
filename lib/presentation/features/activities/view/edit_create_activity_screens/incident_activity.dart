@@ -13,7 +13,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../widgets/student_tile.dart';
+import '../../../../../shared/common/widgets/student_tile.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 

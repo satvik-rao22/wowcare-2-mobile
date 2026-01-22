@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
-import 'package:wowcare/presentation/features/activities/widgets/student_tile.dart';
+import 'package:wowcare/shared/common/widgets/student_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 

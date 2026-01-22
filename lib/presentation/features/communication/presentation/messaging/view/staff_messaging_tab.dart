@@ -33,6 +33,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': true,
       'isFavorite': true,
       'unreadCount': 1,
+      'classroom': '1-Blue D',
+      'designation': 'Lead Teacher',
+      'status': 'Active'
     },
     {
       'name': 'Eddie Barnes',
@@ -42,6 +45,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': true,
       'isFavorite': false,
       'unreadCount': 0,
+      'classroom': '2-Red A',
+      'designation': 'Lead Teacher',
+      'status': 'Active'
     },
     {
       'name': 'Lara Adams',
@@ -51,6 +57,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': false,
       'isFavorite': true,
       'unreadCount': 3,
+      'classroom': '1-Blue D',
+      'designation': 'Lead Teacher',
+      'status': 'Active'
     },
     {
       'name': 'Michael Chen',
@@ -60,6 +69,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': true,
       'isFavorite': false,
       'unreadCount': 0,
+      'classroom': '3-Orange-D',
+      'designation': 'Admin',
+      'status': 'Upcoming'
     },
     {
       'name': 'Sarah Johnson',
@@ -69,6 +81,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': false,
       'isFavorite': false,
       'unreadCount': 7,
+      'classroom': '3-Orange-D',
+      'designation': 'Admin',
+      'status': 'Upcoming'
     },{
       'name': 'Natasha White',
       'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
@@ -77,6 +92,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': true,
       'isFavorite': true,
       'unreadCount': 1,
+      'classroom': '3-Orange-D',
+      'designation': 'Admin',
+      'status': 'Upcoming'
     },
     {
       'name': 'Eddie Barnes',
@@ -86,6 +104,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': true,
       'isFavorite': false,
       'unreadCount': 0,
+      'classroom': '3-Orange-D',
+      'designation': 'Admin',
+      'status': 'Upcoming'
     },
     {
       'name': 'Lara Adams',
@@ -95,6 +116,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': false,
       'isFavorite': true,
       'unreadCount': 3,
+      'classroom': '3-Orange-D',
+      'designation': 'Admin',
+      'status': 'Upcoming'
     },
     {
       'name': 'Michael Chen',
@@ -104,6 +128,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': true,
       'isFavorite': false,
       'unreadCount': 0,
+      'classroom': '3-Orange-D',
+      'designation': 'Admin',
+      'status': 'Upcoming'
     },
     {
       'name': 'Sarah Johnson',
@@ -113,11 +140,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'isSigned': false,
       'isFavorite': false,
       'unreadCount': 7,
+      'classroom': '3-Orange-D',
+      'designation': 'Admin',
+      'status': 'Upcoming'
     },
 
   ];
 
-  late List<Map<String, dynamic>> _filteredStaffList;
 
   String _formatMessageTime(DateTime dateTime) {
     final now = DateTime.now();
