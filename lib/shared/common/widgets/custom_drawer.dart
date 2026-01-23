@@ -168,6 +168,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     _CustomExpansionTile(
                       title: 'Communication',
                       icon: MediaRes.communicationIcon,
+                      isCurrentRoute: _currentRoute == MessagingScreen.routeName,
                       isExpansionEnabled: true,
                       children: [
                         DrawerListTile(
@@ -177,8 +178,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
                           ),
                           onTap: () {
-                            Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MessagingScreen(userPersona: UserPersona.admin),
+                                settings: RouteSettings(name: MessagingScreen.routeName),
+                              ),
+                            );
+
+                            //Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
                             //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
                           },
                         ),
@@ -190,7 +197,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MessagingScreen(userPersona: UserPersona.admin),
+                                settings: RouteSettings(name: MessagingScreen.routeName),
+                              ),
+                            );
+
+                            // Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
                             //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
                           },
                         ),

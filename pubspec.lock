@@ -1441,6 +1441,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.0"
+  rich_field_controller:
+    dependency: "direct main"
+    description:
+      name: rich_field_controller
+      sha256: f79182e351b6f9fecf0de3ec777b68f07ff2fc6eb050d60cf095c5d72833282a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   rxdart:
     dependency: "direct main"
     description:

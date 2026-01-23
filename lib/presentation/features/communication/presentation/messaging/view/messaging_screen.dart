@@ -9,6 +9,8 @@ class MessagingScreen extends StatefulWidget {
   const MessagingScreen({super.key, required this.userPersona});
   final UserPersona userPersona;
 
+  static const String routeName = '/messageFeed';
+
   @override
   State<MessagingScreen> createState() => _MessagingScreenState();
 }

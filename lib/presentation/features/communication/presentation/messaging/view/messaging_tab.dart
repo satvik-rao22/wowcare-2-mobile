@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_tab.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_selection_bulk_messaging.dart';
 
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
@@ -62,6 +63,7 @@ class _MessagingTabState extends State<MessagingTab> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final bool isStaffTab = _tabController.index == 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
@@ -117,7 +119,11 @@ class _MessagingTabState extends State<MessagingTab> with SingleTickerProviderSt
               ),
               const SizedBox(width: 15,),
               GradientAddButton(
-                onTap: () {},
+                onTap: () {
+                  if(isStaffTab){
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffSelectionBulkMessaging()));
+                  }
+                },
                 //isTablet: MediaQuery.of(context).size.width >= 600,
                 //isLargeTablet: MediaQuery.of(context).size.width >= 900,
               ),
