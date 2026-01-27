@@ -13,6 +13,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../app/theme/media_res.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../shared/common/widgets/selected_student_tile.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
@@ -28,6 +29,8 @@ class MessageCompositionBulkMessaging extends StatefulWidget {
 
 class _MessageCompositionBulkMessagingState
     extends State<MessageCompositionBulkMessaging> {
+  late final List<Map<String,dynamic>> _selectedRecipientsData;
+  late final List<String> _selectedRecipientsName;
   final List<SelectedAttachment> _attachments = [];
   late final FocusNode _focusNode ;
   late final RichFieldController _controller ;
@@ -83,6 +86,17 @@ class _MessageCompositionBulkMessagingState
     });
   }
 
+  void _removeRecipient(String name) {
+    setState(() {
+      _selectedRecipientsName.remove(name);
+
+      // If no recipients left, go back to previous screen
+      if (_selectedRecipientsName.isEmpty) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
 
   @override
   void initState() {
@@ -91,7 +105,9 @@ class _MessageCompositionBulkMessagingState
     _controller = RichFieldController(focusNode: _focusNode);
 
     _controller.addListener(() => setState(() {}));
-  }
+    _selectedRecipientsData = List.from(widget.selectedRecipients);
+    _selectedRecipientsName = _selectedRecipientsData.map((recipient) => recipient['name'] as String).toList();
+    }
 
   @override
   void dispose(){
@@ -195,6 +211,27 @@ class _MessageCompositionBulkMessagingState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.all(10),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: responsive.isTablet ? 3 : 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                              ),
+                              itemCount: _selectedRecipientsName.length,
+                              itemBuilder: (context, index) {
+                                final String name = _selectedRecipientsName[index];
+
+                                return SelectedStudentTile(
+                                  name: name,
+                                  onTap: () => _removeRecipient(name),
+                                );
+                              },
+                            ),
+                            SizedBox(height: responsive.verticalSpacing,),
                             Container(
                               decoration: BoxDecoration(
                                 border: Border.all(color: AppColors.primaryColor.withOpacity(0.4)),
