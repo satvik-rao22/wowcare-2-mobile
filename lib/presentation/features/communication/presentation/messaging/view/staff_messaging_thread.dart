@@ -29,6 +29,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       text: "Okay Natasha!",
       isSentByMe: true,
       time: DateTime(2025, 1, 13, 16, 45),
+      readAt: DateTime(2025, 1, 13, 16, 45),
     ),
     Message(
       text: "Great to know that! Thanks!",
@@ -46,6 +47,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
           "Sure, half day is fine. Just mark it in the attendance sheet when you come back",
       isSentByMe: true,
       time: DateTime(2025, 1, 14, 9, 18),
+      readAt: DateTime(2025, 1, 14, 9, 18),
     ),
     Message(
       text: "Thank you so much! ❤️ Will do",
@@ -54,9 +56,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
     ),
     Message(
       text:
-          "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
+          "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year, By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
       isSentByMe: true,
       time: DateTime(2025, 1, 14, 11, 5),
+      readAt: DateTime(2025, 1, 14, 11, 5),
     ),
     Message(
       text: "No I didn't! Where can I find it? HR portal?",
@@ -73,18 +76,68 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
   void _sendMessage() {
     if (_controller.text.trim().isEmpty) return;
-
+    final now = DateTime.now();
+    final newMessage = Message(
+      text: _controller.text.trim(),
+      isSentByMe: true,
+      time: now,
+      deliveredAt: null,
+      readAt: null,
+      // For group simulation
+      // deliveredTo: {},
+      // readBy: {},
+    );
     setState(() {
-      _messages.add(
-        Message(
-          text: _controller.text.trim(),
-          isSentByMe: true,
-          time: DateTime.now(),
-        ),
-      );
+      _messages.add(newMessage);
     });
 
+    // setState(() {
+    //   _messages.add(
+    //     Message(
+    //       text: _controller.text.trim(),
+    //       isSentByMe: true,
+    //       time: DateTime.now(),
+    //       deliveredAt: null,
+    //       readAt: null
+    //     ),
+    //   );
+    // });
+
     _controller.clear();
+    // Simulate delivery (works for both 1:1 and group)
+    Future.delayed(const Duration(seconds: 2), () {
+      setState(() {
+        final idx = _messages.indexWhere((m) => m.time == newMessage.time);
+        if (idx == -1) return;
+
+        // For 1:1
+        _messages[idx] = Message(
+          text: newMessage.text,
+          isSentByMe: true,
+          time: newMessage.time,
+          deliveredAt: DateTime.now(),
+          readAt: newMessage.readAt,
+          // deliveredTo: newMessage.deliveredTo, // if group
+        );
+      });
+    });
+
+    // Simulate read
+    Future.delayed(const Duration(seconds: 7), () {
+      setState(() {
+        final idx = _messages.indexWhere((m) => m.time == newMessage.time);
+        if (idx == -1) return;
+
+        _messages[idx] = Message(
+          text: newMessage.text,
+          isSentByMe: true,
+          time: newMessage.time,
+          deliveredAt: _messages[idx].deliveredAt,
+          readAt: DateTime.now(),
+          // readBy: {'user123': DateTime.now()}, // for group
+        );
+      });
+    });
   }
 
   @override
@@ -202,6 +255,25 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               if (showDateHeader) const SizedBox(height: 10),
                               MessageBubble(
                                 message: message,
+                                onEdit: (newText) {
+                                  setState(() {
+                                    final index = _messages.indexWhere((m) => m.time == message.time);
+                                    if (index != -1) {
+                                      _messages[index] = Message(
+                                        text: newText.trim(),
+                                        isSentByMe: message.isSentByMe,
+                                        time: DateTime.now(),
+                                      );
+
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: 'Message updated successfully',
+                                        isSuccess: true,
+                                      );
+
+                                    }
+                                  });
+                                },
                                 onDelete: () {
                                   setState(() {
                                     _messages.removeWhere(
