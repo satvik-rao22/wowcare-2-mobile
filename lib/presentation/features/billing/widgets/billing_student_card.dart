@@ -164,9 +164,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
       titleStyle: const TextStyle(
         fontFamily: 'Manrope',
         fontWeight: FontWeight.w600,
-        fontSize: 16,
+        fontSize: 14,
         color: AppColors.billingTextColor,
-        height: 22 / 16,
+        height: 19 / 14,
       ),
       subtitleText: widget.classroom,
       onLongPress: widget.onLongPress,

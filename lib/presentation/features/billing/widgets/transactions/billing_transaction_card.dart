@@ -262,7 +262,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
               Text(
                 widget.transaction.studentName,
                 style: AppTextStyles.title.copyWith(
-                  fontSize: 15,
+                  fontSize: 14,
                   color: AppColors.billingTextColor,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -314,7 +314,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                   Text(
               _formatCurrency(widget.transaction.amount),
                     style: AppTextStyles.title.copyWith(
-                fontSize: 17,
+                fontSize: 14,
                 color: AppColors.billingTextColor,
                     ),
                   ),
@@ -322,7 +322,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                   Text(
                     dateLabel,
               style: AppTextStyles.small.copyWith(
-                fontSize: 11,
+                fontSize: 13,
                 color: AppColors.billingTextColor.withOpacity(0.7),
                     ),
                     textAlign: TextAlign.right,
@@ -382,6 +382,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         Text(
           'Student Name',
           style: AppTextStyles.small.copyWith(
+            fontSize: 13,
             color: AppColors.billingTextColor,
           ),
         ),
@@ -459,6 +460,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         Text(
           label,
           style: AppTextStyles.small.copyWith(
+            fontSize: 13,
             color: AppColors.billingTextColor,
           ),
         ),
@@ -471,6 +473,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                 value,
                 textAlign: TextAlign.end,
                 style: AppTextStyles.label.copyWith(
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingTextColor,
                 ),

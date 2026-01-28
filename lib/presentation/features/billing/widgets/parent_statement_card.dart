@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_floating_text_button.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 
 /// Demo statement data model for UI-only display
@@ -24,8 +26,8 @@ class DemoStatement {
   });
 }
 
-/// Statement card widget matching legacy statement card structure
-class ParentStatementCard extends StatefulWidget {
+/// Statement card widget matching transaction card ExpansionTile structure
+class ParentStatementCard extends StatelessWidget {
   final DemoStatement statement;
 
   const ParentStatementCard({
@@ -34,270 +36,219 @@ class ParentStatementCard extends StatefulWidget {
   });
 
   @override
-  State<ParentStatementCard> createState() => _ParentStatementCardState();
-}
-
-class _ParentStatementCardState extends State<ParentStatementCard> {
-  bool _isViewing = false;
-  bool _isDownloading = false;
-
-  String _formatDate(DateTime? date) {
-    if (date == null) return '-';
-    return DateUtilsNew.formatToReadableDate(date);
-  }
-
-  Future<void> _viewPdfInApp() async {
-    if (_isViewing) return;
-
-    setState(() => _isViewing = true);
-
-    try {
-      // TODO: Implement PDF viewing
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('View PDF (placeholder)'),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to open PDF: $e'),
-            backgroundColor: AppColors.errorColor,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isViewing = false);
-      }
-    }
-  }
-
-  Future<void> _downloadPdf() async {
-    if (_isDownloading) return;
-
-    setState(() => _isDownloading = true);
-
-    try {
-      // TODO: Implement PDF download
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Download PDF (placeholder)'),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Download failed: $e'),
-            backgroundColor: AppColors.errorColor,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isDownloading = false);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorderColor, width: 1),
-      ),
-      child: Column(
+    return ExpansionTile(
+      controlAffinity: ListTileControlAffinity.trailing,
+      title: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.classroomNotesTabColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: AppText.value(
-                      'Statement',
-                      style: AppTextStyles.value.copyWith(
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  AppText.value(
-                    'Type: ${widget.statement.statementType}',
-                    style: AppTextStyles.small.copyWith(
-                      color: AppColors.primaryColor,
-                    ),
-                  ),
-                ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            decoration: BoxDecoration(
+              color: AppColors.billingPaymentBadgeColor,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'Statement',
+              style: AppTextStyles.value.copyWith(
+                fontSize: 16,
+                color: AppColors.secondaryColor,
+                fontWeight: FontWeight.w500,
               ),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  AppText.value(
-                    'Generated on: ${_formatDate(widget.statement.statementDate)}',
-                    style: AppTextStyles.small.copyWith(
-                      color: AppColors.primaryColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  AppText.value(
-                    'Period: ${_formatDate(widget.statement.periodStartDate)} – ${_formatDate(widget.statement.periodEndDate)}',
-                    style: AppTextStyles.small.copyWith(
-                      color: AppColors.primaryColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              textAlign: TextAlign.center,
+              maxLines: 1,
+            ),
           ),
           const SizedBox(height: 5),
-          Divider(
-            color: AppColors.dividerColor,
-            thickness: 1,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              AppText.label(
-                'Student name',
-                style: AppTextStyles.label.copyWith(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                ),
-              ),
-              const Spacer(),
-              AppText.value(
-                widget.statement.studentName,
-                style: AppTextStyles.value.copyWith(
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              AppText.label(
-                'Statement type',
-                style: AppTextStyles.label.copyWith(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                ),
-              ),
-              const Spacer(),
-              AppText.value(
-                widget.statement.statementType,
-                style: AppTextStyles.value.copyWith(
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              AppText.label(
-                'Statement Period',
-                style: AppTextStyles.label.copyWith(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                ),
-              ),
-              const Spacer(),
-              AppText.value(
-                '${_formatDate(widget.statement.periodStartDate)} – ${_formatDate(widget.statement.periodEndDate)}',
-                style: AppTextStyles.value.copyWith(
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _isViewing ? null : _viewPdfInApp,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.themeColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: _isViewing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: AppColors.themeColor,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : AppText.value(
-                          'View',
-                          style: AppTextStyles.value.copyWith(
-                            color: AppColors.themeColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _isDownloading ? null : _downloadPdf,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.themeColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: _isDownloading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : AppText.value(
-                          'Download',
-                          style: AppTextStyles.value.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                ),
-              ),
-            ],
+          Text(
+            'Type: ${statement.statementType}',
+            style: AppTextStyles.small.copyWith(
+              color: AppColors.primaryColor,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
+      trailing: Padding(
+        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Generated on: ${DateUtilsNew.formatToReadableDate(statement.statementDate)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 14,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Period: ${DateUtilsNew.formatToReadableDate(statement.periodStartDate)} - ${DateUtilsNew.formatToReadableDate(statement.periodEndDate)}',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 14,
+                    color: AppColors.primaryColor,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      iconColor: Colors.transparent,
+      collapsedIconColor: Colors.transparent,
+      backgroundColor: AppColors.cardColor,
+      collapsedBackgroundColor: AppColors.cardColor,
+      collapsedShape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        Divider(
+          color: AppColors.billingDividerColor,
+        ),
+        const SizedBox(height: 5),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Student Name',
+              style: AppTextStyles.label.copyWith(
+                fontSize: 14,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DocumentImageWidget(
+                  fileUuid: statement.photoUuid ?? '',
+                  name: statement.studentName,
+                  size: 30,
+                  fontSize: 12,
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        statement.studentName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.value.copyWith(
+                          color: AppColors.primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.end,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Statement Type',
+              style: AppTextStyles.label.copyWith(
+                fontSize: 14,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+            ),
+            Text(
+              statement.statementType,
+              style: AppTextStyles.value.copyWith(
+                fontSize: 16,
+                color: AppColors.primaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.end,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Statement Period',
+              style: AppTextStyles.label.copyWith(
+                fontSize: 14,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                '${DateUtilsNew.formatToReadableDate(statement.periodStartDate)} - ${DateUtilsNew.formatToReadableDate(statement.periodEndDate)}',
+                style: AppTextStyles.value.copyWith(
+                  fontSize: 16,
+                  color: AppColors.primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: CustomFloatingTextButton(
+                onPressed: () {
+                  // TODO: Navigate to statement view
+                },
+                label: 'View',
+                textStyle: AppTextStyles.button(
+                  color: AppColors.billingButtonTextColor,
+                ),
+                isFilled: false,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomFloatingTextButton(
+                onPressed: () {
+                  // TODO: Navigate to statement download
+                },
+                label: 'Download',
+                textStyle: AppTextStyles.button(
+                  color: AppColors.billingButtonTextColor,
+                ),
+                isFilled: true,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

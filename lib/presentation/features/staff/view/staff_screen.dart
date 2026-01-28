@@ -10,7 +10,6 @@ import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_list_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
@@ -18,6 +17,9 @@ import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
@@ -30,6 +32,7 @@ class StaffScreen extends StatefulWidget {
 
 class _StaffScreenState extends State<StaffScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _showInactive = false;
   final List<bool> _selectedDemo = [false, false, false];
   bool _selectAll = false;
@@ -38,6 +41,7 @@ class _StaffScreenState extends State<StaffScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -46,13 +50,29 @@ class _StaffScreenState extends State<StaffScreen> {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
 
+    final staffCubit = context.read<StaffCubit>();
+
     final bool anySelected = _selectedDemo.any((e) => e);
     final int selectedCount = _selectedDemo.where((e) => e).length;
 
     return GlobalScaffold(
       body: Stack(
         children: [
-          SingleChildScrollView(
+          CustomRefreshIndicator(
+            onRefresh: () async {
+              await staffCubit.refresh();
+            },
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification.metrics.pixels >=
+                    notification.metrics.maxScrollExtent - 200) {
+                  staffCubit.loadNextPage();
+                }
+                return false;
+              },
+              child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
           padding: ResponsiveSizing.contentPadding(context),
           child: Column(
@@ -116,7 +136,6 @@ class _StaffScreenState extends State<StaffScreen> {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final bool isTablet = constraints.maxWidth >= 600;
-                  final EdgeInsets cardPadding = EdgeInsets.zero; // outer handled by container
                   // Static values for now
                   final double active = 21.0;
                   final double upcoming = 4.0;
@@ -292,66 +311,70 @@ class _StaffScreenState extends State<StaffScreen> {
               ),
               // Placeholder for staff list content
               const SizedBox(height: 16),
-              // Demo staff list using StaffCard with working checkbox
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: 3,
-                itemBuilder: (context, index) {
-                  final demo = [
-                    {
-                      'name': 'Aarav Sharma',
-                      'classroom': 'Nursery A',
-                      'allowed': ['Nursery A', 'Playgroup'],
-                      'schedule': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-                      'joinDate': '12 Jan 2022',
-                      'statusDate': '05 Sep 2024',
-                    },
-                    {
-                      'name': 'Isha Verma',
-                      'classroom': 'Nursery B',
-                      'allowed': ['Nursery B'],
-                      'schedule': ['Mon', 'Wed', 'Fri'],
-                      'joinDate': '22 Mar 2023',
-                      'statusDate': '15 Aug 2024',
-                    },
-                    {
-                      'name': 'Rahul Singh',
-                      'classroom': 'Daycare',
-                      'allowed': ['Daycare', 'Playgroup', 'Nursery A'],
-                      'schedule': ['Tue', 'Thu', 'Sat'],
-                      'joinDate': '10 Oct 2021',
-                      'statusDate': '01 Sep 2024',
-                    },
-                  ][index];
+              BlocBuilder<StaffCubit, StaffState>(
+                builder: (context, state) {
+                  if (state.isLoading && state.items.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  if (state.errorMessage != null && state.items.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          'Failed to load staff: ${state.errorMessage}',
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (state.items.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text('No staff found'),
+                      ),
+                    );
+                  }
+
                   return Column(
                     children: [
-                      StaffCard(
-                        name: demo['name'] as String,
-                        classroom: demo['classroom'] as String,
-                        allowedClassrooms: (demo['allowed'] as List<String>),
-                        schedule: (demo['schedule'] as List<String>),
-                        designation: index == 0
-                            ? 'Teacher'
-                            : index == 1
-                                ? 'Assistant Teacher'
-                                : 'Caretaker',
-                        phoneNumber: index == 0
-                            ? '5551234567'
-                            : index == 1
-                                ? '2125557890'
-                                : '4155559876',
-                        isSelected: _selectedDemo[index],
-                        onSelected: (v) => setState(() {
-                          _selectedDemo[index] = v ?? false;
-                          if (!_selectedDemo.any((e) => e)) {
-                            _currentPanel = StaffPanelType.none;
-                          }
-                        }),
-                        onEdit: () {},
-                        onDeactivate: () {},
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: state.items.length,
+                        itemBuilder: (context, index) {
+                          final staff = state.items[index];
+                          return Column(
+                            children: [
+                              StaffCard(
+                                name: staff.name,
+                                classroom: staff.primaryClassroom,
+                                allowedClassrooms: staff.classroomCodes,
+                                schedule: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                                designation: staff.designation,
+                                phoneNumber: staff.phoneNumber,
+                                isSelected: false,
+                              ),
+                              if (index != state.items.length - 1)
+                                const SizedBox(height: 8),
+                            ],
+                          );
+                        },
                       ),
-                      if (index != 2) const SizedBox(height: 8),
+                      if (state.isLoadingMore)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -359,6 +382,8 @@ class _StaffScreenState extends State<StaffScreen> {
             ],
           ),
         ),
+            ),
+          ),
         ),
           if (anySelected)
             Positioned(
@@ -438,7 +463,3 @@ class _StaffScreenState extends State<StaffScreen> {
     );
   }
 }
-
-void _noop(bool _) {}
-
-

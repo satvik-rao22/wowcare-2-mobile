@@ -4,7 +4,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_widget.dart';
-import 'package:wowcare/presentation/features/billing/widgets/parent_statement_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 
 /// Statements tab widget for parent billing screen
 class ParentStatementsTab extends StatefulWidget {
@@ -30,32 +30,46 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
   bool _isGenerating = false;
 
   // Demo statements data (UI only)
-  final List<DemoStatement> _demoStatements = [
-    DemoStatement(
-      id: '1',
-      statementType: 'Monthly',
-      statementDate: DateTime.now().subtract(const Duration(days: 5)),
-      periodStartDate: DateTime(2024, 1, 1),
-      periodEndDate: DateTime(2024, 1, 31),
-      studentName: 'Emma Johnson',
-    ),
-    DemoStatement(
-      id: '2',
-      statementType: 'Quarterly',
-      statementDate: DateTime.now().subtract(const Duration(days: 15)),
-      periodStartDate: DateTime(2023, 10, 1),
-      periodEndDate: DateTime(2023, 12, 31),
-      studentName: 'Liam Johnson',
-    ),
-    DemoStatement(
-      id: '3',
-      statementType: 'Monthly',
-      statementDate: DateTime.now().subtract(const Duration(days: 30)),
-      periodStartDate: DateTime(2023, 12, 1),
-      periodEndDate: DateTime(2023, 12, 31),
-      studentName: 'Olivia Johnson',
-    ),
-  ];
+  List<DemoStatement> get _demoStatements {
+    final now = DateTime.now();
+    final currentYear = now.year;
+    final currentMonth = now.month;
+    
+    return [
+      DemoStatement(
+        id: 'st_001',
+        studentName: 'Lux Stud',
+        statementType: 'Yearly',
+        generatedOn: DateTime(currentYear, 1, 22),
+        periodFrom: DateTime(currentYear, 1, 1),
+        periodTo: DateTime(currentYear, 12, 31),
+      ),
+      DemoStatement(
+        id: 'st_002',
+        studentName: 'Lux Stud',
+        statementType: 'Monthly',
+        generatedOn: DateTime(currentYear, currentMonth, 15),
+        periodFrom: DateTime(currentYear, currentMonth, 1),
+        periodTo: DateTime(currentYear, currentMonth + 1, 0),
+      ),
+      DemoStatement(
+        id: 'st_003',
+        studentName: 'Lux Stud',
+        statementType: 'Monthly',
+        generatedOn: DateTime(currentYear, currentMonth - 1, 20),
+        periodFrom: DateTime(currentYear, currentMonth - 1, 1),
+        periodTo: DateTime(currentYear, currentMonth, 0),
+      ),
+      DemoStatement(
+        id: 'st_004',
+        studentName: 'Lux Stud',
+        statementType: 'Quarterly',
+        generatedOn: DateTime(currentYear, currentMonth, 10),
+        periodFrom: DateTime(currentYear, currentMonth - 2, 1),
+        periodTo: DateTime(currentYear, currentMonth, 0),
+      ),
+    ];
+  }
 
   @override
   void initState() {
@@ -121,28 +135,36 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
   List<DemoStatement> _getFilteredStatements() {
     if (_customStartDate != null && _customEndDate != null) {
       return _demoStatements.where((stmt) {
-        final stmtDate = DateTime(
-          stmt.periodStartDate.year,
-          stmt.periodStartDate.month,
-          stmt.periodStartDate.day,
+        // Check if statement period overlaps with selected date range
+        // Statement overlaps if: stmt.periodFrom <= selectedEndDate AND stmt.periodTo >= selectedStartDate
+        final stmtStart = DateTime(
+          stmt.periodFrom.year,
+          stmt.periodFrom.month,
+          stmt.periodFrom.day,
         );
-        final start = DateTime(
+        final stmtEnd = DateTime(
+          stmt.periodTo.year,
+          stmt.periodTo.month,
+          stmt.periodTo.day,
+        );
+        final selectedStart = DateTime(
           _customStartDate!.year,
           _customStartDate!.month,
           _customStartDate!.day,
         );
-        final end = DateTime(
+        final selectedEnd = DateTime(
           _customEndDate!.year,
           _customEndDate!.month,
           _customEndDate!.day,
         );
-        return (stmtDate.isAtSameMomentAs(start) || stmtDate.isAfter(start)) &&
-            (stmtDate.isAtSameMomentAs(end) || stmtDate.isBefore(end));
+        // Check for overlap: statement period overlaps with selected range
+        return stmtStart.isBefore(selectedEnd.add(const Duration(days: 1))) &&
+            stmtEnd.isAfter(selectedStart.subtract(const Duration(days: 1)));
       }).toList()
-        ..sort((a, b) => b.statementDate.compareTo(a.statementDate));
+        ..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
     }
     return List.from(_demoStatements)
-      ..sort((a, b) => b.statementDate.compareTo(a.statementDate));
+      ..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
   }
 
   Widget _buildDateFilterCard() {

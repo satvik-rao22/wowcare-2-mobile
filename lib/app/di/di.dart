@@ -12,12 +12,17 @@ import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
 import '../../data/features/onboarding/datasources/onboarding_remote_datasource.dart';
 import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
+import '../../data/features/staff/datasources/staff_remote_datasource.dart';
+import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
+import '../../domain/features/staff/repositories/staff_repository.dart';
+import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -49,6 +54,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => AuthLocalDataSourceImpl(serviceLocator()),
   );
 
+  // Staff Data Sources
+  serviceLocator.registerLazySingleton<StaffRemoteDataSource>(
+    () => StaffRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
   // Onboarding Data Sources
   serviceLocator.registerLazySingleton<OnboardingRemoteDataSource>(
     () => OnboardingRemoteDataSourceMock(),
@@ -67,6 +77,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator(),
     ),
   );
+  serviceLocator.registerLazySingleton<StaffRepository>(
+    () => StaffRepositoryImpl(
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
 
   // Use cases
   serviceLocator.registerFactory<LoginUseCase>(
@@ -78,6 +94,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetOnboardingContent>(
     () => GetOnboardingContent(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStaffPageUseCase>(
+    () => GetStaffPageUseCase(serviceLocator()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -85,6 +104,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       loginUseCase: serviceLocator(),
       localDataSource: serviceLocator(),
       remoteDataSource: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffCubit>(
+    () => StaffCubit(
+      getStaffPageUseCase: serviceLocator(),
+      repository: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
 }
