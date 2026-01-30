@@ -67,12 +67,18 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                 },
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
-                    if (notification.metrics.pixels >=
-                        notification.metrics.maxScrollExtent - 200) {
-                      _documentsListCubit.loadNextPage(
-                        widget.staffCode,
-                        expired: _showExpired ? true : null,
-                      );
+                    // Only trigger on actual scroll updates, not on initial layout
+                    if (notification is ScrollUpdateNotification) {
+                      if (notification.metrics.pixels >=
+                          notification.metrics.maxScrollExtent - 200) {
+                        final state = _documentsListCubit.state;
+                        if (!state.isLoading && !state.isLoadingMore && state.hasMore) {
+                          _documentsListCubit.loadNextPage(
+                            widget.staffCode,
+                            expired: _showExpired ? true : null,
+                          );
+                        }
+                      }
                     }
                     return false;
                   },

@@ -26,10 +26,11 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
         : Future.value(null));
 
     if (cached != null && !isClosed) {
+      // Always start from page 0 on initial load, even if cache has a different page
       emit(
         StaffDocumentsListState.loaded(
           documents: cached.items,
-          currentPage: cached.page,
+          currentPage: 0, // Always start from page 0
           hasMore: cached.hasMore,
           isFromCache: true,
         ),
@@ -85,7 +86,11 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   }
 
   Future<void> loadNextPage(String staffCode, {bool? expired}) async {
-    if (state.isLoadingMore || !state.hasMore) return;
+    // Don't load next page if we're still loading initial data or if there's no more data
+    if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
+    
+    // Don't load if we haven't loaded any pages yet (currentPage should be >= 0 after initial load)
+    if (state.currentPage < 0) return;
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
