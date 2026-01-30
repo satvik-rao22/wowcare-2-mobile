@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../../core/util/api_constants.dart';
 import '../models/staff_models.dart';
 
 abstract class StaffRemoteDataSource {
@@ -18,7 +19,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   final Dio _client;
 
   static const String _staffEndpoint =
-      'https://qs176zl8-8083.inc1.devtunnels.ms/api/v1/staff';
+      '${ApiConstants.staffBaseUrl}/api/v1/staff';
 
   @override
   Future<StaffPageModel> getStaffPage({

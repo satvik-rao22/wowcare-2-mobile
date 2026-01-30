@@ -24,7 +24,7 @@ class StaffCubit extends Cubit<StaffState> {
   final StorageService _storageService;
   String? _schoolCode;
 
-  static const int _pageSize = 10;
+  static const int _pageSize = 1;
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
@@ -57,8 +57,11 @@ class StaffCubit extends Cubit<StaffState> {
           isFromCache: true,
         ),
       );
+      // If we have a fresh enough cache, don't auto-hit the API.
+      return;
     }
 
+    // No cache (or expired) – load from API.
     await refresh();
   }
 
@@ -76,7 +79,8 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     try {
-      final page = await _getStaffPageUseCase(
+      // First page
+      final firstPage = await _getStaffPageUseCase(
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
@@ -87,11 +91,31 @@ class StaffCubit extends Cubit<StaffState> {
 
       if (isClosed) return;
 
+      var items = List<StaffMember>.from(firstPage.items);
+      var currentPage = firstPage.page;
+      var hasMore = firstPage.hasMore;
+
+      // Auto-load next page so that page 0 and 1 are both visible initially
+      if (hasMore) {
+        final secondPage = await _getStaffPageUseCase(
+          schoolCode: schoolCode,
+          page: 1,
+          size: _pageSize,
+          status: state.statusFilter,
+          designation: state.designationFilter,
+          search: state.searchQuery,
+        );
+
+        items.addAll(secondPage.items);
+        currentPage = secondPage.page;
+        hasMore = secondPage.hasMore;
+      }
+
       emit(
         state.copyWith(
-          items: page.items,
-          currentPage: page.page,
-          hasMore: page.hasMore,
+          items: items,
+          currentPage: currentPage,
+          hasMore: hasMore,
           isLoading: false,
           isRefreshing: false,
           isFromCache: false,

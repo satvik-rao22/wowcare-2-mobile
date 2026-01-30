@@ -12,6 +12,8 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
 import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
@@ -34,7 +36,7 @@ class _StaffScreenState extends State<StaffScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _showInactive = false;
-  final List<bool> _selectedDemo = [false, false, false];
+  final Set<String> _selectedStaffCodes = <String>{};
   bool _selectAll = false;
   StaffPanelType _currentPanel = StaffPanelType.none;
 
@@ -52,8 +54,8 @@ class _StaffScreenState extends State<StaffScreen> {
 
     final staffCubit = context.read<StaffCubit>();
 
-    final bool anySelected = _selectedDemo.any((e) => e);
-    final int selectedCount = _selectedDemo.where((e) => e).length;
+    final bool anySelected = _selectedStaffCodes.isNotEmpty;
+    final int selectedCount = _selectedStaffCodes.length;
 
     return GlobalScaffold(
       body: Stack(
@@ -302,8 +304,11 @@ class _StaffScreenState extends State<StaffScreen> {
                     final newVal = v ?? false;
                     setState(() {
                       _selectAll = newVal;
-                      for (int i = 0; i < _selectedDemo.length; i++) {
-                        _selectedDemo[i] = newVal;
+                      _selectedStaffCodes.clear();
+                      if (newVal) {
+                        final items = staffCubit.state.items;
+                        _selectedStaffCodes
+                            .addAll(items.map((e) => e.code));
                       }
                     });
                   },
@@ -314,10 +319,12 @@ class _StaffScreenState extends State<StaffScreen> {
               BlocBuilder<StaffCubit, StaffState>(
                 builder: (context, state) {
                   if (state.isLoading && state.items.isEmpty) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32),
-                        child: CircularProgressIndicator(),
+                    return Column(
+                      children: List.generate(
+                        6,
+                        (index) => const StaffCardShimmer(
+                          margin: EdgeInsets.only(bottom: 8),
+                        ),
                       ),
                     );
                   }
@@ -351,6 +358,8 @@ class _StaffScreenState extends State<StaffScreen> {
                         itemCount: state.items.length,
                         itemBuilder: (context, index) {
                           final staff = state.items[index];
+                          final isSelected =
+                              _selectedStaffCodes.contains(staff.code);
                           return Column(
                             children: [
                               StaffCard(
@@ -360,7 +369,19 @@ class _StaffScreenState extends State<StaffScreen> {
                                 schedule: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
-                                isSelected: false,
+                                isSelected: isSelected,
+                                onSelected: (checked) {
+                                  setState(() {
+                                    if (checked == true) {
+                                      _selectedStaffCodes.add(staff.code);
+                                    } else {
+                                      _selectedStaffCodes.remove(staff.code);
+                                    }
+                                    _selectAll = _selectedStaffCodes.length ==
+                                            state.items.length &&
+                                        state.items.isNotEmpty;
+                                  });
+                                },
                               ),
                               if (index != state.items.length - 1)
                                 const SizedBox(height: 8),
@@ -370,10 +391,8 @@ class _StaffScreenState extends State<StaffScreen> {
                       ),
                       if (state.isLoadingMore)
                         const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Center(child: PrimaryCircularLoader()),
                         ),
                     ],
                   );
@@ -408,48 +427,27 @@ class _StaffScreenState extends State<StaffScreen> {
                 onMessageTap: () {},
                 onProfileTap: selectedCount == 1
                     ? () {
-                        final idx = _selectedDemo.indexWhere((e) => e);
-                        if (idx != -1) {
-                          final demo = [
-                            {
-                              'name': 'Aarav Sharma',
-                              'classroom': 'Nursery A',
-                              'designation': 'Teacher',
-                              'phone': '5551234567',
-                            },
-                            {
-                              'name': 'Isha Verma',
-                              'classroom': 'Nursery B',
-                              'designation': 'Assistant Teacher',
-                              'phone': '2125557890',
-                            },
-                            {
-                              'name': 'Rahul Singh',
-                              'classroom': 'Daycare',
-                              'designation': 'Caretaker',
-                              'phone': '4155559876',
-                            },
-                          ][idx];
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => StaffProfileScreen(
-                                name: demo['name'] as String,
-                                classroom: demo['classroom'] as String,
-                                designation: demo['designation'] as String,
-                                phoneNumber: demo['phone'] as String,
-                              ),
+                        final staffState = staffCubit.state;
+                        final selectedCode = _selectedStaffCodes.first;
+                        final staff = staffState.items
+                            .firstWhere((e) => e.code == selectedCode);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StaffProfileScreen(
+                              name: staff.name,
+                              classroom: staff.primaryClassroom,
+                              designation: staff.designation,
+                              phoneNumber: staff.phoneNumber,
                             ),
-                          );
-                        }
+                          ),
+                        );
                       }
                     : null,
                 onClearSelections: () {
                   setState(() {
-                    for (int i = 0; i < _selectedDemo.length; i++) {
-                      _selectedDemo[i] = false;
-                    }
                     _selectAll = false;
+                    _selectedStaffCodes.clear();
                     _currentPanel = StaffPanelType.none;
                   });
                 },
@@ -463,3 +461,4 @@ class _StaffScreenState extends State<StaffScreen> {
     );
   }
 }
+

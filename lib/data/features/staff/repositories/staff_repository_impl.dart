@@ -1,4 +1,5 @@
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../datasources/staff_remote_datasource.dart';
@@ -46,6 +47,15 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   Future<StaffPage?> loadCachedStaffPage(String schoolCode) async {
     final cache = await _storageService.getJson(_cacheKey(schoolCode));
     if (cache == null) return null;
+
+    final timestampMillis = cache['timestamp'] as int?;
+    if (timestampMillis == null) return null;
+
+    final cachedAt = DateTime.fromMillisecondsSinceEpoch(timestampMillis);
+    final age = DateTime.now().difference(cachedAt);
+    if (age > StorageKeys.cacheValidDuration) {
+      return null;
+    }
 
     final payload = cache['payload'] as Map<String, dynamic>?;
     if (payload == null) return null;
