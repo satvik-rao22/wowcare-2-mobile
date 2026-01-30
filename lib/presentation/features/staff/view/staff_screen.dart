@@ -352,17 +352,17 @@ class _StaffScreenState extends State<StaffScreen> {
 
                   return Column(
                     children: [
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                         itemCount: state.items.length,
-                        itemBuilder: (context, index) {
+                itemBuilder: (context, index) {
                           final staff = state.items[index];
                           final isSelected =
                               _selectedStaffCodes.contains(staff.code);
-                          return Column(
-                            children: [
-                              StaffCard(
+                  return Column(
+                    children: [
+                      StaffCard(
                                 name: staff.name,
                                 classroom: staff.primaryClassroom,
                                 allowedClassrooms: staff.classroomCodes,
@@ -382,7 +382,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                         state.items.isNotEmpty;
                                   });
                                 },
-                              ),
+                      ),
                               if (index != state.items.length - 1)
                                 const SizedBox(height: 8),
                             ],
@@ -401,8 +401,8 @@ class _StaffScreenState extends State<StaffScreen> {
             ],
           ),
         ),
-            ),
           ),
+        ),
         ),
           if (anySelected)
             Positioned(
@@ -431,18 +431,18 @@ class _StaffScreenState extends State<StaffScreen> {
                         final selectedCode = _selectedStaffCodes.first;
                         final staff = staffState.items
                             .firstWhere((e) => e.code == selectedCode);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => StaffProfileScreen(
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => StaffProfileScreen(
                               staffCode: staff.code,
                               name: staff.name,
                               classroom: staff.primaryClassroom,
                               designation: staff.designation,
                               phoneNumber: staff.phoneNumber,
+                              ),
                             ),
-                          ),
-                        );
+                          );
                       }
                     : null,
                 onClearSelections: () {

@@ -215,7 +215,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             message: state.message!,
             isSuccess: true,
           );
-          Navigator.pop(context);
+          // Pop with success result to trigger refresh in parent
+          Navigator.pop(context, true);
         } else if (state.isError && state.message != null) {
           CoreUtils.showTopSnackBar(
             context: context,

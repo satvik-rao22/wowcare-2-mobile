@@ -7,6 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -26,45 +27,59 @@ class StaffDocumentsTab extends StatefulWidget {
 
 class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
   bool _showExpired = false;
+  late final StaffDocumentsListCubit _documentsListCubit;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _documentsListCubit = serviceLocator<StaffDocumentsListCubit>()
+      ..loadInitial(widget.staffCode, expired: _showExpired ? true : null);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _documentsListCubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<StaffDocumentsListCubit>(
-      create: (_) => serviceLocator<StaffDocumentsListCubit>()..loadInitial(widget.staffCode),
-      child: BlocListener<StaffDocumentCubit, StaffDocumentState>(
-        listener: (context, state) {
-          if (state.isSuccess) {
-            // Refresh documents list after adding a new document
-            context.read<StaffDocumentsListCubit>().refresh(widget.staffCode);
-          }
-        },
-        child: Scaffold(
+    return BlocProvider<StaffDocumentsListCubit>.value(
+      value: _documentsListCubit,
+      child: Scaffold(
           body: BlocBuilder<StaffDocumentsListCubit, StaffDocumentsListState>(
             builder: (context, state) {
               if (state.isLoading && state.documents.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final now = DateTime.now();
-              final filtered = state.documents.where((doc) {
-                try {
-                  final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
-                  return _showExpired ? expiryDate.isBefore(now) : !expiryDate.isBefore(now);
-                } catch (e) {
-                  return !_showExpired; // If parsing fails, show non-expired by default
-                }
-              }).toList();
+              // Use documents directly from API - no frontend filtering
+              final documents = state.documents;
 
               return CustomRefreshIndicator(
                 onRefresh: () async {
-                  await context.read<StaffDocumentsListCubit>().refresh(
+                  await _documentsListCubit.refresh(
                     widget.staffCode,
                     expired: _showExpired ? true : null,
                   );
                 },
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Padding(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification.metrics.pixels >=
+                        notification.metrics.maxScrollExtent - 200) {
+                      _documentsListCubit.loadNextPage(
+                        widget.staffCode,
+                        expired: _showExpired ? true : null,
+                      );
+                    }
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
                     child: Column(
                       children: [
@@ -75,14 +90,21 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                             borderRadius: BorderRadius.circular(14),
                             color: Colors.white,
                           ),
-                          child: CustomToggle(
-                            label: 'Show Expired Documents',
-                            isToggled: _showExpired,
-                            onToggle: (v) => setState(() => _showExpired = v),
-                          ),
+          child: CustomToggle(
+            label: 'Show Expired Documents',
+            isToggled: _showExpired,
+            onToggle: (v) {
+              setState(() => _showExpired = v);
+              // Call API with the new filter
+              _documentsListCubit.refresh(
+                widget.staffCode,
+                expired: v ? true : null,
+              );
+            },
+          ),
                         ),
                         const SizedBox(height: 16),
-                        if (filtered.isEmpty)
+                        if (documents.isEmpty)
                           Text(
                             _showExpired ? 'No expired documents found' : 'No documents found',
                             style: const TextStyle(
@@ -96,9 +118,9 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                           ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            itemCount: filtered.length,
+                            itemCount: documents.length,
                             itemBuilder: (context, i) {
-                              final doc = filtered[i];
+                              final doc = documents[i];
                               final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
@@ -138,11 +160,17 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                               );
                             },
                           ),
+                        if (state.isLoadingMore)
+                          const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: PrimaryCircularLoader(),
+                          ),
                       ],
                     ),
                   ),
                 ),
-              );
+              ),
+            );
             },
           ),
           floatingActionButton: GradientAddButton(
@@ -156,9 +184,15 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                     ),
                   ),
                 ),
-              ).then((_) {
-                // Refresh documents list after adding a new document
-                context.read<StaffDocumentsListCubit>().refresh(widget.staffCode);
+              ).then((result) {
+                // Refresh documents list after successfully adding a new document
+                // Cache is already invalidated in repository, so this will fetch fresh data
+                if (result == true && mounted) {
+                  _documentsListCubit.refresh(
+                    widget.staffCode,
+                    expired: _showExpired ? true : null,
+                  );
+                }
               });
             },
             size: 50.0,
@@ -167,7 +201,6 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
           ),
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         ),
-      ),
     );
   }
 }

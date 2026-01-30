@@ -16,7 +16,9 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   final GetStaffDocumentsUseCase _getStaffDocumentsUseCase;
   final StaffRepository _repository;
 
-  Future<void> loadInitial(String staffCode) async {
+  static const int _pageSize = 10;
+
+  Future<void> loadInitial(String staffCode, {bool? expired}) async {
     // Try cache first
     final cached = await (_repository is StaffRepositoryWithCache
         ? (_repository as StaffRepositoryWithCache)
@@ -27,6 +29,8 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
       emit(
         StaffDocumentsListState.loaded(
           documents: cached.items,
+          currentPage: cached.page,
+          hasMore: cached.hasMore,
           isFromCache: true,
         ),
       );
@@ -35,7 +39,7 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     }
 
     // No cache (or expired) – load from API.
-    await refresh(staffCode);
+    await refresh(staffCode, expired: expired);
   }
 
   Future<void> refresh(String staffCode, {bool? expired}) async {
@@ -50,10 +54,11 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     );
 
     try {
-      final documentsPage = await _getStaffDocumentsUseCase(
+      // Load only page 0 on refresh
+      final firstPage = await _getStaffDocumentsUseCase(
         staffCode: staffCode,
         page: 0,
-        size: 100, // Load all documents for now
+        size: _pageSize,
         expired: expired,
       );
 
@@ -61,7 +66,9 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
 
       emit(
         StaffDocumentsListState.loaded(
-          documents: documentsPage.items,
+          documents: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
           isFromCache: false,
         ),
       );
@@ -76,6 +83,41 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
       );
     }
   }
+
+  Future<void> loadNextPage(String staffCode, {bool? expired}) async {
+    if (state.isLoadingMore || !state.hasMore) return;
+
+    emit(state.copyWith(isLoadingMore: true, errorMessage: null));
+
+    try {
+      final nextPageIndex = state.currentPage + 1;
+      final page = await _getStaffDocumentsUseCase(
+        staffCode: staffCode,
+        page: nextPageIndex,
+        size: _pageSize,
+        expired: expired,
+      );
+
+      if (isClosed) return;
+
+      emit(
+        state.copyWith(
+          documents: [...state.documents, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
 }
 
 class StaffDocumentsListState extends Equatable {
@@ -84,6 +126,9 @@ class StaffDocumentsListState extends Equatable {
     required this.isLoading,
     required this.isRefreshing,
     required this.isFromCache,
+    this.currentPage = 0,
+    this.hasMore = false,
+    this.isLoadingMore = false,
     this.errorMessage,
   });
 
@@ -92,21 +137,30 @@ class StaffDocumentsListState extends Equatable {
         isLoading = false,
         isRefreshing = false,
         isFromCache = false,
+        currentPage = 0,
+        hasMore = false,
+        isLoadingMore = false,
         errorMessage = null;
 
   const StaffDocumentsListState.loaded({
     required List<StaffDocument> documents,
     required bool isFromCache,
+    this.currentPage = 0,
+    this.hasMore = false,
   })  : documents = documents,
         isLoading = false,
         isRefreshing = false,
         isFromCache = isFromCache,
+        isLoadingMore = false,
         errorMessage = null;
 
   final List<StaffDocument> documents;
   final bool isLoading;
   final bool isRefreshing;
   final bool isFromCache;
+  final int currentPage;
+  final bool hasMore;
+  final bool isLoadingMore;
   final String? errorMessage;
 
   StaffDocumentsListState copyWith({
@@ -114,6 +168,9 @@ class StaffDocumentsListState extends Equatable {
     bool? isLoading,
     bool? isRefreshing,
     bool? isFromCache,
+    int? currentPage,
+    bool? hasMore,
+    bool? isLoadingMore,
     String? errorMessage,
   }) {
     return StaffDocumentsListState(
@@ -121,11 +178,23 @@ class StaffDocumentsListState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       isFromCache: isFromCache ?? this.isFromCache,
+      currentPage: currentPage ?? this.currentPage,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 
   @override
-  List<Object?> get props => [documents, isLoading, isRefreshing, isFromCache, errorMessage];
+  List<Object?> get props => [
+        documents,
+        isLoading,
+        isRefreshing,
+        isFromCache,
+        currentPage,
+        hasMore,
+        isLoadingMore,
+        errorMessage,
+      ];
 }
 

@@ -9,17 +9,25 @@ import '../models/staff_models.dart';
 import '../models/staff_document_models.dart';
 
 class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
-  StaffRepositoryImpl(this._remoteDataSource, this._storageService)
-      : _cacheManager = CacheManager(_storageService);
+  StaffRepositoryImpl(this._remoteDataSource, StorageService storageService)
+      : _cacheManager = CacheManager(storageService);
 
   final StaffRemoteDataSource _remoteDataSource;
-  final StorageService _storageService;
   final CacheManager _cacheManager;
 
+  // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
   static String _staffListCacheKey(String schoolCode) =>
-      'staff_list_cache_$schoolCode';
+      CacheManager.buildCacheKey(
+        feature: 'staff',
+        resource: 'list',
+        identifier: schoolCode,
+      );
   static String _staffDocumentsCacheKey(String staffCode) =>
-      'staff_documents_cache_$staffCode';
+      CacheManager.buildCacheKey(
+        feature: 'staff',
+        resource: 'documents',
+        identifier: staffCode,
+      );
 
   @override
   Future<StaffPage> getStaffPage({
@@ -111,11 +119,18 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       request: request,
     );
 
-    // Invalidate documents cache when a new document is added
+    // IMPORTANT: Invalidate cache after any mutation (add/edit/delete)
+    // This ensures the UI will fetch fresh data on next refresh
     await _cacheManager.invalidateCache(_staffDocumentsCacheKey(staffCode));
 
     return response.message;
   }
+
+  // TODO: When implementing updateStaffDocument, add cache invalidation:
+  // await _cacheManager.invalidateCache(_staffDocumentsCacheKey(staffCode));
+  
+  // TODO: When implementing deleteStaffDocument, add cache invalidation:
+  // await _cacheManager.invalidateCache(_staffDocumentsCacheKey(staffCode));
 
   @override
   Future<StaffDocumentsPage> getStaffDocuments({
