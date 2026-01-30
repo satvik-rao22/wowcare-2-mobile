@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        // TODO: Add refresh logic to reload important dates
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
         child: Container(
           width: double.infinity,
@@ -117,6 +124,7 @@ class StaffDatesTab extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

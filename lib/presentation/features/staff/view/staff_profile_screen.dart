@@ -15,12 +15,14 @@ import 'package:image_picker/image_picker.dart';
 class StaffProfileScreen extends StatefulWidget {
   const StaffProfileScreen({
     super.key,
+    required this.staffCode,
     required this.name,
     required this.classroom,
     required this.designation,
     required this.phoneNumber,
   });
 
+  final String staffCode;
   final String name;
   final String classroom;
   final String designation;
@@ -119,7 +121,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   schedules: const <ScheduleEntry>[],
                 ),
                 const StaffDatesTab(),
-                const StaffDocumentsTab(),
+                StaffDocumentsTab(staffCode: widget.staffCode),
               ],
             ),
           ),

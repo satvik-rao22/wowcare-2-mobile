@@ -21,8 +21,12 @@ import '../../domain/features/onboarding/repositories/onboarding_repository.dart
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
+import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
+import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -97,6 +101,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffPageUseCase>(
     () => GetStaffPageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<AddStaffDocumentUseCase>(
+    () => AddStaffDocumentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffDocumentsUseCase>(
+    () => GetStaffDocumentsUseCase(serviceLocator()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -111,6 +121,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffPageUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffDocumentCubit>(
+    () => StaffDocumentCubit(
+      addStaffDocumentUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffDocumentsListCubit>(
+    () => StaffDocumentsListCubit(
+      getStaffDocumentsUseCase: serviceLocator(),
+      repository: serviceLocator(),
     ),
   );
 }

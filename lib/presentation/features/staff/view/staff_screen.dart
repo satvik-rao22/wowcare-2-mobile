@@ -435,6 +435,7 @@ class _StaffScreenState extends State<StaffScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => StaffProfileScreen(
+                              staffCode: staff.code,
                               name: staff.name,
                               classroom: staff.primaryClassroom,
                               designation: staff.designation,

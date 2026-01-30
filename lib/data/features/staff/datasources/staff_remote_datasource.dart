@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import '../../../../core/util/api_constants.dart';
+import '../../../../core/util/api_paths.dart';
 import '../models/staff_models.dart';
+import '../models/staff_document_models.dart';
 
 abstract class StaffRemoteDataSource {
   Future<StaffPageModel> getStaffPage({
@@ -11,15 +13,24 @@ abstract class StaffRemoteDataSource {
     String? designation,
     String? search,
   });
+
+  Future<StaffDocumentResponseModel> addStaffDocument({
+    required String staffCode,
+    required StaffDocumentRequestModel request,
+  });
+
+  Future<StaffDocumentsPageModel> getStaffDocuments({
+    required String staffCode,
+    int page = 0,
+    int size = 10,
+    bool? expired,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   StaffRemoteDataSourceImpl(this._client);
 
   final Dio _client;
-
-  static const String _staffEndpoint =
-      '${ApiConstants.staffBaseUrl}/api/v1/staff';
 
   @override
   Future<StaffPageModel> getStaffPage({
@@ -47,8 +58,13 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       queryParameters['search'] = search;
     }
 
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffList,
+      ApiConstants.staffBaseUrl,
+    );
+
     final response = await _client.get<dynamic>(
-      _staffEndpoint,
+      endpoint,
       queryParameters: queryParameters,
     );
 
@@ -57,6 +73,70 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return StaffPageModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<StaffDocumentResponseModel> addStaffDocument({
+    required String staffCode,
+    required StaffDocumentRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDocumentAdd}/$staffCode/documents',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff document API response format');
+    }
+
+    return StaffDocumentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffDocumentsPageModel> getStaffDocuments({
+    required String staffCode,
+    int page = 0,
+    int size = 10,
+    bool? expired,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'staffCode': staffCode,
+      'page': page,
+      'size': size,
+    };
+
+    if (expired != null) {
+      queryParameters['expired'] = expired;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffDocuments,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff documents API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final dataPayload = data['data'] as Map<String, dynamic>?;
+    if (dataPayload == null) {
+      throw Exception('Missing data field in staff documents response');
+    }
+
+    return StaffDocumentsPageModel.fromJson(dataPayload);
   }
 }
 

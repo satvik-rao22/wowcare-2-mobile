@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -10,10 +10,14 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
 
 class AddDocumentScreen extends StatefulWidget {
   const AddDocumentScreen({
     super.key,
+    required this.staffCode,
     this.isEdit = false,
     this.initialDocumentName,
     this.initialDocumentType,
@@ -22,6 +26,7 @@ class AddDocumentScreen extends StatefulWidget {
   });
   static const String routeName = '/add-document-screen';
 
+  final String staffCode;
   final bool isEdit;
   final String? initialDocumentName;
   final String? initialDocumentType;
@@ -33,13 +38,11 @@ class AddDocumentScreen extends StatefulWidget {
 }
 
 class _AddDocumentScreenState extends State<AddDocumentScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _documentNameController = TextEditingController();
   String? _selectedDocumentType;
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
-  bool _isLoading = false;
-  bool _isSubmitting = false;
+  PlatformFile? _selectedFile;
 
   final List<String> _documentTypes = [
     'Educational',
@@ -86,22 +89,46 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       return;
     }
 
-    if (_selectedFilePath == null) {
+    if (_selectedFile == null) {
       _showWarningMessage('Please upload a document');
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    final fileSizeKb = (_selectedFile!.size / 1024).ceil();
+    final extension = _selectedFile!.extension?.toLowerCase() ?? '';
+    final mimeType = _getMimeType(extension);
+    // Send just the filename, not the full local path
+    final documentUrl = _selectedFile!.name;
 
-    // Mock API call
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        _isSubmitting = false;
-      });
-      Navigator.pop(context);
-    });
+    final document = StaffDocument(
+      documentType: _selectedDocumentType!,
+      documentName: _documentNameController.text.trim(),
+      documentUrl: documentUrl,
+      documentSizeKb: fileSizeKb,
+      mimeType: mimeType,
+      expiryDate: DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!),
+    );
+
+    context.read<StaffDocumentCubit>().addDocument(
+          staffCode: widget.staffCode,
+          document: document,
+        );
+  }
+
+  String _getMimeType(String extension) {
+    const mimeTypes = {
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    };
+    return mimeTypes[extension] ?? 'application/octet-stream';
   }
 
   void _showWarningMessage(String message) {
@@ -164,6 +191,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       if (result != null && result.files.isNotEmpty) {
         PlatformFile file = result.files.first;
         setState(() {
+          _selectedFile = file;
           _selectedFilePath = file.name;
         });
       }
@@ -179,24 +207,47 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return StaffFormLayout(
+    return BlocListener<StaffDocumentCubit, StaffDocumentState>(
+      listener: (context, state) {
+        if (state.isSuccess && state.message != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message!,
+            isSuccess: true,
+          );
+          Navigator.pop(context);
+        } else if (state.isError && state.message != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message!,
+            isError: true,
+          );
+        }
+      },
+      child: StaffFormLayout(
       title: widget.isEdit ? "Edit Document" : "Add Document",
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _buildInputField(
-            "Document name",
-            "E.g. Report Card",
-            _documentNameController,
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildCustomDropdown(),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildDateField(),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildFileUploadField(),
-          const SizedBox(height: 12),
-        ],
+      child: GestureDetector(
+        onTap: () {
+          FocusScope.of(context).unfocus();
+        },
+        behavior: HitTestBehavior.opaque,
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _buildInputField(
+              "Document name",
+              "E.g. Report Card",
+              _documentNameController,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildCustomDropdown(),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildDateField(),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildFileUploadField(),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
       bottomBar: Container(
         padding: EdgeInsets.only(
@@ -216,15 +267,18 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: Container(
-          height: responsive.buttonHeight,
-          decoration: BoxDecoration(
-            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: _isSubmitting ? Colors.grey[300] : null,
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-          ),
-          child: TextButton(
-            onPressed: _isSubmitting ? null : _addDocument,
+        child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
+          builder: (context, state) {
+            final isSubmitting = state.isLoading;
+            return Container(
+              height: responsive.buttonHeight,
+              decoration: BoxDecoration(
+                gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
+                color: isSubmitting ? Colors.grey[300] : null,
+                borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+              ),
+              child: TextButton(
+                onPressed: isSubmitting ? null : _addDocument,
             child: Text(
               widget.isEdit ? 'Save' : 'Add',
               style: TextStyle(
@@ -233,9 +287,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         ),
+      ),
       ),
     );
   }
@@ -275,6 +332,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           ),
           child: TextField(
             controller: controller,
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),

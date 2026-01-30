@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class StaffProfileTab extends StatelessWidget {
   const StaffProfileTab({
@@ -53,9 +54,15 @@ class StaffProfileTab extends StatelessWidget {
     final workTimes = _getFormattedTimes(schedules, false);
     final breakTimes = _getFormattedTimes(schedules, true);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-      child: Container(
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        // TODO: Add refresh logic to reload profile data
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+        child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -327,6 +334,7 @@ class StaffProfileTab extends StatelessWidget {
           ),
           ],
         ),
+      ),
       ),
     );
   }

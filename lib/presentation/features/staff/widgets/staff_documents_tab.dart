@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
 
 class StaffDocumentsTab extends StatefulWidget {
-  const StaffDocumentsTab({super.key});
+  const StaffDocumentsTab({
+    super.key,
+    required this.staffCode,
+  });
+
+  final String staffCode;
 
   @override
   State<StaffDocumentsTab> createState() => _StaffDocumentsTabState();
@@ -19,107 +29,145 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final docs = <_Doc>[
-      _Doc('Offer_Letter.pdf', 'PDF', now.add(const Duration(days: 120))),
-      _Doc('ID_Card.png', 'Image', now.subtract(const Duration(days: 10))),
-      _Doc('Contract.docx', 'DOC', now.add(const Duration(days: 365))),
-    ];
+    return BlocProvider<StaffDocumentsListCubit>(
+      create: (_) => serviceLocator<StaffDocumentsListCubit>()..loadInitial(widget.staffCode),
+      child: BlocListener<StaffDocumentCubit, StaffDocumentState>(
+        listener: (context, state) {
+          if (state.isSuccess) {
+            // Refresh documents list after adding a new document
+            context.read<StaffDocumentsListCubit>().refresh(widget.staffCode);
+          }
+        },
+        child: Scaffold(
+          body: BlocBuilder<StaffDocumentsListCubit, StaffDocumentsListState>(
+            builder: (context, state) {
+              if (state.isLoading && state.documents.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-    final filtered = docs.where((d) => _showExpired ? d.expiry.isBefore(now) : !d.expiry.isBefore(now)).toList();
+              final now = DateTime.now();
+              final filtered = state.documents.where((doc) {
+                try {
+                  final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
+                  return _showExpired ? expiryDate.isBefore(now) : !expiryDate.isBefore(now);
+                } catch (e) {
+                  return !_showExpired; // If parsing fails, show non-expired by default
+                }
+              }).toList();
 
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-                  borderRadius: BorderRadius.circular(14),
-                  color: Colors.white,
-                ),
-                child: CustomToggle(
-                  label: 'Show Expired Documents',
-                  isToggled: _showExpired,
-                  onToggle: (v) => setState(() => _showExpired = v),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (filtered.isEmpty)
-                Text(
-                  _showExpired ? 'No expired documents found' : 'No documents found',
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    height: 16,
+              return CustomRefreshIndicator(
+                onRefresh: () async {
+                  await context.read<StaffDocumentsListCubit>().refresh(
+                    widget.staffCode,
+                    expired: _showExpired ? true : null,
+                  );
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+                            borderRadius: BorderRadius.circular(14),
+                            color: Colors.white,
+                          ),
+                          child: CustomToggle(
+                            label: 'Show Expired Documents',
+                            isToggled: _showExpired,
+                            onToggle: (v) => setState(() => _showExpired = v),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (filtered.isEmpty)
+                          Text(
+                            _showExpired ? 'No expired documents found' : 'No documents found',
+                            style: const TextStyle(
+                              color: AppColors.primaryColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              height: 16,
+                            ),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filtered.length,
+                            itemBuilder: (context, i) {
+                              final doc = filtered[i];
+                              final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: ExpansionTile(
+                                  title: Text(
+                                    doc.documentName,
+                                    style: const TextStyle(
+                                      color: AppColors.primaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  trailing: const SizedBox.shrink(),
+                                  backgroundColor: Colors.white,
+                                  collapsedBackgroundColor: Colors.white,
+                                  collapsedShape: RoundedRectangleBorder(
+                                    side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                  children: [
+                                    Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+                                    const SizedBox(height: 16),
+                                    _DocRow(label: 'Document Type', text: doc.documentType),
+                                    const SizedBox(height: 16),
+                                    _DocRow(
+                                      label: 'Expiry Date',
+                                      text: DateFormat('MMM dd, yyyy').format(expiryDate),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _DocRow(label: 'Document', text: doc.documentName, trailingIcon: Icons.insert_drive_file_outlined),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
                   ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final d = filtered[i];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: ExpansionTile(
-                        title: Text(
-                          d.fileNameNoExt,
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        trailing: const SizedBox.shrink(),
-                        backgroundColor: Colors.white,
-                        collapsedBackgroundColor: Colors.white,
-                        collapsedShape: RoundedRectangleBorder(
-                          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        children: [
-                          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
-                          const SizedBox(height: 16),
-                          _DocRow(label: 'Document Type', text: d.type),
-                          const SizedBox(height: 16),
-                          _DocRow(
-                            label: 'Expiry Date',
-                            text: DateFormat('MMM dd, yyyy').format(d.expiry),
-                          ),
-                          const SizedBox(height: 16),
-                          _DocRow(label: 'Document', text: d.fileNameNoExt, trailingIcon: Icons.insert_drive_file_outlined),
-                        ],
-                      ),
-                    );
-                  },
                 ),
-            ],
+              );
+            },
           ),
+          floatingActionButton: GradientAddButton(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => BlocProvider<StaffDocumentCubit>(
+                    create: (_) => serviceLocator<StaffDocumentCubit>(),
+                    child: AddDocumentScreen(
+                      staffCode: widget.staffCode,
+                    ),
+                  ),
+                ),
+              ).then((_) {
+                // Refresh documents list after adding a new document
+                context.read<StaffDocumentsListCubit>().refresh(widget.staffCode);
+              });
+            },
+            size: 50.0,
+            iconSize: 28.0,
+            borderRadius: 12.0,
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         ),
       ),
-      floatingActionButton: GradientAddButton(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const AddDocumentScreen(),
-            ),
-          );
-        },
-        size: 50.0,
-        iconSize: 28.0,
-        borderRadius: 12.0,
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
@@ -172,17 +220,4 @@ class _DocRow extends StatelessWidget {
     );
   }
 }
-
-class _Doc {
-  _Doc(this.fileName, this.type, this.expiry);
-  final String fileName;
-  final String type;
-  final DateTime expiry;
-
-  String get fileNameNoExt {
-    final i = fileName.lastIndexOf('.');
-    return i > 0 ? fileName.substring(0, i) : fileName;
-  }
-}
-
 

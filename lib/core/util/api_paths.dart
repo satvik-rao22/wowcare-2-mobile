@@ -12,6 +12,12 @@ class ApiPaths {
   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
   static const String organizationNames = '/api/v1/organizations/names';
 
+  // Staff
+  static const String staffList = '/api/v1/staff';
+  static const String staffDocuments = '/api/v1/staff-documents';
+  static const String staffDocumentAdd = '/api/v1/staff-documents';
+  static const String staffDocumentUpdate = '/api/v1/staff-documents/documents';
+
   /// Helper to build a full URL from a relative path.
   static String url(String path) => '${ApiConstants.baseUrl}$path';
 

@@ -17,19 +17,13 @@ class PrimaryCircularLoader extends StatelessWidget {
     return SizedBox(
       height: size,
       width: size,
-      child: ShaderMask(
-        shaderCallback: (Rect bounds) {
-          return AppColors.buildPrimaryGradient()
-              .createShader(Offset.zero & bounds.size);
-        },
-        child: CircularProgressIndicator(
-          strokeWidth: strokeWidth,
-          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-          backgroundColor: Colors.transparent,
-        ),
+      child: CircularProgressIndicator(
+        strokeWidth: strokeWidth,
+        valueColor:
+            const AlwaysStoppedAnimation<Color>(AppColors.themeColor),
+        backgroundColor: AppColors.themeColor.withOpacity(0.1),
       ),
     );
   }
 }
-
 
