@@ -28,23 +28,42 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       text: "Hello! I want to take day off tomorrow ?",
       isSentByMe: false,
       time: DateTime(2025, 1, 13, 14, 45),
+      reactions: {
+        'natasha': '😂',
+        'eddie': '😂',
+        'john': '😂',
+        'manager': '👍',
+      },
     ),
     Message(
       text: "Okay Natasha!",
       isSentByMe: true,
       time: DateTime(2025, 1, 13, 16, 45),
-      readAt: DateTime(2025, 1, 13, 16, 45),
+      //readAt: DateTime(2025, 1, 13, 16, 45),
     ),
     Message(
       text: "Great to know that! Thanks!",
       isSentByMe: false,
       time: DateTime(2025, 1, 13, 16, 50),
+      reactions: {
+        'manager': '🙏',
+        'hr': '🙏',
+        'john': '🙏',
+      },
     ),
     Message(
       text:
           "Also, is it possible to make it half day instead? I have doctor appointment in morning",
       isSentByMe: false,
       time: DateTime(2025, 1, 14, 9, 12),
+      deliveredAt: DateTime(2025, 1, 14, 9, 12),
+      reactions: {
+        'natasha': '👍',
+        'eddie': '👍',
+        'john': '❤️',
+        'manager': '🙏',
+        'hr': '🙏',
+      },
     ),
     Message(
       text:
@@ -52,6 +71,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       isSentByMe: true,
       time: DateTime(2025, 1, 14, 9, 18),
       readAt: DateTime(2025, 1, 14, 9, 18),
+      reactions: {
+        'natasha': '😂',
+        'eddie': '😂',
+        'john': '😂',
+        'manager': '👍',
+        'natashi': '👍',
+        'eddiey': '👍',
+        'johny': '❤️',
+        'managery': '🙏',
+        'hr': '🙏',
+      },
     ),
     Message(
       text: "Thank you so much! ❤️ Will do",
@@ -93,6 +123,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
     ),
   ];
   late final ReactionsController _reactionsController;
+  String? _quotedMessageId;
 
   @override
   void initState(){
@@ -206,6 +237,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
             ),
           ],
           const PopupMenuItem<String>(
+            value: 'reply',
+            child: ListTile(
+              leading: Icon(Icons.reply, color: AppColors.primaryColor),
+              title: CustomTextWidget(text: 'Reply', fontSize: 15, fontWeight: FontWeight.w500, applyLetterSpacing: false),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem<String>(
             value: 'copy',
             child: ListTile(
               leading: Icon(Icons.copy, color: AppColors.primaryColor,),
@@ -229,6 +268,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       if (value == null) return;
 
       switch (value) {
+        case 'reply':
+          setState(() {
+            _quotedMessageId = message.time.toIso8601String(); // set quoted ID
+          });
+          break;
         case 'copy':
           Clipboard.setData(ClipboardData(text: message.text));
           CoreUtils.showTopSnackBar(
@@ -464,10 +508,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               ],
                             ),
                             const SizedBox(width: 10),
-                            CustomTextWidget(
-                              text: widget.staffInfo['name'],
-                              fontWeight: FontWeight.w600,
-                              fontSize: 20,
+                            Flexible(
+                              child: CustomTextWidget(
+                                text: widget.staffInfo['name'],
+                                fontWeight: FontWeight.w600,
+                                fontSize: 20,
+                              ),
                             ),
                           ],
                         ),
@@ -503,7 +549,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (showDateHeader)
-                                Center(child: _buildDateChip(message.time)),
+                                Center(child: Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: _buildDateChip(message.time),
+                                )),
                               if (showDateHeader) const SizedBox(height: 10),
 
                               if(message.isSentByMe)
@@ -526,7 +575,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                   ),
                                   config: ChatReactionsConfig(
 
-                                    availableReactions: ['👍', '❤️', '😂', '😮', '➕'],
+                                    availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '😠', '➕'],
 
                                     // availableReactions: const [
                                     //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
@@ -581,6 +630,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                       MenuItem(
                                         label: 'Copy',
                                         icon: Icons.copy,
+                                        isDestructive: false,
+                                      ),
+                                      MenuItem(
+                                        label: 'Reply',
+                                        icon: Icons.reply,
                                         isDestructive: false,
                                       ),
                                     ],
@@ -649,8 +703,23 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                     //     // ),
                                     //   );
                                     // }
+                                    final currentUserId = 'me'; // dummy for now
                                     setState(() {
-
+                                      final index = _messages.indexWhere((m) => m.time == message.time);
+                                      if(index != -1){
+                                        final currentReactions = Map<String, String>.from(_messages[index].reactions);
+                                        currentReactions[currentUserId] = emoji;
+                                        _messages[index] = Message(
+                                            text: _messages[index].text,
+                                            isSentByMe: _messages[index].isSentByMe,
+                                            time: _messages[index].time,
+                                          deliveredAt: _messages[index].deliveredAt,
+                                          readAt: _messages[index].readAt,
+                                          deliveredTo: _messages[index].deliveredTo,
+                                          readBy: _messages[index].readBy,
+                                          reactions: currentReactions
+                                        );
+                                      }
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(content: Text('Reacted with $emoji')),
                                       );
@@ -658,8 +727,26 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                   },
 
                                   onReactionRemoved: (emoji) {
+                                    final currentUserId = 'me'; // dummy for now
                                     setState(() {
                                       // message.reactions.remove(emoji);
+                                      final index = _messages.indexWhere((m) => m.time == message.time);
+                                      if (index != -1) {
+                                        final currentReactions = Map<String, String>.from(_messages[index].reactions);
+                                        if (currentReactions[currentUserId] == emoji){
+                                          currentReactions.remove(currentUserId);
+                                        }
+                                        _messages[index] = Message(
+                                          text: _messages[index].text,
+                                          isSentByMe: _messages[index].isSentByMe,
+                                          time: _messages[index].time,
+                                          deliveredAt: _messages[index].deliveredAt,
+                                          readAt: _messages[index].readAt,
+                                          deliveredTo: _messages[index].deliveredTo,
+                                          readBy: _messages[index].readBy,
+                                          reactions: currentReactions,
+                                        );
+                                      }
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(content: Text('Removed $emoji')),
                                       );
