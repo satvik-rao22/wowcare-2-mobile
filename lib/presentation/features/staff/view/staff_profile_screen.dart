@@ -110,15 +110,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               controller: _tabController,
               children: [
                 StaffProfileTab(
-                  name: widget.name,
-                  profileStatus: 'A',
-                  designation: widget.designation,
-                  allowedClassrooms: [widget.classroom],
-                  primaryClassroom: widget.classroom,
-                  email: '',
-                  clockInPin: '',
-                  phoneNumber: widget.phoneNumber,
-                  schedules: const <ScheduleEntry>[],
+                  staffCode: widget.staffCode,
                 ),
                 const StaffDatesTab(),
                 StaffDocumentsTab(staffCode: widget.staffCode),

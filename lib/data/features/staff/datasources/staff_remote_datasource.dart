@@ -25,6 +25,10 @@ abstract class StaffRemoteDataSource {
     int size = 10,
     bool? expired,
   });
+
+  Future<StaffProfileModel> getStaffProfile({
+    required String staffCode,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -137,6 +141,24 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return StaffDocumentsPageModel.fromJson(dataPayload);
+  }
+
+  @override
+  Future<StaffProfileModel> getStaffProfile({
+    required String staffCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffProfile}/$staffCode/profile',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff profile API response format');
+    }
+
+    return StaffProfileModel.fromJson(response.data! as Map<String, dynamic>);
   }
 }
 

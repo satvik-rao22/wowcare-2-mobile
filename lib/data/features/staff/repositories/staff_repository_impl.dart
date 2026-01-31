@@ -3,6 +3,7 @@ import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/entities/staff_documents_page.dart';
+import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../datasources/staff_remote_datasource.dart';
 import '../models/staff_models.dart';
@@ -26,6 +27,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       CacheManager.buildCacheKey(
         feature: 'staff',
         resource: 'documents',
+        identifier: staffCode,
+      );
+  static String _staffProfileCacheKey(String staffCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'staff',
+        resource: 'profile',
         identifier: staffCode,
       );
 
@@ -181,6 +188,104 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       totalPages: model.totalPages,
       totalElements: model.totalElements,
       hasMore: model.hasMore,
+    );
+  }
+
+  @override
+  Future<StaffProfile> getStaffProfile({
+    required String staffCode,
+  }) async {
+    final profileModel = await _remoteDataSource.getStaffProfile(
+      staffCode: staffCode,
+    );
+
+    // Cache the profile
+    await _cacheManager.saveCache(
+      _staffProfileCacheKey(staffCode),
+      profileModel.toJson(),
+    );
+
+    return _mapProfileModelToEntity(profileModel);
+  }
+
+  @override
+  Future<StaffProfile?> loadCachedStaffProfile(String staffCode) async {
+    final payload = await _cacheManager.loadCache(_staffProfileCacheKey(staffCode));
+    if (payload == null) return null;
+
+    final model = StaffProfileModel.fromCacheJson(payload);
+    return _mapProfileModelToEntity(model);
+  }
+
+  StaffProfile _mapProfileModelToEntity(StaffProfileModel model) {
+    return StaffProfile(
+      staffCode: model.staffCode,
+      userCode: model.userCode,
+      organizationCode: model.organizationCode,
+      schoolCode: model.schoolCode,
+      firstName: model.firstName,
+      lastName: model.lastName,
+      fullName: model.fullName,
+      email: model.email,
+      phoneNumber: model.phoneNumber,
+      profilePhotoUrl: model.profilePhotoUrl,
+      birthDate: model.birthDate,
+      staffType: model.staffType,
+      status: model.status,
+      designation: model.designation,
+      jobTag: model.jobTag,
+      clockPin: model.clockPin,
+      primaryClassroomCode: model.primaryClassroomCode,
+      allowedClassroomCodes: model.allowedClassroomCodes,
+      address: StaffProfileAddress(
+        street: model.address.street,
+        line2: model.address.line2,
+        city: model.address.city,
+        state: model.address.state,
+        zipCode: model.address.zipCode,
+        country: model.address.country,
+      ),
+      workSchedules: model.workSchedules
+          .map(
+            (m) => StaffProfileWorkSchedule(
+              dayOfWeek: m.dayOfWeek,
+              workStartTime: StaffProfileTime(
+                hour: m.workStartTime.hour,
+                minute: m.workStartTime.minute,
+                second: m.workStartTime.second,
+                nano: m.workStartTime.nano,
+              ),
+              workEndTime: StaffProfileTime(
+                hour: m.workEndTime.hour,
+                minute: m.workEndTime.minute,
+                second: m.workEndTime.second,
+                nano: m.workEndTime.nano,
+              ),
+            ),
+          )
+          .toList(),
+      breakSchedules: model.breakSchedules
+          .map(
+            (m) => StaffProfileBreakSchedule(
+              dayOfWeek: m.dayOfWeek,
+              breakType: m.breakType,
+              breakStartTime: StaffProfileTime(
+                hour: m.breakStartTime.hour,
+                minute: m.breakStartTime.minute,
+                second: m.breakStartTime.second,
+                nano: m.breakStartTime.nano,
+              ),
+              breakEndTime: StaffProfileTime(
+                hour: m.breakEndTime.hour,
+                minute: m.breakEndTime.minute,
+                second: m.breakEndTime.second,
+                nano: m.breakEndTime.nano,
+              ),
+            ),
+          )
+          .toList(),
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
     );
   }
 }

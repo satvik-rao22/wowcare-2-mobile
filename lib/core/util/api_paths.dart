@@ -14,6 +14,7 @@ class ApiPaths {
 
   // Staff
   static const String staffList = '/api/v1/staff';
+  static const String staffProfile = '/api/v1/staff';
   static const String staffDocuments = '/api/v1/staff-documents';
   static const String staffDocumentAdd = '/api/v1/staff-documents';
   static const String staffDocumentUpdate = '/api/v1/staff-documents/documents';

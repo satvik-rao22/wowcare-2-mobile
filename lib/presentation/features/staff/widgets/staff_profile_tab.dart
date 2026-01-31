@@ -1,48 +1,101 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
-class StaffProfileTab extends StatelessWidget {
+class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
     super.key,
-    required this.name,
-    required this.profileStatus, // 'A', 'I', 'Upcoming'
-    required this.designation,
-    required this.allowedClassrooms,
-    required this.primaryClassroom,
-    required this.email,
-    required this.clockInPin,
-    required this.phoneNumber,
-    this.address = '',
-    this.birthDate = '',
-    this.jobTag = '',
-    required this.schedules, // work/break time entries
+    required this.staffCode,
   });
 
-  final String name;
-  final String profileStatus;
-  final String designation;
-  final List<String> allowedClassrooms;
-  final String primaryClassroom;
-  final String email;
-  final String clockInPin;
-  final String phoneNumber;
-  final String address;
-  final String birthDate; // formatted e.g. Oct 29, 2001
-  final String jobTag;
-  final List<ScheduleEntry> schedules;
+  final String staffCode;
+
+  @override
+  State<StaffProfileTab> createState() => _StaffProfileTabState();
+}
+
+class _StaffProfileTabState extends State<StaffProfileTab> {
+  late final StaffProfileCubit _profileCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileCubit = serviceLocator<StaffProfileCubit>()
+      ..loadInitial(widget.staffCode);
+  }
+
+  @override
+  void dispose() {
+    _profileCubit.close();
+    super.dispose();
+  }
 
   static const List<String> _allDays = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
   ];
+
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return '-';
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('MMM dd, yyyy').format(date);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  String _formatPhoneNumber(String? number) {
+    if (number == null || number.isEmpty) return '-';
+    final digits = number.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 10) return number;
+    return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}';
+  }
+
+  String _getStatusLabel(String? status) {
+    if (status == null || status.isEmpty) return '-';
+    if (status.toUpperCase() == 'ACTIVE' || status == 'A') return 'Active';
+    if (status.toUpperCase() == 'INACTIVE' || status == 'I') return 'Inactive';
+    return status;
+  }
+
+  Color _getStatusColor(String? status) {
+    if (status == null || status.isEmpty) return Colors.grey;
+    final upperStatus = status.toUpperCase();
+    if (upperStatus == 'ACTIVE' || status == 'A') {
+      return const Color.fromRGBO(56, 200, 32, 1);
+    }
+    if (upperStatus == 'INACTIVE' || status == 'I') {
+      return const Color.fromRGBO(250, 65, 65, 1);
+    }
+    return const Color.fromARGB(255, 238, 223, 8);
+  }
+
+  Color _getStatusBgColor(String? status) {
+    if (status == null || status.isEmpty) return Colors.grey.withOpacity(0.1);
+    final upperStatus = status.toUpperCase();
+    if (upperStatus == 'ACTIVE' || status == 'A') {
+      return const Color.fromRGBO(56, 200, 32, 0.1);
+    }
+    if (upperStatus == 'INACTIVE' || status == 'I') {
+      return const Color.fromRGBO(250, 65, 65, 0.1);
+    }
+    return const Color.fromARGB(255, 242, 238, 176);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,14 +104,55 @@ class StaffProfileTab extends StatelessWidget {
       const Color.fromRGBO(203, 246, 255, 0.4),
       const Color.fromRGBO(217, 255, 203, 0.4),
     ];
-    final workTimes = _getFormattedTimes(schedules, false);
-    final breakTimes = _getFormattedTimes(schedules, true);
 
-    return CustomRefreshIndicator(
-      onRefresh: () async {
-        // TODO: Add refresh logic to reload profile data
-        await Future.delayed(const Duration(milliseconds: 500));
-      },
+    return BlocProvider<StaffProfileCubit>.value(
+      value: _profileCubit,
+      child: BlocListener<StaffProfileCubit, StaffProfileState>(
+        listener: (context, state) {
+          if (state.errorMessage != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: ApiErrorHandler.extractErrorMessage(state.errorMessage),
+              isError: true,
+            );
+          }
+        },
+        child: BlocBuilder<StaffProfileCubit, StaffProfileState>(
+          builder: (context, state) {
+            if (state.isLoading && state.profile == null) {
+              return const Center(child: PrimaryCircularLoader());
+            }
+
+            final profile = state.profile;
+            if (profile == null) {
+              return Center(
+                child: Text(
+                  state.errorMessage ?? 'Failed to load profile',
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              );
+            }
+
+            // Build work and break times maps
+            final workTimes = <String, String>{};
+            final breakTimes = <String, String>{};
+            final availableDays = <String>{};
+
+            for (final schedule in profile.workSchedules) {
+              final day = schedule.dayOfWeek;
+              availableDays.add(day);
+              workTimes[day] = schedule.formattedTime;
+            }
+
+            for (final schedule in profile.breakSchedules) {
+              final day = schedule.dayOfWeek;
+              breakTimes[day] = schedule.formattedTime;
+            }
+
+            return CustomRefreshIndicator(
+              onRefresh: () async {
+                await _profileCubit.refresh(widget.staffCode);
+              },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
@@ -92,22 +186,22 @@ class StaffProfileTab extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const EditProfileDetailsScreen(
-                          initialFirstName: 'Jessica',
-                          initialLastName: 'Rhodes',
-                          initialStatus: 'Active',
-                          initialDesignation: 'Admin',
-                          initialAllowedClassrooms: ['5 Days X', '1-Blue D X', '3-Orange-D X'],
-                          initialPrimaryClassroom: 'Office X',
-                          initialBirthDate: null,
-                          initialJobTag: 'Full Time',
-                          initialEmail: 'Jessica@wowcare.com',
-                          initialPhoneNumber: '(986) 027-1627',
-                          initialStreet: '',
-                          initialCity: '',
-                          initialState: 'New Hampshire',
-                          initialCountry: 'United States',
-                          initialZipCode: '',
+                        builder: (context) => EditProfileDetailsScreen(
+                          initialFirstName: profile.firstName,
+                          initialLastName: profile.lastName,
+                          initialStatus: _getStatusLabel(profile.status),
+                          initialDesignation: profile.designation.isEmpty ? '-' : profile.designation,
+                          initialAllowedClassrooms: profile.allowedClassroomCodes,
+                          initialPrimaryClassroom: profile.primaryClassroomCode.isEmpty ? '-' : profile.primaryClassroomCode,
+                          initialBirthDate: profile.birthDate.isEmpty ? null : DateTime.tryParse(profile.birthDate),
+                          initialJobTag: profile.jobTag.isEmpty ? '-' : profile.jobTag,
+                          initialEmail: profile.email.isEmpty ? '-' : profile.email,
+                          initialPhoneNumber: profile.phoneNumber.isEmpty ? '-' : profile.phoneNumber,
+                          initialStreet: profile.address.street,
+                          initialCity: profile.address.city,
+                          initialState: profile.address.state,
+                          initialCountry: profile.address.country,
+                          initialZipCode: profile.address.zipCode,
                         ),
                       ),
                     );
@@ -130,74 +224,94 @@ class StaffProfileTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            _Field(label: 'Name', value: name),
+            _Field(label: 'Name', value: profile.fullName.isEmpty ? '-' : profile.fullName),
             const SizedBox(height: 16),
             _Field(
               label: 'Status',
               value: null,
-              trailing: _buildStatusChip(profileStatus),
+              trailing: _buildStatusChip(profile.status),
             ),
             const SizedBox(height: 12),
-            _Field(label: 'Designation', value: designation),
+            _Field(label: 'Designation', value: profile.designation.isEmpty ? '-' : profile.designation),
             const SizedBox(height: 16),
-            _Field(label: 'Email', value: (email.isEmpty ? 'aparna12345@wiseowl.academy' : email)),
+            _Field(label: 'Email', value: profile.email.isEmpty ? '-' : profile.email),
             const SizedBox(height: 16),
             _Field(
                 label: 'Clock In-Out PIN',
-                value: (clockInPin.isEmpty ? '497487' : clockInPin)),
+                value: profile.clockPin.isEmpty ? '-' : profile.clockPin),
             const SizedBox(height: 16),
             _Field(
               label: 'Phone Number',
-              value: (phoneNumber.isEmpty ? _formatPhoneNumber('9860271627') : _formatPhoneNumber(phoneNumber)),
+              value: _formatPhoneNumber(profile.phoneNumber),
             ),
             const SizedBox(height: 16),
             _Field(
               label: 'Address',
-              value: (address.isEmpty
-                  ? '12, East Dunstable road, Nashua, NH, USA,\n03062'
-                  : address),
+              value: profile.address.formattedAddress.isEmpty ? '-' : profile.address.formattedAddress,
             ),
             const SizedBox(height: 16),
             _Field(
               label: 'Birth Date',
-              value: (birthDate.isEmpty ? 'Oct 29, 2001' : birthDate),
+              value: _formatDate(profile.birthDate),
             ),
             const SizedBox(height: 16),
             _Field(
               label: 'Job Tag',
-              value: (jobTag.isEmpty ? 'Full Time' : jobTag),
+              value: profile.jobTag.isEmpty ? '-' : profile.jobTag,
             ),
             const SizedBox(height: 16),
             _Field(
               label: 'Allowed Classrooms',
               value: null,
-              trailing: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: List.generate(
-                  allowedClassrooms.length,
-                  (index) => _Chip(
-                    label: allowedClassrooms[index],
-                    labelColor: const Color.fromRGBO(27, 35, 126, 1),
-                    color: chipColors[index % chipColors.length],
-                  ),
-                ),
-              ),
+              trailing: profile.allowedClassroomCodes.isEmpty
+                  ? const Text('-', style: TextStyle(fontFamily: 'Manrope', fontSize: 15, color: Color(0xff573353), fontWeight: FontWeight.w400))
+                  : Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: List.generate(
+                        profile.allowedClassroomCodes.length,
+                        (index) => _Chip(
+                          label: profile.allowedClassroomCodes[index],
+                          labelColor: const Color.fromRGBO(27, 35, 126, 1),
+                          color: chipColors[index % chipColors.length],
+                        ),
+                      ),
+                    ),
             ),
             const SizedBox(height: 12),
             _Field(
               label: 'Primary Classroom',
               value: null,
-              trailing: _Chip(
-                label: primaryClassroom,
-                labelColor: const Color.fromRGBO(27, 35, 126, 1),
-                color: chipColors.first,
-              ),
+              trailing: profile.primaryClassroomCode.isEmpty
+                  ? const Text('-', style: TextStyle(fontFamily: 'Manrope', fontSize: 15, color: Color(0xff573353), fontWeight: FontWeight.w400))
+                  : _Chip(
+                      label: profile.primaryClassroomCode,
+                      labelColor: const Color.fromRGBO(27, 35, 126, 1),
+                      color: chipColors.first,
+                    ),
             ),
           // Availability + surrounding area navigates to EditScheduleScreen
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
+              // Convert profile schedules to ScheduleEntry format for EditScheduleScreen
+              final schedules = <ScheduleEntry>[];
+              for (final workSchedule in profile.workSchedules) {
+                schedules.add(ScheduleEntry(
+                  day: workSchedule.dayOfWeek.toLowerCase(),
+                  startTime: workSchedule.workStartTime.formattedTime,
+                  endTime: workSchedule.workEndTime.formattedTime,
+                  isBreakTime: false,
+                ));
+              }
+              for (final breakSchedule in profile.breakSchedules) {
+                schedules.add(ScheduleEntry(
+                  day: breakSchedule.dayOfWeek.toLowerCase(),
+                  startTime: breakSchedule.breakStartTime.formattedTime,
+                  endTime: breakSchedule.breakEndTime.formattedTime,
+                  isBreakTime: true,
+                ));
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -226,6 +340,23 @@ class StaffProfileTab extends StatelessWidget {
                     ),
                     GestureDetector(
                       onTap: () {
+                        final schedules = <ScheduleEntry>[];
+                        for (final workSchedule in profile.workSchedules) {
+                          schedules.add(ScheduleEntry(
+                            day: workSchedule.dayOfWeek.toLowerCase(),
+                            startTime: workSchedule.workStartTime.formattedTime,
+                            endTime: workSchedule.workEndTime.formattedTime,
+                            isBreakTime: false,
+                          ));
+                        }
+                        for (final breakSchedule in profile.breakSchedules) {
+                          schedules.add(ScheduleEntry(
+                            day: breakSchedule.dayOfWeek.toLowerCase(),
+                            startTime: breakSchedule.breakStartTime.formattedTime,
+                            endTime: breakSchedule.breakEndTime.formattedTime,
+                            isBreakTime: true,
+                          ));
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -251,15 +382,12 @@ class StaffProfileTab extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: _allDays.map((day) {
-                          final isAvailable =
-                              day == 'Monday' ||
-                              day == 'Tuesday' ||
-                              day == 'Wednesday' ||
-                              day == 'Thursday';
+                          final isAvailable = availableDays.contains(day);
+                          final displayDay = day.substring(0, 1) + day.substring(1).toLowerCase();
                           return Opacity(
                             opacity: isAvailable ? 1 : 0.4,
                             child: _Chip(
-                              label: day,
+                              label: displayDay,
                               labelColor: isAvailable
                                   ? const Color.fromRGBO(27, 35, 126, 1)
                                   : Colors.grey[700]!,
@@ -284,16 +412,11 @@ class StaffProfileTab extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: _allDays.map((day) {
-                            final isAvailable =
-                                day == 'Monday' ||
-                                day == 'Tuesday' ||
-                                day == 'Wednesday' ||
-                                day == 'Thursday';
-                            final String value = (workTimes[day] ?? '- -');
-                            final String display = value == '- -' ? '07:00AM - 05:30PM' : value;
+                            final isAvailable = availableDays.contains(day);
+                            final String value = workTimes[day] ?? '-';
                             return Opacity(
                               opacity: isAvailable ? 1 : 0.4,
-                              child: _TimeChip(label: display),
+                              child: _TimeChip(label: value),
                             );
                           }).toList(),
                         ),
@@ -312,16 +435,11 @@ class StaffProfileTab extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: _allDays.map((day) {
-                            final isAvailable =
-                                day == 'Monday' ||
-                                day == 'Tuesday' ||
-                                day == 'Wednesday' ||
-                                day == 'Thursday';
-                            final String value = (breakTimes[day] ?? '- -');
-                            final String display = value == '- -' ? '01:00PM - 01:30PM' : value;
+                            final isAvailable = availableDays.contains(day);
+                            final String value = breakTimes[day] ?? '-';
                             return Opacity(
                               opacity: isAvailable ? 1 : 0.4,
-                              child: _TimeChip(label: display),
+                              child: _TimeChip(label: value),
                             );
                           }).toList(),
                         ),
@@ -336,63 +454,23 @@ class StaffProfileTab extends StatelessWidget {
         ),
       ),
       ),
+            );
+          },
+        ),
+      ),
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    final label = status == 'A'
-        ? 'Active'
-        : status == 'I'
-            ? 'Inactive'
-            : status == 'Upcoming'
-                ? 'Upcoming'
-                : 'Active';
-    final labelColor = status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 1)
-        : status == 'Upcoming'
-            ? const Color.fromARGB(255, 238, 223, 8)
-            : const Color.fromRGBO(250, 65, 65, 1);
-    final bgColor = status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 0.1)
-        : status == 'Upcoming'
-            ? const Color.fromARGB(255, 242, 238, 176)
-            : const Color.fromRGBO(250, 65, 65, 0.1);
-    final icon = status == 'A'
+  Widget _buildStatusChip(String? status) {
+    final label = _getStatusLabel(status);
+    final labelColor = _getStatusColor(status);
+    final bgColor = _getStatusBgColor(status);
+    final icon = (status?.toUpperCase() == 'ACTIVE' || status == 'A')
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 
     return _Chip(label: label, labelColor: labelColor, color: bgColor, icon: icon);
   }
-
-  String _formatPhoneNumber(String number) {
-    final digits = number.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return number;
-    return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}';
-  }
-
-
-  Map<String, String> _getFormattedTimes(List<ScheduleEntry> schedule, bool isBreakTime) {
-    final Map<String, String> times = {};
-    for (final e in schedule.where((x) => x.isBreakTime == isBreakTime)) {
-      final day = _capitalizeFirst(e.day);
-      final start = _formatTime(e.startTime);
-      final end = _formatTime(e.endTime);
-      times[day] = '$start -\n $end';
-    }
-    for (final day in _allDays) {
-      times.putIfAbsent(day, () => '- -');
-    }
-    return times;
-  }
-
-  String _formatTime(String input) {
-    final parts = input.split(' '); // e.g., 09:00 AM
-    final period = parts.last;
-    final hhmm = parts.first.split(':');
-    return '${hhmm[0]}:${hhmm[1]}$period';
-  }
-
-  String _capitalizeFirst(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
 }
 
 class ScheduleEntry {
@@ -432,7 +510,7 @@ class _Field extends StatelessWidget {
         const SizedBox(height: 6),
         if (trailing == null)
           Text(
-            value ?? '- -',
+            value ?? '-',
             style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 15,
