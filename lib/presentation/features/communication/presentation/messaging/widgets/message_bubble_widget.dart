@@ -4,6 +4,7 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../app/theme/colors.dart';
 
 class Message {
+  final String id;
   final String text;
   final bool isSentByMe;
   final DateTime time;
@@ -26,7 +27,7 @@ class Message {
     this.deliveredTo = const [],
     this.readBy = const [],
     this.reactions = const {},
-    this.quotedMessageId,
+    this.quotedMessageId, required this.id,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -60,17 +61,48 @@ class RecipientStatus {
 
 class MessageBubble extends StatefulWidget {
   final Message message;
+  final Message? quotedMessage;
+  //final GlobalKey? scrollKey;
   final void Function(LongPressStartDetails details)? onLongPress;
+  final void Function(String quotedId)? onScrollToQuoted;
+  //final void Function(String messageId, double height)? onHeightMeasured;
+  //final void Function(String messageId, BuildContext context)? onContextReady;
   //final VoidCallback? onDelete;
   //final Function(String)? onEdit;
 
-  const MessageBubble({required this.message, this.onLongPress, super.key});
+  const MessageBubble({required this.message, this.quotedMessage, this.onLongPress, this.onScrollToQuoted, super.key});
 
   @override
   State<MessageBubble> createState() => _MessageBubbleState();
 }
 
 class _MessageBubbleState extends State<MessageBubble> {
+
+  // @override
+  // void didChangeDependencies() {
+  //   super.didChangeDependencies();
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     widget.onContextReady?.call(
+  //       widget.message.id,
+  //       context,
+  //     );
+  //   });
+  // }
+
+  // @override
+  // void didChangeDependencies() {
+  //   super.didChangeDependencies();
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     final box = context.findRenderObject() as RenderBox?;
+  //     if (box != null && box.hasSize) {
+  //       widget.onHeightMeasured?.call(
+  //         widget.message.id,
+  //         box.size.height,
+  //       );
+  //     }
+  //   });
+  // }
+
   @override
   Widget build(BuildContext context) {
     final isMe = widget.message.isSentByMe;
@@ -90,6 +122,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               clipBehavior: Clip.none,
               children: [
                 Container(
+                  //key: widget.scrollKey,
                   // padding: const EdgeInsets.symmetric(
                   //   horizontal: 14,
                   //   vertical: 10,
@@ -118,13 +151,47 @@ class _MessageBubbleState extends State<MessageBubble> {
                       ),
                     ],
                   ),
-                  child: CustomTextWidget(
-                    text: widget.message.text,
-                    fontSize: 15.5,
-                    fontColor: isMe ? Colors.white : AppColors.primaryColor,
-                    softWrap: true,
-                    overflow: TextOverflow.visible,
-                    unlimitedLines: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (widget.message.quotedMessageId != null)
+                        GestureDetector(
+                          onTap: () {
+                            widget.onScrollToQuoted?.call(widget.message.quotedMessageId!);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CustomTextWidget(
+                                  text: widget.quotedMessage!.text.length > 100
+                                      ? '${widget.quotedMessage?.text.substring(0, 100)}...'
+                                      : widget.quotedMessage?.text,
+                                  fontSize: 13,
+                                  fontColor: isMe ? Colors.white : AppColors.primaryColor,
+                                  softWrap: true,
+                                  overflow: TextOverflow.visible,
+                                  unlimitedLines: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      CustomTextWidget(
+                        text: widget.message.text,
+                        fontSize: 15.5,
+                        fontColor: isMe ? Colors.white : AppColors.primaryColor,
+                        softWrap: true,
+                        overflow: TextOverflow.visible,
+                        unlimitedLines: true,
+                      ),
+                    ],
                   ),
                 ),
 
