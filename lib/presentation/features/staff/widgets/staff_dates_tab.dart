@@ -4,7 +4,9 @@ import 'package:wowcare/presentation/features/staff/view/edit_important_dates_sc
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class StaffDatesTab extends StatelessWidget {
-  const StaffDatesTab({super.key});
+  const StaffDatesTab({super.key, required this.staffCode});
+
+  final String staffCode;
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +17,7 @@ class StaffDatesTab extends StatelessWidget {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Padding(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
         child: Container(
           width: double.infinity,
@@ -47,7 +49,8 @@ class StaffDatesTab extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const EditImportantDatesScreen(
+                          builder: (context) => EditImportantDatesScreen(
+                            staffCode: staffCode,
                             initialHireDate: null, // You can pass actual dates here
                             initialCdaExaminationDate: null,
                             initialFirstAidCprExpirationDate: null,
@@ -123,8 +126,8 @@ class StaffDatesTab extends StatelessWidget {
               ),
             ],
           ),
+          ),
         ),
-      ),
       ),
     );
   }

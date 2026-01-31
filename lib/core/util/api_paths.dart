@@ -18,6 +18,7 @@ class ApiPaths {
   static const String staffDocuments = '/api/v1/staff-documents';
   static const String staffDocumentAdd = '/api/v1/staff-documents';
   static const String staffDocumentUpdate = '/api/v1/staff-documents/documents';
+  static const String staffDates = '/api/staff-dates';
 
   /// Helper to build a full URL from a relative path.
   static String url(String path) => '${ApiConstants.baseUrl}$path';

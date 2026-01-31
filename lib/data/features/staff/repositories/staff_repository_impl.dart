@@ -8,6 +8,7 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../datasources/staff_remote_datasource.dart';
 import '../models/staff_models.dart';
 import '../models/staff_document_models.dart';
+import '../models/staff_important_dates_models.dart';
 
 class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   StaffRepositoryImpl(this._remoteDataSource, StorageService storageService)
@@ -287,6 +288,32 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
     );
+  }
+
+  @override
+  Future<String> updateImportantDates({
+    required String staffCode,
+    required List<Map<String, String>> dates,
+  }) async {
+    final dateRequests = dates
+        .map(
+          (date) => ImportantDateRequestModel(
+            importantDateType: date['importantDateType']!,
+            dueDate: date['dueDate']!,
+            completedDate: date['completedDate'],
+          ),
+        )
+        .toList();
+
+    final response = await _remoteDataSource.updateImportantDates(
+      staffCode: staffCode,
+      dates: dateRequests,
+    );
+
+    // Invalidate profile cache since dates are part of profile
+    await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+
+    return response.message;
   }
 }
 

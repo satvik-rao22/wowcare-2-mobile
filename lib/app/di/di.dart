@@ -24,11 +24,13 @@ import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
+import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -112,6 +114,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffProfileUseCase>(
     () => GetStaffProfileUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UpdateImportantDatesUseCase>(
+    () => UpdateImportantDatesUseCase(serviceLocator()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -143,6 +148,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffProfileCubit(
       getStaffProfileUseCase: serviceLocator(),
       repository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<ImportantDatesCubit>(
+    () => ImportantDatesCubit(
+      updateImportantDatesUseCase: serviceLocator(),
     ),
   );
 }

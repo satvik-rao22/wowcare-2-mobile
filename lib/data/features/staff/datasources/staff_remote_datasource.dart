@@ -3,6 +3,7 @@ import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../models/staff_models.dart';
 import '../models/staff_document_models.dart';
+import '../models/staff_important_dates_models.dart';
 
 abstract class StaffRemoteDataSource {
   Future<StaffPageModel> getStaffPage({
@@ -28,6 +29,11 @@ abstract class StaffRemoteDataSource {
 
   Future<StaffProfileModel> getStaffProfile({
     required String staffCode,
+  });
+
+  Future<ImportantDatesResponseModel> updateImportantDates({
+    required String staffCode,
+    required List<ImportantDateRequestModel> dates,
   });
 }
 
@@ -159,6 +165,32 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return StaffProfileModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ImportantDatesResponseModel> updateImportantDates({
+    required String staffCode,
+    required List<ImportantDateRequestModel> dates,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDates}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final requestBody = dates.map((date) => date.toJson()).toList();
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: requestBody,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected important dates API response format');
+    }
+
+    return ImportantDatesResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
   }
 }
 

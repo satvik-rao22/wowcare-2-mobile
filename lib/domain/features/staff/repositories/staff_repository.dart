@@ -28,6 +28,11 @@ abstract class StaffRepository {
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
   });
+
+  Future<String> updateImportantDates({
+    required String staffCode,
+    required List<Map<String, String>> dates,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

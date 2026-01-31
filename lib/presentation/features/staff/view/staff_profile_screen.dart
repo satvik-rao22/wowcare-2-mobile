@@ -112,7 +112,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                 StaffProfileTab(
                   staffCode: widget.staffCode,
                 ),
-                const StaffDatesTab(),
+                StaffDatesTab(staffCode: widget.staffCode),
                 StaffDocumentsTab(staffCode: widget.staffCode),
               ],
             ),

@@ -43,8 +43,13 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         settings: settings,
       );
     case EditImportantDatesScreen.routeName:
+      // Get staffCode from route arguments
+      final args = settings.arguments as Map<String, dynamic>?;
+      final staffCode = args?['staffCode'] as String? ?? '';
       return MaterialPageRoute(
-        builder: (_) => const EditImportantDatesScreen(),
+        builder: (_) => EditImportantDatesScreen(
+          staffCode: staffCode,
+        ),
         settings: settings,
       );
     case EditProfileDetailsScreen.routeName:
