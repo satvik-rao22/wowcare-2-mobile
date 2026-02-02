@@ -4,11 +4,14 @@ import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/entities/staff_documents_page.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
+import '../../../../domain/features/staff/entities/create_school_user_result.dart';
+import '../../../../domain/features/staff/entities/school_user.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../datasources/staff_remote_datasource.dart';
 import '../models/staff_models.dart';
 import '../models/staff_document_models.dart';
 import '../models/staff_important_dates_models.dart';
+import '../models/school_user_models.dart';
 
 class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   StaffRepositoryImpl(this._remoteDataSource, StorageService storageService)
@@ -314,6 +317,121 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
 
     return response.message;
+  }
+
+  @override
+  Future<CreateSchoolUserResult> createSchoolAdminUser({
+    required String firstName,
+    required String lastName,
+    required String displayName,
+    required String mobile,
+    required String email,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+    required String designation,
+    String? userCode,
+  }) async {
+    final request = CreateSchoolUserRequestModel(
+      userCode: userCode,
+      firstName: firstName,
+      lastName: lastName,
+      displayName: displayName,
+      mobile: mobile,
+      email: email,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      role: role,
+      designation: designation,
+    );
+
+    final response = await _remoteDataSource.createSchoolAdminUser(
+      request: request,
+    );
+
+    // Invalidate staff list cache since staff/admin listing may depend on it.
+    await _cacheManager.invalidateCache(_staffListCacheKey(schoolCode));
+
+    final model = response.data;
+    if (model == null) {
+      throw Exception(response.message.isNotEmpty
+          ? response.message
+          : 'Empty response from create school admin user API');
+    }
+
+    return CreateSchoolUserResult(
+      message: response.message,
+      user: _mapSchoolUserModelToEntity(model),
+    );
+  }
+
+  @override
+  Future<CreateSchoolUserResult> createStaffUser({
+    required String firstName,
+    required String lastName,
+    required String displayName,
+    required String mobile,
+    required String email,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+    required String designation,
+    required String status,
+    required String primaryClassroomCode,
+    required List<String> allowedClassroomCodes,
+    String? userCode,
+  }) async {
+    final request = CreateStaffUserRequestModel(
+      userCode: userCode,
+      firstName: firstName,
+      lastName: lastName,
+      displayName: displayName,
+      mobile: mobile,
+      email: email,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      role: role,
+      designation: designation,
+      status: status,
+      primaryClassroomCode: primaryClassroomCode,
+      allowedClassroomCodes: allowedClassroomCodes,
+    );
+
+    final response = await _remoteDataSource.createStaffUser(
+      request: request,
+    );
+
+    await _cacheManager.invalidateCache(_staffListCacheKey(schoolCode));
+
+    final model = response.data;
+    if (model == null) {
+      throw Exception(response.message.isNotEmpty
+          ? response.message
+          : 'Empty response from create staff user API');
+    }
+
+    return CreateSchoolUserResult(
+      message: response.message,
+      user: _mapSchoolUserModelToEntity(model),
+    );
+  }
+
+  SchoolUser _mapSchoolUserModelToEntity(SchoolUserModel model) {
+    return SchoolUser(
+      userCode: model.userCode,
+      firstName: model.firstName,
+      lastName: model.lastName,
+      displayName: model.displayName,
+      mobile: model.mobile,
+      email: model.email,
+      organizationCode: model.organizationCode,
+      schoolCode: model.schoolCode,
+      role: model.role,
+      designation: model.designation,
+      status: model.status,
+      primaryClassroomCode: model.primaryClassroomCode,
+      allowedClassroomCodes: model.allowedClassroomCodes,
+    );
   }
 }
 

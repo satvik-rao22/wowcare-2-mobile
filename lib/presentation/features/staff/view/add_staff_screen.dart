@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -8,6 +9,8 @@ import 'dart:async';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -44,6 +47,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  late final CreateSchoolUserCubit _createSchoolUserCubit;
   String? _selectedRole;
   String? _selectedDesignation;
   String? _selectedPrimaryClassroom;
@@ -57,11 +61,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   List<String> _selectedAllowedClassroomCodes = [];
   String? _primaryClassroomError;
   String? _allowedClassroomsError;
-  bool _isLoading = false;
   bool _isSubmitting = false;
 
   String? _selectedStatus;
-  final List<String> _statuses = ['Active', 'Inactive'];
   bool get _isAdminSelected => (_selectedRole ?? '').toLowerCase() == 'admin';
 
   OverlayEntry? _overlayEntry;
@@ -97,6 +99,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   @override
   void initState() {
     super.initState();
+    _createSchoolUserCubit = serviceLocator<CreateSchoolUserCubit>();
     // Prefill when editing
     if (widget.isEdit) {
       if (widget.initialFirstName != null) {
@@ -139,6 +142,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _createSchoolUserCubit.close();
     super.dispose();
   }
 
@@ -261,26 +265,31 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       _isSubmitting = true;
     });
 
-    // Mock API call
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        _isSubmitting = false;
-      });
-      final staffName = _composeStaffName();
-      // Debug
-      print('[AddStaff] Returning to previous screen with staffName="$staffName"');
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'A new staff${staffName.isNotEmpty ? ' $staffName ' : ' '}is added successfully',
-        isSuccess: true,
-      );
-      final result = {
-        'showPostAddPrompt': true,
-        'staffName': staffName,
-      };
-      print('[AddStaff] Navigator.pop result: ' + result.toString());
-      Navigator.pop(context, result);
-    });
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final displayName = _composeStaffName();
+    final email = _emailController.text.trim();
+    final mobileDigits = _phoneController.text.trim().replaceAll(
+          RegExp(r'\D'),
+          '',
+        );
+
+    final isAdmin = _isAdminSelected;
+    final role = isAdmin ? 'ADMIN' : 'STAFF';
+
+    _createSchoolUserCubit.create(
+      isAdmin: isAdmin,
+      firstName: firstName,
+      lastName: lastName,
+      displayName: displayName,
+      mobile: mobileDigits,
+      email: email,
+      role: role,
+      designation: _selectedDesignation ?? '',
+      status: _selectedStatus,
+      primaryClassroomCode: _selectedPrimaryClassroom,
+      allowedClassroomCodes: _selectedAllowedClassroomCodes,
+    );
   }
 
   String _composeStaffName() {
@@ -295,35 +304,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     _lastNameController.text = _lastNameController.text.trim();
     _emailController.text = _emailController.text.trim();
     _phoneController.text = _phoneController.text.trim();
-  }
-
-  void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      // Use default behavior (not floating)
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   void _removeDropdownOverlay() {
@@ -396,16 +376,58 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return GestureDetector(
-      onTap: () {
-        FocusManager.instance.primaryFocus?.unfocus();
-        _removeDropdownOverlay();
-      },
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: Colors.white,
-        appBar: const CustomAppBar(hasBackButton: true),
-        body: Stack(
+    return BlocProvider<CreateSchoolUserCubit>.value(
+      value: _createSchoolUserCubit,
+      child: BlocListener<CreateSchoolUserCubit, CreateSchoolUserState>(
+        listener: (context, state) {
+          if (!mounted) return;
+
+          if (state.isLoading) {
+            setState(() => _isSubmitting = true);
+            return;
+          }
+
+          // End loading on any non-loading state
+          if (_isSubmitting) {
+            setState(() => _isSubmitting = false);
+          }
+
+          if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.errorMessage!,
+              isError: true,
+            );
+            return;
+          }
+
+          final result = state.result;
+          if (result != null) {
+            final staffName = _composeStaffName();
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: result.message.isNotEmpty
+                  ? result.message
+                  : 'User created successfully',
+              isSuccess: true,
+            );
+            Navigator.pop(context, {
+              'showPostAddPrompt': true,
+              'staffName': staffName,
+              'userCode': result.user.userCode,
+            });
+          }
+        },
+        child: GestureDetector(
+          onTap: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            _removeDropdownOverlay();
+          },
+          child: Scaffold(
+            key: _scaffoldKey,
+            backgroundColor: Colors.white,
+            appBar: const CustomAppBar(hasBackButton: true),
+            body: Stack(
           children: [
             Positioned.fill(
               child: Container(
@@ -756,6 +778,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               ),
             ),
           ),
+        ),
+      ),
         ),
       ),
     );

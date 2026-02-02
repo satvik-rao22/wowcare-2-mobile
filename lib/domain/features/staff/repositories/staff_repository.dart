@@ -2,6 +2,7 @@ import '../entities/staff_member.dart';
 import '../entities/staff_document.dart';
 import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
+import '../entities/create_school_user_result.dart';
 
 abstract class StaffRepository {
   Future<StaffPage> getStaffPage({
@@ -32,6 +33,35 @@ abstract class StaffRepository {
   Future<String> updateImportantDates({
     required String staffCode,
     required List<Map<String, String>> dates,
+  });
+
+  Future<CreateSchoolUserResult> createSchoolAdminUser({
+    required String firstName,
+    required String lastName,
+    required String displayName,
+    required String mobile,
+    required String email,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+    required String designation,
+    String? userCode,
+  });
+
+  Future<CreateSchoolUserResult> createStaffUser({
+    required String firstName,
+    required String lastName,
+    required String displayName,
+    required String mobile,
+    required String email,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+    required String designation,
+    required String status,
+    required String primaryClassroomCode,
+    required List<String> allowedClassroomCodes,
+    String? userCode,
   });
 }
 

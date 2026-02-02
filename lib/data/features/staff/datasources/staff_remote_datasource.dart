@@ -4,6 +4,7 @@ import '../../../../core/util/api_paths.dart';
 import '../models/staff_models.dart';
 import '../models/staff_document_models.dart';
 import '../models/staff_important_dates_models.dart';
+import '../models/school_user_models.dart';
 
 abstract class StaffRemoteDataSource {
   Future<StaffPageModel> getStaffPage({
@@ -34,6 +35,16 @@ abstract class StaffRemoteDataSource {
   Future<ImportantDatesResponseModel> updateImportantDates({
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
+  });
+
+  /// Creates an Admin user (school admin) via `/api/v1/school-users`.
+  Future<CreateSchoolUserResponseModel> createSchoolAdminUser({
+    required CreateSchoolUserRequestModel request,
+  });
+
+  /// Creates a Staff user via `/api/v1/school-users/staff`.
+  Future<CreateSchoolUserResponseModel> createStaffUser({
+    required CreateStaffUserRequestModel request,
   });
 }
 
@@ -189,6 +200,46 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return ImportantDatesResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<CreateSchoolUserResponseModel> createSchoolAdminUser({
+    required CreateSchoolUserRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.schoolUsers);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected create school admin user API response format');
+    }
+
+    return CreateSchoolUserResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<CreateSchoolUserResponseModel> createStaffUser({
+    required CreateStaffUserRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.schoolUsersStaff);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected create staff user API response format');
+    }
+
+    return CreateSchoolUserResponseModel.fromJson(
       response.data! as Map<String, dynamic>,
     );
   }
