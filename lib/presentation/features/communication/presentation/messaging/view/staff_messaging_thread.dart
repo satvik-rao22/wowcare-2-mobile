@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:uuid/uuid.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
@@ -2196,11 +2197,20 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                             vertical: 8.0,
                             horizontal: 12,
                           ),
-                          child: GradientAddButton(
-                            onTap: () {},
-                            wantedButtonSize: 26,
-                            isRectangle: false,
+                          child: AttachmentWidget(
+                            iconWidget: GradientAddButton(
+                              wantedButtonSize: 28,
+                              isRectangle: false,
+                            ),
+                            onAttachmentsSelected: (attachments) {
+                              //_addAttachmentsToChat(attachments);
+                            },
                           ),
+                          // child: GradientAddButton(
+                          //   onTap: () {},
+                          //   wantedButtonSize: 26,
+                          //   isRectangle: false,
+                          // ),
                         ),
                       ],
                     ),
