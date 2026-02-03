@@ -2386,6 +2386,31 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                     ),
                                                                     PopupMenuItem<String>(
                                                                       value: 'delete',
+                                                                      onTap: ()  {
+                                                                        showModalBottomSheet(
+                                                                          context: context,
+                                                                          isScrollControlled: true,
+                                                                          backgroundColor: Colors.transparent,
+                                                                          builder: (ctx) {
+                                                                            return DeleteConfirmationBottomSheet(
+                                                                              name: activity.name,
+                                                                              type: 'Activity',
+                                                                              onDelete: () {
+                                                                                CoreUtils.showTopSnackBar(
+                                                                                    context: context,
+                                                                                    message: '${activity.name} activity deleted successfully',
+                                                                                    isSuccess: true
+                                                                                );
+                                                                                Navigator.of(ctx).pop();
+                                                                                //widget.onDelete?.call();
+                                                                              },
+                                                                              onCancel: () {
+                                                                                Navigator.of(ctx).pop();
+                                                                              },
+                                                                            );
+                                                                          },
+                                                                        );
+                                                                      },
                                                                       child: PopupItem(
                                                                         title: 'Delete',
                                                                         icon: Icon(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
-import 'package:wowcare/presentation/features/activities/widgets/selected_student_tile.dart';
+import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
@@ -13,7 +13,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_app_bar.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../widgets/student_tile.dart';
+import '../../../../../shared/common/widgets/student_tile.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 

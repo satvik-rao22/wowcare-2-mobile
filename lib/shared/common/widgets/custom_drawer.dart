@@ -4,12 +4,15 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+
+import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
@@ -140,6 +143,43 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             );
                           },
                         ),
+                      ],
+                    ),
+                    _CustomExpansionTile(
+                      title: 'Activities',
+                      icon: MediaRes.activitesIcon,
+                      isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
+                      onTap: () {
+                        Navigator.pop(context);
+                        if(_currentRoute != ActivityFeedScreen.routeName){
+                          Navigator.pushNamed(context, ActivityFeedScreen.routeName);
+                        }
+                        //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                        //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityFeedScreen()));
+                      },
+                    ),
+                    _CustomExpansionTile(
+                      title: 'Communication',
+                      icon: MediaRes.communicationIcon,
+                      isCurrentRoute: _currentRoute == MessagingScreen.routeName,
+                      isExpansionEnabled: true,
+                      children: [
+                        DrawerListTile(
+                          title: 'Staff Messaging',
+                          leading: SvgPicture.asset(
+                            MediaRes.staffMessaging,
+                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MessagingScreen(userPersona: UserPersona.admin),
+                                settings: RouteSettings(name: MessagingScreen.routeName),
+                              ),
+                            );
+
+                            //Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
+                            //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
                         _CustomExpansionTile(
                           title: 'Activities',
                           icon: MediaRes.activitesIcon,
@@ -190,6 +230,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           isCurrentRoute: _currentRoute == ParentBillingScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MessagingScreen(userPersona: UserPersona.admin),
+                                settings: RouteSettings(name: MessagingScreen.routeName),
+                              ),
+                            );
+
+                            // Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
+                            //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
                             if (_currentRoute != ParentBillingScreen.routeName) {
                               Navigator.pushNamed(context, ParentBillingScreen.routeName);
                             }

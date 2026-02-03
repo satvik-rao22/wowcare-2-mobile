@@ -91,7 +91,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               ),
               indicatorPadding: const EdgeInsets.only(bottom: 8),
               labelStyle: const TextStyle(
-                color: Colors.black,
+                //color: Colors.black,
+                color: const Color(0xFF241631),
                 fontFamily: 'Manrope',
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -101,7 +102,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 fontFamily: 'Manrope',
                 fontSize: 16,
               ),
-              labelColor: Colors.black,
+              //labelColor: Colors.black,
+              labelColor: const Color(0xFF241631),
               unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
               tabAlignment: TabAlignment.center,
               tabs: const [
@@ -109,7 +111,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 Tab(text: 'Health'),
                 Tab(text: 'Dates'),
                 Tab(text: 'Documents'),
-                // Billing settings can be added based on role
               ],
             ),
           ),

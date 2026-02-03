@@ -25,6 +25,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.4.1"
+  animate_do:
+    dependency: transitive
+    description:
+      name: animate_do
+      sha256: e5c8b92e8495cba5adfff17c0b017d50f46b2766226e9faaf68bc08c91aef034
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2.0"
   any_link_preview:
     dependency: "direct main"
     description:
@@ -377,6 +385,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.7"
+  extension:
+    dependency: transitive
+    description:
+      name: extension
+      sha256: be3a6b7f8adad2f6e2e8c63c895d19811fcf203e23466c6296267941d0ff4f24
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   fake_async:
     dependency: transitive
     description:
@@ -558,6 +574,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.2.0"
+  flutter_chat_reactions:
+    dependency: "direct main"
+    description:
+      name: flutter_chat_reactions
+      sha256: "2313c8f2daad0991c1031474542c62b482c8caad440205f968f0c4fb1b710b13"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.7"
   flutter_html:
     dependency: "direct main"
     description:
@@ -1305,6 +1329,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
+  pdfx:
+    dependency: transitive
+    description:
+      name: pdfx
+      sha256: "29db9b71d46bf2335e001f91693f2c3fbbf0760e4c2eb596bf4bafab211471c1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.9.2"
   permission_handler:
     dependency: "direct main"
     description:
@@ -1441,6 +1473,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.0"
+  rich_field_controller:
+    dependency: "direct main"
+    description:
+      name: rich_field_controller
+      sha256: f79182e351b6f9fecf0de3ec777b68f07ff2fc6eb050d60cf095c5d72833282a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   rxdart:
     dependency: "direct main"
     description:
@@ -1449,6 +1489,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.28.0"
+  scroll_to_index:
+    dependency: "direct main"
+    description:
+      name: scroll_to_index
+      sha256: b707546e7500d9f070d63e5acf74fd437ec7eeeb68d3412ef7b0afada0b4f176
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.1"
   shared_preferences:
     dependency: "direct main"
     description:
@@ -1662,6 +1710,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "31.2.15"
+  synchronized:
+    dependency: transitive
+    description:
+      name: synchronized
+      sha256: c254ade258ec8282947a0acbbc90b9575b4f19673533ee46f2f6e9b3aeefd7c0
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.4.0"
   table_calendar:
     dependency: "direct main"
     description:
@@ -1670,6 +1726,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.0"
+  table_parser:
+    dependency: transitive
+    description:
+      name: table_parser
+      sha256: "001df045a28bf661df1417958ab4cee3588d142c0d57c5c5dfee6fc986246cd5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   term_glyph:
     dependency: transitive
     description:
@@ -1686,6 +1750,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.7"
+  thumbnailer:
+    dependency: "direct main"
+    description:
+      name: thumbnailer
+      sha256: "561cbbe227f29ee1524b3b0b49002339cf9e19f611a6faaf018a80705688f06c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.0"
   timezone:
     dependency: "direct main"
     description:
@@ -1710,6 +1782,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  universal_platform:
+    dependency: transitive
+    description:
+      name: universal_platform
+      sha256: "64e16458a0ea9b99260ceb5467a214c1f298d647c659af1bff6d3bf82536b1ec"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
   url_launcher:
     dependency: "direct main"
     description:

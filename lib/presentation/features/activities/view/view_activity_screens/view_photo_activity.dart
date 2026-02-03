@@ -6,7 +6,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
-import '../../widgets/selected_student_tile.dart';
+import '../../../../../shared/common/widgets/selected_student_tile.dart';
 import '../activity_daily_tab.dart';
 
 

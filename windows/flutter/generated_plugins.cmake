@@ -11,6 +11,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_storage
   flutter_inappwebview_windows
   geolocator_windows
+  pdfx
   permission_handler_windows
   url_launcher_windows
 )

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import '../../../app/theme/colors.dart';
+import '../../../app/theme/media_res.dart';
+import 'profile_show_widget.dart';
 
 class SelectedStudentTile extends StatelessWidget {
   const SelectedStudentTile({

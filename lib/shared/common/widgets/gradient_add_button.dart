@@ -2,21 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 class GradientAddButton extends StatelessWidget {
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final double? size;
   final double? iconSize;
   final double? borderRadius;
+  final double? wantedButtonSize;
   final bool isTablet;
   final bool isLargeTablet;
+  final bool isRectangle;
 
   const GradientAddButton({
     Key? key,
-    required this.onTap,
+    this.onTap = null,
     this.size,
     this.iconSize,
     this.borderRadius,
     this.isTablet = false,
+    this.isRectangle = true,
     this.isLargeTablet = false,
+    this.wantedButtonSize
   }) : super(key: key);
 
   @override
@@ -38,14 +42,35 @@ class GradientAddButton extends StatelessWidget {
             ? 12.0 
             : 8.0);
 
-    return GestureDetector(
+    return onTap == null ? Container(
+      width: wantedButtonSize ?? buttonSize,
+      height: wantedButtonSize ?? buttonSize,
+      decoration: BoxDecoration(
+        shape: isRectangle ? BoxShape.rectangle : BoxShape.circle,
+        gradient: AppColors.buildPrimaryGradient(), // Use your app's gradient
+        borderRadius: isRectangle ? BorderRadius.circular(buttonBorderRadius) : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.add,
+        color: Colors.white,
+        size: buttonIconSize,
+      ),
+    ) :GestureDetector(
       onTap: onTap,
       child: Container(
-        width: buttonSize,
-        height: buttonSize,
+        width: wantedButtonSize ?? buttonSize,
+        height: wantedButtonSize ?? buttonSize,
         decoration: BoxDecoration(
+          shape: isRectangle ? BoxShape.rectangle : BoxShape.circle,
           gradient: AppColors.buildPrimaryGradient(), // Use your app's gradient
-          borderRadius: BorderRadius.circular(buttonBorderRadius),
+          borderRadius: isRectangle ? BorderRadius.circular(buttonBorderRadius) : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
