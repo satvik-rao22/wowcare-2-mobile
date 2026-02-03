@@ -197,6 +197,29 @@ class StaffCubit extends Cubit<StaffState> {
     return message;
   }
 
+   /// Activates a staff member (via school user activate API) and refreshes the list.
+   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
+  Future<String> activateStaff(String staffCode) async {
+    // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
+    final profile = await _repository.getStaffProfile(staffCode: staffCode);
+
+    // Map staffType from profile to backend role expected by activate API
+    final staffTypeUpper = profile.staffType.toUpperCase();
+    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
+
+    final message = await _repository.activateSchoolUser(
+      userCode: profile.userCode,
+      organizationCode: profile.organizationCode,
+      schoolCode: profile.schoolCode,
+      role: role,
+    );
+
+    // Refresh the list so UI and cache reflect the updated status.
+    await refresh();
+
+    return message;
+  }
+
   void updateSearch(String query) {
     emit(
       state.copyWith(

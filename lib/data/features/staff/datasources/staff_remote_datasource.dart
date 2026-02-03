@@ -56,6 +56,14 @@ abstract class StaffRemoteDataSource {
     required String role,
   });
 
+  /// Activates a school user via `/api/v1/school-users/activate`.
+  Future<String> activateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  });
+
   Future<ClassroomAllResponseModel> getActiveClassrooms({
     required String schoolCode,
   });
@@ -282,6 +290,33 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'User deactivated successfully';
+  }
+
+  @override
+  Future<String> activateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.schoolUsersActivate);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+        'role': role,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected activate school user API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'User activated successfully';
   }
 
   @override

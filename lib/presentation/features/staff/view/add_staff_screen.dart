@@ -29,6 +29,8 @@ class AddStaffScreen extends StatefulWidget {
     this.initialAllowedClassroomCodes,
     this.initialPrimaryClassroom,
     this.initialStatus,
+    this.initialClassroomNames,
+    this.initialClassroomCodeByName,
   });
   static const String routeName = '/add-staff-screen';
 
@@ -41,6 +43,9 @@ class AddStaffScreen extends StatefulWidget {
   final List<String>? initialAllowedClassroomCodes;
   final String? initialPrimaryClassroom;
   final String? initialStatus;
+  // Prefetched classroom metadata (to avoid re-calling classrooms API)
+  final List<String>? initialClassroomNames;
+  final Map<String, String>? initialClassroomCodeByName;
 
   @override
   _AddStaffScreenState createState() => _AddStaffScreenState();
@@ -121,7 +126,31 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     }
     // Default role when creating new entry
     _selectedRole ??= widget.initialRole ?? 'Staff';
-    _loadClassrooms();
+
+    // If classrooms were prefetched by a parent screen (e.g. StaffScreen),
+    // hydrate local caches from those and avoid hitting the classrooms API again.
+    if (widget.initialClassroomNames != null &&
+        widget.initialClassroomNames!.isNotEmpty) {
+      _classrooms
+        ..clear()
+        ..addAll(widget.initialClassroomNames!);
+      _classroomCodeByName
+        ..clear()
+        ..addAll(widget.initialClassroomCodeByName ?? {});
+
+      // For admin, all classrooms are auto-allowed and primary defaults to first.
+      if (_isAdminSelected) {
+        _selectedAllowedClassroomNames = List<String>.from(_classrooms);
+        if (_classrooms.isNotEmpty &&
+            _selectedPrimaryClassroomName == null) {
+          _selectedPrimaryClassroomName = _classrooms.first;
+        }
+        _selectedStatus ??= 'Active';
+      }
+    } else {
+      // No prefetched classrooms available – fall back to API call.
+      _loadClassrooms();
+    }
   }
 
   @override

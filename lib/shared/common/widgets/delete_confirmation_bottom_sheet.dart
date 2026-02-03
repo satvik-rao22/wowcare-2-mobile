@@ -79,8 +79,10 @@ class _DeleteConfirmationBottomSheetState
         ? "Do you want to delete this User"
         : widget.type == 'Activity'
         ? 'Do you want to delete this activity -\n"${widget.name}" ?'
-        : widget.type == 'staff'
+        : widget.type == 'staff_deactivate'
         ? 'Do you want to deactivate this Staff -\n"${widget.name}" ?'
+        : widget.type == 'staff_reactivate'
+        ? 'Do you want to reactivate this Staff -\n"${widget.name}" ?'
         : widget.type == 'student'
         ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
         : widget.type == 'subsidy'
@@ -113,8 +115,10 @@ class _DeleteConfirmationBottomSheetState
         ? "Mark Complete"
         : widget.type == 'Activity'
         ? 'Delete'
-        : (widget.type == 'staff' || widget.type == 'student')
+        : (widget.type == 'staff_deactivate' || widget.type == 'student')
         ? "Deactivate"
+        : widget.type == 'staff_reactivate'
+        ? "Reactivate"
         : widget.type == 'order_purchase'
         ? "Mark as Ordered"
         : widget.type == 'reject_request'

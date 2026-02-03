@@ -24,6 +24,7 @@ class ApiPaths {
   static const String schoolUsers = '/api/v1/school-users';
   static const String schoolUsersStaff = '/api/v1/school-users/staff';
   static const String schoolUsersDeactivate = '/api/v1/school-users/deactivate';
+  static const String schoolUsersActivate = '/api/v1/school-users/activate';
 
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';

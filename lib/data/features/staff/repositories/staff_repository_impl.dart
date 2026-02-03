@@ -436,6 +436,26 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     return message;
   }
 
+  @override
+  Future<String> activateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    final message = await _remoteDataSource.activateSchoolUser(
+      userCode: userCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      role: role,
+    );
+
+    // Invalidate staff list cache since activation affects staff listing.
+    await _cacheManager.invalidateCache(_staffListCacheKey(schoolCode));
+
+    return message;
+  }
+
   SchoolUser _mapSchoolUserModelToEntity(SchoolUserModel model) {
     return SchoolUser(
       userCode: model.userCode,

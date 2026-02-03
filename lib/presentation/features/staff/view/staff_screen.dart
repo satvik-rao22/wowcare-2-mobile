@@ -20,6 +20,10 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/data/features/staff/datasources/staff_remote_datasource.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -42,11 +46,74 @@ class _StaffScreenState extends State<StaffScreen> {
   bool _selectAll = false;
   StaffPanelType _currentPanel = StaffPanelType.none;
 
+   // Cached classrooms for this screen – loaded once and reused.
+   final List<String> _classroomNames = <String>[];
+   final Map<String, String> _classroomNameByCode = <String, String>{};
+   bool _isLoadingClassrooms = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClassrooms();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadClassrooms({bool force = false}) async {
+    if (_isLoadingClassrooms) return;
+    if (!force && _classroomNames.isNotEmpty) return;
+
+    if (force) {
+      _classroomNames.clear();
+      _classroomNameByCode.clear();
+    }
+
+    _isLoadingClassrooms = true;
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCodeStored =
+          await storage.getString(StorageKeys.schoolCode);
+      final schoolCode = (schoolCodeStored?.isNotEmpty ?? false)
+          ? schoolCodeStored!
+          : StorageKeys.defaultSchoolCode;
+
+      final staffRemote = serviceLocator<StaffRemoteDataSource>();
+      final response = await staffRemote.getActiveClassrooms(
+        schoolCode: schoolCode,
+      );
+
+      if (!mounted) return;
+
+      if (response.items.isEmpty) {
+        return;
+      }
+
+      final names = <String>[];
+      final nameByCode = <String, String>{};
+      for (final c in response.items) {
+        names.add(c.name);
+        nameByCode[c.code] = c.name;
+      }
+
+      setState(() {
+        _classroomNames
+          ..clear()
+          ..addAll(names);
+        _classroomNameByCode
+          ..clear()
+          ..addAll(nameByCode);
+      });
+    } catch (e) {
+      // Silently ignore classroom loading errors for now; staff list still works.
+      if (!mounted) return;
+    } finally {
+      _isLoadingClassrooms = false;
+    }
   }
 
   @override
@@ -64,7 +131,12 @@ class _StaffScreenState extends State<StaffScreen> {
         children: [
           CustomRefreshIndicator(
             onRefresh: () async {
-              await staffCubit.refresh();
+              // Refresh staff list and classrooms cache so newly added classrooms
+              // (or changes from other flows) are reflected.
+              await Future.wait([
+                staffCubit.refresh(),
+                _loadClassrooms(force: true),
+              ]);
             },
             child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
@@ -101,7 +173,12 @@ class _StaffScreenState extends State<StaffScreen> {
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AddStaffScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => AddStaffScreen(
+                            initialClassroomNames: _classroomNames,
+                            initialClassroomCodeByName: _classroomNameByCode,
+                          ),
+                        ),
                       );
                       if (!mounted) return;
                       print('[StaffScreen] Received result from AddStaffScreen: ' + result.toString());
@@ -377,21 +454,38 @@ class _StaffScreenState extends State<StaffScreen> {
                         itemCount: state.items.length,
                 itemBuilder: (context, index) {
                           final staff = state.items[index];
+                          final isActive =
+                              (staff.status).toUpperCase() == 'ACTIVE';
+                          // Map classroom codes to human-readable names using cached metadata.
+                          final allowedClassroomNames = staff.classroomCodes
+                              .map((code) =>
+                                  _classroomNameByCode[code] ?? code)
+                              .toList();
+                          final primaryClassroomName =
+                              allowedClassroomNames.isNotEmpty
+                                  ? allowedClassroomNames.first
+                                  : '';
                           final isSelected =
                               _selectedStaffCodes.contains(staff.code);
                   return Column(
                     children: [
                       StaffCard(
                                 name: staff.name,
-                                classroom: staff.primaryClassroom,
-                                allowedClassrooms: staff.classroomCodes,
+                                classroom: primaryClassroomName,
+                                allowedClassrooms: allowedClassroomNames,
                                 schedule: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
-                                onDeactivate: () async {
+                                isActive: isActive,
+                                availableClassrooms: _classroomNames,
+                                classroomCodeByName: _classroomNameByCode,
+                                onPrimaryAction: () async {
                                   try {
-                                    final message =
-                                        await staffCubit.deactivateStaff(staff.code);
+                                    final message = isActive
+                                        ? await staffCubit
+                                            .deactivateStaff(staff.code)
+                                        : await staffCubit
+                                            .activateStaff(staff.code);
                                     if (!mounted) return;
                                     CoreUtils.showTopSnackBar(
                                       context: context,
