@@ -21,8 +21,13 @@ class StorageKeys {
   static const String selectedSchoolName = 'selectedSchoolName';
   static const String loginCompleted = 'loginCompleted';
   static const String onboardingSeen = 'onboardingSeen';
+  static const String schoolCode = 'schoolCode';
 
   // Cache Duration
   static const Duration cacheValidDuration = Duration(minutes: 5);
+
+  // Temporary default until school selection is fully wired
+  static const String defaultOrganizationCode = 'ORG_5A8781FD-F';
+  static const String defaultSchoolCode = 'SCH_6A96DDD6-0';
 }
 

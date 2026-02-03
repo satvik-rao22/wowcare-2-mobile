@@ -80,7 +80,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       scrolledUnderElevation: 0,
       foregroundColor: Colors.black,
       titleSpacing: 0,
-      title: isParent
+      title: isParent && studentList != null
           ? Padding(
               padding: const EdgeInsets.only(left: 20),
               child: SizedBox(

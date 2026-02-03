@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class ClassroomSelectionWidgetExact extends StatefulWidget {
@@ -438,8 +439,10 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                   FocusManager.instance.primaryFocus?.unfocus();
 
                   if (widget.availableClassrooms.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No classrooms available')),
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'No classrooms available',
+                      isWarning: true,
                     );
                     return;
                   }

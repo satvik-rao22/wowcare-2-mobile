@@ -6,7 +6,6 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -15,16 +14,24 @@ import 'package:image_picker/image_picker.dart';
 class StaffProfileScreen extends StatefulWidget {
   const StaffProfileScreen({
     super.key,
+    required this.staffCode,
     required this.name,
     required this.classroom,
     required this.designation,
     required this.phoneNumber,
+    this.classroomNames,
+    this.classroomNameByCode,
   });
 
+  final String staffCode;
   final String name;
   final String classroom;
   final String designation;
   final String phoneNumber;
+  /// Optional cached classroom names from StaffScreen (to avoid re-calling classrooms API).
+  final List<String>? classroomNames;
+  /// Optional mapping from classroom code -> display name.
+  final Map<String, String>? classroomNameByCode;
 
   @override
   State<StaffProfileScreen> createState() => _StaffProfileScreenState();
@@ -108,18 +115,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               controller: _tabController,
               children: [
                 StaffProfileTab(
-                  name: widget.name,
-                  profileStatus: 'A',
-                  designation: widget.designation,
-                  allowedClassrooms: [widget.classroom],
-                  primaryClassroom: widget.classroom,
-                  email: '',
-                  clockInPin: '',
-                  phoneNumber: widget.phoneNumber,
-                  schedules: const <ScheduleEntry>[],
+                  staffCode: widget.staffCode,
+                  classroomNames: widget.classroomNames,
+                  classroomNameByCode: widget.classroomNameByCode,
                 ),
-                const StaffDatesTab(),
-                const StaffDocumentsTab(),
+                StaffDatesTab(staffCode: widget.staffCode),
+                StaffDocumentsTab(staffCode: widget.staffCode),
               ],
             ),
           ),
@@ -129,7 +130,6 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   }
 
   Widget _buildStaffProfileCard(BuildContext context) {
-    final String initials = _getInitials(widget.name);
     return Card(
       margin: EdgeInsets.zero,
       color: Colors.white,
@@ -290,37 +290,4 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     );
   }
 
-  String _getInitials(String fullName) {
-    final trimmed = fullName.trim();
-    if (trimmed.isEmpty) return '';
-    final parts = trimmed.split(' ');
-    if (parts.length == 1) {
-      final ch = parts[0].isNotEmpty ? parts[0][0] : '';
-      return (ch + ch).toUpperCase();
-    }
-    final a = parts[0].isNotEmpty ? parts[0][0] : '';
-    final b = parts[1].isNotEmpty ? parts[1][0] : '';
-    return (a + b).toUpperCase();
-  }
 }
-
-class _PlaceholderTab extends StatelessWidget {
-  const _PlaceholderTab({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        '$label (Coming Soon)',
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          color: Color(0xff573353),
-        ),
-      ),
-    );
-  }
-}
-
-

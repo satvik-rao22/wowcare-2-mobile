@@ -5,11 +5,16 @@ import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
+import '../app/di/di.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../presentation/features/staff/cubit/staff_cubit.dart';
 
 class AppRoutes {
   static const String firstScreen = '/first-screen';
@@ -31,22 +36,40 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
     case StaffScreen.routeName:
       return MaterialPageRoute(
-        builder: (_) => const StaffScreen(),
+        builder: (_) => BlocProvider<StaffCubit>(
+          create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+          child: const StaffScreen(),
+        ),
         settings: settings,
       );
     case EditImportantDatesScreen.routeName:
+      // Get staffCode from route arguments
+      final args = settings.arguments as Map<String, dynamic>?;
+      final staffCode = args?['staffCode'] as String? ?? '';
       return MaterialPageRoute(
-        builder: (_) => const EditImportantDatesScreen(),
+        builder: (_) => EditImportantDatesScreen(
+          staffCode: staffCode,
+        ),
         settings: settings,
       );
     case EditProfileDetailsScreen.routeName:
+      // Optional navigation via named route; expects a staffCode in arguments.
+      final args = settings.arguments as Map<String, dynamic>?;
+      final staffCode = args?['staffCode'] as String? ?? '';
       return MaterialPageRoute(
-        builder: (_) => const EditProfileDetailsScreen(),
+        builder: (_) => EditProfileDetailsScreen(
+          staffCode: staffCode,
+        ),
         settings: settings,
       );
     case BillingScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const BillingScreen(),
+        settings: settings,
+      );
+    case ParentBillingScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const ParentBillingScreen(),
         settings: settings,
       );
     case ActivityFeedScreen.routeName:
@@ -67,6 +90,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case ForgotPasswordScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const ForgotPasswordScreen(),
+        settings: settings,
+      );
+    case RoleSelectionScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const RoleSelectionScreen(),
         settings: settings,
       );
     default:

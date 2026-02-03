@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:schoolerp/core/res/colors.dart';
-import 'package:schoolerp/core/res/media_res.dart';
-import 'package:schoolerp/core/util/TimeZoneConfiguration.dart';
-import 'package:schoolerp/src/classroom/presentation/forms/date_picker_normal.dart';
-import 'package:schoolerp/core/util/date_utils.dart';
-import 'package:schoolerp/core/common/widgets/calendar_responsive_helper.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 
 class CustomDateTimeField extends StatefulWidget {
   const CustomDateTimeField({
@@ -113,9 +112,9 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
 // Modified to return Future so we can await it
 
   Future<void> setCurrentDateTime() async {
-    String dateformated = await convertDateTimeNowToTimeZoneOne(context);
-    String formattedDate = '$dateformated';
-    DateTime dateTime = DateTime.parse(formattedDate);
+    // WowCare app does not rely on the legacy timezone helper from `schoolerp`.
+    // Use local device time as a safe default.
+    final DateTime dateTime = DateTime.now();
     setState(() {
       selectedDate = dateTime; // Store the entire dateTime object
       selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
@@ -248,7 +247,7 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
               borderRadius: BorderRadius.circular(10),
               color: widget.isDisabled == true
                   ? const Color(0xFFF8F7FA).withValues(alpha: 0.5)
-                  : (widget.isRangePicker ? Colors.white : AppColors.fieldBackgroundColor),
+                  : AppColors.fieldBackgroundColor,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

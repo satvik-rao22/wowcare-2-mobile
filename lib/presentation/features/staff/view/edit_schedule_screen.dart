@@ -7,16 +7,21 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
-import 'package:intl/intl.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 class EditScheduleScreen extends StatefulWidget {
   const EditScheduleScreen({
     super.key,
+    required this.staffCode,
     this.initialSchedules = const [],
   });
 
   static const String routeName = '/edit-schedule-screen';
 
+  final String staffCode;
   final List<ScheduleEntry> initialSchedules;
 
   @override
@@ -36,6 +41,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   final Map<String, DaySchedule> _schedules = {};
   bool _copyToAllDays = false;
   String? _selectedDay;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -190,45 +196,100 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     }
   }
 
-  void _saveSchedule() {
-    // Convert schedules to the expected format
-    final List<ScheduleEntry> schedules = [];
-    
+  Future<void> _saveSchedule() async {
+    if (_isSubmitting) return;
+
+    // Build API payload for work and break schedules
+    final List<Map<String, dynamic>> workSchedules = [];
+    final List<Map<String, dynamic>> breakSchedules = [];
+
     for (final day in _allDays) {
       final schedule = _schedules[day]!;
-      final dayLower = day.toLowerCase();
-      
-      // Add work time
+      final dayOfWeek = day.toUpperCase(); // MONDAY, TUESDAY, ...
+
       if (schedule.workStartTime != null && schedule.workEndTime != null) {
-      schedules.add(ScheduleEntry(
-        day: dayLower,
-          startTime: _formatTimeOfDay(schedule.workStartTime)!,
-          endTime: _formatTimeOfDay(schedule.workEndTime)!,
-        isBreakTime: false,
-      ));
+        workSchedules.add({
+          'dayOfWeek': dayOfWeek,
+          'workStartTime': {
+            'hour': schedule.workStartTime!.hour,
+            'minute': schedule.workStartTime!.minute,
+            'second': 0,
+            'nano': 0,
+          },
+          'workEndTime': {
+            'hour': schedule.workEndTime!.hour,
+            'minute': schedule.workEndTime!.minute,
+            'second': 0,
+            'nano': 0,
+          },
+        });
       }
-      
-      // Add break time
+
       if (schedule.breakStartTime != null && schedule.breakEndTime != null) {
-      schedules.add(ScheduleEntry(
-        day: dayLower,
-          startTime: _formatTimeOfDay(schedule.breakStartTime)!,
-          endTime: _formatTimeOfDay(schedule.breakEndTime)!,
-        isBreakTime: true,
-      ));
+        breakSchedules.add({
+          'dayOfWeek': dayOfWeek,
+          'breakType': 'LUNCH',
+          'breakStartTime': {
+            'hour': schedule.breakStartTime!.hour,
+            'minute': schedule.breakStartTime!.minute,
+            'second': 0,
+            'nano': 0,
+          },
+          'breakEndTime': {
+            'hour': schedule.breakEndTime!.hour,
+            'minute': schedule.breakEndTime!.minute,
+            'second': 0,
+            'nano': 0,
+          },
+        });
       }
     }
-    
-    // Navigate back with the updated schedules
-    Navigator.pop(context, schedules);
-  }
 
-  String? _formatTimeOfDay(TimeOfDay? time) {
-    if (time == null) return null;
-    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
-    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute $period';
+    if (workSchedules.isEmpty && breakSchedules.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please set at least one work or break time before saving.',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final repository = serviceLocator<StaffRepository>();
+      final message = await repository.updateStaffSchedules(
+        staffCode: widget.staffCode,
+        workSchedules: workSchedules,
+        breakSchedules: breakSchedules,
+      );
+
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -339,7 +400,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
             borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
           ),
           child: TextButton(
-            onPressed: _saveSchedule,
+            onPressed: _isSubmitting ? null : _saveSchedule,
             child: Text(
               'Save',
               style: TextStyle(

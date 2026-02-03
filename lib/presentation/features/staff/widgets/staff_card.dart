@@ -16,10 +16,13 @@ class StaffCard extends StatefulWidget {
     required this.schedule,
     required this.designation,
     required this.phoneNumber,
-    this.onDeactivate,
+    required this.isActive,
+    this.onPrimaryAction,
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
+    required this.availableClassrooms,
+    required this.classroomCodeByName,
   });
 
   final String name;
@@ -29,10 +32,13 @@ class StaffCard extends StatefulWidget {
   final List<String> schedule;
   final String designation;
   final String phoneNumber;
-  final VoidCallback? onDeactivate;
+  final bool isActive;
+  final VoidCallback? onPrimaryAction;
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
+  final List<String> availableClassrooms;
+  final Map<String, String> classroomCodeByName;
 
   @override
   State<StaffCard> createState() => _StaffCardState();
@@ -40,20 +46,6 @@ class StaffCard extends StatefulWidget {
 
 class _StaffCardState extends State<StaffCard> {
   bool isExpanded = false;
-
-  String _getInitials(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return '';
-    final parts = trimmed.split(' ');
-    if (parts.length == 1) {
-      final firstLetter = parts[0].isNotEmpty ? parts[0][0] : '';
-      return (firstLetter + firstLetter).toUpperCase();
-    } else {
-      String first = parts[0].isNotEmpty ? parts[0][0] : '';
-      String second = parts.length > 1 && parts[1].isNotEmpty ? parts[1][0] : '';
-      return (first + second).toUpperCase();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -393,10 +385,13 @@ class _StaffCardState extends State<StaffCard> {
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
-                                              type: 'staff',
+                                              type: widget.isActive
+                                                  ? 'staff_deactivate'
+                                                  : 'staff_reactivate',
                                               onDelete: () {
-                                                Navigator.of(ctx).pop();
-                                                widget.onDeactivate?.call();
+                                                // Let the confirmation sheet show its loader
+                                                // while the actual API logic runs.
+                                                widget.onPrimaryAction?.call();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -412,9 +407,9 @@ class _StaffCardState extends State<StaffCard> {
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
-                                        'Deactivate',
-                                        style: TextStyle(
+                                      child: Text(
+                                        widget.isActive ? 'Deactivate' : 'Reactivate',
+                                        style: const TextStyle(
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
@@ -451,8 +446,22 @@ class _StaffCardState extends State<StaffCard> {
                                               initialLastName: initialLastName,
                                               initialPhone: widget.phoneNumber,
                                               initialRole: widget.designation,
-                                              initialAllowedClassroomCodes: widget.allowedClassrooms,
-                                              initialPrimaryClassroom: widget.classroom,
+                                              // allowedClassrooms and classroom are display names.
+                                              initialAllowedClassroomCodes:
+                                                  widget.allowedClassrooms,
+                                              initialPrimaryClassroom:
+                                                  widget.classroom,
+                                              initialClassroomNames:
+                                                  widget.availableClassrooms,
+                                              // AddStaffScreen expects name -> code; StaffCard
+                                              // receives code -> name, so invert it here.
+                                              initialClassroomCodeByName: {
+                                                for (final entry
+                                                    in widget
+                                                        .classroomCodeByName
+                                                        .entries)
+                                                  entry.value: entry.key,
+                                              },
                                               // initialEmail and initialStatus not available here
                                             ),
                                           ),

@@ -12,9 +12,11 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Create a global instance of NotificationService that will be initialized later
@@ -97,6 +99,7 @@ class _MyAppState extends State<MyApp> {
         // ChangeNotifierProvider(create: (_) => StaffProviders()),
         // ChangeNotifierProvider(create: (_) => GuardianProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => RoleProvider()),
         // ChangeNotifierProvider(create: (_) => AuthProvider()),
         // ChangeNotifierProvider(create: (_) => NavBarHeightProvider()),
         // ChangeNotifierProvider(create: (_) => ProfilePhotoProvider()),
@@ -201,8 +204,8 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
-      // TEMPORARY: Bypass login flow - go directly to dashboard
-      Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      // Navigate to role selection screen first
+      Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
       
       // Original login flow (commented out for now):
       // final storage = serviceLocator<StorageService>();

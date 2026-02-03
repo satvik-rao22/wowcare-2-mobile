@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class StaffImportantDatesTab extends StatelessWidget {
   const StaffImportantDatesTab({super.key});
@@ -18,8 +19,14 @@ class StaffImportantDatesTab extends StatelessWidget {
       context: context,
       removeLeft: true,
       removeRight: true,
-      child: SingleChildScrollView(
-        child: Container(
+      child: CustomRefreshIndicator(
+        onRefresh: () async {
+          // TODO: Add refresh logic to reload important dates
+          await Future.delayed(const Duration(milliseconds: 500));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -75,6 +82,7 @@ class StaffImportantDatesTab extends StatelessWidget {
           ],
         ),
       ),
+        ),
       ),
     );
   }

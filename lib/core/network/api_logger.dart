@@ -18,14 +18,10 @@ class ApiLogger {
     // ignore: avoid_print
     print('Method: $method');
     
-    // Build full URL with query parameters
-    String fullUrl = url;
-    if (queryParameters != null && queryParameters.isNotEmpty) {
-      final queryString = _buildQueryString(queryParameters);
-      fullUrl = '$url?$queryString';
-    }
+    // URL already includes query parameters from Dio (options.uri),
+    // so just log it as-is to avoid duplicating the query string.
     // ignore: avoid_print
-    print('URL: $fullUrl');
+    print('URL: $url');
     
     if (queryParameters != null && queryParameters.isNotEmpty) {
       final String queryString = _stringify(queryParameters);
@@ -60,14 +56,10 @@ class ApiLogger {
     // ignore: avoid_print
     print('Method: $method');
     
-    // Build full URL with query parameters
-    String fullUrl = url;
-    if (queryParameters != null && queryParameters.isNotEmpty) {
-      final queryString = _buildQueryString(queryParameters);
-      fullUrl = '$url?$queryString';
-    }
+    // URL already includes query parameters from Dio (requestOptions.uri),
+    // so just log it as-is to avoid duplicating the query string.
     // ignore: avoid_print
-    print('URL: $fullUrl');
+    print('URL: $url');
     // ignore: avoid_print
     print('Status Code: $statusCode');
     if (data != null) {
@@ -170,32 +162,5 @@ class ApiLogger {
       print(text.substring(start, end));
       start = end;
     }
-  }
-
-  /// Builds a query string from query parameters, handling arrays correctly.
-  static String _buildQueryString(Map<String, dynamic> params) {
-    final buffer = StringBuffer();
-    var first = true;
-
-    params.forEach((key, value) {
-      if (!first) buffer.write('&');
-      first = false;
-
-      if (value is List) {
-        // Handle array parameters: schoolCodes[0]=value1&schoolCodes[1]=value2
-        for (var i = 0; i < value.length; i++) {
-          if (i > 0) buffer.write('&');
-          buffer.write(Uri.encodeComponent('$key[$i]'));
-          buffer.write('=');
-          buffer.write(Uri.encodeComponent(value[i].toString()));
-        }
-      } else {
-        buffer.write(Uri.encodeComponent(key));
-        buffer.write('=');
-        buffer.write(Uri.encodeComponent(value.toString()));
-      }
-    });
-
-    return buffer.toString();
   }
 }

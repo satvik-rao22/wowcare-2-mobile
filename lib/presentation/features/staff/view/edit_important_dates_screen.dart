@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -8,10 +7,15 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/data/features/staff/models/staff_important_dates_models.dart';
 
 class EditImportantDatesScreen extends StatefulWidget {
   const EditImportantDatesScreen({
     super.key,
+    required this.staffCode,
     this.initialHireDate,
     this.initialCdaExaminationDate,
     this.initialFirstAidCprExpirationDate,
@@ -19,6 +23,7 @@ class EditImportantDatesScreen extends StatefulWidget {
   });
   static const String routeName = '/edit-important-dates-screen';
 
+  final String staffCode;
   final DateTime? initialHireDate;
   final DateTime? initialCdaExaminationDate;
   final DateTime? initialFirstAidCprExpirationDate;
@@ -29,21 +34,27 @@ class EditImportantDatesScreen extends StatefulWidget {
 }
 
 class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final ImportantDatesCubit _importantDatesCubit;
   DateTime? _selectedHireDate;
   DateTime? _selectedCdaExaminationDate;
   DateTime? _selectedFirstAidCprExpirationDate;
   DateTime? _selectedBackgroundRecordCheckExpirationDate;
-  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
+    _importantDatesCubit = serviceLocator<ImportantDatesCubit>();
     // Prefill when editing
     _selectedHireDate = widget.initialHireDate;
     _selectedCdaExaminationDate = widget.initialCdaExaminationDate;
     _selectedFirstAidCprExpirationDate = widget.initialFirstAidCprExpirationDate;
     _selectedBackgroundRecordCheckExpirationDate = widget.initialBackgroundRecordCheckExpirationDate;
+  }
+
+  @override
+  void dispose() {
+    _importantDatesCubit.close();
+    super.dispose();
   }
 
   void _saveImportantDates() {
@@ -52,17 +63,48 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    final dates = <Map<String, String>>[];
 
-    // Mock API call
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        _isSubmitting = false;
+    // Hire Date (required)
+    if (_selectedHireDate != null) {
+      dates.add({
+        'importantDateType': ImportantDateType.hireDate.value,
+        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
+        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
       });
-      Navigator.pop(context);
-    });
+    }
+
+    // CDA Examination Date
+    if (_selectedCdaExaminationDate != null) {
+      dates.add({
+        'importantDateType': ImportantDateType.cda.value,
+        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedCdaExaminationDate!),
+        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedCdaExaminationDate!),
+      });
+    }
+
+    // First Aid/CPR Expiration Date (maps to FIRST_AID_CPR)
+    if (_selectedFirstAidCprExpirationDate != null) {
+      dates.add({
+        'importantDateType': ImportantDateType.firstAidCpr.value,
+        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedFirstAidCprExpirationDate!),
+        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedFirstAidCprExpirationDate!),
+      });
+    }
+
+    // Background Record Check Expiration Date
+    if (_selectedBackgroundRecordCheckExpirationDate != null) {
+      dates.add({
+        'importantDateType': ImportantDateType.brc.value,
+        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedBackgroundRecordCheckExpirationDate!),
+        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedBackgroundRecordCheckExpirationDate!),
+      });
+    }
+
+    _importantDatesCubit.updateImportantDates(
+      staffCode: widget.staffCode,
+      dates: dates,
+    );
   }
 
   void _showWarningMessage(String message) {
@@ -149,7 +191,30 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return StaffFormLayout(
+    return BlocProvider<ImportantDatesCubit>.value(
+      value: _importantDatesCubit,
+      child: BlocListener<ImportantDatesCubit, ImportantDatesState>(
+        listener: (context, state) {
+          if (state.isSuccess && state.message != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message!,
+              isSuccess: true,
+            );
+            Navigator.pop(context, true);
+          } else if (state.isError && state.message != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message!,
+              isError: true,
+            );
+          }
+        },
+        child: BlocBuilder<ImportantDatesCubit, ImportantDatesState>(
+          builder: (context, state) {
+            final isSubmitting = state.isLoading;
+
+            return StaffFormLayout(
       title: "Edit Important Dates",
       child: ListView(
         padding: EdgeInsets.zero,
@@ -201,12 +266,12 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         child: Container(
           height: responsive.buttonHeight,
           decoration: BoxDecoration(
-            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: _isSubmitting ? Colors.grey[300] : null,
+            gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
+            color: isSubmitting ? Colors.grey[300] : null,
             borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
           ),
           child: TextButton(
-            onPressed: _isSubmitting ? null : _saveImportantDates,
+            onPressed: isSubmitting ? null : _saveImportantDates,
             child: Text(
               'Save',
               style: TextStyle(
@@ -217,6 +282,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
               ),
             ),
           ),
+        ),
+      ),
+            );
+          },
         ),
       ),
     );
