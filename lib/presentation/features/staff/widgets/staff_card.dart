@@ -395,7 +395,8 @@ class _StaffCardState extends State<StaffCard> {
                                               name: widget.name,
                                               type: 'staff',
                                               onDelete: () {
-                                                Navigator.of(ctx).pop();
+                                                // Let the confirmation sheet show its loader
+                                                // while the actual deactivate logic runs.
                                                 widget.onDeactivate?.call();
                                               },
                                               onCancel: () {

@@ -22,6 +22,8 @@ import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.da
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
@@ -387,7 +389,27 @@ class _StaffScreenState extends State<StaffScreen> {
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
                                 onDeactivate: () async {
-                                  await staffCubit.deactivateStaff(staff.code);
+                                  try {
+                                    final message =
+                                        await staffCubit.deactivateStaff(staff.code);
+                                    if (!mounted) return;
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: message,
+                                      isSuccess: true,
+                                    );
+                                    // Close the bottom sheet after success if it's open.
+                                    Navigator.of(context).maybePop();
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    final message =
+                                        ApiErrorHandler.extractErrorMessage(e);
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: message,
+                                      isError: true,
+                                    );
+                                  }
                                 },
                                 isSelected: isSelected,
                                 onSelected: (checked) {

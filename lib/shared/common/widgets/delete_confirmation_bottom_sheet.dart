@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
-class DeleteConfirmationBottomSheet extends StatelessWidget {
+class DeleteConfirmationBottomSheet extends StatefulWidget {
   final String name; // student name or generic subject name
   final String type;
   final String? planName; // optional plan name for plan actions
@@ -20,6 +20,21 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
     this.planName,
     this.isLoading = false,
   }) : super(key: key);
+
+  @override
+  State<DeleteConfirmationBottomSheet> createState() =>
+      _DeleteConfirmationBottomSheetState();
+}
+
+class _DeleteConfirmationBottomSheetState
+    extends State<DeleteConfirmationBottomSheet> {
+  late bool _isLoading;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLoading = widget.isLoading;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,77 +62,66 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
         ? 18.0
         : 16.0;
 
-    final buttonHeight = isLargeTablet
-        ? 56.0
-        : isTablet
-        ? 48.0
-        : 40.0;
-
-    final buttonFontSize = isLargeTablet
-        ? 18.0
-        : isTablet
-        ? 16.0
-        : 14.0;
-
     final borderRadius = isLargeTablet
         ? 24.0
         : isTablet
         ? 20.0
         : 16.0;
 
-    final bool isPlanAction = type == 'plan_cancel' || type == 'plan_pause';
+    final bool isPlanAction =
+        widget.type == 'plan_cancel' || widget.type == 'plan_pause';
 
     final String typeText = isPlanAction
-        ? (type == 'plan_cancel'
-              ? 'Do you want to cancel this plan - "${planName ?? ''}" for student $name?'
-              : 'Do you want to pause this plan - "${planName ?? ''}" for student $name?')
-        : type == 'user'
+        ? (widget.type == 'plan_cancel'
+            ? 'Do you want to cancel this plan - "${widget.planName ?? ''}" for student ${widget.name}?'
+            : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
+        : widget.type == 'user'
         ? "Do you want to delete this User"
-        : type == 'Activity'
-        ? 'Do you want to delete this activity -\n"$name" ?'
-        : type == 'staff'
-        ? 'Do you want to deactivate this Staff -\n"$name" ?'
-        : type == 'student'
-        ? 'Do you want to deactivate this Student -\n"$name" ?'
-        : type == 'subsidy'
-        ? 'Do you want to delete the subsidy -\n$name ?'
-        : type == 'classroom'
+        : widget.type == 'Activity'
+        ? 'Do you want to delete this activity -\n"${widget.name}" ?'
+        : widget.type == 'staff'
+        ? 'Do you want to deactivate this Staff -\n"${widget.name}" ?'
+        : widget.type == 'student'
+        ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
+        : widget.type == 'subsidy'
+        ? 'Do you want to delete the subsidy -\n${widget.name} ?'
+        : widget.type == 'classroom'
         ? "Do you want to delete this Classroom"
-        : type == 'vendor_category'
+        : widget.type == 'vendor_category'
         ? "Do you want to delete this Vendor Category"
-        : type == 'vendor'
+        : widget.type == 'vendor'
         ? "Do you want to delete this Vendor"
-        : type == 'product_category'
+        : widget.type == 'product_category'
         ? "Do you want to delete this Product Category"
-        : type == 'product'
+        : widget.type == 'product'
         ? "Do you want to delete this Product"
-        : type == 'request'
+        : widget.type == 'request'
         ? "Do you want to delete request made for product name"
-        : type == 'purchase_order'
+        : widget.type == 'purchase_order'
         ? "Do you want to delete this Purchase Order"
-        : type == 'complete_purchase'
-        ? "Are you sure you want to mark this purchase \"$name\" as completed? This action cannot be reversed."
-        : type == 'order_purchase'
-        ? "Are you sure you want to mark this purchase \"$name\" as ordered? This action cannot be reversed."
-        : type == 'reject_request'
-        ? "Are you sure you want to reject this request for \"$name\"? This action cannot be reversed."
-        : type == 'attendance'
-        ? "Do you want to delete $name's Attendance?"
+        : widget.type == 'complete_purchase'
+        ? "Are you sure you want to mark this purchase \"${widget.name}\" as completed? This action cannot be reversed."
+        : widget.type == 'order_purchase'
+        ? "Are you sure you want to mark this purchase \"${widget.name}\" as ordered? This action cannot be reversed."
+        : widget.type == 'reject_request'
+        ? "Are you sure you want to reject this request for \"${widget.name}\"? This action cannot be reversed."
+        : widget.type == 'attendance'
+        ? "Do you want to delete ${widget.name}'s Attendance?"
         : '';
 
-    String buttonText = type == 'complete_purchase'
+    String buttonText = widget.type == 'complete_purchase'
         ? "Mark Complete"
-        : type == 'Activity'
+        : widget.type == 'Activity'
         ? 'Delete'
-        : (type == 'staff' || type == 'student')
+        : (widget.type == 'staff' || widget.type == 'student')
         ? "Deactivate"
-        : type == 'order_purchase'
+        : widget.type == 'order_purchase'
         ? "Mark as Ordered"
-        : type == 'reject_request'
+        : widget.type == 'reject_request'
         ? "Reject Request"
-        : (type == 'plan_pause'
+        : (widget.type == 'plan_pause'
               ? 'Pause Plan'
-              : (type == 'plan_cancel' ? 'Cancel Plan' : "Delete"));
+              : (widget.type == 'plan_cancel' ? 'Cancel Plan' : "Delete"));
 
     return SafeArea(
       top: false,
@@ -200,82 +204,22 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
                 ),
               ),
               SizedBox(height: verticalPadding * 1.5),
-              // Buttons row
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: buttonHeight,
-                      child: OutlinedButton(
-                        onPressed: isLoading ? null : onCancel,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF6C7FD8)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              borderRadius / 2,
-                            ),
-                          ),
-                          backgroundColor: Colors.white,
-                        ),
-                        child: Text(
-                          "Cancel",
-                          style: TextStyle(
-                            fontFamily: "Manrope",
-                            fontSize: buttonFontSize,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primaryColor,
-                            height: 1.0,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: horizontalPadding / 2),
-                  Expanded(
-                    child: Container(
-                      height: buttonHeight,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(borderRadius / 2),
-                        gradient: AppColors.buildPrimaryGradient(),
-                      ),
-                      child: TextButton(
-                        onPressed: isLoading ? null : onDelete,
-                        style: TextButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              borderRadius / 2,
-                            ),
-                          ),
-                        ),
-                        child: isLoading
-                            ? SizedBox(
-                                width: isLargeTablet
-                                    ? 24.0
-                                    : (isTablet ? 20.0 : 16.0),
-                                height: isLargeTablet
-                                    ? 24.0
-                                    : (isTablet ? 20.0 : 16.0),
-                                child: const CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                buttonText,
-                                style: TextStyle(
-                                  fontFamily: "Manrope",
-                                  fontSize: buttonFontSize,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  height: 1.0,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
+              // Buttons row (shared layout with built-in loader)
+              CustomButtonLayout(
+                confirmButtonLabel: buttonText,
+                cancelButtonLabel: 'Cancel',
+                onPressedConfirm: () {
+                  if (_isLoading) return;
+                  setState(() => _isLoading = true);
+                  // onDelete is responsible for closing the bottom sheet.
+                  widget.onDelete();
+                },
+                onPressedCancel: () {
+                  if (_isLoading) return;
+                  widget.onCancel();
+                },
+                isForm: false,
+                isLoading: _isLoading,
               ),
             ],
           ),

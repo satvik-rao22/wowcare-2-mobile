@@ -174,28 +174,27 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   /// Deactivates a staff member (via school user deactivate API) and refreshes the list.
-  Future<void> deactivateStaff(String staffCode) async {
-    try {
-      // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-      final profile = await _repository.getStaffProfile(staffCode: staffCode);
+  /// Returns the success message from the backend. Errors are rethrown for UI to handle.
+  Future<String> deactivateStaff(String staffCode) async {
+    // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
+    final profile = await _repository.getStaffProfile(staffCode: staffCode);
 
-      await _repository.deactivateSchoolUser(
-        userCode: profile.userCode,
-        organizationCode: profile.organizationCode,
-        schoolCode: profile.schoolCode,
-        role: 'STAFF',
-      );
+    // Map staffType from profile to backend role expected by deactivate API
+    // Example: admins should use SCHOOL_ADMIN instead of STAFF.
+    final staffTypeUpper = profile.staffType.toUpperCase();
+    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
 
-      // Refresh the list so UI and cache reflect the updated status.
-      await refresh();
-    } catch (e) {
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          errorMessage: e.toString(),
-        ),
-      );
-    }
+    final message = await _repository.deactivateSchoolUser(
+      userCode: profile.userCode,
+      organizationCode: profile.organizationCode,
+      schoolCode: profile.schoolCode,
+      role: role,
+    );
+
+    // Refresh the list so UI and cache reflect the updated status.
+    await refresh();
+
+    return message;
   }
 
   void updateSearch(String query) {
