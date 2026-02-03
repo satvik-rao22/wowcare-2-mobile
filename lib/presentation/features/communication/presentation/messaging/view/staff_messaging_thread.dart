@@ -1,10 +1,14 @@
+import 'dart:io';
+
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
+import 'package:thumbnailer/thumbnailer.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
@@ -30,6 +34,143 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   //final Map<String, BuildContext> _messageContexts = {};
   //final Map<String, double> _bubbleHeights = {};
   //final Map<int, double> _headerHeights = {};
+  // final List<Message> _messages = [
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text: "Hello! I want to take day off tomorrow ?",
+  //     isSentByMe: false,
+  //     time: DateTime(2025, 1, 13, 14, 45),
+  //     reactions: {
+  //       'natasha': '😂',
+  //       'eddie': '😂',
+  //       'john': '😂',
+  //       'manager': '👍',
+  //     },
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text: "Okay Natasha!",
+  //     isSentByMe: true,
+  //     time: DateTime(2025, 1, 13, 16, 45),
+  //     //readAt: DateTime(2025, 1, 13, 16, 45),
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text: "Great to know that! Thanks!",
+  //     isSentByMe: false,
+  //     time: DateTime(2025, 1, 13, 16, 50),
+  //     reactions: {'manager': '🙏', 'hr': '🙏', 'john': '🙏'},
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text:
+  //         "Also, is it possible to make it half day instead? I have doctor appointment in morning",
+  //     isSentByMe: false,
+  //     time: DateTime(2025, 1, 14, 9, 12),
+  //     deliveredAt: DateTime(2025, 1, 14, 9, 12),
+  //     reactions: {
+  //       'natasha': '👍',
+  //       'eddie': '👍',
+  //       'john': '❤️',
+  //       'manager': '🙏',
+  //       'hr': '🙏',
+  //     },
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text:
+  //         "Sure, half day is fine. Just mark it in the attendance sheet when you come back",
+  //     isSentByMe: true,
+  //     time: DateTime(2025, 1, 14, 9, 18),
+  //     readAt: DateTime(2025, 1, 14, 9, 18),
+  //     reactions: {
+  //       'natasha': '😂',
+  //       'eddie': '😂',
+  //       'john': '😂',
+  //       'manager': '👍',
+  //       'natashi': '👍',
+  //       'eddiey': '👍',
+  //       'johny': '❤️',
+  //       'managery': '🙏',
+  //       'hr': '🙏',
+  //     },
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text: "Thank you so much! ❤️ Will do",
+  //     isSentByMe: false,
+  //     time: DateTime(2025, 1, 14, 9, 20),
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text:
+  //         "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year, By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
+  //     isSentByMe: true,
+  //     time: DateTime(2025, 1, 14, 11, 5),
+  //     readAt: DateTime(2025, 1, 14, 11, 5),
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text: "No I didn't! Where can I find it? HR portal?",
+  //     isSentByMe: false,
+  //     time: DateTime(2025, 1, 14, 11, 8),
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     text:
+  //         "Yes, under Policies → Leave & Attendance → 2025 updates. It's the pinned documentBy the way, did you see the new leave policy update? They added 2 extra optional holidays this year, By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
+  //     isSentByMe: true,
+  //     time: DateTime(2026, 1, 21, 11, 11),
+  //     deliveredTo: [
+  //       RecipientStatus(
+  //         name: "Natasha White",
+  //         timestamp: DateTime(2026, 1, 21, 11, 12),
+  //       ),
+  //       RecipientStatus(
+  //         name: "Eddie Barns",
+  //         timestamp: DateTime(2026, 1, 21, 11, 13),
+  //       ),
+  //       RecipientStatus(
+  //         name: "John Doe",
+  //         timestamp: DateTime(2026, 1, 21, 11, 15),
+  //       ),
+  //       RecipientStatus(
+  //         name: "Natasha White",
+  //         timestamp: DateTime(2026, 1, 21, 11, 12),
+  //       ),
+  //       RecipientStatus(
+  //         name: "Eddie Barns",
+  //         timestamp: DateTime(2026, 1, 21, 11, 13),
+  //       ),
+  //       RecipientStatus(
+  //         name: "John Doe",
+  //         timestamp: DateTime(2026, 1, 21, 11, 15),
+  //       ),
+  //     ],
+  //     readBy: [
+  //       RecipientStatus(
+  //         name: "Natasha White",
+  //         timestamp: DateTime(2026, 1, 21, 11, 14),
+  //       ),
+  //       RecipientStatus(
+  //         name: "Eddie Barns",
+  //         timestamp: DateTime(2026, 1, 21, 11, 16),
+  //       ),
+  //       RecipientStatus(
+  //         name: "Natasha White",
+  //         timestamp: DateTime(2026, 1, 21, 11, 12),
+  //       ),
+  //       RecipientStatus(
+  //         name: "Eddie Barns",
+  //         timestamp: DateTime(2026, 1, 21, 11, 13),
+  //       ),
+  //       RecipientStatus(
+  //         name: "John Doe",
+  //         timestamp: DateTime(2026, 1, 21, 11, 15),
+  //       ),
+  //     ],
+  //   ),
+  // ];
   final List<Message> _messages = [
     Message(
       id: const Uuid().v4(),
@@ -48,7 +189,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       text: "Okay Natasha!",
       isSentByMe: true,
       time: DateTime(2025, 1, 13, 16, 45),
-      //readAt: DateTime(2025, 1, 13, 16, 45),
+      attachments: [
+        ChatAttachment(
+          name: 'Vacation Request.pdf',
+          type: 'document',
+          sizeBytes: 1240000,
+          mimeType: 'application/pdf',
+          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        ),
+      ],
     ),
     Message(
       id: const Uuid().v4(),
@@ -59,8 +208,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
     ),
     Message(
       id: const Uuid().v4(),
-      text:
-          "Also, is it possible to make it half day instead? I have doctor appointment in morning",
+      text: "Also, is it possible to make it half day instead? I have doctor appointment in morning",
       isSentByMe: false,
       time: DateTime(2025, 1, 14, 9, 12),
       deliveredAt: DateTime(2025, 1, 14, 9, 12),
@@ -71,11 +219,26 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
         'manager': '🙏',
         'hr': '🙏',
       },
+      attachments: [
+        ChatAttachment(
+          name: 'Doctor Appointment Letter.jpg',
+          type: 'image',
+          sizeBytes: 3200000,
+          mimeType: 'image/jpeg',
+          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+        ),
+        ChatAttachment(
+          name: 'Medical Certificate.pdf',
+          type: 'document',
+          sizeBytes: 1450000,
+          mimeType: 'application/pdf',
+          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        ),
+      ],
     ),
     Message(
       id: const Uuid().v4(),
-      text:
-          "Sure, half day is fine. Just mark it in the attendance sheet when you come back",
+      text: "Sure, half day is fine. Just mark it in the attendance sheet when you come back",
       isSentByMe: true,
       time: DateTime(2025, 1, 14, 9, 18),
       readAt: DateTime(2025, 1, 14, 9, 18),
@@ -90,79 +253,126 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
         'managery': '🙏',
         'hr': '🙏',
       },
+      attachments: [
+        ChatAttachment(
+          name: 'Team Meeting Notes.pdf',
+          type: 'document',
+          sizeBytes: 980000,
+          mimeType: 'application/pdf',
+          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        ),
+      ],
     ),
     Message(
       id: const Uuid().v4(),
       text: "Thank you so much! ❤️ Will do",
       isSentByMe: false,
       time: DateTime(2025, 1, 14, 9, 20),
+      attachments: [
+        ChatAttachment(
+          name: 'Thank You Card.jpg',
+          type: 'image',
+          sizeBytes: 2100000,
+          mimeType: 'image/jpeg',
+          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+        ),
+      ],
     ),
     Message(
       id: const Uuid().v4(),
       text:
-          "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year, By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
+      "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
       isSentByMe: true,
       time: DateTime(2025, 1, 14, 11, 5),
       readAt: DateTime(2025, 1, 14, 11, 5),
+      attachments: [
+        ChatAttachment(
+          name: 'New Leave Policy 2025.pdf',
+          type: 'document',
+          sizeBytes: 2800000,
+          mimeType: 'application/pdf',
+          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        ),
+      ],
     ),
     Message(
       id: const Uuid().v4(),
       text: "No I didn't! Where can I find it? HR portal?",
       isSentByMe: false,
       time: DateTime(2025, 1, 14, 11, 8),
+      attachments: [
+        ChatAttachment(
+          name: 'HR Portal Screenshot.jpg',
+          type: 'image',
+          sizeBytes: 1800000,
+          mimeType: 'image/jpeg',
+          remoteUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&q=80',
+        ),
+        ChatAttachment(
+          name: 'Policies Folder.jpg',
+          type: 'image',
+          sizeBytes: 1450000,
+          mimeType: 'image/jpeg',
+          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
+        ),
+      ],
     ),
     Message(
       id: const Uuid().v4(),
       text:
-          "Yes, under Policies → Leave & Attendance → 2025 updates. It's the pinned documentBy the way, did you see the new leave policy update? They added 2 extra optional holidays this year, By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
+      "Yes, under Policies → Leave & Attendance → 2025 updates. It's the pinned document",
       isSentByMe: true,
       time: DateTime(2026, 1, 21, 11, 11),
       deliveredTo: [
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 12),
-        ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 13),
-        ),
-        RecipientStatus(
-          name: "John Doe",
-          timestamp: DateTime(2026, 1, 21, 11, 15),
-        ),
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 12),
-        ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 13),
-        ),
-        RecipientStatus(
-          name: "John Doe",
-          timestamp: DateTime(2026, 1, 21, 11, 15),
-        ),
+        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 12)),
+        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 13)),
+        RecipientStatus(name: "John Doe", timestamp: DateTime(2026, 1, 21, 11, 15)),
+        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 12)),
+        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 13)),
+        RecipientStatus(name: "John Doe", timestamp: DateTime(2026, 1, 21, 11, 15)),
       ],
       readBy: [
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 14),
+        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 14)),
+        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 16)),
+        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 12)),
+        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 13)),
+        RecipientStatus(name: "John Doe", timestamp: DateTime(2026, 1, 21, 11, 15)),
+      ],
+      attachments: [
+        ChatAttachment(
+          name: 'Policy Update Screenshot 1.jpg',
+          type: 'image',
+          sizeBytes: 2400000,
+          mimeType: 'image/jpeg',
+          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
         ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 16),
+        ChatAttachment(
+          name: 'Policy Update Screenshot 2.jpg',
+          type: 'image',
+          sizeBytes: 2100000,
+          mimeType: 'image/jpeg',
+          remoteUrl: 'https://images.unsplash.com/photo-1554224154-22dec7ec8818?w=800&q=80',
         ),
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 12),
+        ChatAttachment(
+          name: 'Policy Update Screenshot 3.jpg',
+          type: 'image',
+          sizeBytes: 1950000,
+          mimeType: 'image/jpeg',
+          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
         ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 13),
+        ChatAttachment(
+          name: 'Policy Update Screenshot 4.jpg',
+          type: 'image',
+          sizeBytes: 2300000,
+          mimeType: 'image/jpeg',
+          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
         ),
-        RecipientStatus(
-          name: "John Doe",
-          timestamp: DateTime(2026, 1, 21, 11, 15),
+        ChatAttachment(
+          name: 'Policy Update Screenshot 5.jpg',
+          type: 'image',
+          sizeBytes: 2050000,
+          mimeType: 'image/jpeg',
+          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
         ),
       ],
     ),
@@ -174,6 +384,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   //final Map<String, BuildContext> _messageContexts = {};
   Message? _quotedMessage = null;
   String? _quotedMessageId;
+  List<ChatAttachment> _pendingAttachments = [];
 
   @override
   void initState() {
@@ -188,7 +399,13 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   }
 
   void _sendMessage() {
-    if (_controller.text.trim().isEmpty) return;
+    //if (_controller.text.trim().isEmpty) return;
+    final text = _controller.text.trim();
+    final hasText = text.isNotEmpty;
+    final hasAttachments = _pendingAttachments.isNotEmpty;
+
+    if(!hasText && !hasAttachments) return;
+
     final now = DateTime.now();
     final newMessage = Message(
       id: const Uuid().v4(),
@@ -197,6 +414,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       time: now,
       deliveredAt: null,
       readAt: null,
+      attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageId,
       // For group simulation
       // deliveredTo: {},
@@ -204,7 +422,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
     );
     setState(() {
       _messages.add(newMessage);
+      _controller.clear();
+      _pendingAttachments.clear();
       _quotedMessage = null;
+      _quotedMessageId = null;
     });
 
     // setState(() {
@@ -219,21 +440,21 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
     //   );
     // });
 
-    _controller.clear();
+    //_controller.clear();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollController.scrollToIndex(
-        0, // index 0 is the bottom because reverse: true
+        0,
         preferPosition: AutoScrollPosition.begin,
         duration: const Duration(milliseconds: 300),
       );
     });
-    // Simulate delivery (works for both 1:1 and group)
+
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
         final idx = _messages.indexWhere((m) => m.id == newMessage.id);
         if (idx == -1) return;
 
-        // For 1:1
+
         _messages[idx] = Message(
           id: newMessage.id,
           text: newMessage.text,
@@ -241,13 +462,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
           time: newMessage.time,
           deliveredAt: DateTime.now(),
           readAt: newMessage.readAt,
-          quotedMessageId: _quotedMessageId,
-          // deliveredTo: newMessage.deliveredTo, // if group
+          attachments: newMessage.attachments,
+          quotedMessageId: newMessage.quotedMessageId,
+          // deliveredTo: newMessage.deliveredTo,
         );
       });
     });
 
-    // Simulate read
+
     Future.delayed(const Duration(seconds: 7), () {
       setState(() {
         final idx = _messages.indexWhere((m) => m.id == newMessage.id);
@@ -260,138 +482,21 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
           time: newMessage.time,
           deliveredAt: _messages[idx].deliveredAt,
           readAt: DateTime.now(),
-          quotedMessageId: _quotedMessageId,
-          // readBy: {'user123': DateTime.now()}, // for group
+          attachments: newMessage.attachments,
+          quotedMessageId: newMessage.quotedMessageId,
+          // readBy: {'user123': DateTime.now()},
         );
-        _quotedMessageId = null;
+        //_quotedMessageId = null;
       });
     });
   }
 
-  // void _scrollToMessage(String messageId) {
-  //   //final sentKey = _messageKeysSent[messageId];
-  //   //final receivedKey = _messageKeysReceived[messageId];
-  //   //final key = sentKey ?? receivedKey;
-  //   final key = _scrollKeys[messageId];
-  //   if (key == null || key.currentContext == null) return;
-  //   //final context = key.currentContext!;
-  //   //final context = _messageContexts[messageId];
-  //   //if(context == null) return;
-  //   Scrollable.ensureVisible(
-  //     //context,
-  //     key.currentContext!,
-  //     duration: const Duration(milliseconds: 600),
-  //     curve: Curves.easeInOut,
-  //     alignment: 0.5,  // center the message in viewport
-  //   );
-  //   // final box = context.findRenderObject() as RenderBox?;
-  //   // if (box == null) return;
-  //   // final position = box.localToGlobal(Offset.zero, ancestor: null);
-  //   // final scrollPosition = _scrollController.position;
-  //   // final targetOffset =
-  //   //     scrollPosition.maxScrollExtent - position.dy + scrollPosition.pixels;
-  //   // _scrollController.animateTo(
-  //   //   targetOffset.clamp(0.0, scrollPosition.maxScrollExtent),
-  //   //   duration: const Duration(milliseconds: 600),
-  //   //   curve: Curves.easeOut,
-  //   // );
-  // }
 
-  // void _registerMessageContext(String messageId, BuildContext context) {
-  //   if (_messageContexts[messageId] != context) {
-  //     setState(() {
-  //       _messageContexts[messageId] = context;
-  //     });
-  //   }
-  // }
-
-  // void _scrollToMessage(String targetMessageId) {
-  //   double offset = 0.0;
-  //   const double itemSpacing = 36.0; // your vertical padding/margin between messages
-  //   const double fallbackBubbleHeight = 80.0; // average height when not yet measured
-  //
-  //   // Iterate in reverse order because ListView is reversed
-  //   for (int i = _messages.length - 1; i >= 0; i--) {
-  //     final msg = _messages[i];
-  //     final id = msg.id;
-  //
-  //     // Add height of this message bubble
-  //     final bubbleHeight = _bubbleHeights[id] ?? fallbackBubbleHeight;
-  //     offset += bubbleHeight + itemSpacing;
-  //
-  //     if (id == targetMessageId) {
-  //       // Adjust offset so the message appears roughly centered in viewport
-  //       offset -= (MediaQuery.of(context).size.height * 0.4); // tweak 0.4–0.6 as needed
-  //       break;
-  //     }
-  //   }
-  //
-  //   final maxScroll = _scrollController.position.maxScrollExtent;
-  //   final targetOffset = offset.clamp(0.0, maxScroll);
-  //
-  //   _scrollController.animateTo(
-  //     targetOffset,
-  //     duration: const Duration(milliseconds: 600),
-  //     curve: Curves.easeInOut,
-  //   );
-  // }
-
-  // void _scrollToMessage(String targetMessageId) {
-  //   double offset = 0.0;
-  //   const double bubbleSpacing = 36.0;           // your vertical space between bubbles
-  //   const double fallbackBubbleHeight = 80.0;    // average bubble when not measured
-  //   const double headerExtra = 50.0;             // ≈ header chip (~30–40 px) + SizedBox(10) + padding
-  //
-  //   // Iterate in reverse order (ListView is reversed)
-  //   for (int i = _messages.length - 1; i >= 0; i--) {
-  //     final msg = _messages[i];
-  //     final msgId = msg.id;
-  //
-  //     // Add bubble height
-  //     offset += _bubbleHeights[msgId] ?? fallbackBubbleHeight;
-  //
-  //     // If this message is the first of a new day → add header offset
-  //     bool isFirstOfDay = false;
-  //     if (i < _messages.length - 1) {
-  //       final nextMsg = _messages[i + 1]; // "next" in reversed order = previous in time
-  //       isFirstOfDay = msg.time.year != nextMsg.time.year ||
-  //           msg.time.month != nextMsg.time.month ||
-  //           msg.time.day != nextMsg.time.day;
-  //     } else {
-  //       // First message in list is always first of its day
-  //       isFirstOfDay = true;
-  //     }
-  //
-  //     if (isFirstOfDay) {
-  //       offset += headerExtra;
-  //     }
-  //
-  //     // Add spacing after every bubble (except the last one)
-  //     if (i > 0) {
-  //       offset += bubbleSpacing;
-  //     }
-  //
-  //     if (msgId == targetMessageId) {
-  //       // Center the target message in viewport
-  //       offset -= (MediaQuery.of(context).size.height * 0.35); // tweak 0.3–0.5
-  //       break;
-  //     }
-  //   }
-  //
-  //   final maxScroll = _scrollController.position.maxScrollExtent;
-  //   final targetOffset = offset.clamp(0.0, maxScroll);
-  //
-  //   _scrollController.animateTo(
-  //     targetOffset,
-  //     duration: const Duration(milliseconds: 600),
-  //     curve: Curves.easeInOut,
-  //   );
-  // }
 
   int? _getReversedIndex(String messageId) {
     final index = _messages.indexWhere((m) => m.id == messageId);
     if (index == -1) return null;
-    return _messages.length - 1 - index; // reverse adjustment
+    return _messages.length - 1 - index;
   }
 
   void _scrollToMessage(String messageId) {
@@ -403,7 +508,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
     _scrollController.scrollToIndex(
       index,
-      preferPosition: AutoScrollPosition.middle, // centers the message
+      preferPosition: AutoScrollPosition.middle,
       duration: const Duration(milliseconds: 600),
     );
   }
@@ -508,7 +613,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       switch (value) {
         case 'reply':
           setState(() {
-            _quotedMessageId = message.id; // set quoted ID
+            _quotedMessageId = message.id;
             _quotedMessage = message;
           });
           break;
@@ -681,6 +786,36 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       ),
     );
   }
+
+  // void _addAttachmentsToMessage(List<ChatAttachment> attachments) {
+  //   if (attachments.isEmpty) return;
+  //
+  //   final currentTime = DateTime.now();
+  //   final newMessage = Message(
+  //     text: _controller.text.trim(),
+  //     isSentByMe: true,
+  //     time: currentTime,
+  //     id: const Uuid().v4(),
+  //     attachments: attachments,
+  //     deliveredAt: null,
+  //     readAt: null,
+  //     quotedMessageId: _quotedMessageId,
+  //   );
+  //
+  //   setState(() {
+  //     _messages.add(newMessage);
+  //     _controller.clear(); // clear input after sending
+  //   });
+  //
+  //   // Auto-scroll to bottom
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     _scrollController.scrollToIndex(
+  //       0,
+  //       preferPosition: AutoScrollPosition.begin,
+  //       duration: const Duration(milliseconds: 300),
+  //     );
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -1152,456 +1287,430 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
             //     ),
             // )
             ? Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Flexible(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: const Color(0xFFF4F7FD),
-                ),
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
-                  ),
-                  reverse: true,
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final message =
-                    _messages[_messages.length - 1 - index];
-                    final messageId = message.id;
-                    //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                    // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                    // final key = keyMap.putIfAbsent(
-                    //   messageId,
-                    //   () => GlobalKey(),
-                    // );
-                    Message? quotedMessage;
-                    if (message.quotedMessageId != null) {
-                      quotedMessage = _messages.firstWhere(
-                            (m) => m.id == message.quotedMessageId,
-                      ); // ?? null;
-                    }
-                    bool showDateHeader = false;
-                    final prevListIndex =
-                        _messages.length - 2 - index;
-
-                    if (prevListIndex >= 0) {
-                      final prevMessage = _messages[prevListIndex];
-
-                      showDateHeader =
-                          message.time.year !=
-                              prevMessage.time.year ||
-                              message.time.month !=
-                                  prevMessage.time.month ||
-                              message.time.day != prevMessage.time.day;
-                    } else {
-                      showDateHeader = true;
-                    }
-
-                    return AutoScrollTag(
-                      key: ValueKey(messageId),
-                      controller: _scrollController,
-                      index: index,
-                      highlightColor: Colors.green.withValues(
-                        alpha: 0.7,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Flexible(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFFF4F7FD),
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (showDateHeader)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 8.0,
-                                ),
-                                child: _buildDateChip(message.time),
-                              ),
-                            ),
-                          if (showDateHeader)
-                            const SizedBox(height: 10),
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
+                        reverse: true,
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final message =
+                              _messages[_messages.length - 1 - index];
+                          final messageId = message.id;
+                          //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                          // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                          // final key = keyMap.putIfAbsent(
+                          //   messageId,
+                          //   () => GlobalKey(),
+                          // );
+                          Message? quotedMessage;
+                          if (message.quotedMessageId != null) {
+                            quotedMessage = _messages.firstWhere(
+                              (m) => m.id == message.quotedMessageId,
+                            ); // ?? null;
+                          }
+                          bool showDateHeader = false;
+                          final prevListIndex = _messages.length - 2 - index;
 
-                          if (message.isSentByMe)
-                            MessageBubble(
-                              //key: key,
-                              //scrollKey: scrollKey,
-                              message: message,
-                              quotedMessage: quotedMessage,
-                              onLongPress:
-                                  (LongPressStartDetails details) {
-                                _showMessageOptions(
-                                  context,
-                                  message,
-                                  details,
-                                );
-                              },
-                              onScrollToQuoted: (quoteId) {
-                                _scrollToMessage(quoteId);
-                              },
-                              // onHeightMeasured: (id, height) {
-                              //   if (_bubbleHeights[id] != height) {
-                              //     setState(() {
-                              //       _bubbleHeights[id] = height;
-                              //     });
-                              //   }
-                              // },
-                              //onHeightMeasured:
-                              // onContextReady: (id, ctx) {
-                              //   if (_messageContexts[id] != ctx) {
-                              //     setState(() {
-                              //       _messageContexts[id] = ctx;
-                              //     });
-                              //   }
-                              // },
-                            )
-                          else
-                            ChatMessageWrapper(
-                              messageId: message.id,
-                              controller: _reactionsController,
-                              child: MessageBubble(
-                                //key: key,
-                                //scrollKey: scrollKey,
-                                message: message,
-                                quotedMessage: quotedMessage,
-                                onLongPress:
-                                    (
-                                    LongPressStartDetails details,
-                                    ) {
-                                  _showMessageOptions(
-                                    context,
-                                    message,
-                                    details,
-                                  );
-                                },
-                                onScrollToQuoted: (quoteId) {
-                                  _scrollToMessage(quoteId);
-                                },
-                                // onHeightMeasured: (id, height) {
-                                //   if (_bubbleHeights[id] != height) {
-                                //     setState(() {
-                                //       _bubbleHeights[id] = height;
-                                //     });
-                                //   }
-                                // },
-                                // onContextReady: (id, ctx) {
-                                //   if (_messageContexts[id] != ctx) {
-                                //     setState(() {
-                                //       _messageContexts[id] = ctx;
-                                //     });
-                                //   }
-                                // },
-                              ),
-                              config: ChatReactionsConfig(
-                                availableReactions: const [
-                                  '👍',
-                                  '❤️',
-                                  '😂',
-                                  '😮',
-                                  '😢',
-                                  '😠',
-                                  '➕',
-                                ],
+                          if (prevListIndex >= 0) {
+                            final prevMessage = _messages[prevListIndex];
 
-                                // availableReactions: const [
-                                //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
-                                // ],
-                                showAddReactionButton: true,
-                                enableHapticFeedback: true,
-                                enableLongPress: true,
-                                enableDoubleTap: false,
-                                maxReactionsToShow: 5,
-                                reactionSize: 24.0,
-                                stackedValue: 4.0,
+                            showDateHeader =
+                                message.time.year != prevMessage.time.year ||
+                                message.time.month != prevMessage.time.month ||
+                                message.time.day != prevMessage.time.day;
+                          } else {
+                            showDateHeader = true;
+                          }
 
-                                emojiPickerBuilder: (context, onEmojiSelected) {
-                                  print(
-                                    'emojiPickerBuilder was invoked!',
-                                  );
-                                  return SizedBox(
-                                    height: 380,
-                                    child: EmojiPicker(
-                                      onEmojiSelected:
-                                          (category, emoji) {
-                                        onEmojiSelected(
-                                          emoji.emoji,
-                                        );
+                          return AutoScrollTag(
+                            key: ValueKey(messageId),
+                            controller: _scrollController,
+                            index: index,
+                            highlightColor: Colors.green.withValues(alpha: 0.7),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (showDateHeader)
+                                  Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: _buildDateChip(message.time),
+                                    ),
+                                  ),
+                                if (showDateHeader) const SizedBox(height: 10),
+
+                                if (message.isSentByMe)
+                                  MessageBubble(
+                                    //key: key,
+                                    //scrollKey: scrollKey,
+                                    message: message,
+                                    quotedMessage: quotedMessage,
+                                    onLongPress:
+                                        (LongPressStartDetails details) {
+                                          _showMessageOptions(
+                                            context,
+                                            message,
+                                            details,
+                                          );
+                                        },
+                                    onScrollToQuoted: (quoteId) {
+                                      _scrollToMessage(quoteId);
+                                    },
+                                    // onHeightMeasured: (id, height) {
+                                    //   if (_bubbleHeights[id] != height) {
+                                    //     setState(() {
+                                    //       _bubbleHeights[id] = height;
+                                    //     });
+                                    //   }
+                                    // },
+                                    //onHeightMeasured:
+                                    // onContextReady: (id, ctx) {
+                                    //   if (_messageContexts[id] != ctx) {
+                                    //     setState(() {
+                                    //       _messageContexts[id] = ctx;
+                                    //     });
+                                    //   }
+                                    // },
+                                  )
+                                else
+                                  ChatMessageWrapper(
+                                    messageId: message.id,
+                                    controller: _reactionsController,
+                                    child: MessageBubble(
+                                      //key: key,
+                                      //scrollKey: scrollKey,
+                                      message: message,
+                                      quotedMessage: quotedMessage,
+                                      onLongPress:
+                                          (LongPressStartDetails details) {
+                                            _showMessageOptions(
+                                              context,
+                                              message,
+                                              details,
+                                            );
+                                          },
+                                      onScrollToQuoted: (quoteId) {
+                                        _scrollToMessage(quoteId);
+                                      },
+                                      // onHeightMeasured: (id, height) {
+                                      //   if (_bubbleHeights[id] != height) {
+                                      //     setState(() {
+                                      //       _bubbleHeights[id] = height;
+                                      //     });
+                                      //   }
+                                      // },
+                                      // onContextReady: (id, ctx) {
+                                      //   if (_messageContexts[id] != ctx) {
+                                      //     setState(() {
+                                      //       _messageContexts[id] = ctx;
+                                      //     });
+                                      //   }
+                                      // },
+                                    ),
+                                    config: ChatReactionsConfig(
+                                      availableReactions: const [
+                                        '👍',
+                                        '❤️',
+                                        '😂',
+                                        '😮',
+                                        '😢',
+                                        '😠',
+                                        '➕',
+                                      ],
+
+                                      // availableReactions: const [
+                                      //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                                      // ],
+                                      showAddReactionButton: true,
+                                      enableHapticFeedback: true,
+                                      enableLongPress: true,
+                                      enableDoubleTap: false,
+                                      maxReactionsToShow: 5,
+                                      reactionSize: 24.0,
+                                      stackedValue: 4.0,
+
+                                      emojiPickerBuilder: (context, onEmojiSelected) {
                                         print(
-                                          'Emoji selected: ${emoji.emoji}',
+                                          'emojiPickerBuilder was invoked!',
+                                        );
+                                        return SizedBox(
+                                          height: 380,
+                                          child: EmojiPicker(
+                                            onEmojiSelected: (category, emoji) {
+                                              onEmojiSelected(emoji.emoji);
+                                              print(
+                                                'Emoji selected: ${emoji.emoji}',
+                                              );
+                                            },
+                                            config: const Config(
+                                              //height: 380,
+                                              checkPlatformCompatibility: true,
+                                              emojiSet: null,
+                                              locale: Locale('en'),
+                                              emojiTextStyle: null,
+                                              customBackspaceIcon: null,
+                                              customSearchIcon: null,
+                                              viewOrderConfig:
+                                                  ViewOrderConfig(),
+                                              emojiViewConfig:
+                                                  EmojiViewConfig(),
+                                              skinToneConfig: SkinToneConfig(
+                                                enabled: true,
+                                              ),
+                                              categoryViewConfig:
+                                                  CategoryViewConfig(
+                                                    recentTabBehavior:
+                                                        RecentTabBehavior
+                                                            .RECENT,
+                                                  ),
+                                              bottomActionBarConfig:
+                                                  BottomActionBarConfig(
+                                                    enabled: false,
+                                                  ),
+                                              searchViewConfig:
+                                                  SearchViewConfig(),
+                                            ),
+                                          ),
                                         );
                                       },
-                                      config: const Config(
-                                        //height: 380,
-                                        checkPlatformCompatibility:
-                                        true,
-                                        emojiSet: null,
-                                        locale: Locale('en'),
-                                        emojiTextStyle: null,
-                                        customBackspaceIcon: null,
-                                        customSearchIcon: null,
-                                        viewOrderConfig:
-                                        ViewOrderConfig(),
-                                        emojiViewConfig:
-                                        EmojiViewConfig(),
-                                        skinToneConfig:
-                                        SkinToneConfig(
-                                          enabled: true,
+
+                                      menuItems: [
+                                        MenuItem(
+                                          label: 'Delete',
+                                          icon: Icons.delete_outline,
+                                          isDestructive: true,
                                         ),
-                                        categoryViewConfig:
-                                        CategoryViewConfig(
-                                          recentTabBehavior:
-                                          RecentTabBehavior
-                                              .RECENT,
+                                        MenuItem(
+                                          label: 'Copy',
+                                          icon: Icons.copy,
+                                          isDestructive: false,
                                         ),
-                                        bottomActionBarConfig:
-                                        BottomActionBarConfig(
-                                          enabled: false,
+                                        MenuItem(
+                                          label: 'Reply',
+                                          icon: Icons.reply,
+                                          isDestructive: false,
                                         ),
-                                        searchViewConfig:
-                                        SearchViewConfig(),
-                                      ),
+                                      ],
+
+                                      showContextMenu: true,
                                     ),
-                                  );
-                                },
 
-                                menuItems: [
-                                  MenuItem(
-                                    label: 'Delete',
-                                    icon: Icons.delete_outline,
-                                    isDestructive: true,
-                                  ),
-                                  MenuItem(
-                                    label: 'Copy',
-                                    icon: Icons.copy,
-                                    isDestructive: false,
-                                  ),
-                                  MenuItem(
-                                    label: 'Reply',
-                                    icon: Icons.reply,
-                                    isDestructive: false,
-                                  ),
-                                ],
+                                    onMenuItemTapped: (item) {
+                                      final label = item.label.toLowerCase();
 
-                                showContextMenu: true,
-                              ),
+                                      if (label == 'delete') {
+                                        setState(() {
+                                          _messages.removeWhere(
+                                            (m) => m.id == message.id,
+                                          );
+                                          CoreUtils.showTopSnackBar(
+                                            context: context,
+                                            message:
+                                                'Message deleted successfully',
+                                            isSuccess: true,
+                                          );
+                                        });
+                                      } else if (label == 'reply') {
+                                        setState(() {
+                                          _quotedMessage = message;
+                                          _quotedMessageId = message.id;
+                                        });
+                                        // ScaffoldMessenger.of(context).showSnackBar(
+                                        //   SnackBar(content: Text('Replying to message')),
+                                        // );
+                                      } else if (label == 'copy') {
+                                        Clipboard.setData(
+                                          ClipboardData(text: message.text),
+                                        );
+                                        CoreUtils.showTopSnackBar(
+                                          context: context,
+                                          message:
+                                              'Message copied successfully',
+                                          isSuccess: true,
+                                        );
+                                      }
+                                    },
 
-                              onMenuItemTapped: (item) {
-                                final label = item.label
-                                    .toLowerCase();
-
-                                if (label == 'delete') {
-                                  setState(() {
-                                    _messages.removeWhere(
+                                    onReactionAdded: (emoji) {
+                                      // if (emoji == '+') {
+                                      //   showModalBottomSheet(
+                                      //     context: context,
+                                      //     builder: (_) =>
+                                      //         EmojiPicker(
+                                      //           onEmojiSelected: (category, emoji) {
+                                      //             Navigator.pop(context);
+                                      //           },
+                                      //           config: const Config(
+                                      //             height: 380,
+                                      //             checkPlatformCompatibility: true,
+                                      //             emojiSet: null,
+                                      //             locale: Locale('en'),
+                                      //             emojiTextStyle: null,
+                                      //             customBackspaceIcon: null,
+                                      //             customSearchIcon: null,
+                                      //             viewOrderConfig: ViewOrderConfig(),
+                                      //             emojiViewConfig: EmojiViewConfig(),
+                                      //             skinToneConfig: SkinToneConfig(enabled: true),
+                                      //             categoryViewConfig: CategoryViewConfig(
+                                      //               recentTabBehavior: RecentTabBehavior.RECENT,
+                                      //             ),
+                                      //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                                      //             searchViewConfig: SearchViewConfig(),
+                                      //           ),
+                                      //         ),
+                                      //     // EmojiPicker(
+                                      //     //   onEmojiSelected: (_, e) {
+                                      //     //     Navigator.pop(context);
+                                      //     //     // apply reaction manually
+                                      //     //     print('Picked ${e.emoji}');
+                                      //     //   },
+                                      //     //   config: const Config(height: 380),
+                                      //     // ),
+                                      //   );
+                                      // }
+                                      final currentUserId =
+                                          'me'; // dummy for now
+                                      setState(() {
+                                        final index = _messages.indexWhere(
                                           (m) => m.id == message.id,
-                                    );
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message:
-                                      'Message deleted successfully',
-                                      isSuccess: true,
-                                    );
-                                  });
-                                } else if (label == 'reply') {
-                                  setState(() {
-                                    _quotedMessage = message;
-                                    _quotedMessageId = message.id;
-                                  });
-                                  // ScaffoldMessenger.of(context).showSnackBar(
-                                  //   SnackBar(content: Text('Replying to message')),
-                                  // );
-                                } else if (label == 'copy') {
-                                  Clipboard.setData(
-                                    ClipboardData(
-                                      text: message.text,
-                                    ),
-                                  );
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message:
-                                    'Message copied successfully',
-                                    isSuccess: true,
-                                  );
-                                }
-                              },
+                                        );
+                                        if (index != -1) {
+                                          final currentReactions =
+                                              Map<String, String>.from(
+                                                _messages[index].reactions,
+                                              );
+                                          currentReactions[currentUserId] =
+                                              emoji;
+                                          _messages[index] = Message(
+                                            id: _messages[index].id,
+                                            text: _messages[index].text,
+                                            isSentByMe:
+                                                _messages[index].isSentByMe,
+                                            time: _messages[index].time,
+                                            deliveredAt:
+                                                _messages[index].deliveredAt,
+                                            readAt: _messages[index].readAt,
+                                            deliveredTo:
+                                                _messages[index].deliveredTo,
+                                            readBy: _messages[index].readBy,
+                                            reactions: currentReactions,
+                                          );
+                                        }
+                                        // ScaffoldMessenger.of(
+                                        //   context,
+                                        // ).showSnackBar(
+                                        //   SnackBar(
+                                        //     content: Text('Reacted with $emoji'),
+                                        //   ),
+                                        // );
+                                      });
+                                    },
 
-                              onReactionAdded: (emoji) {
-                                // if (emoji == '+') {
-                                //   showModalBottomSheet(
-                                //     context: context,
-                                //     builder: (_) =>
-                                //         EmojiPicker(
-                                //           onEmojiSelected: (category, emoji) {
-                                //             Navigator.pop(context);
-                                //           },
-                                //           config: const Config(
-                                //             height: 380,
-                                //             checkPlatformCompatibility: true,
-                                //             emojiSet: null,
-                                //             locale: Locale('en'),
-                                //             emojiTextStyle: null,
-                                //             customBackspaceIcon: null,
-                                //             customSearchIcon: null,
-                                //             viewOrderConfig: ViewOrderConfig(),
-                                //             emojiViewConfig: EmojiViewConfig(),
-                                //             skinToneConfig: SkinToneConfig(enabled: true),
-                                //             categoryViewConfig: CategoryViewConfig(
-                                //               recentTabBehavior: RecentTabBehavior.RECENT,
-                                //             ),
-                                //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-                                //             searchViewConfig: SearchViewConfig(),
-                                //           ),
-                                //         ),
-                                //     // EmojiPicker(
-                                //     //   onEmojiSelected: (_, e) {
-                                //     //     Navigator.pop(context);
-                                //     //     // apply reaction manually
-                                //     //     print('Picked ${e.emoji}');
-                                //     //   },
-                                //     //   config: const Config(height: 380),
-                                //     // ),
-                                //   );
-                                // }
-                                final currentUserId =
-                                    'me'; // dummy for now
-                                setState(() {
-                                  final index = _messages
-                                      .indexWhere(
-                                        (m) => m.id == message.id,
-                                  );
-                                  if (index != -1) {
-                                    final currentReactions =
-                                    Map<String, String>.from(
-                                      _messages[index]
-                                          .reactions,
-                                    );
-                                    currentReactions[currentUserId] =
-                                        emoji;
-                                    _messages[index] = Message(
-                                      id: _messages[index].id,
-                                      text: _messages[index].text,
-                                      isSentByMe: _messages[index]
-                                          .isSentByMe,
-                                      time: _messages[index].time,
-                                      deliveredAt: _messages[index]
-                                          .deliveredAt,
-                                      readAt:
-                                      _messages[index].readAt,
-                                      deliveredTo: _messages[index]
-                                          .deliveredTo,
-                                      readBy:
-                                      _messages[index].readBy,
-                                      reactions: currentReactions,
-                                    );
-                                  }
-                                  // ScaffoldMessenger.of(
-                                  //   context,
-                                  // ).showSnackBar(
-                                  //   SnackBar(
-                                  //     content: Text('Reacted with $emoji'),
-                                  //   ),
-                                  // );
-                                });
-                              },
+                                    onReactionRemoved: (emoji) {
+                                      final currentUserId =
+                                          'me'; // dummy for now
+                                      setState(() {
+                                        // message.reactions.remove(emoji);
+                                        final index = _messages.indexWhere(
+                                          (m) => m.id == message.id,
+                                        );
+                                        if (index != -1) {
+                                          final currentReactions =
+                                              Map<String, String>.from(
+                                                _messages[index].reactions,
+                                              );
+                                          if (currentReactions[currentUserId] ==
+                                              emoji) {
+                                            currentReactions.remove(
+                                              currentUserId,
+                                            );
+                                          }
+                                          _messages[index] = Message(
+                                            id: _messages[index].id,
+                                            text: _messages[index].text,
+                                            isSentByMe:
+                                                _messages[index].isSentByMe,
+                                            time: _messages[index].time,
+                                            deliveredAt:
+                                                _messages[index].deliveredAt,
+                                            readAt: _messages[index].readAt,
+                                            deliveredTo:
+                                                _messages[index].deliveredTo,
+                                            readBy: _messages[index].readBy,
+                                            reactions: currentReactions,
+                                          );
+                                        }
+                                        // ScaffoldMessenger.of(
+                                        //   context,
+                                        // ).showSnackBar(
+                                        //   SnackBar(
+                                        //     content: Text('Removed $emoji'),
+                                        //   ),
+                                        // );
+                                      });
+                                    },
 
-                              onReactionRemoved: (emoji) {
-                                final currentUserId =
-                                    'me'; // dummy for now
-                                setState(() {
-                                  // message.reactions.remove(emoji);
-                                  final index = _messages
-                                      .indexWhere(
-                                        (m) => m.id == message.id,
-                                  );
-                                  if (index != -1) {
-                                    final currentReactions =
-                                    Map<String, String>.from(
-                                      _messages[index]
-                                          .reactions,
-                                    );
-                                    if (currentReactions[currentUserId] ==
-                                        emoji) {
-                                      currentReactions.remove(
-                                        currentUserId,
-                                      );
-                                    }
-                                    _messages[index] = Message(
-                                      id: _messages[index].id,
-                                      text: _messages[index].text,
-                                      isSentByMe: _messages[index]
-                                          .isSentByMe,
-                                      time: _messages[index].time,
-                                      deliveredAt: _messages[index]
-                                          .deliveredAt,
-                                      readAt:
-                                      _messages[index].readAt,
-                                      deliveredTo: _messages[index]
-                                          .deliveredTo,
-                                      readBy:
-                                      _messages[index].readBy,
-                                      reactions: currentReactions,
-                                    );
-                                  }
-                                  // ScaffoldMessenger.of(
-                                  //   context,
-                                  // ).showSnackBar(
-                                  //   SnackBar(
-                                  //     content: Text('Removed $emoji'),
-                                  //   ),
-                                  // );
-                                });
-                              },
-
-                              alignment: message.isSentByMe
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
+                                    alignment: message.isSentByMe
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                  ),
+                              ],
                             ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: MediaQuery.of(context).size.width * 0.35,
-              child: SingleChildScrollView(
-                reverse: true, // new messages appear at bottom
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.white,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 16,
                     ),
-                    child: _buildMessageInput(),
                   ),
-                ),
-              ),
-            ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.35,
+                    child: SingleChildScrollView(
+                      reverse: true, // new messages appear at bottom
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 16,
+                          ),
+                          child: _buildMessageInput(),
+                        ),
+                      ),
+                    ),
+                  ),
 
-            // SizedBox(
-            //   width: MediaQuery.of(context).size.width * 0.35,
-            //   child: Container(
-            //     decoration: BoxDecoration(
-            //       borderRadius: BorderRadius.circular(12),
-            //       color: Colors.white,
-            //     ),
-            //     child: Padding(
-            //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-            //       child: _buildMessageInput(),
-            //     ),
-            //   ),// 35% is usually good balance
-            // )
-          ],
-        )
+                  // SizedBox(
+                  //   width: MediaQuery.of(context).size.width * 0.35,
+                  //   child: Container(
+                  //     decoration: BoxDecoration(
+                  //       borderRadius: BorderRadius.circular(12),
+                  //       color: Colors.white,
+                  //     ),
+                  //     child: Padding(
+                  //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                  //       child: _buildMessageInput(),
+                  //     ),
+                  //   ),// 35% is usually good balance
+                  // )
+                ],
+              )
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2155,6 +2264,121 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                 ),
               ),
 
+            if (_pendingAttachments.isNotEmpty)
+              Container(
+                constraints: const BoxConstraints(maxHeight: 90),
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _pendingAttachments.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final att = _pendingAttachments[index];
+
+                    return SizedBox(
+                      width: 80,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ShowFullScreenMediaView(
+                                imageFile: File(att.localPath!),
+                                title: att.name,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Stack(
+                          fit: StackFit.loose,
+                          children: [
+                            ClipRRect(
+                              clipBehavior: Clip.none,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Thumbnail(
+                                mimeType: att.mimeType ?? 'application/octet-stream',
+                                dataResolver: () async {
+                                  return await File(att.localPath!).readAsBytes();
+                                },
+                                widgetSize: 80,
+                                decoration: WidgetDecoration(
+                                  backgroundColor: Colors.white,
+                                  iconColor: AppColors.primaryColor,
+                                  textColor: AppColors.primaryColor,
+                                  wrapperBgColor: Colors.transparent,
+                                  wrapperSize: 84,
+                                ),
+                                errorBuilder: (context, error) => Container(
+                                  color: Colors.grey[200],
+                                  child: Center(
+                                    child: Icon(
+                                      att.isImage ? Icons.image : Icons.picture_as_pdf,
+                                      size: 40,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        
+                            Positioned(
+                              top: -2.5,
+                              right: -2.5,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _pendingAttachments.removeAt(index);
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                    border: Border.fromBorderSide(
+                                      BorderSide(color: Colors.white, width: 2),
+                                    ),
+                                  ),
+                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                        
+                        
+                            if (!att.isImage)
+                              Positioned(
+                                bottom: 4,
+                                left: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    att.name.length > 15
+                                        ? '${att.name.substring(0, 12)}...'
+                                        : att.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -2203,7 +2427,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               isRectangle: false,
                             ),
                             onAttachmentsSelected: (attachments) {
-                              //_addAttachmentsToChat(attachments);
+                              setState(() {
+                                _pendingAttachments.addAll(attachments);
+                              });
                             },
                           ),
                           // child: GradientAddButton(

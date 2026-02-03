@@ -10,14 +10,20 @@ import 'package:path/path.dart' as p;
 import '../../../../../../app/theme/colors.dart';
 
 class ChatAttachment{
-  final String path;
+  final String? localPath;
+  final String? remoteUrl;
   final String name;
   final String type;
   final int sizeBytes;
   final String? mimeType;
 
-  ChatAttachment({ required this.path, required this.name, required this.type, required this.sizeBytes, this.mimeType,});
+  ChatAttachment({ required this.name, required this.type, required this.sizeBytes, this.mimeType, this.localPath, this.remoteUrl,});
   bool get isImage => type == "image";
+
+  bool get hasLocalFile => localPath != null;
+  bool get isUploaded => remoteUrl != null;
+
+  String? get displaySource => remoteUrl ?? localPath;
 }
 
 class AttachmentWidget extends StatefulWidget {
@@ -242,7 +248,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
       if(!isPhoto && !['.pdf', '.doc', '.docx'].contains(ext)) continue;
 
       valid.add(ChatAttachment(
-        path: file.path,
+        localPath: file.path,
         name: p.basename(file.path),
         type: isPhoto ? 'image' : 'document',
         sizeBytes: size,
