@@ -13,7 +13,7 @@ import 'package:wowcare/presentation/features/classrooom/views/screens/classroom
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
-import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+ import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 class CustomDrawer extends StatefulWidget {
@@ -117,7 +117,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         onTap: () {
                           Navigator.pop(context);
                           if (_currentRoute != DashboardScreen.routeName) {
-                            Navigator.pushNamed(context, DashboardScreen.routeName);
+                            Navigator.pushNamed(
+                                context, DashboardScreen.routeName);
                           }
                         },
                       ),
@@ -129,7 +130,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const StudentScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => const StudentScreen()),
                             );
                           },
                         ),
@@ -139,73 +141,49 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => const ComingSoonScreen()),
                             );
                           },
                         ),
-                      ],
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Activities',
-                      icon: MediaRes.activitesIcon,
-                      isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
-                      onTap: () {
-                        Navigator.pop(context);
-                        if(_currentRoute != ActivityFeedScreen.routeName){
-                          Navigator.pushNamed(context, ActivityFeedScreen.routeName);
-                        }
-                        //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
-                        //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityFeedScreen()));
-                      },
-                    ),
-                    _CustomExpansionTile(
-                      title: 'Communication',
-                      icon: MediaRes.communicationIcon,
-                      isCurrentRoute: _currentRoute == MessagingScreen.routeName,
-                      isExpansionEnabled: true,
-                      children: [
-                        DrawerListTile(
-                          title: 'Staff Messaging',
-                          leading: SvgPicture.asset(
-                            MediaRes.staffMessaging,
-                            colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-                          ),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => MessagingScreen(userPersona: UserPersona.admin),
-                                settings: RouteSettings(name: MessagingScreen.routeName),
-                              ),
-                            );
-
-                            //Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
-                            //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
                         _CustomExpansionTile(
                           title: 'Activities',
                           icon: MediaRes.activitesIcon,
-                          isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
+                          isCurrentRoute:
+                              _currentRoute == ActivityFeedScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
-                            if (_currentRoute != ActivityFeedScreen.routeName) {
-                              Navigator.pushNamed(context, ActivityFeedScreen.routeName);
+                            if (_currentRoute !=
+                                ActivityFeedScreen.routeName) {
+                              Navigator.pushNamed(
+                                  context, ActivityFeedScreen.routeName);
                             }
                           },
                         ),
                         _CustomExpansionTile(
                           title: 'Communication',
                           icon: MediaRes.communicationIcon,
+                          isCurrentRoute:
+                              _currentRoute == MessagingScreen.routeName,
                           isExpansionEnabled: true,
                           children: [
                             DrawerListTile(
                               title: 'Messaging',
                               leading: SvgPicture.asset(
                                 MediaRes.parentMessaging,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+                                  MaterialPageRoute(
+                                    builder: (_) => const MessagingScreen(
+                                      userPersona: UserPersona.parent,
+                                    ),
+                                    settings: const RouteSettings(
+                                        name: MessagingScreen.routeName),
+                                  ),
                                 );
                               },
                             ),
@@ -213,12 +191,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               title: 'Newsletter',
                               leading: SvgPicture.asset(
                                 MediaRes.newsletter,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+                                  MaterialPageRoute(
+                                    builder: (_) => const MessagingScreen(
+                                      userPersona: UserPersona.parent,
+                                    ),
+                                    settings: const RouteSettings(
+                                        name: MessagingScreen.routeName),
+                                  ),
                                 );
                               },
                             ),
@@ -227,20 +212,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         _CustomExpansionTile(
                           title: 'Billing',
                           icon: MediaRes.billing_drawer_icon,
-                          isCurrentRoute: _currentRoute == ParentBillingScreen.routeName,
+                          isCurrentRoute:
+                              _currentRoute == ParentBillingScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => MessagingScreen(userPersona: UserPersona.admin),
-                                settings: RouteSettings(name: MessagingScreen.routeName),
-                              ),
-                            );
-
-                            // Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessagingScreen(userPersona: UserPersona.admin)));
-                            //Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
-                            if (_currentRoute != ParentBillingScreen.routeName) {
-                              Navigator.pushNamed(context, ParentBillingScreen.routeName);
+                            if (_currentRoute !=
+                                ParentBillingScreen.routeName) {
+                              Navigator.pushNamed(
+                                  context, ParentBillingScreen.routeName);
                             }
                           },
                         ),
@@ -252,8 +231,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const ClassroomScreen()),
-                            );                      
+                              MaterialPageRoute(
+                                  builder: (_) => const ClassroomScreen()),
+                            );
                           },
                         ),
                         _CustomExpansionTile(
@@ -262,18 +242,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => StudentScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => StudentScreen()),
                             );
                           },
                         ),
                         _CustomExpansionTile(
                           title: 'Staff',
                           icon: MediaRes.staffs_drawer_icon,
-                          isCurrentRoute: _currentRoute == StaffScreen.routeName,
+                          isCurrentRoute:
+                              _currentRoute == StaffScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
                             if (_currentRoute != StaffScreen.routeName) {
-                              Navigator.pushNamed(context, StaffScreen.routeName);
+                              Navigator.pushNamed(
+                                  context, StaffScreen.routeName);
                             }
                           },
                         ),
@@ -286,22 +269,32 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               title: 'Student Attendance',
                               leading: SvgPicture.asset(
                                 MediaRes.studentAttendanceDrawer,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const ComingSoonScreen()),
+                                );
                               },
                             ),
                             DrawerListTile(
                               title: 'Staff Attendance',
                               leading: SvgPicture.asset(
                                 MediaRes.staffAttendanceDrawer,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const ComingSoonScreen()),
+                                );
                               },
                             ),
                           ],
@@ -309,11 +302,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         _CustomExpansionTile(
                           title: 'Activities',
                           icon: MediaRes.activitesIcon,
-                          isCurrentRoute: _currentRoute == ActivityFeedScreen.routeName,
+                          isCurrentRoute:
+                              _currentRoute == ActivityFeedScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
-                            if(_currentRoute != ActivityFeedScreen.routeName){
-                              Navigator.pushNamed(context, ActivityFeedScreen.routeName);
+                            if (_currentRoute !=
+                                ActivityFeedScreen.routeName) {
+                              Navigator.pushNamed(
+                                  context, ActivityFeedScreen.routeName);
                             }
                           },
                         ),
@@ -326,33 +322,60 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               title: 'Staff Messaging',
                               leading: SvgPicture.asset(
                                 MediaRes.staffMessaging,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const MessagingScreen(
+                                      userPersona: UserPersona.admin,
+                                    ),
+                                    settings: const RouteSettings(
+                                        name: MessagingScreen.routeName),
+                                  ),
+                                );
                               },
                             ),
                             DrawerListTile(
                               title: 'Parent Messaging',
                               leading: SvgPicture.asset(
                                 MediaRes.parentMessaging,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const MessagingScreen(
+                                      userPersona: UserPersona.admin,
+                                    ),
+                                    settings: const RouteSettings(
+                                        name: MessagingScreen.routeName),
+                                  ),
+                                );
                               },
                             ),
                             DrawerListTile(
                               title: 'Newsletter',
                               leading: SvgPicture.asset(
                                 MediaRes.newsletter,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
-                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ComingSoonScreen()));
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const MessagingScreen(
+                                      userPersona: UserPersona.admin,
+                                    ),
+                                    settings: const RouteSettings(
+                                        name: MessagingScreen.routeName),
+                                  ),
+                                );
                               },
                             ),
                           ],
@@ -363,7 +386,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           onTap: () {
                             Navigator.pop(context);
                             if (_currentRoute != BillingScreen.routeName) {
-                              Navigator.pushNamed(context, BillingScreen.routeName);
+                              Navigator.pushNamed(
+                                  context, BillingScreen.routeName);
                             }
                           },
                         ),
@@ -376,7 +400,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               title: 'Privacy Policy',
                               leading: SvgPicture.asset(
                                 MediaRes.settings_drawer_Blue,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {},
                             ),
@@ -384,7 +409,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               title: 'Terms & Conditions',
                               leading: SvgPicture.asset(
                                 MediaRes.settings_drawer_Blue,
-                                colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+                                colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {},
                             ),
