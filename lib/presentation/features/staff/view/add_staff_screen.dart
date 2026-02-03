@@ -10,7 +10,12 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -50,18 +55,12 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   late final CreateSchoolUserCubit _createSchoolUserCubit;
   String? _selectedRole;
   String? _selectedDesignation;
-  String? _selectedPrimaryClassroom;
-  final List<String> _classrooms = [
-    'Nursery A',
-    'Nursery B', 
-    'Playgroup',
-    'Daycare',
-    'Office'
-  ]; // Mock data
-  List<String> _selectedAllowedClassroomCodes = [];
+  String? _selectedPrimaryClassroomName;
+  final List<String> _classrooms = [];
+  final Map<String, String> _classroomCodeByName = {};
+  List<String> _selectedAllowedClassroomNames = [];
   String? _primaryClassroomError;
   String? _allowedClassroomsError;
-  bool _isSubmitting = false;
 
   String? _selectedStatus;
   bool get _isAdminSelected => (_selectedRole ?? '').toLowerCase() == 'admin';
@@ -115,23 +114,15 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         _phoneController.text = widget.initialPhone!.trim();
       }
       _selectedRole = widget.initialRole;
-      _selectedAllowedClassroomCodes =
+      _selectedAllowedClassroomNames =
           List<String>.from(widget.initialAllowedClassroomCodes ?? []);
-      _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
+      _selectedPrimaryClassroomName = widget.initialPrimaryClassroom;
       _selectedStatus = widget.initialStatus;
     }
     // Default role when creating new entry
     _selectedRole ??= widget.initialRole ?? 'Staff';
-    // If role is Admin, preselect allowed classrooms and primary classroom
-    if (_isAdminSelected) {
-      _selectedAllowedClassroomCodes = List<String>.from(_classrooms);
-      // Ensure 'Office' is available as a default primary classroom
-      if (!_classrooms.contains('Office')) {
-        _classrooms.insert(0, 'Office');
-      }
-      _selectedPrimaryClassroom ??= 'Office';
-      _selectedStatus ??= 'Active';
-    }
+
+    _loadClassrooms();
   }
 
   @override
@@ -200,7 +191,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       _allowedClassroomsError = null;
     });
 
-    if (!_isAdminSelected && _selectedAllowedClassroomCodes.isEmpty) {
+    if (!_isAdminSelected && _selectedAllowedClassroomNames.isEmpty) {
       setState(() {
         _allowedClassroomsError = 'Please select at least one allowed classroom';
       });
@@ -212,7 +203,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       return;
     }
 
-    if (_selectedPrimaryClassroom == null) {
+    if (!_isAdminSelected && _selectedPrimaryClassroomName == null) {
       setState(() {
         _primaryClassroomError = 'Please select a primary classroom';
       });
@@ -245,9 +236,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         return;
       }
       // Admins have all classrooms allowed by default
-      _selectedAllowedClassroomCodes = List<String>.from(_classrooms);
-      if (_selectedPrimaryClassroom == null) {
-        _selectedPrimaryClassroom = 'Office';
+      _selectedAllowedClassroomNames = List<String>.from(_classrooms);
+      if (_selectedPrimaryClassroomName == null && _classrooms.isNotEmpty) {
+        _selectedPrimaryClassroomName = _classrooms.first;
       }
     } else {
       // Staff designation validation
@@ -261,10 +252,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       }
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final displayName = _composeStaffName();
@@ -275,7 +262,15 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         );
 
     final isAdmin = _isAdminSelected;
-    final role = isAdmin ? 'ADMIN' : 'STAFF';
+    final role = isAdmin ? 'SCHOOL_ADMIN' : 'STAFF';
+
+    final primaryClassroomCode = _selectedPrimaryClassroomName == null
+        ? ''
+        : (_classroomCodeByName[_selectedPrimaryClassroomName!] ?? '');
+    final allowedClassroomCodes = _selectedAllowedClassroomNames
+        .map((name) => _classroomCodeByName[name])
+        .whereType<String>()
+        .toList();
 
     _createSchoolUserCubit.create(
       isAdmin: isAdmin,
@@ -285,10 +280,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       mobile: mobileDigits,
       email: email,
       role: role,
-      designation: _selectedDesignation ?? '',
+      designation: _mapDesignationToApiValue(_selectedDesignation),
       status: _selectedStatus,
-      primaryClassroomCode: _selectedPrimaryClassroom,
-      allowedClassroomCodes: _selectedAllowedClassroomCodes,
+      primaryClassroomCode: primaryClassroomCode,
+      allowedClassroomCodes: allowedClassroomCodes,
     );
   }
 
@@ -297,6 +292,84 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final last = _lastNameController.text.trim();
     final name = [first, last].where((p) => p.isNotEmpty).join(' ');
     return name;
+  }
+
+  Future<void> _loadClassrooms() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCodeStored =
+          await storage.getString(StorageKeys.schoolCode);
+      final schoolCode = (schoolCodeStored?.isNotEmpty ?? false)
+          ? schoolCodeStored!
+          : StorageKeys.defaultSchoolCode;
+
+      final getClassroomsUseCase = serviceLocator<GetClassroomsUseCase>();
+      final page = await getClassroomsUseCase(
+        schoolCode: schoolCode,
+        page: 0,
+        size: 50,
+      );
+
+      if (!mounted) return;
+
+      final names = page.items.map((c) => c.name).toList();
+      final codeByName = <String, String>{};
+      for (final c in page.items) {
+        codeByName[c.name] = c.code;
+      }
+
+      setState(() {
+        _classrooms
+          ..clear()
+          ..addAll(names);
+        _classroomCodeByName
+          ..clear()
+          ..addAll(codeByName);
+
+        if (_isAdminSelected) {
+          _selectedAllowedClassroomNames = List<String>.from(_classrooms);
+          if (_classrooms.isNotEmpty &&
+              _selectedPrimaryClassroomName == null) {
+            _selectedPrimaryClassroomName = _classrooms.first;
+          }
+          _selectedStatus ??= 'Active';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
+    }
+  }
+
+  /// Maps UI designation values to API uppercase values
+  String _mapDesignationToApiValue(String? uiDesignation) {
+    if (uiDesignation == null) return '';
+    
+    // Admin designations mapping
+    const adminMapping = {
+      'Director': 'DIRECTOR',
+      'Admin': 'ADMIN',
+      'Assistant Director': 'ASSISTANT_DIRECTOR',
+      'Owner': 'OWNER',
+    };
+    
+    // Staff designations mapping
+    const staffMapping = {
+      'Lead teacher': 'LEAD_TEACHER',
+      'Associate Teacher': 'ASSOCIATE_TEACHER',
+      'Assistant teacher': 'ASSISTANT_TEACHER',
+      'Floater': 'FLOATER',
+    };
+    
+    // Check admin mapping first, then staff mapping
+    return adminMapping[uiDesignation] ?? 
+           staffMapping[uiDesignation] ?? 
+           uiDesignation.toUpperCase().replaceAll(' ', '_');
   }
 
   void _trimAllInputs() {
@@ -381,16 +454,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       child: BlocListener<CreateSchoolUserCubit, CreateSchoolUserState>(
         listener: (context, state) {
           if (!mounted) return;
-
-          if (state.isLoading) {
-            setState(() => _isSubmitting = true);
-            return;
-          }
-
-          // End loading on any non-loading state
-          if (_isSubmitting) {
-            setState(() => _isSubmitting = false);
-          }
 
           if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
             CoreUtils.showTopSnackBar(
@@ -539,15 +602,14 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                               setState(() {
                                 _selectedRole = val;
                                 if (_isAdminSelected) {
-                                  _selectedAllowedClassroomCodes = List<String>.from(_classrooms);
-                                  if (!_classrooms.contains('Office')) {
-                                    _classrooms.insert(0, 'Office');
+                                  _selectedAllowedClassroomNames = List<String>.from(_classrooms);
+                                  if (_classrooms.isNotEmpty) {
+                                    _selectedPrimaryClassroomName = _classrooms.first;
                                   }
-                                  _selectedPrimaryClassroom = 'Office';
                                   _selectedStatus ??= 'Active';
                                 } else {
-                                  _selectedAllowedClassroomCodes = [];
-                                  _selectedPrimaryClassroom = null;
+                                  _selectedAllowedClassroomNames = [];
+                                  _selectedPrimaryClassroomName = null;
                                 }
                               });
                             },
@@ -605,23 +667,23 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                               children: [
                                 // Allowed Classrooms
                                 ClassroomSelectionWidgetExact(
-                                  primaryClassroom: _selectedPrimaryClassroom,
-                                  allowedClassrooms: _selectedAllowedClassroomCodes,
+                                  primaryClassroom: _selectedPrimaryClassroomName,
+                                  allowedClassrooms: _selectedAllowedClassroomNames,
                                   availableClassrooms: _classrooms,
                                   onPrimaryClassroomChanged: (classroom) {
                                     setState(() {
-                                      _selectedPrimaryClassroom = classroom;
+                                      _selectedPrimaryClassroomName = classroom;
                                       _primaryClassroomError = null;
                                     });
                                   },
                                   onAllowedClassroomsChanged: (classrooms) {
                                     setState(() {
-                                      _selectedAllowedClassroomCodes = classrooms;
+                                      _selectedAllowedClassroomNames = classrooms;
                                       _allowedClassroomsError = null;
                                       // Clear primary classroom if it's not in allowed classrooms anymore
-                                      if (_selectedPrimaryClassroom != null && 
-                                          !classrooms.contains(_selectedPrimaryClassroom)) {
-                                        _selectedPrimaryClassroom = null;
+                                      if (_selectedPrimaryClassroomName != null && 
+                                          !classrooms.contains(_selectedPrimaryClassroomName)) {
+                                        _selectedPrimaryClassroomName = null;
                                       }
                                     });
                                   },
@@ -636,8 +698,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                     CustomDropdown(
                                       label: "Primary Classroom",
                                       hintText: 'Select',
-                                      items: _selectedAllowedClassroomCodes,
-                                      selectedItem: _selectedPrimaryClassroom,
+                                      items: _selectedAllowedClassroomNames,
+                                      selectedItem: _selectedPrimaryClassroomName,
                                       labelStyle: TextStyle(
                                         fontSize: responsive.labelFontSize,
                                         fontFamily: "Manrope",
@@ -650,12 +712,12 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                       onSelect: (val) {
                                         if (val == null) return;
                                         setState(() {
-                                          _selectedPrimaryClassroom = val;
+                                          _selectedPrimaryClassroomName = val;
                                           _primaryClassroomError = null;
                                         });
                                       },
                                     ),
-                                    if (_selectedAllowedClassroomCodes.isEmpty)
+                                    if (_selectedAllowedClassroomNames.isEmpty)
                                       Positioned.fill(
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
@@ -673,44 +735,30 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                               ],
                             )
                           else
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                child: Text(
-                                  'All classrooms are allowed for admin users',
-                                  style: TextStyle(
-                                    fontSize: responsive.labelFontSize,
-                                    fontFamily: 'Manrope',
-                                    color: const Color(0xff573353),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: Color(0xff573353),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Note: All classrooms are allowed for admin users',
+                                      style: TextStyle(
+                                        fontSize: responsive.labelFontSize,
+                                        fontFamily: 'Manrope',
+                                        color: const Color(0xff573353),
+                                        // fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          CustomDropdown(
-                            label: "Primary Classroom",
-                            hintText: 'Select',
-                                  items: ['Office', ..._classrooms.where((e) => e != 'Office')],
-                            selectedItem: _selectedPrimaryClassroom,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
-                            ),
-                            showAsterisk: true,
-                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            onSelect: (val) {
-                              if (val == null) return;
-                              setState(() => _selectedPrimaryClassroom = val);
-                            },
-                                ),
-                              ],
-                          ),
                                 SizedBox(height: responsive.verticalSpacing),
                           CustomDropdown(
                             label: "Status",
@@ -757,26 +805,17 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : _addStaff,
-              child: Text(
-                widget.isEdit ? 'Save' : 'Add',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+          child: BlocBuilder<CreateSchoolUserCubit, CreateSchoolUserState>(
+            bloc: _createSchoolUserCubit,
+            builder: (context, state) {
+              return CustomButtonLayout(
+                confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                onPressedConfirm: _addStaff,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: state.isLoading,
+              );
+            },
           ),
         ),
       ),

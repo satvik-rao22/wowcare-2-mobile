@@ -14,6 +14,8 @@ import '../../data/features/onboarding/datasources/onboarding_remote_datasource.
 import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
 import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
+import '../../data/features/classroom/datasources/classroom_remote_datasource.dart';
+import '../../data/features/classroom/repositories/classroom_repository_impl.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -25,6 +27,8 @@ import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
+import '../../domain/features/classroom/repositories/classroom_repository.dart';
+import '../../domain/features/classroom/usecases/get_classrooms_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
@@ -69,6 +73,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
+  // Classroom Data Sources
+  serviceLocator.registerLazySingleton<ClassroomRemoteDataSource>(
+    () => ClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
   // Onboarding Data Sources
   serviceLocator.registerLazySingleton<OnboardingRemoteDataSource>(
     () => OnboardingRemoteDataSourceMock(),
@@ -89,6 +98,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StaffRepository>(
     () => StaffRepositoryImpl(
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<ClassroomRepository>(
+    () => ClassroomRepositoryImpl(
       serviceLocator(),
       serviceLocator(),
     ),
@@ -118,6 +133,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<UpdateImportantDatesUseCase>(
     () => UpdateImportantDatesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetClassroomsUseCase>(
+    () => GetClassroomsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateSchoolUserUseCase>(
     () => CreateSchoolUserUseCase(serviceLocator()),
