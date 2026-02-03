@@ -43,7 +43,8 @@ class CreateSchoolUserUseCase {
         return Right(result);
       }
 
-      final resolvedStatus = status ?? 'Active';
+      // Always send status in uppercase as expected by backend (e.g. ACTIVE)
+      final resolvedStatus = (status ?? 'Active').toUpperCase();
       final resolvedPrimary = primaryClassroomCode ?? '';
       final resolvedAllowed = allowedClassroomCodes ?? const <String>[];
 

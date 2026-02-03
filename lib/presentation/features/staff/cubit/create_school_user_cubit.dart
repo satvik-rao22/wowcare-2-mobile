@@ -39,12 +39,9 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
         await _storageService.getString(StorageKeys.organizationCode);
     final schoolCode = await _storageService.getString(StorageKeys.schoolCode);
 
-    if ((organizationCode ?? '').isEmpty) {
-      emit(const CreateSchoolUserState.error(
-        'Missing organizationCode. Please login again.',
-      ));
-      return;
-    }
+    final resolvedOrganizationCode = (organizationCode ?? '').isNotEmpty
+        ? organizationCode!
+        : StorageKeys.defaultOrganizationCode;
 
     final resolvedSchoolCode = (schoolCode ?? '').isNotEmpty
         ? schoolCode!
@@ -58,7 +55,7 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
       displayName: displayName,
       mobile: mobile,
       email: email,
-      organizationCode: organizationCode!,
+      organizationCode: resolvedOrganizationCode,
       schoolCode: resolvedSchoolCode,
       role: role,
       designation: designation,

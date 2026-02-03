@@ -23,9 +23,10 @@ class ApiPaths {
   // School Users
   static const String schoolUsers = '/api/v1/school-users';
   static const String schoolUsersStaff = '/api/v1/school-users/staff';
+  static const String schoolUsersDeactivate = '/api/v1/school-users/deactivate';
 
-  // Classrooms
-  static const String classroomList = '/api/v1/classroom';
+  // Classroom
+  static const String classroomAll = '/api/v1/classroom/all';
 
   /// Helper to build a full URL from a relative path.
   static String url(String path) => '${ApiConstants.baseUrl}$path';

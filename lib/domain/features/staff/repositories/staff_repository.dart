@@ -63,6 +63,13 @@ abstract class StaffRepository {
     required List<String> allowedClassroomCodes,
     String? userCode,
   });
+
+  Future<String> deactivateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

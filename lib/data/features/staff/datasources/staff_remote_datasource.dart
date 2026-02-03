@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/data/features/classroom/models/classroom_all_models.dart';
 import '../models/staff_models.dart';
 import '../models/staff_document_models.dart';
 import '../models/staff_important_dates_models.dart';
@@ -46,6 +47,18 @@ abstract class StaffRemoteDataSource {
   Future<CreateSchoolUserResponseModel> createStaffUser({
     required CreateStaffUserRequestModel request,
   });
+
+  /// Deactivates a school user via `/api/v1/school-users/deactivate`.
+  Future<String> deactivateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  });
+
+  Future<ClassroomAllResponseModel> getActiveClassrooms({
+    required String schoolCode,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -66,7 +79,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       'schoolCode': schoolCode,
       'page': page,
       'size': size,
-      'sort': 'asc',
+      'sort': 'desc',
     };
 
     if (status != null && status.isNotEmpty) {
@@ -240,6 +253,59 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return CreateSchoolUserResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<String> deactivateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.schoolUsersDeactivate);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+        'role': role,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected deactivate school user API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'User deactivated successfully';
+  }
+
+  @override
+  Future<ClassroomAllResponseModel> getActiveClassrooms({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.classroomAll,
+      ApiConstants.classroomBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'school': schoolCode,
+        'status': 'ACTIVE',
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected classroom(all) API response format');
+    }
+
+    return ClassroomAllResponseModel.fromJson(
       response.data! as Map<String, dynamic>,
     );
   }

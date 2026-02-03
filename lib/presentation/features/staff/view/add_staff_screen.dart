@@ -13,9 +13,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/data/features/staff/datasources/staff_remote_datasource.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -121,7 +121,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     }
     // Default role when creating new entry
     _selectedRole ??= widget.initialRole ?? 'Staff';
-
     _loadClassrooms();
   }
 
@@ -297,24 +296,31 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   Future<void> _loadClassrooms() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCodeStored =
-          await storage.getString(StorageKeys.schoolCode);
+      final schoolCodeStored = await storage.getString(StorageKeys.schoolCode);
       final schoolCode = (schoolCodeStored?.isNotEmpty ?? false)
           ? schoolCodeStored!
           : StorageKeys.defaultSchoolCode;
 
-      final getClassroomsUseCase = serviceLocator<GetClassroomsUseCase>();
-      final page = await getClassroomsUseCase(
+      final staffRemote = serviceLocator<StaffRemoteDataSource>();
+      final response = await staffRemote.getActiveClassrooms(
         schoolCode: schoolCode,
-        page: 0,
-        size: 50,
       );
 
       if (!mounted) return;
 
-      final names = page.items.map((c) => c.name).toList();
+      // If no classrooms are returned, just show a notice via CoreUtils and exit.
+      if (response.items.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'No classrooms found for this school',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final names = response.items.map((c) => c.name).toList();
       final codeByName = <String, String>{};
-      for (final c in page.items) {
+      for (final c in response.items) {
         codeByName[c.name] = c.code;
       }
 

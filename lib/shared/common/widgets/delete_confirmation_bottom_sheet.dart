@@ -109,7 +109,7 @@ class DeleteConfirmationBottomSheet extends StatelessWidget {
         ? "Mark Complete"
         : type == 'Activity'
         ? 'Delete'
-        : type == 'student'
+        : (type == 'staff' || type == 'student')
         ? "Deactivate"
         : type == 'order_purchase'
         ? "Mark as Ordered"

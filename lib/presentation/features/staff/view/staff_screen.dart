@@ -103,6 +103,12 @@ class _StaffScreenState extends State<StaffScreen> {
                       );
                       if (!mounted) return;
                       print('[StaffScreen] Received result from AddStaffScreen: ' + result.toString());
+
+                      // After a successful add, refresh the staff list so cache + UI reflect new staff
+                      if (result is Map) {
+                        await staffCubit.refresh();
+                      }
+
                       if (result is Map && (result['showPostAddPrompt'] == true)) {
                         final staffName = (result['staffName'] as String?) ?? '';
                         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -216,6 +222,11 @@ class _StaffScreenState extends State<StaffScreen> {
                           child: CustomSearchBar(
                             controller: _searchController,
                             hintText: 'Search Staff',
+                            onChanged: (value) {
+                              // Apply search to staff list and refresh (also updates cache via repository)
+                              staffCubit.updateSearch(value.trim());
+                              staffCubit.refresh();
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -231,8 +242,14 @@ class _StaffScreenState extends State<StaffScreen> {
                               );
                               if (!mounted) return;
                               if (result is Map) {
-                                // TODO: apply filters to list
-                                setState(() {});
+                                final status = result['status'] as String?;
+                                final designation = result['designation'] as String?;
+                                // Apply filters and refresh list so cache + UI stay in sync
+                                staffCubit.updateFilters(
+                                  status: status,
+                                  designation: designation,
+                                );
+                                await staffCubit.refresh();
                               }
                             },
                             borderRadius: BorderRadius.circular(100),
@@ -369,6 +386,9 @@ class _StaffScreenState extends State<StaffScreen> {
                                 schedule: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
+                                onDeactivate: () async {
+                                  await staffCubit.deactivateStaff(staff.code);
+                                },
                                 isSelected: isSelected,
                                 onSelected: (checked) {
                                   setState(() {

@@ -24,7 +24,8 @@ class StaffCubit extends Cubit<StaffState> {
   final StorageService _storageService;
   String? _schoolCode;
 
-  static const int _pageSize = 1;
+  // How many staff records to load per page from the API
+  static const int _pageSize = 15;
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
@@ -166,6 +167,31 @@ class StaffCubit extends Cubit<StaffState> {
       emit(
         state.copyWith(
           isLoadingMore: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
+
+  /// Deactivates a staff member (via school user deactivate API) and refreshes the list.
+  Future<void> deactivateStaff(String staffCode) async {
+    try {
+      // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
+      final profile = await _repository.getStaffProfile(staffCode: staffCode);
+
+      await _repository.deactivateSchoolUser(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+        schoolCode: profile.schoolCode,
+        role: 'STAFF',
+      );
+
+      // Refresh the list so UI and cache reflect the updated status.
+      await refresh();
+    } catch (e) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
           errorMessage: e.toString(),
         ),
       );
