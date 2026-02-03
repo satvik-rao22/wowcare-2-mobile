@@ -352,6 +352,28 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<String> updateStaffSchedules({
+    required String staffCode,
+    required List<Map<String, dynamic>> workSchedules,
+    required List<Map<String, dynamic>> breakSchedules,
+  }) async {
+    final body = <String, dynamic>{
+      'workSchedules': workSchedules,
+      'breakSchedules': breakSchedules,
+    };
+
+    final message = await _remoteDataSource.updateStaffSchedules(
+      staffCode: staffCode,
+      body: body,
+    );
+
+    // Schedules are part of the profile, so invalidate profile cache.
+    await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+
+    return message;
+  }
+
+  @override
   Future<CreateSchoolUserResult> createSchoolAdminUser({
     required String firstName,
     required String lastName,

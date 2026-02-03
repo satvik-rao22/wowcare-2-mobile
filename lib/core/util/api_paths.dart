@@ -20,6 +20,7 @@ class ApiPaths {
   static const String staffDocumentUpdate = '/api/v1/staff-documents/documents';
   static const String staffDates = '/api/v1/staff-dates';
   static const String staffAddress = '/api/v1/staff-address';
+  static const String staffSchedules = '/api/v1/staff-schedules';
 
   // School Users
   static const String schoolUsers = '/api/v1/school-users';

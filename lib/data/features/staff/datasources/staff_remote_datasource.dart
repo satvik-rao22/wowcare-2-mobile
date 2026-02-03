@@ -97,6 +97,31 @@ abstract class StaffRemoteDataSource {
     required String schoolCode,
     required String role,
   });
+
+  /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
+  ///
+  /// Expected [body] shape:
+  /// {
+  ///   "workSchedules": [
+  ///     {
+  ///       "dayOfWeek": "MONDAY",
+  ///       "workStartTime": { "hour": 9, "minute": 0, "second": 0, "nano": 0 },
+  ///       "workEndTime":   { "hour": 17, "minute": 0, "second": 0, "nano": 0 }
+  ///     }
+  ///   ],
+  ///   "breakSchedules": [
+  ///     {
+  ///       "dayOfWeek": "MONDAY",
+  ///       "breakType": "LUNCH",
+  ///       "breakStartTime": { "hour": 12, "minute": 0, "second": 0, "nano": 0 },
+  ///       "breakEndTime":   { "hour": 13, "minute": 0, "second": 0, "nano": 0 }
+  ///     }
+  ///   ]
+  /// }
+  Future<String> updateStaffSchedules({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -393,6 +418,29 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'User activated successfully';
+  }
+
+  @override
+  Future<String> updateStaffSchedules({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffSchedules}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff schedules API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Schedule updated successfully';
   }
 }
 

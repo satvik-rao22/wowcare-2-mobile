@@ -371,10 +371,15 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => EditScheduleScreen(
+                    staffCode: widget.staffCode,
                     initialSchedules: schedules,
                   ),
                 ),
-              );
+              ).then((updated) async {
+                if (updated == true) {
+                  await _profileCubit.refresh(widget.staffCode);
+                }
+              });
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,10 +421,15 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => EditScheduleScreen(
+                              staffCode: widget.staffCode,
                               initialSchedules: schedules,
                             ),
                           ),
-                        );
+                        ).then((updated) async {
+                          if (updated == true) {
+                            await _profileCubit.refresh(widget.staffCode);
+                          }
+                        });
                       },
                       child: const Icon(
                         Icons.edit,

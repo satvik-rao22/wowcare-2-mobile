@@ -148,7 +148,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         ? _mapJobTagFromApiOrLabel(widget.initialJobTag)
         : null;
     _emailController.text = widget.initialEmail ?? '';
-    _phoneNumberController.text = widget.initialPhoneNumber ?? '';
+    _phoneNumberController.text =
+        _formatUsPhone(widget.initialPhoneNumber ?? '');
     _streetController.text = widget.initialStreet ?? '';
     _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
@@ -445,6 +446,18 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     if (upper == 'FULL_TIME') return 'Full Time';
     if (upper == 'PART_TIME') return 'Part Time';
     return value;
+  }
+
+  /// Formats a raw phone string into (XXX) XXX-XXXX when possible.
+  String _formatUsPhone(String? input) {
+    final raw = (input ?? '').trim();
+    if (raw.isEmpty) return '';
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 10) return raw;
+    final area = digits.substring(0, 3);
+    final mid = digits.substring(3, 6);
+    final last = digits.substring(6, 10);
+    return '($area) $mid-$last';
   }
 
   Future<void> _selectBirthDate() async {

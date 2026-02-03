@@ -52,6 +52,16 @@ abstract class StaffRepository {
     required List<Map<String, String>> dates,
   });
 
+  /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
+  ///
+  /// [workSchedules] and [breakSchedules] should already be shaped according to
+  /// the backend contract (see API docs).
+  Future<String> updateStaffSchedules({
+    required String staffCode,
+    required List<Map<String, dynamic>> workSchedules,
+    required List<Map<String, dynamic>> breakSchedules,
+  });
+
   Future<CreateSchoolUserResult> createSchoolAdminUser({
     required String firstName,
     required String lastName,
