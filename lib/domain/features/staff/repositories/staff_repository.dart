@@ -30,6 +30,23 @@ abstract class StaffRepository {
     required String staffCode,
   });
 
+  /// Updates staff profile core details (name, status, phone, designation, jobTag, classrooms, etc.).
+  ///
+  /// [fields] should follow the backend PATCH contract for `/api/v1/staff/{staffCode}/profile`.
+  Future<String> updateStaffProfile({
+    required String staffCode,
+    required Map<String, dynamic> fields,
+  });
+
+  /// Updates staff address via `/api/v1/staff-address/{staffCode}`.
+  ///
+  /// [fields] should include addressStreet, addressLine2, addressCity,
+  /// addressState, addressZipCode, addressCountry.
+  Future<String> updateStaffAddress({
+    required String staffCode,
+    required Map<String, dynamic> fields,
+  });
+
   Future<String> updateImportantDates({
     required String staffCode,
     required List<Map<String, String>> dates,

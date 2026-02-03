@@ -446,13 +446,22 @@ class _StaffCardState extends State<StaffCard> {
                                               initialLastName: initialLastName,
                                               initialPhone: widget.phoneNumber,
                                               initialRole: widget.designation,
-                                              // Here allowedClassrooms and classroom are already names,
-                                              // but AddStaffScreen expects them as "codes" and will map
-                                              // back to codes using classroomCodeByName.
-                                              initialAllowedClassroomCodes: widget.allowedClassrooms,
-                                              initialPrimaryClassroom: widget.classroom,
-                                              initialClassroomNames: widget.availableClassrooms,
-                                              initialClassroomCodeByName: widget.classroomCodeByName,
+                                              // allowedClassrooms and classroom are display names.
+                                              initialAllowedClassroomCodes:
+                                                  widget.allowedClassrooms,
+                                              initialPrimaryClassroom:
+                                                  widget.classroom,
+                                              initialClassroomNames:
+                                                  widget.availableClassrooms,
+                                              // AddStaffScreen expects name -> code; StaffCard
+                                              // receives code -> name, so invert it here.
+                                              initialClassroomCodeByName: {
+                                                for (final entry
+                                                    in widget
+                                                        .classroomCodeByName
+                                                        .entries)
+                                                  entry.value: entry.key,
+                                              },
                                               // initialEmail and initialStatus not available here
                                             ),
                                           ),

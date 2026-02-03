@@ -52,7 +52,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
           body: BlocBuilder<StaffDocumentsListCubit, StaffDocumentsListState>(
             builder: (context, state) {
               if (state.isLoading && state.documents.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: PrimaryCircularLoader());
               }
 
               // Use documents directly from API - no frontend filtering

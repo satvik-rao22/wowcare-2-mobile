@@ -23,7 +23,7 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/data/features/staff/datasources/staff_remote_datasource.dart';
+import 'package:wowcare/data/features/classroom/datasources/classroom_remote_datasource.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -82,8 +82,8 @@ class _StaffScreenState extends State<StaffScreen> {
           ? schoolCodeStored!
           : StorageKeys.defaultSchoolCode;
 
-      final staffRemote = serviceLocator<StaffRemoteDataSource>();
-      final response = await staffRemote.getActiveClassrooms(
+      final classroomRemote = serviceLocator<ClassroomRemoteDataSource>();
+      final response = await classroomRemote.getActiveClassrooms(
         schoolCode: schoolCode,
       );
 
@@ -109,8 +109,14 @@ class _StaffScreenState extends State<StaffScreen> {
           ..addAll(nameByCode);
       });
     } catch (e) {
-      // Silently ignore classroom loading errors for now; staff list still works.
       if (!mounted) return;
+      // Surface classroom load errors via CoreUtils so users see what went wrong.
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
     } finally {
       _isLoadingClassrooms = false;
     }
@@ -176,7 +182,11 @@ class _StaffScreenState extends State<StaffScreen> {
                         MaterialPageRoute(
                           builder: (_) => AddStaffScreen(
                             initialClassroomNames: _classroomNames,
-                            initialClassroomCodeByName: _classroomNameByCode,
+                            // AddStaffScreen expects a name -> code map.
+                            initialClassroomCodeByName: {
+                              for (final entry in _classroomNameByCode.entries)
+                                entry.value: entry.key,
+                            },
                           ),
                         ),
                       );
@@ -571,11 +581,13 @@ class _StaffScreenState extends State<StaffScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => StaffProfileScreen(
-                              staffCode: staff.code,
-                              name: staff.name,
-                              classroom: staff.primaryClassroom,
-                              designation: staff.designation,
-                              phoneNumber: staff.phoneNumber,
+                                staffCode: staff.code,
+                                name: staff.name,
+                                classroom: staff.primaryClassroom,
+                                designation: staff.designation,
+                                phoneNumber: staff.phoneNumber,
+                                classroomNames: _classroomNames,
+                                classroomNameByCode: _classroomNameByCode,
                               ),
                             ),
                           );

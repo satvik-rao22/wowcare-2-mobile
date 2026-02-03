@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/data/features/classroom/models/classroom_all_models.dart';
 import '../models/staff_models.dart';
 import '../models/staff_document_models.dart';
 import '../models/staff_important_dates_models.dart';
@@ -33,6 +32,41 @@ abstract class StaffRemoteDataSource {
     required String staffCode,
   });
 
+  /// Updates core staff profile details via `/api/v1/staff/{staffCode}/profile`.
+  ///
+  /// The [body] should follow the backend contract, e.g.
+  /// {
+  ///   "firstName": "string",
+  ///   "lastName": "string",
+  ///   "status": "ACTIVE",
+  ///   "phoneNumber": "string",
+  ///   "designation": "OWNER",
+  ///   "jobTag": "FULL_TIME",
+  ///   "birthdate": "2026-02-03T09:48:39.440Z",
+  ///   "primaryClassroomCode": "string",
+  ///   "allowedClassroomCodes": ["string"]
+  /// }
+  Future<String> updateStaffProfile({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  });
+
+  /// Updates staff address via `/api/v1/staff-address/{staffCode}`.
+  ///
+  /// Expected body:
+  /// {
+  ///   "addressStreet": "string",
+  ///   "addressLine2": "string",
+  ///   "addressCity": "string",
+  ///   "addressState": "string",
+  ///   "addressZipCode": "string",
+  ///   "addressCountry": "string"
+  /// }
+  Future<String> updateStaffAddress({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  });
+
   Future<ImportantDatesResponseModel> updateImportantDates({
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
@@ -62,10 +96,6 @@ abstract class StaffRemoteDataSource {
     required String organizationCode,
     required String schoolCode,
     required String role,
-  });
-
-  Future<ClassroomAllResponseModel> getActiveClassrooms({
-    required String schoolCode,
   });
 }
 
@@ -200,6 +230,52 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }
 
   @override
+  Future<String> updateStaffProfile({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffProfile}/$staffCode/profile',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff profile update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Profile updated successfully';
+  }
+
+  @override
+  Future<String> updateStaffAddress({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffAddress}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff address update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Address updated successfully';
+  }
+
+  @override
   Future<ImportantDatesResponseModel> updateImportantDates({
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
@@ -317,32 +393,6 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'User activated successfully';
-  }
-
-  @override
-  Future<ClassroomAllResponseModel> getActiveClassrooms({
-    required String schoolCode,
-  }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.classroomAll,
-      ApiConstants.classroomBaseUrl,
-    );
-
-    final response = await _client.get<dynamic>(
-      endpoint,
-      queryParameters: <String, dynamic>{
-        'school': schoolCode,
-        'status': 'ACTIVE',
-      },
-    );
-
-    if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected classroom(all) API response format');
-    }
-
-    return ClassroomAllResponseModel.fromJson(
-      response.data! as Map<String, dynamic>,
-    );
   }
 }
 

@@ -17,9 +17,15 @@ class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
     super.key,
     required this.staffCode,
+    this.classroomNames,
+    this.classroomNameByCode,
   });
 
   final String staffCode;
+  /// Optional cached classroom display names (from StaffScreen).
+  final List<String>? classroomNames;
+  /// Optional mapping from classroom code -> display name (from StaffScreen).
+  final Map<String, String>? classroomNameByCode;
 
   @override
   State<StaffProfileTab> createState() => _StaffProfileTabState();
@@ -182,29 +188,55 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    // Map allowed/primary classroom codes to display names using cached metadata.
+                    final codeToName = widget.classroomNameByCode ?? const {};
+                    final allowedClassroomNames = profile.allowedClassroomCodes
+                        .map((code) => codeToName[code] ?? code)
+                        .toList();
+                    final primaryClassroomName = profile.primaryClassroomCode.isEmpty
+                        ? null
+                        : (codeToName[profile.primaryClassroomCode] ??
+                            profile.primaryClassroomCode);
+
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => EditProfileDetailsScreen(
+                          staffCode: profile.staffCode,
                           initialFirstName: profile.firstName,
                           initialLastName: profile.lastName,
                           initialStatus: _getStatusLabel(profile.status),
-                          initialDesignation: profile.designation.isEmpty ? '-' : profile.designation,
-                          initialAllowedClassrooms: profile.allowedClassroomCodes,
-                          initialPrimaryClassroom: profile.primaryClassroomCode.isEmpty ? '-' : profile.primaryClassroomCode,
-                          initialBirthDate: profile.birthDate.isEmpty ? null : DateTime.tryParse(profile.birthDate),
-                          initialJobTag: profile.jobTag.isEmpty ? '-' : profile.jobTag,
-                          initialEmail: profile.email.isEmpty ? '-' : profile.email,
-                          initialPhoneNumber: profile.phoneNumber.isEmpty ? '-' : profile.phoneNumber,
+                          initialDesignation: profile.designation,
+                          initialAllowedClassrooms: allowedClassroomNames,
+                          initialPrimaryClassroom: primaryClassroomName,
+                          initialBirthDate: profile.birthDate.isEmpty
+                              ? null
+                              : DateTime.tryParse(profile.birthDate),
+                          initialJobTag: profile.jobTag,
+                          initialEmail: profile.email,
+                          initialPhoneNumber: profile.phoneNumber,
                           initialStreet: profile.address.street,
                           initialCity: profile.address.city,
                           initialState: profile.address.state,
                           initialCountry: profile.address.country,
                           initialZipCode: profile.address.zipCode,
+                          initialClassroomNames: widget.classroomNames,
+                          initialClassroomCodeByName: widget.classroomNameByCode == null
+                              ? null
+                              : {
+                                  for (final entry
+                                      in widget.classroomNameByCode!.entries)
+                                    entry.value: entry.key,
+                                },
                         ),
                       ),
                     );
+
+                    // If profile was updated, refresh from API.
+                    if (result == true) {
+                      await _profileCubit.refresh(widget.staffCode);
+                    }
                   },
                   child: Container(
                     width: 38,
@@ -264,17 +296,30 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
               label: 'Allowed Classrooms',
               value: null,
               trailing: profile.allowedClassroomCodes.isEmpty
-                  ? const Text('-', style: TextStyle(fontFamily: 'Manrope', fontSize: 15, color: Color(0xff573353), fontWeight: FontWeight.w400))
+                  ? const Text(
+                      '-',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 15,
+                        color: Color(0xff573353),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    )
                   : Wrap(
                       spacing: 6,
                       runSpacing: 6,
                       children: List.generate(
                         profile.allowedClassroomCodes.length,
-                        (index) => _Chip(
-                          label: profile.allowedClassroomCodes[index],
-                          labelColor: const Color.fromRGBO(27, 35, 126, 1),
-                          color: chipColors[index % chipColors.length],
-                        ),
+                        (index) {
+                          final code = profile.allowedClassroomCodes[index];
+                          final name =
+                              widget.classroomNameByCode?[code] ?? code;
+                          return _Chip(
+                            label: name,
+                            labelColor: const Color.fromRGBO(27, 35, 126, 1),
+                            color: chipColors[index % chipColors.length],
+                          );
+                        },
                       ),
                     ),
             ),
@@ -283,9 +328,19 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
               label: 'Primary Classroom',
               value: null,
               trailing: profile.primaryClassroomCode.isEmpty
-                  ? const Text('-', style: TextStyle(fontFamily: 'Manrope', fontSize: 15, color: Color(0xff573353), fontWeight: FontWeight.w400))
+                  ? const Text(
+                      '-',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 15,
+                        color: Color(0xff573353),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    )
                   : _Chip(
-                      label: profile.primaryClassroomCode,
+                      label: widget.classroomNameByCode?[
+                              profile.primaryClassroomCode] ??
+                          profile.primaryClassroomCode,
                       labelColor: const Color.fromRGBO(27, 35, 126, 1),
                       color: chipColors.first,
                     ),

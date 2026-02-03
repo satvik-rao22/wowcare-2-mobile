@@ -11,6 +11,7 @@ import '../../data/features/auth/datasources/auth_local_datasource.dart';
 import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
 import '../../data/features/onboarding/datasources/onboarding_remote_datasource.dart';
+import '../../data/features/classroom/datasources/classroom_remote_datasource.dart';
 import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
 import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
@@ -67,6 +68,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Staff Data Sources
   serviceLocator.registerLazySingleton<StaffRemoteDataSource>(
     () => StaffRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
+  // Classroom Data Sources
+  serviceLocator.registerLazySingleton<ClassroomRemoteDataSource>(
+    () => ClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
   // Onboarding Data Sources

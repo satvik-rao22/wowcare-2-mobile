@@ -53,8 +53,13 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         settings: settings,
       );
     case EditProfileDetailsScreen.routeName:
+      // Optional navigation via named route; expects a staffCode in arguments.
+      final args = settings.arguments as Map<String, dynamic>?;
+      final staffCode = args?['staffCode'] as String? ?? '';
       return MaterialPageRoute(
-        builder: (_) => const EditProfileDetailsScreen(),
+        builder: (_) => EditProfileDetailsScreen(
+          staffCode: staffCode,
+        ),
         settings: settings,
       );
     case BillingScreen.routeName:

@@ -15,7 +15,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/data/features/staff/datasources/staff_remote_datasource.dart';
+import 'package:wowcare/data/features/classroom/datasources/classroom_remote_datasource.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -330,8 +330,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
           ? schoolCodeStored!
           : StorageKeys.defaultSchoolCode;
 
-      final staffRemote = serviceLocator<StaffRemoteDataSource>();
-      final response = await staffRemote.getActiveClassrooms(
+      final classroomRemote = serviceLocator<ClassroomRemoteDataSource>();
+      final response = await classroomRemote.getActiveClassrooms(
         schoolCode: schoolCode,
       );
 

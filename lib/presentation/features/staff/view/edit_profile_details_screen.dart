@@ -5,15 +5,21 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/constants/location_constants.dart';
 
 class EditProfileDetailsScreen extends StatefulWidget {
   const EditProfileDetailsScreen({
     super.key,
+    required this.staffCode,
     this.initialFirstName,
     this.initialLastName,
     this.initialStatus,
@@ -29,9 +35,12 @@ class EditProfileDetailsScreen extends StatefulWidget {
     this.initialState,
     this.initialCountry,
     this.initialZipCode,
+    this.initialClassroomNames,
+    this.initialClassroomCodeByName,
   });
   static const String routeName = '/edit-profile-details-screen';
 
+  final String staffCode;
   final String? initialFirstName;
   final String? initialLastName;
   final String? initialStatus;
@@ -47,6 +56,10 @@ class EditProfileDetailsScreen extends StatefulWidget {
   final String? initialState;
   final String? initialCountry;
   final String? initialZipCode;
+  /// Optional cached classroom names (to avoid extra classroom API calls).
+  final List<String>? initialClassroomNames;
+  /// Optional mapping from classroom name -> classroom code.
+  final Map<String, String>? initialClassroomCodeByName;
 
   @override
   _EditProfileDetailsScreenState createState() => _EditProfileDetailsScreenState();
@@ -62,7 +75,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
-  final TextEditingController _pinController = TextEditingController();
   
   String? _selectedStatus;
   String? _selectedDesignation;
@@ -75,36 +87,96 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   bool _isSubmitting = false;
 
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
-  final List<String> _designationOptions = ['Admin', 'Teacher', 'Assistant', 'Manager', 'Director'];
-  final List<String> _classroomOptions = ['5 Days', '1-Blue D', '3-Orange-D', 'Office', '2-Red A'];
+  final List<String> _designationOptions = [
+    'Director',
+    'Admin',
+    'Assistant Director',
+    'Owner',
+    'Lead teacher',
+    'Associate Teacher',
+    'Assistant teacher',
+    'Floater',
+  ];
+  // Backed by classroom names; populated from widget.initialClassroomNames/CodeByName.
+  final List<String> _classroomOptions = [];
   final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
-  final List<String> _stateOptions = ['New Hampshire', 'Massachusetts', 'Vermont', 'Maine', 'Connecticut'];
-  final List<String> _countryOptions = ['United States', 'Canada', 'Mexico'];
+  final List<String> _stateOptions =
+      US_STATES.map((s) => s.name).toList(growable: false);
+  final List<String> _countryOptions =
+      COUNTRY_LIST.map((c) => c.name).toList(growable: false);
 
   // Simple validators (align with Add Staff)
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
   static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
+  /// Map from classroom display name -> classroom code (for API payload).
+  final Map<String, String> _classroomCodeByName = {};
+
   @override
   void initState() {
     super.initState();
-    // Prefill when editing
-    _firstNameController.text = widget.initialFirstName ?? 'Jessica';
-    _lastNameController.text = widget.initialLastName ?? 'Rhodes';
-    _selectedStatus = widget.initialStatus ?? 'Active';
-    _selectedDesignation = widget.initialDesignation ?? 'Admin';
-    _selectedAllowedClassrooms = widget.initialAllowedClassrooms ?? ['5 Days X', '1-Blue D X', '3-Orange-D X'];
-    _selectedPrimaryClassroom = widget.initialPrimaryClassroom ?? 'Office X';
+    // Hydrate classrooms from cached metadata if available (no extra API calls).
+    if (widget.initialClassroomNames != null &&
+        widget.initialClassroomNames!.isNotEmpty) {
+      _classroomOptions
+        ..clear()
+        ..addAll(widget.initialClassroomNames!);
+    } else if (widget.initialAllowedClassrooms != null &&
+        widget.initialAllowedClassrooms!.isNotEmpty) {
+      // Fall back to allowed classrooms as the only selectable options.
+      _classroomOptions
+        ..clear()
+        ..addAll(widget.initialAllowedClassrooms!);
+    }
+
+    _classroomCodeByName
+      ..clear()
+      ..addAll(widget.initialClassroomCodeByName ?? {});
+
+    // Prefill when editing (use existing profile values; no mock defaults).
+    _firstNameController.text = widget.initialFirstName ?? '';
+    _lastNameController.text = widget.initialLastName ?? '';
+    _selectedStatus = widget.initialStatus;
+    _selectedDesignation =
+        _mapDesignationFromApiOrLabel(widget.initialDesignation);
+    _selectedAllowedClassrooms =
+        List<String>.from(widget.initialAllowedClassrooms ?? const []);
+    _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
     _selectedBirthDate = widget.initialBirthDate;
-    _selectedJobTag = widget.initialJobTag ?? 'Full Time';
-    _emailController.text = widget.initialEmail ?? 'Jessica@wowcare.com';
-    _phoneNumberController.text = widget.initialPhoneNumber ?? '(986) 027-1627';
+    _selectedJobTag = widget.initialJobTag?.isNotEmpty == true
+        ? _mapJobTagFromApiOrLabel(widget.initialJobTag)
+        : null;
+    _emailController.text = widget.initialEmail ?? '';
+    _phoneNumberController.text = widget.initialPhoneNumber ?? '';
     _streetController.text = widget.initialStreet ?? '';
     _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
-    _selectedState = widget.initialState ?? 'New Hampshire';
-    _selectedCountry = widget.initialCountry ?? 'United States';
+
+    // Map initial state (name or abbreviation) to display name from US_STATES.
+    if (widget.initialState != null && widget.initialState!.isNotEmpty) {
+      final raw = widget.initialState!;
+      final match = US_STATES.firstWhere(
+        (s) =>
+            s.name.toLowerCase() == raw.toLowerCase() ||
+            s.abbreviation.toLowerCase() == raw.toLowerCase(),
+        orElse: () => US_STATES.first,
+      );
+      _selectedState = match.name;
+    }
+
+    // Map initial country (name or code) to display name from COUNTRY_LIST.
+    if (widget.initialCountry != null && widget.initialCountry!.isNotEmpty) {
+      final raw = widget.initialCountry!;
+      final match = COUNTRY_LIST.firstWhere(
+        (c) =>
+            c.name.toLowerCase() == raw.toLowerCase() ||
+            c.code.toLowerCase() == raw.toLowerCase(),
+        orElse: () => COUNTRY_LIST.first,
+      );
+      _selectedCountry = match.name;
+    }
+
     _zipCodeController.text = widget.initialZipCode ?? '';
   }
 
@@ -121,7 +193,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     super.dispose();
   }
 
-  void _saveProfileDetails() {
+  Future<void> _saveProfileDetails() async {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
     final email = _emailController.text.trim().toLowerCase();
@@ -129,39 +201,75 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     final phoneDigits = phoneRaw.replaceAll(RegExp(r'\D'), '');
 
     if (first.isEmpty || !_nameRegex.hasMatch(first)) {
-      _showWarningMessage('First Name is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First Name is required',
+        isError: true,
+      );
       return;
     }
     if (last.isEmpty || !_nameRegex.hasMatch(last)) {
-      _showWarningMessage('Last Name is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name is required',
+        isError: true,
+      );
       return;
     }
     if (_selectedAllowedClassrooms.isEmpty) {
-      _showWarningMessage('At least one classroom must be selected');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'At least one classroom must be selected',
+        isError: true,
+      );
       return;
     }
     if (_selectedPrimaryClassroom == null) {
-      _showWarningMessage('Primary Classroom is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Primary Classroom is required',
+        isError: true,
+      );
       return;
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
-      _showWarningMessage('Email is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Email is required',
+        isError: true,
+      );
       return;
     }
     if (phoneDigits.length < 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
-      _showWarningMessage('Phone Number is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Phone Number is required',
+        isError: true,
+      );
       return;
     }
     if (_streetController.text.isEmpty) {
-      _showWarningMessage('Street is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street is required',
+        isError: true,
+      );
       return;
     }
     if (_cityController.text.isEmpty) {
-      _showWarningMessage('City is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City is required',
+        isError: true,
+      );
       return;
     }
     if (_zipCodeController.text.trim().isEmpty) {
-      _showWarningMessage('Zip Code is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code is required',
+        isError: true,
+      );
       return;
     }
 
@@ -169,41 +277,174 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       _isSubmitting = true;
     });
 
-    // Mock API call
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      final statusApi = _mapStatusToApiValue(_selectedStatus!);
+      final designationApi = _mapDesignationToApiValue(_selectedDesignation);
+      final jobTagApi =
+          _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
+
+      final primaryClassroomCode = _selectedPrimaryClassroom == null
+          ? null
+          : (_classroomCodeByName[_selectedPrimaryClassroom!] ??
+              _selectedPrimaryClassroom);
+      final allowedClassroomCodes = _selectedAllowedClassrooms
+          .map((name) => _classroomCodeByName[name] ?? name)
+          .toList();
+
+      final profilePayload = <String, dynamic>{
+        'firstName': first,
+        'lastName': last,
+        'status': statusApi,
+        'phoneNumber': phoneDigits,
+        'designation': designationApi,
+        if (jobTagApi != null) 'jobTag': jobTagApi,
+        if (_selectedBirthDate != null)
+          'birthdate': _selectedBirthDate!.toIso8601String(),
+        'primaryClassroomCode': primaryClassroomCode,
+        'allowedClassroomCodes': allowedClassroomCodes,
+      };
+
+      // Map selected state/country display names back to codes for API.
+      String stateCode = '';
+      if (_selectedState != null && _selectedState!.isNotEmpty) {
+        final match = US_STATES.firstWhere(
+          (s) => s.name.toLowerCase() == _selectedState!.toLowerCase(),
+          orElse: () => US_STATES.first,
+        );
+        stateCode = match.abbreviation;
+      }
+
+      String countryCode = '';
+      if (_selectedCountry != null && _selectedCountry!.isNotEmpty) {
+        final match = COUNTRY_LIST.firstWhere(
+          (c) => c.name.toLowerCase() == _selectedCountry!.toLowerCase(),
+          orElse: () => COUNTRY_LIST.first,
+        );
+        countryCode = match.code;
+      }
+
+      final addressPayload = <String, dynamic>{
+        'addressStreet': _streetController.text.trim(),
+        'addressLine2': _street2Controller.text.trim(),
+        'addressCity': _cityController.text.trim(),
+        'addressState': stateCode,
+        'addressZipCode': _zipCodeController.text.trim(),
+        'addressCountry': countryCode,
+      };
+
+      final repository = serviceLocator<StaffRepository>();
+
+      // Update core profile fields
+      final profileMessage = await repository.updateStaffProfile(
+        staffCode: widget.staffCode,
+        fields: profilePayload,
+      );
+
+      // Then update address via dedicated endpoint
+      final addressMessage = await repository.updateStaffAddress(
+        staffCode: widget.staffCode,
+        fields: addressPayload,
+      );
+
+      if (!mounted) return;
       setState(() {
         _isSubmitting = false;
       });
-      Navigator.pop(context);
-    });
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: addressMessage.isNotEmpty ? addressMessage : profileMessage,
+        isSuccess: true,
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
+    }
   }
 
-  void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  String _mapStatusToApiValue(String uiStatus) {
+    switch (uiStatus.toLowerCase()) {
+      case 'active':
+        return 'ACTIVE';
+      case 'inactive':
+        return 'INACTIVE';
+      case 'upcoming':
+        return 'UPCOMING';
+      default:
+        return uiStatus.toUpperCase().replaceAll(' ', '_');
+    }
+  }
+
+  String _mapDesignationToApiValue(String? uiDesignation) {
+    if (uiDesignation == null) return '';
+
+    const adminMapping = {
+      'Director': 'DIRECTOR',
+      'Admin': 'ADMIN',
+      'Assistant Director': 'ASSISTANT_DIRECTOR',
+      'Owner': 'OWNER',
+    };
+
+    const staffMapping = {
+      'Lead teacher': 'LEAD_TEACHER',
+      'Associate Teacher': 'ASSOCIATE_TEACHER',
+      'Assistant teacher': 'ASSISTANT_TEACHER',
+      'Floater': 'FLOATER',
+    };
+
+    return adminMapping[uiDesignation] ??
+        staffMapping[uiDesignation] ??
+        uiDesignation.toUpperCase().replaceAll(' ', '_');
+  }
+
+  String? _mapDesignationFromApiOrLabel(String? value) {
+    if (value == null || value.isEmpty) return null;
+    // If it's already a friendly label from dropdown, just return it.
+    if (_designationOptions.contains(value)) return value;
+
+    // Reverse mapping from known API enums to UI labels.
+    const reverseMap = {
+      'DIRECTOR': 'Director',
+      'ADMIN': 'Admin',
+      'ASSISTANT_DIRECTOR': 'Assistant Director',
+      'OWNER': 'Owner',
+      'LEAD_TEACHER': 'Lead teacher',
+      'ASSOCIATE_TEACHER': 'Associate Teacher',
+      'ASSISTANT_TEACHER': 'Assistant teacher',
+      'FLOATER': 'Floater',
+    };
+
+    final upper = value.toUpperCase();
+    return reverseMap[upper] ?? value;
+  }
+
+  String _mapJobTagToApiValue(String uiJobTag) {
+    switch (uiJobTag.toLowerCase()) {
+      case 'full time':
+        return 'FULL_TIME';
+      case 'part time':
+        return 'PART_TIME';
+      default:
+        return uiJobTag.toUpperCase().replaceAll(' ', '_');
+    }
+  }
+
+  String? _mapJobTagFromApiOrLabel(String? value) {
+    if (value == null || value.isEmpty) return null;
+    if (_jobTagOptions.contains(value)) return value;
+    final upper = value.toUpperCase();
+    if (upper == 'FULL_TIME') return 'Full Time';
+    if (upper == 'PART_TIME') return 'Part Time';
+    return value;
   }
 
   Future<void> _selectBirthDate() async {
@@ -382,7 +623,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onTap: () {
-                                    _showWarningMessage('Please select Allowed Classrooms first');
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: 'Please select Allowed Classrooms first',
+                                      isError: true,
+                                    );
                                   },
                                 ),
                               ),
@@ -394,21 +639,67 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("Job Tag", "Select", _jobTagOptions, _selectedJobTag, (v) => setState(() => _selectedJobTag = v)),
           SizedBox(height: responsive.verticalSpacing),
-          _buildInputField("Email", "E.g. Jessica@wowcare.com", _emailController, isRequired: true),
+          _buildInputField(
+            "Email",
+            "E.g. Jessica@wowcare.com",
+            _emailController,
+            isRequired: true,
+            keyboardType: TextInputType.emailAddress,
+            textCapitalization: TextCapitalization.none,
+          ),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Phone Number", "E.g. +19860271627", _phoneNumberController, isRequired: true),
+                        _buildInputField(
+                          "Phone Number",
+                          "E.g. (000) 000-0000",
+                          _phoneNumberController,
+                          isRequired: true,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
+                            _EditPhoneNumberFormatter(),
+                          ],
+                        ),
           SizedBox(height: responsive.verticalSpacing),
-          _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
+          _buildInputField(
+            "Street",
+            "Eg. Street no",
+            _streetController,
+            isRequired: true,
+            textCapitalization: TextCapitalization.words,
+          ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Address line 2", "(Optional)", _street2Controller, isRequired: false),
+                        _buildInputField(
+                          "Address line 2",
+                          "(Optional)",
+                          _street2Controller,
+                          isRequired: false,
+                          textCapitalization: TextCapitalization.words,
+                        ),
           SizedBox(height: responsive.verticalSpacing),
-          _buildInputField("City", "Eg. Nashua", _cityController, isRequired: true),
+          _buildInputField(
+            "City",
+            "Eg. Nashua",
+            _cityController,
+            isRequired: true,
+            textCapitalization: TextCapitalization.words,
+          ),
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-          _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
+          _buildInputField(
+            "Zip Code",
+            "Eg. 85001",
+            _zipCodeController,
+            isRequired: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
+          ),
                         SizedBox(height: responsive.verticalSpacing),
                         // _buildPinField(responsive),
                         // SizedBox(height: responsive.verticalSpacing),
@@ -425,42 +716,32 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           ],
         ),
         bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom, left: 16, right: 16, top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          padding: EdgeInsets.only(
+            bottom: safeAreaBottom,
+            left: 16,
+            right: 16,
+            top: 8,
           ),
-        ),
-        child: Container(
-          height: responsive.buttonHeight,
           decoration: BoxDecoration(
-            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: _isSubmitting ? Colors.grey[300] : null,
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-          ),
-          child: TextButton(
-            onPressed: _isSubmitting ? null : _saveProfileDetails,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-                ),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                offset: const Offset(0, -4),
+                blurRadius: 16,
               ),
+            ],
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
+          ),
+          child: CustomButtonLayout(
+            confirmButtonLabel: 'Save',
+            onPressedConfirm: _saveProfileDetails,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting,
           ),
         ),
       ),
@@ -468,10 +749,13 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   }
 
   Widget _buildInputField(
-    String label, 
-    String hint, 
+    String label,
+    String hint,
     TextEditingController controller, {
     bool isRequired = false,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
@@ -503,6 +787,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           ),
           child: TextField(
             controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
@@ -569,135 +856,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     );
   }
 
-  Widget _buildPinField(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: "Manrope",
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
-            ),
-            children: const [
-              TextSpan(text: 'Clock In-Out PIN'),
-              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F7FA),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  controller: _pinController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  decoration: const InputDecoration(
-                    counterText: '',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              height: responsive.inputFieldHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: TextButton(
-                onPressed: _generatePin,
-                child: const Text(
-                  'Generate',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _generatePin() {
-    final now = DateTime.now().millisecondsSinceEpoch.toString();
-    final pin = now.substring(now.length - 4);
-    setState(() {
-      _pinController.text = pin;
-    });
-  }
-
-  Widget _buildWorkTimeSection(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Work Time',
-          style: TextStyle(
-            fontSize: responsive.labelFontSize,
-            fontFamily: "Manrope",
-            fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: responsive.inputFieldHeight,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FA),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: const Text('Select working days & time (coming soon)', style: TextStyle(color: AppColors.primaryColor)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBreakTimeSection(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Break Time',
-          style: TextStyle(
-            fontSize: responsive.labelFontSize,
-            fontFamily: "Manrope",
-            fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: responsive.inputFieldHeight,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FA),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: const Text('Select break days & time (coming soon)', style: TextStyle(color: AppColors.primaryColor)),
-        ),
-      ],
-    );
-  }
 
   Widget _buildDateField(String label, DateTime? selectedDate) {
     final responsive = ResponsiveHelper(context);
@@ -761,227 +919,33 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     );
   }
 
-  Widget _buildClassroomSection() {
-    final responsive = ResponsiveHelper(context);
-    final labelStyle = TextStyle(
-      fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
-    );
+}
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              const TextSpan(text: 'Allowed Classrooms'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: _selectedAllowedClassrooms.map((classroom) {
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedAllowedClassrooms.remove(classroom);
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F7FA),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      classroom,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.close,
-                      size: 16,
-                      color: AppColors.primaryColor,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            // Show dialog to add more classrooms
-            _showClassroomSelectionDialog();
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primaryColor.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.add,
-                  size: 16,
-                  color: AppColors.primaryColor,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Add Classroom',
-                  style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+/// Simple phone formatter to display US numbers as (XXX) XXX-XXXX
+/// while keeping only digits for API submission.
+class _EditPhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
 
-  Widget _buildPrimaryClassroomSection() {
-    final responsive = ResponsiveHelper(context);
-    final labelStyle = TextStyle(
-      fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
-    );
+    final buffer = StringBuffer();
+    for (var i = 0; i < digitsOnly.length && i < 10; i++) {
+      if (i == 0) buffer.write('(');
+      if (i == 3) buffer.write(') ');
+      if (i == 6) buffer.write('-');
+      buffer.write(digitsOnly[i]);
+    }
+    final formatted = buffer.toString();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              const TextSpan(text: 'Primary Classroom'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        GestureDetector(
-          onTap: () {
-            _showPrimaryClassroomSelectionDialog();
-          },
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 40),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _selectedPrimaryClassroom ?? 'Select Primary Classroom',
-                      style: TextStyle(
-                        color: _selectedPrimaryClassroom == null 
-                            ? AppColors.primaryColor.withOpacity(0.6)
-                            : AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: AppColors.primaryColor,
-                    size: 24,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showClassroomSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Classrooms'),
-        content: SingleChildScrollView(
-          child: Column(
-            children: _classroomOptions.map((classroom) {
-              final isSelected = _selectedAllowedClassrooms.contains(classroom);
-              return CheckboxListTile(
-                title: Text(classroom),
-                value: isSelected,
-                onChanged: (value) {
-                  setState(() {
-                    if (value == true) {
-                      _selectedAllowedClassrooms.add(classroom);
-                    } else {
-                      _selectedAllowedClassrooms.remove(classroom);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Done'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPrimaryClassroomSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Primary Classroom'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _classroomOptions.map((classroom) {
-            return ListTile(
-              title: Text(classroom),
-              onTap: () {
-                setState(() {
-                  _selectedPrimaryClassroom = classroom;
-                });
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
-        ),
-      ),
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
