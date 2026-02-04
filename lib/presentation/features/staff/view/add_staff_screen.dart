@@ -55,6 +55,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   late final CreateSchoolUserCubit _createSchoolUserCubit;
+  ClassroomCubit? _classroomCubit;
   String? _selectedRole;
   String? _selectedDesignation;
   String? _selectedPrimaryClassroomName;
@@ -101,6 +102,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   void initState() {
     super.initState();
     _createSchoolUserCubit = serviceLocator<CreateSchoolUserCubit>();
+    // Get ClassroomCubit from service locator (will be created if not exists)
+    _classroomCubit = serviceLocator<ClassroomCubit>();
     // Prefill when editing
     if (widget.isEdit) {
       if (widget.initialFirstName != null) {
@@ -159,6 +162,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _createSchoolUserCubit.close();
+    // Only close _classroomCubit if we created it (not if it came from context)
+    // We'll handle this in build method
     super.dispose();
   }
 
@@ -321,7 +326,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
   Future<void> _loadClassrooms() async {
     // Load classrooms via cubit
-    context.read<ClassroomCubit>().loadActiveClassrooms();
+    _classroomCubit!.loadActiveClassrooms();
   }
 
   void _updateClassroomsFromCubitState(ClassroomState state) {
@@ -470,9 +475,22 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return BlocProvider<CreateSchoolUserCubit>.value(
-      value: _createSchoolUserCubit,
-      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+    // Get ClassroomCubit from context if available, otherwise use the one from service locator
+    ClassroomCubit classroomCubit;
+    try {
+      // Try to get from context (if provided by parent)
+      classroomCubit = context.read<ClassroomCubit>();
+    } catch (e) {
+      // If not available in context, use the one from service locator
+      classroomCubit = _classroomCubit!;
+    }
+
+    // Provide ClassroomCubit to ensure it's available in the widget tree
+    return BlocProvider<ClassroomCubit>.value(
+      value: classroomCubit,
+      child: BlocProvider<CreateSchoolUserCubit>.value(
+        value: _createSchoolUserCubit,
+        child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, classroomState) {
           // Update local state when classrooms are loaded from cubit
           if (!classroomState.isLoading && 
@@ -489,46 +507,46 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
           }
 
           return BlocListener<CreateSchoolUserCubit, CreateSchoolUserState>(
-        listener: (context, state) {
-          if (!mounted) return;
+            listener: (context, state) {
+              if (!mounted) return;
 
-          if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: state.errorMessage!,
-              isError: true,
-            );
-            return;
-          }
+              if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: state.errorMessage!,
+                  isError: true,
+                );
+                return;
+              }
 
-          final result = state.result;
-          if (result != null) {
-            final staffName = _composeStaffName();
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: result.message.isNotEmpty
-                  ? result.message
-                  : 'User created successfully',
-              isSuccess: true,
-            );
-            Navigator.pop(context, {
-              'showPostAddPrompt': true,
-              'staffName': staffName,
-              'userCode': result.user.userCode,
-            });
-          }
-        },
-        child: GestureDetector(
-          onTap: () {
-            FocusManager.instance.primaryFocus?.unfocus();
-            _removeDropdownOverlay();
-          },
-          child: Scaffold(
-            key: _scaffoldKey,
-            backgroundColor: Colors.white,
-            appBar: const CustomAppBar(hasBackButton: true),
-            body: Stack(
-          children: [
+              final result = state.result;
+              if (result != null) {
+                final staffName = _composeStaffName();
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: result.message.isNotEmpty
+                      ? result.message
+                      : 'User created successfully',
+                  isSuccess: true,
+                );
+                Navigator.pop(context, {
+                  'showPostAddPrompt': true,
+                  'staffName': staffName,
+                  'userCode': result.user.userCode,
+                });
+              }
+            },
+            child: GestureDetector(
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                _removeDropdownOverlay();
+              },
+              child: Scaffold(
+                key: _scaffoldKey,
+                backgroundColor: Colors.white,
+                appBar: const CustomAppBar(hasBackButton: true),
+                body: Stack(
+                  children: [
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -820,46 +838,47 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       ),
                       ),
                     ),
-                    const SizedBox(height: 12),
                   ],
                 ),
-          ],
-          ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-              bottom: safeAreaBottom, left: 16, right: 16, top: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
+                  ],
+                ),
+                bottomNavigationBar: Container(
+                  padding: EdgeInsets.only(
+                      bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        offset: const Offset(0, -4),
+                        blurRadius: 16,
+                      ),
+                    ],
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                      topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    ),
+                  ),
+                  child: BlocBuilder<CreateSchoolUserCubit, CreateSchoolUserState>(
+                    bloc: _createSchoolUserCubit,
+                    builder: (context, state) {
+                      return CustomButtonLayout(
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _addStaff,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading: state.isLoading,
+                      );
+                    },
+                  ),
+                ),
               ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
-          ),
-          child: BlocBuilder<CreateSchoolUserCubit, CreateSchoolUserState>(
-            bloc: _createSchoolUserCubit,
-            builder: (context, state) {
-              return CustomButtonLayout(
-                confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                onPressedConfirm: _addStaff,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: state.isLoading,
-              );
-            },
-          ),
-        ),
-      ),
-        ),
-      ),
+          );
         },
-      );
+      ),
+      ),
+    );
   }
 
   Widget _buildRowInputs(BuildContext context, String label1, String label2) {
