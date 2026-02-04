@@ -15,6 +15,7 @@ import '../presentation/features/activities/view/activity_feed_screen.dart';
 import '../app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../presentation/features/staff/cubit/staff_cubit.dart';
+import '../presentation/features/classroom/cubit/classroom_cubit.dart';
 
 class AppRoutes {
   static const String firstScreen = '/first-screen';
@@ -36,8 +37,15 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
     case StaffScreen.routeName:
       return MaterialPageRoute(
-        builder: (_) => BlocProvider<StaffCubit>(
-          create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StaffCubit>(
+              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+            ),
+          ],
           child: const StaffScreen(),
         ),
         settings: settings,

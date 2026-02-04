@@ -10,11 +10,9 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/data/features/classroom/datasources/classroom_remote_datasource.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -322,59 +320,51 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   }
 
   Future<void> _loadClassrooms() async {
-    try {
-      // TEMP: Always use default school code constant, ignore stored prefs.
-      final schoolCode = StorageKeys.defaultSchoolCode;
+    // Load classrooms via cubit
+    context.read<ClassroomCubit>().loadActiveClassrooms();
+  }
 
-      final classroomRemote = serviceLocator<ClassroomRemoteDataSource>();
-      final response = await classroomRemote.getActiveClassrooms(
-        schoolCode: schoolCode,
-      );
-
-      if (!mounted) return;
-
-      // If no classrooms are returned, just show a notice via CoreUtils and exit.
-      if (response.items.isEmpty) {
+  void _updateClassroomsFromCubitState(ClassroomState state) {
+    if (state.classrooms.isEmpty) {
+      if (state.errorMessage != null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: state.errorMessage!,
+          isError: true,
+        );
+      } else if (!state.isLoading) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'No classrooms found for this school',
           isWarning: true,
         );
-        return;
       }
-
-      final names = response.items.map((c) => c.name).toList();
-      final codeByName = <String, String>{};
-      for (final c in response.items) {
-        codeByName[c.name] = c.code;
-      }
-
-      setState(() {
-        _classrooms
-          ..clear()
-          ..addAll(names);
-        _classroomCodeByName
-          ..clear()
-          ..addAll(codeByName);
-
-        if (_isAdminSelected) {
-          _selectedAllowedClassroomNames = List<String>.from(_classrooms);
-          if (_classrooms.isNotEmpty &&
-              _selectedPrimaryClassroomName == null) {
-            _selectedPrimaryClassroomName = _classrooms.first;
-          }
-          _selectedStatus ??= 'Active';
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      final message = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isError: true,
-      );
+      return;
     }
+
+    final names = state.classrooms.map((c) => c.name).toList();
+    final codeByName = <String, String>{};
+    for (final c in state.classrooms) {
+      codeByName[c.name] = c.code;
+    }
+
+    setState(() {
+      _classrooms
+        ..clear()
+        ..addAll(names);
+      _classroomCodeByName
+        ..clear()
+        ..addAll(codeByName);
+
+      if (_isAdminSelected) {
+        _selectedAllowedClassroomNames = List<String>.from(_classrooms);
+        if (_classrooms.isNotEmpty &&
+            _selectedPrimaryClassroomName == null) {
+          _selectedPrimaryClassroomName = _classrooms.first;
+        }
+        _selectedStatus ??= 'Active';
+      }
+    });
   }
 
   /// Maps UI designation values to API uppercase values
@@ -482,7 +472,23 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
     return BlocProvider<CreateSchoolUserCubit>.value(
       value: _createSchoolUserCubit,
-      child: BlocListener<CreateSchoolUserCubit, CreateSchoolUserState>(
+      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+        builder: (context, classroomState) {
+          // Update local state when classrooms are loaded from cubit
+          if (!classroomState.isLoading && 
+              classroomState.classrooms.isNotEmpty && 
+              _classrooms.isEmpty &&
+              (widget.initialClassroomNames == null || widget.initialClassroomNames!.isEmpty)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _updateClassroomsFromCubitState(classroomState);
+            });
+          } else if (classroomState.errorMessage != null && _classrooms.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _updateClassroomsFromCubitState(classroomState);
+            });
+          }
+
+          return BlocListener<CreateSchoolUserCubit, CreateSchoolUserState>(
         listener: (context, state) {
           if (!mounted) return;
 
@@ -852,7 +858,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       ),
         ),
       ),
-    );
+        },
+      );
   }
 
   Widget _buildRowInputs(BuildContext context, String label1, String label2) {

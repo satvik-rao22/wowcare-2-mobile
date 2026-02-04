@@ -20,9 +20,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/data/features/classroom/datasources/classroom_remote_datasource.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -45,15 +43,11 @@ class _StaffScreenState extends State<StaffScreen> {
   bool _selectAll = false;
   StaffPanelType _currentPanel = StaffPanelType.none;
 
-   // Cached classrooms for this screen – loaded once and reused.
-   final List<String> _classroomNames = <String>[];
-   final Map<String, String> _classroomNameByCode = <String, String>{};
-   bool _isLoadingClassrooms = false;
-
   @override
   void initState() {
     super.initState();
-    _loadClassrooms();
+    // Load classrooms via cubit
+    context.read<ClassroomCubit>().loadActiveClassrooms();
   }
 
   @override
@@ -63,64 +57,36 @@ class _StaffScreenState extends State<StaffScreen> {
     super.dispose();
   }
 
-  Future<void> _loadClassrooms({bool force = false}) async {
-    if (_isLoadingClassrooms) return;
-    if (!force && _classroomNames.isNotEmpty) return;
+  // Helper to get classroom names and code mapping from cubit state
+  List<String> _getClassroomNames(ClassroomState state) {
+    return state.classrooms.map((c) => c.name).toList();
+  }
 
-    if (force) {
-      _classroomNames.clear();
-      _classroomNameByCode.clear();
-    }
-
-    _isLoadingClassrooms = true;
-    try {
-      // TEMP: Always use default school code constant, ignore stored prefs.
-      final schoolCode = StorageKeys.defaultSchoolCode;
-
-      final classroomRemote = serviceLocator<ClassroomRemoteDataSource>();
-      final response = await classroomRemote.getActiveClassrooms(
-        schoolCode: schoolCode,
-      );
-
-      if (!mounted) return;
-
-      if (response.items.isEmpty) {
-        return;
-      }
-
-      final names = <String>[];
-      final nameByCode = <String, String>{};
-      for (final c in response.items) {
-        names.add(c.name);
-        nameByCode[c.code] = c.name;
-      }
-
-      setState(() {
-        _classroomNames
-          ..clear()
-          ..addAll(names);
-        _classroomNameByCode
-          ..clear()
-          ..addAll(nameByCode);
-      });
-    } catch (e) {
-      if (!mounted) return;
-      // Surface classroom load errors via CoreUtils so users see what went wrong.
-      final message = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isError: true,
-      );
-    } finally {
-      _isLoadingClassrooms = false;
-    }
+  Map<String, String> _getClassroomNameByCode(ClassroomState state) {
+    return {for (final c in state.classrooms) c.code: c.name};
   }
 
   @override
   Widget build(BuildContext context) {
-    final double titleFontSize = ResponsiveSizing.titleFontSize(context);
-    final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
+    return BlocBuilder<ClassroomCubit, ClassroomState>(
+      builder: (context, classroomState) {
+        final classroomNames = _getClassroomNames(classroomState);
+        final classroomNameByCode = _getClassroomNameByCode(classroomState);
+        
+        // Show error if classroom loading failed
+        if (classroomState.errorMessage != null && classroomState.classrooms.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: classroomState.errorMessage!,
+              isError: true,
+            );
+            context.read<ClassroomCubit>().clearError();
+          });
+        }
+
+        final double titleFontSize = ResponsiveSizing.titleFontSize(context);
+        final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
 
     final staffCubit = context.read<StaffCubit>();
 
@@ -136,7 +102,7 @@ class _StaffScreenState extends State<StaffScreen> {
               // (or changes from other flows) are reflected.
               await Future.wait([
                 staffCubit.refresh(),
-                _loadClassrooms(force: true),
+                context.read<ClassroomCubit>().loadActiveClassrooms(force: true),
               ]);
             },
             child: NotificationListener<ScrollNotification>(
@@ -176,10 +142,10 @@ class _StaffScreenState extends State<StaffScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => AddStaffScreen(
-                            initialClassroomNames: _classroomNames,
+                            initialClassroomNames: classroomNames,
                             // AddStaffScreen expects a name -> code map.
                             initialClassroomCodeByName: {
-                              for (final entry in _classroomNameByCode.entries)
+                              for (final entry in classroomNameByCode.entries)
                                 entry.value: entry.key,
                             },
                           ),
@@ -471,13 +437,13 @@ class _StaffScreenState extends State<StaffScreen> {
                               (staff.status).toUpperCase() == 'ACTIVE';
                           // Map classroom codes to human-readable names using cached metadata.
                           final allowedClassroomNames = staff.allowedClassroomCodes
-                              .map((code) => _classroomNameByCode[code] ?? code)
+                              .map((code) => classroomNameByCode[code] ?? code)
                               .toList();
 
                           final primaryClassroomCode =
                               staff.primaryClassroomOrFirstAllowed;
                           final primaryClassroomName = primaryClassroomCode.isNotEmpty
-                              ? (_classroomNameByCode[primaryClassroomCode] ??
+                              ? (classroomNameByCode[primaryClassroomCode] ??
                                   primaryClassroomCode)
                               : (allowedClassroomNames.isNotEmpty
                                   ? allowedClassroomNames.first
@@ -495,8 +461,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                 email: staff.email,
                                 phoneNumber: staff.phoneNumber,
                                 isActive: isActive,
-                                availableClassrooms: _classroomNames,
-                                classroomCodeByName: _classroomNameByCode,
+                                availableClassrooms: classroomNames,
+                                classroomCodeByName: classroomNameByCode,
                                 onPrimaryAction: () async {
                                   try {
                                     final message = isActive
@@ -586,12 +552,12 @@ class _StaffScreenState extends State<StaffScreen> {
                         final staff = staffState.items
                             .firstWhere((e) => e.code == selectedCode);
                         final allowedClassroomNames = staff.allowedClassroomCodes
-                            .map((code) => _classroomNameByCode[code] ?? code)
+                            .map((code) => classroomNameByCode[code] ?? code)
                             .toList();
                         final primaryClassroomCode =
                             staff.primaryClassroomOrFirstAllowed;
                         final classroomName = primaryClassroomCode.isNotEmpty
-                            ? (_classroomNameByCode[primaryClassroomCode] ??
+                            ? (classroomNameByCode[primaryClassroomCode] ??
                                 primaryClassroomCode)
                             : (allowedClassroomNames.isNotEmpty
                                 ? allowedClassroomNames.first
@@ -605,8 +571,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                 classroom: classroomName,
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
-                                classroomNames: _classroomNames,
-                                classroomNameByCode: _classroomNameByCode,
+                                classroomNames: classroomNames,
+                                classroomNameByCode: classroomNameByCode,
                               ),
                             ),
                           );
@@ -626,6 +592,8 @@ class _StaffScreenState extends State<StaffScreen> {
         ],
       ),
       showCustomNavigationBar: true,
+    );
+      },
     );
   }
 }

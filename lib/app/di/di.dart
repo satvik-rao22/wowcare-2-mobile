@@ -12,12 +12,15 @@ import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
 import '../../data/features/onboarding/datasources/onboarding_remote_datasource.dart';
 import '../../data/features/classroom/datasources/classroom_remote_datasource.dart';
+import '../../data/features/classroom/repositories/classroom_repository_impl.dart';
 import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
 import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
+import '../../domain/features/classroom/repositories/classroom_repository.dart';
+import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -29,6 +32,7 @@ import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
+import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -100,6 +104,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator(),
     ),
   );
+  serviceLocator.registerLazySingleton<ClassroomRepository>(
+    () => ClassroomRepositoryImpl(
+      serviceLocator(),
+    ),
+  );
 
   // Use cases
   serviceLocator.registerFactory<LoginUseCase>(
@@ -131,6 +140,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateSchoolUserUseCase>(
     () => CreateSchoolUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetActiveClassroomsUseCase>(
+    () => GetActiveClassroomsUseCase(serviceLocator()),
   );
 
   // Cubits (factory - new instance each time for UI)
@@ -175,6 +187,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => CreateSchoolUserCubit(
       createSchoolUserUseCase: serviceLocator(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<ClassroomCubit>(
+    () => ClassroomCubit(
+      getActiveClassroomsUseCase: serviceLocator(),
     ),
   );
 }
