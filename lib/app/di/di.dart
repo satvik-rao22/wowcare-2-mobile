@@ -16,6 +16,8 @@ import '../../data/features/classroom/repositories/classroom_repository_impl.dar
 import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
 import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
+import '../../data/features/student/datasources/student_remote_datasource.dart';
+import '../../data/features/student/repositories/student_repository_impl.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -31,6 +33,8 @@ import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
+import '../../domain/features/student/repositories/student_repository.dart';
+import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
@@ -39,6 +43,7 @@ import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart'
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
+import '../../presentation/features/student/cubit/student_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -75,6 +80,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
+  // Student Data Sources
+  serviceLocator.registerLazySingleton<StudentRemoteDataSource>(
+    () => StudentRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
   // Classroom Data Sources
   serviceLocator.registerLazySingleton<ClassroomRemoteDataSource>(
     () => ClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
@@ -106,6 +116,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ClassroomRepository>(
     () => ClassroomRepositoryImpl(
+      serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<StudentRepository>(
+    () => StudentRepositoryImpl(
+      serviceLocator(),
       serviceLocator(),
     ),
   );
@@ -143,6 +159,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetActiveClassroomsUseCase>(
     () => GetActiveClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentPageUseCase>(
+    () => GetStudentPageUseCase(serviceLocator()),
   );
 
   // Cubits (factory - new instance each time for UI)
@@ -192,6 +211,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ClassroomCubit>(
     () => ClassroomCubit(
       getActiveClassroomsUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentCubit>(
+    () => StudentCubit(
+      getStudentPageUseCase: serviceLocator(),
+      repository: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
 }

@@ -29,6 +29,9 @@ class ApiPaths {
   static const String schoolUsersDeactivate = '/api/v1/school-users/deactivate';
   static const String schoolUsersActivate = '/api/v1/school-users/activate';
 
+  // Student
+  static const String studentList = '/api/v1/student';
+
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';
 
