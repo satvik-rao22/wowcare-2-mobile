@@ -8,6 +8,7 @@ import 'package:sizer/sizer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -16,7 +17,6 @@ import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Create a global instance of NotificationService that will be initialized later
@@ -99,6 +99,7 @@ class _MyAppState extends State<MyApp> {
         // ChangeNotifierProvider(create: (_) => StaffProviders()),
         // ChangeNotifierProvider(create: (_) => GuardianProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        // Needed by GlobalScaffold/Drawer/NavBar to determine role-based UI
         ChangeNotifierProvider(create: (_) => RoleProvider()),
         // ChangeNotifierProvider(create: (_) => AuthProvider()),
         // ChangeNotifierProvider(create: (_) => NavBarHeightProvider()),
@@ -204,23 +205,28 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
-      // Navigate to role selection screen first
-      Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
-      
-      // Original login flow (commented out for now):
-      // final storage = serviceLocator<StorageService>();
-      // final seenOnboarding =
-      //     await storage.getBool(StorageKeys.onboardingSeen) ?? false;
-      // final loginCompleted =
-      //     await storage.getBool(StorageKeys.loginCompleted) ?? false;
-      //
-      // if (!seenOnboarding) {
-      //   Navigator.pushReplacementNamed(context, '/first-screen');
-      // } else if (!loginCompleted) {
-      //   Navigator.pushReplacementNamed(context, SignInScreen.routeName);
-      // } else {
-      //   Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-      // }
+      final storage = serviceLocator<StorageService>();
+      final seenOnboarding =
+          await storage.getBool(StorageKeys.onboardingSeen) ?? false;
+      final loginCompleted =
+          await storage.getBool(StorageKeys.loginCompleted) ?? false;
+      final accessToken = await storage.getString(StorageKeys.accessToken) ?? '';
+
+      if (!seenOnboarding) {
+        // If onboarding is available, always clear any old auth state so the user
+        // must complete the login flow after onboarding.
+        await serviceLocator<AuthLocalDataSource>().clearCache();
+        Navigator.pushReplacementNamed(context, '/first-screen');
+      } else if (accessToken.trim().isEmpty) {
+        // If we don't have a token, always start at login regardless of stale flags.
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      } else if (!loginCompleted) {
+        // Token exists but user hasn't finished org/school selection in this session.
+        // We currently send them back through Sign-In flow (which leads to org selection).
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      } else {
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      }
     }
   }
 

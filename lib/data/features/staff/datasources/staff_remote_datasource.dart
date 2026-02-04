@@ -2,11 +2,16 @@ import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../models/staff_models.dart';
+import '../models/staff_count_models.dart';
 import '../models/staff_document_models.dart';
 import '../models/staff_important_dates_models.dart';
 import '../models/school_user_models.dart';
 
 abstract class StaffRemoteDataSource {
+  Future<StaffCountModel> getStaffCount({
+    required String schoolCode,
+  });
+
   Future<StaffPageModel> getStaffPage({
     required String schoolCode,
     int page = 0,
@@ -128,6 +133,27 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   StaffRemoteDataSourceImpl(this._client);
 
   final Dio _client;
+
+  @override
+  Future<StaffCountModel> getStaffCount({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffCount,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff count API response format');
+    }
+
+    return StaffCountModel.fromJson(response.data! as Map<String, dynamic>);
+  }
 
   @override
   Future<StaffPageModel> getStaffPage({
