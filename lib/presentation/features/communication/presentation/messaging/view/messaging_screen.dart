@@ -6,8 +6,9 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../../../app/theme/colors.dart';
 
 class MessagingScreen extends StatefulWidget {
-  const MessagingScreen({super.key, required this.userPersona});
+  const MessagingScreen({super.key, required this.userPersona, this.initialTabIndex = 0});
   final UserPersona userPersona;
+  final int initialTabIndex;
 
   static const String routeName = '/messageFeed';
 
@@ -72,8 +73,8 @@ class _MessagingScreenState extends State<MessagingScreen> with TickerProviderSt
             Expanded(child: TabBarView(
                 controller: _tabController,
                 children: [
-                  MessagingTab(),
-                  MessagingTab()
+                  MessagingTab(initialTabIndex: widget.initialTabIndex,),
+                  MessagingTab(initialTabIndex: widget.initialTabIndex,)
 
                 ]
             ),)

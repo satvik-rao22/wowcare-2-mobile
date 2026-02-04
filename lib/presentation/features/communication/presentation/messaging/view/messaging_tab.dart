@@ -135,7 +135,7 @@ class _MessagingTabState extends State<MessagingTab> with SingleTickerProviderSt
               controller: _tabController,
               children: [
                 StaffMessagingTab(),
-                StaffMessagingTab()
+                StaffMessagingTab(isStaffMessaging: false,)
               ],
             ),
           ),
