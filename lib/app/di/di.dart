@@ -22,6 +22,7 @@ import '../../domain/features/onboarding/repositories/onboarding_repository.dart
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
+import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
@@ -113,6 +114,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffPageUseCase>(
     () => GetStaffPageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStaffCountUseCase>(
+    () => GetStaffCountUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<AddStaffDocumentUseCase>(
     () => AddStaffDocumentUseCase(serviceLocator()),
   );
@@ -140,6 +144,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<StaffCubit>(
     () => StaffCubit(
       getStaffPageUseCase: serviceLocator(),
+      getStaffCountUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
     ),

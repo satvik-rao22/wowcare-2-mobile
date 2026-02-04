@@ -10,8 +10,9 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+// LOGIN BYPASSED - Commented out for now
+// import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
@@ -208,24 +209,16 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       final storage = serviceLocator<StorageService>();
       final seenOnboarding =
           await storage.getBool(StorageKeys.onboardingSeen) ?? false;
-      final loginCompleted =
-          await storage.getBool(StorageKeys.loginCompleted) ?? false;
-      final accessToken = await storage.getString(StorageKeys.accessToken) ?? '';
 
       if (!seenOnboarding) {
         // If onboarding is available, always clear any old auth state so the user
         // must complete the login flow after onboarding.
         await serviceLocator<AuthLocalDataSource>().clearCache();
         Navigator.pushReplacementNamed(context, '/first-screen');
-      } else if (accessToken.trim().isEmpty) {
-        // If we don't have a token, always start at login regardless of stale flags.
-        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
-      } else if (!loginCompleted) {
-        // Token exists but user hasn't finished org/school selection in this session.
-        // We currently send them back through Sign-In flow (which leads to org selection).
-        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
       } else {
-        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+        // Always go to role selection first (bypassing login)
+        // Role selection will then navigate to dashboard
+        Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
       }
     }
   }

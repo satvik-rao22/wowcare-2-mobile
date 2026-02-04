@@ -3,8 +3,13 @@ import '../entities/staff_document.dart';
 import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
+import '../entities/staff_count.dart';
 
 abstract class StaffRepository {
+  Future<StaffCount> getStaffCount({
+    required String schoolCode,
+  });
+
   Future<StaffPage> getStaffPage({
     required String schoolCode,
     int page,

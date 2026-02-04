@@ -230,34 +230,42 @@ class _StaffScreenState extends State<StaffScreen> {
               ),
               const SizedBox(height: 16),
               // Total Staff stat card
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final bool isTablet = constraints.maxWidth >= 600;
-                  // Static values for now
-                  final double active = 21.0;
-                  final double upcoming = 4.0;
-                  final int totalCount = (active + upcoming).toInt();
-                  final String total = '$totalCount';
+              BlocBuilder<StaffCubit, StaffState>(
+                builder: (context, state) {
+                  final double active = state.staffCountActive.toDouble();
+                  final double upcoming = state.staffCountUpcoming.toDouble();
+                  final int totalCount =
+                      state.staffCountTotal > 0 ? state.staffCountTotal : (active + upcoming).toInt();
+
                   final items = [
                     ProgressItemHelper(
-                      label: 'Active (${active.toInt()})',
+                      label: 'Active (${state.staffCountActive})',
                       value: active,
                       color: AppColors.lightBlueProgressBar,
                     ),
                     ProgressItemHelper(
-                      label: 'Upcoming (${upcoming.toInt()})',
+                      label: 'Upcoming (${state.staffCountUpcoming})',
                       value: upcoming,
                       color: AppColors.mustardProgressBar,
                     ),
                   ];
-                  return Container(
-                    margin: EdgeInsets.only(top: isTablet ? 16 : 12, bottom: isTablet ? 8 : 8),
-                    child: CustomStatBarCard(
-                      title: 'Total\nStaff',
-                      number: total,
-                      items: items,
-                      fullWidthBar: false,
-                    ),
+
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final bool isTablet = constraints.maxWidth >= 600;
+                      return Container(
+                        margin: EdgeInsets.only(
+                          top: isTablet ? 16 : 12,
+                          bottom: isTablet ? 8 : 8,
+                        ),
+                        child: CustomStatBarCard(
+                          title: 'Total\nStaff',
+                          number: '$totalCount',
+                          items: items,
+                          fullWidthBar: false,
+                        ),
+                      );
+                    },
                   );
                 },
               ),

@@ -5,6 +5,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
+import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 
 part 'staff_state.dart';
@@ -12,14 +13,17 @@ part 'staff_state.dart';
 class StaffCubit extends Cubit<StaffState> {
   StaffCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
+    required GetStaffCountUseCase getStaffCountUseCase,
     required StaffRepository repository,
     required StorageService storageService,
   })  : _getStaffPageUseCase = getStaffPageUseCase,
+        _getStaffCountUseCase = getStaffCountUseCase,
         _repository = repository,
         _storageService = storageService,
         super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
+  final GetStaffCountUseCase _getStaffCountUseCase;
   final StaffRepository _repository;
   final StorageService _storageService;
   String? _schoolCode;
@@ -58,12 +62,30 @@ class StaffCubit extends Cubit<StaffState> {
           isFromCache: true,
         ),
       );
-      // If we have a fresh enough cache, don't auto-hit the API.
+      // Still load staff count so stat cards are accurate.
+      await _refreshStaffCountOnly();
       return;
     }
 
     // No cache (or expired) – load from API.
     await refresh();
+  }
+
+  Future<void> _refreshStaffCountOnly() async {
+    try {
+      final schoolCode = await _resolveSchoolCode();
+      final staffCount = await _getStaffCountUseCase(schoolCode: schoolCode);
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          staffCountTotal: staffCount.total,
+          staffCountActive: staffCount.active,
+          staffCountUpcoming: staffCount.upcoming,
+        ),
+      );
+    } catch (_) {
+      // Non-fatal: staff list can still work even if count endpoint fails.
+    }
   }
 
   Future<void> refresh() async {
@@ -80,8 +102,9 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     try {
-      // First page
-      final firstPage = await _getStaffPageUseCase(
+      // Start both requests in parallel.
+      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final firstPageFuture = _getStaffPageUseCase(
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
@@ -91,6 +114,9 @@ class StaffCubit extends Cubit<StaffState> {
       );
 
       if (isClosed) return;
+
+      final staffCount = await staffCountFuture;
+      final firstPage = await firstPageFuture;
 
       var items = List<StaffMember>.from(firstPage.items);
       var currentPage = firstPage.page;
@@ -117,6 +143,9 @@ class StaffCubit extends Cubit<StaffState> {
           items: items,
           currentPage: currentPage,
           hasMore: hasMore,
+          staffCountTotal: staffCount.total,
+          staffCountActive: staffCount.active,
+          staffCountUpcoming: staffCount.upcoming,
           isLoading: false,
           isRefreshing: false,
           isFromCache: false,

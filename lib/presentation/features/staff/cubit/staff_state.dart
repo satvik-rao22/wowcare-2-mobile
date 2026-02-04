@@ -5,6 +5,9 @@ class StaffState extends Equatable {
     required this.items,
     required this.currentPage,
     required this.hasMore,
+    required this.staffCountTotal,
+    required this.staffCountActive,
+    required this.staffCountUpcoming,
     required this.isLoading,
     required this.isRefreshing,
     required this.isLoadingMore,
@@ -19,6 +22,9 @@ class StaffState extends Equatable {
       : items = const [],
         currentPage = 0,
         hasMore = true,
+        staffCountTotal = 0,
+        staffCountActive = 0,
+        staffCountUpcoming = 0,
         isLoading = true,
         isRefreshing = false,
         isLoadingMore = false,
@@ -31,6 +37,9 @@ class StaffState extends Equatable {
   final List<StaffMember> items;
   final int currentPage;
   final bool hasMore;
+  final int staffCountTotal;
+  final int staffCountActive;
+  final int staffCountUpcoming;
   final bool isLoading;
   final bool isRefreshing;
   final bool isLoadingMore;
@@ -44,6 +53,9 @@ class StaffState extends Equatable {
     List<StaffMember>? items,
     int? currentPage,
     bool? hasMore,
+    int? staffCountTotal,
+    int? staffCountActive,
+    int? staffCountUpcoming,
     bool? isLoading,
     bool? isRefreshing,
     bool? isLoadingMore,
@@ -57,6 +69,9 @@ class StaffState extends Equatable {
       items: items ?? this.items,
       currentPage: currentPage ?? this.currentPage,
       hasMore: hasMore ?? this.hasMore,
+      staffCountTotal: staffCountTotal ?? this.staffCountTotal,
+      staffCountActive: staffCountActive ?? this.staffCountActive,
+      staffCountUpcoming: staffCountUpcoming ?? this.staffCountUpcoming,
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
@@ -73,6 +88,9 @@ class StaffState extends Equatable {
         items,
         currentPage,
         hasMore,
+        staffCountTotal,
+        staffCountActive,
+        staffCountUpcoming,
         isLoading,
         isRefreshing,
         isLoadingMore,

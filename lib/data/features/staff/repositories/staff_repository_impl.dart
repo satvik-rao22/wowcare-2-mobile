@@ -5,6 +5,7 @@ import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/entities/staff_documents_page.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/entities/create_school_user_result.dart';
+import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/school_user.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../datasources/staff_remote_datasource.dart';
@@ -39,6 +40,18 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         resource: 'profile',
         identifier: staffCode,
       );
+
+  @override
+  Future<StaffCount> getStaffCount({
+    required String schoolCode,
+  }) async {
+    final model = await _remoteDataSource.getStaffCount(schoolCode: schoolCode);
+    return StaffCount(
+      total: model.total,
+      active: model.active,
+      upcoming: model.upcoming,
+    );
+  }
 
   @override
   Future<StaffPage> getStaffPage({
