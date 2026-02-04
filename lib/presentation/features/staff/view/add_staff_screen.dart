@@ -10,7 +10,6 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
@@ -324,11 +323,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
   Future<void> _loadClassrooms() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCodeStored = await storage.getString(StorageKeys.schoolCode);
-      final schoolCode = (schoolCodeStored?.isNotEmpty ?? false)
-          ? schoolCodeStored!
-          : StorageKeys.defaultSchoolCode;
+      // TEMP: Always use default school code constant, ignore stored prefs.
+      final schoolCode = StorageKeys.defaultSchoolCode;
 
       final classroomRemote = serviceLocator<ClassroomRemoteDataSource>();
       final response = await classroomRemote.getActiveClassrooms(

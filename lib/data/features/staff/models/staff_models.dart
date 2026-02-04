@@ -4,30 +4,47 @@ class StaffListItemModel extends Equatable {
   const StaffListItemModel({
     required this.code,
     required this.name,
-    required this.classroomCodes,
+    required this.primaryClassroomCode,
+    required this.allowedClassroomCodes,
     required this.designation,
     required this.phoneNumber,
     required this.status,
+    required this.email,
   });
 
   final String code;
   final String name;
-  final List<String> classroomCodes;
+  /// Classroom code (from API field `primaryClassroom`).
+  final String primaryClassroomCode;
+  /// Classroom codes (from API field `allowedClassrooms`).
+  final List<String> allowedClassroomCodes;
   final String designation;
   final String phoneNumber;
   final String status;
+  final String email;
 
   factory StaffListItemModel.fromJson(Map<String, dynamic> json) {
+    // Backend contract (new): `primaryClassroom`, `allowedClassrooms`
+    // Legacy fallback (old): `classroomCodes`
+    final allowed = (json['allowedClassrooms'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        (json['classroomCodes'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const [];
+
     return StaffListItemModel(
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      classroomCodes: (json['classroomCodes'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
+      primaryClassroomCode: (json['primaryClassroom'] as String?) ??
+          (json['primaryClassroomCode'] as String?) ??
+          '',
+      allowedClassroomCodes: allowed,
       designation: json['designation'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      email: json['email'] as String? ?? '',
     );
   }
 
@@ -35,16 +52,27 @@ class StaffListItemModel extends Equatable {
     return {
       'code': code,
       'name': name,
-      'classroomCodes': classroomCodes,
+      'primaryClassroom': primaryClassroomCode,
+      'allowedClassrooms': allowedClassroomCodes,
       'designation': designation,
       'phoneNumber': phoneNumber,
       'status': status,
+      'email': email,
     };
   }
 
   @override
   List<Object?> get props =>
-      [code, name, classroomCodes, designation, phoneNumber, status];
+      [
+        code,
+        name,
+        primaryClassroomCode,
+        allowedClassroomCodes,
+        designation,
+        phoneNumber,
+        status,
+        email,
+      ];
 }
 
 class StaffPageModel extends Equatable {

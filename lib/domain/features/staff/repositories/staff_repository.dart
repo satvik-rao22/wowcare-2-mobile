@@ -12,6 +12,7 @@ abstract class StaffRepository {
 
   Future<StaffPage> getStaffPage({
     required String schoolCode,
+    String? code,
     int page,
     int size,
     String? status,

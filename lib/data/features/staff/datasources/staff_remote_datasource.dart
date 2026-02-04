@@ -14,6 +14,7 @@ abstract class StaffRemoteDataSource {
 
   Future<StaffPageModel> getStaffPage({
     required String schoolCode,
+    String? code,
     int page = 0,
     int size = 10,
     String? status,
@@ -158,6 +159,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   @override
   Future<StaffPageModel> getStaffPage({
     required String schoolCode,
+    String? code,
     int page = 0,
     int size = 10,
     String? status,
@@ -166,11 +168,21 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }) async {
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
+      // Backward-compatible pagination params (older backend)
       'page': page,
       'size': size,
       'sort': 'desc',
+      // Newer backend contract (Swagger shows pageable as required)
+      // Send as flattened keys to ensure typical Spring-style binding.
+      'pageable.page': page,
+      'pageable.size': size,
+      // Dio encodes lists as repeated query params.
+      'pageable.sort': <String>['desc'],
     };
 
+    if (code != null && code.isNotEmpty) {
+      queryParameters['code'] = code;
+    }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
     }

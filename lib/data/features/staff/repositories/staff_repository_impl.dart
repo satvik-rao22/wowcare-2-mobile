@@ -56,6 +56,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<StaffPage> getStaffPage({
     required String schoolCode,
+    String? code,
     int page = 0,
     int size = 10,
     String? status,
@@ -64,6 +65,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }) async {
     final staffPageModel = await _remoteDataSource.getStaffPage(
       schoolCode: schoolCode,
+      code: code,
       page: page,
       size: size,
       status: status,
@@ -106,10 +108,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           (m) => StaffMember(
             code: m.code,
             name: m.name,
-            classroomCodes: m.classroomCodes,
+            primaryClassroomCode: m.primaryClassroomCode,
+            allowedClassroomCodes: m.allowedClassroomCodes,
             designation: m.designation,
             phoneNumber: m.phoneNumber,
             status: m.status,
+            email: m.email,
           ),
         )
         .toList();

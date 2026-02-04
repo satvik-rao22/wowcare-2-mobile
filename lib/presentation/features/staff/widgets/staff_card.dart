@@ -15,6 +15,7 @@ class StaffCard extends StatefulWidget {
     required this.allowedClassrooms,
     required this.schedule,
     required this.designation,
+    this.email = '',
     required this.phoneNumber,
     required this.isActive,
     this.onPrimaryAction,
@@ -31,6 +32,7 @@ class StaffCard extends StatefulWidget {
   final List<String> allowedClassrooms;
   final List<String> schedule;
   final String designation;
+  final String email;
   final String phoneNumber;
   final bool isActive;
   final VoidCallback? onPrimaryAction;
@@ -321,6 +323,37 @@ class _StaffCardState extends State<StaffCard> {
                                     fontWeight: FontWeight.w500,
                                     color: Color(0xff573353),
                                     height: 19 / 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Email',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xff573353),
+                                    height: 16 / 13,
+                                  ),
+                                ),
+                                Flexible(
+                                  child: Text(
+                                    widget.email.isNotEmpty ? widget.email : '-',
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xff573353),
+                                      height: 19 / 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.right,
                                   ),
                                 ),
                               ],

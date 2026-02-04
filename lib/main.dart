@@ -207,6 +207,18 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
       final storage = serviceLocator<StorageService>();
+
+      // TEMP (implementation phase): Always override org + school in prefs
+      // so all APIs use the constants from StorageKeys, ignoring any old values.
+      await storage.saveString(
+        StorageKeys.organizationCode,
+        StorageKeys.defaultOrganizationCode,
+      );
+      await storage.saveString(
+        StorageKeys.schoolCode,
+        StorageKeys.defaultSchoolCode,
+      );
+
       final seenOnboarding =
           await storage.getBool(StorageKeys.onboardingSeen) ?? false;
 

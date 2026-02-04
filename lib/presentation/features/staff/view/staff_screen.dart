@@ -20,7 +20,6 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/data/features/classroom/datasources/classroom_remote_datasource.dart';
@@ -75,12 +74,8 @@ class _StaffScreenState extends State<StaffScreen> {
 
     _isLoadingClassrooms = true;
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCodeStored =
-          await storage.getString(StorageKeys.schoolCode);
-      final schoolCode = (schoolCodeStored?.isNotEmpty ?? false)
-          ? schoolCodeStored!
-          : StorageKeys.defaultSchoolCode;
+      // TEMP: Always use default school code constant, ignore stored prefs.
+      final schoolCode = StorageKeys.defaultSchoolCode;
 
       final classroomRemote = serviceLocator<ClassroomRemoteDataSource>();
       final response = await classroomRemote.getActiveClassrooms(
@@ -475,14 +470,18 @@ class _StaffScreenState extends State<StaffScreen> {
                           final isActive =
                               (staff.status).toUpperCase() == 'ACTIVE';
                           // Map classroom codes to human-readable names using cached metadata.
-                          final allowedClassroomNames = staff.classroomCodes
-                              .map((code) =>
-                                  _classroomNameByCode[code] ?? code)
+                          final allowedClassroomNames = staff.allowedClassroomCodes
+                              .map((code) => _classroomNameByCode[code] ?? code)
                               .toList();
-                          final primaryClassroomName =
-                              allowedClassroomNames.isNotEmpty
+
+                          final primaryClassroomCode =
+                              staff.primaryClassroomOrFirstAllowed;
+                          final primaryClassroomName = primaryClassroomCode.isNotEmpty
+                              ? (_classroomNameByCode[primaryClassroomCode] ??
+                                  primaryClassroomCode)
+                              : (allowedClassroomNames.isNotEmpty
                                   ? allowedClassroomNames.first
-                                  : '';
+                                  : '');
                           final isSelected =
                               _selectedStaffCodes.contains(staff.code);
                   return Column(
@@ -493,6 +492,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 allowedClassrooms: allowedClassroomNames,
                                 schedule: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                                 designation: staff.designation,
+                                email: staff.email,
                                 phoneNumber: staff.phoneNumber,
                                 isActive: isActive,
                                 availableClassrooms: _classroomNames,
@@ -585,13 +585,24 @@ class _StaffScreenState extends State<StaffScreen> {
                         final selectedCode = _selectedStaffCodes.first;
                         final staff = staffState.items
                             .firstWhere((e) => e.code == selectedCode);
+                        final allowedClassroomNames = staff.allowedClassroomCodes
+                            .map((code) => _classroomNameByCode[code] ?? code)
+                            .toList();
+                        final primaryClassroomCode =
+                            staff.primaryClassroomOrFirstAllowed;
+                        final classroomName = primaryClassroomCode.isNotEmpty
+                            ? (_classroomNameByCode[primaryClassroomCode] ??
+                                primaryClassroomCode)
+                            : (allowedClassroomNames.isNotEmpty
+                                ? allowedClassroomNames.first
+                                : '');
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => StaffProfileScreen(
                                 staffCode: staff.code,
                                 name: staff.name,
-                                classroom: staff.primaryClassroom,
+                                classroom: classroomName,
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
                                 classroomNames: _classroomNames,
