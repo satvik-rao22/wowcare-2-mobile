@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 
 class StudentPhysicianTabCard extends StatefulWidget {
@@ -77,35 +78,27 @@ class _PhysicianCard extends StatelessWidget{
                   Flexible(
                     child: Text(
                       name,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
+                      style: AppTextStyles.value.copyWith(
                         fontSize: isTablet ? 16 : 14,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xff573353),
-                        height: 19 / 14,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Text(
                     "(986) 027-1627",
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
+                    style: AppTextStyles.value.copyWith(
                       fontSize: isTablet ? 16 : 14,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xff573353),
-                      height: 19 / 14,
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(
+            Divider(
               height: 1,
               thickness: 1,
               indent: 16,
               endIndent: 16,
-              color: Color(0xFFE9ECEF),
+              color: AppColors.dividerColor,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -116,24 +109,18 @@ class _PhysicianCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Email ID',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         email!,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -143,24 +130,18 @@ class _PhysicianCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Address',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         address!,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],

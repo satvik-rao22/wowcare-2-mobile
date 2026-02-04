@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
@@ -62,13 +63,9 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Important Dates',
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTextStyles.title,
                     ),
                     Container(
                       width: 38,
@@ -121,11 +118,10 @@ class _DateRow extends StatelessWidget {
           width: 140,
           child: Text(
             label,
-            style: TextStyle(
+            style: AppTextStyles.value.copyWith(
               color: AppColors.primaryColor.withOpacity(0.5),
-              fontFamily: 'Manrope',
               fontSize: 14,
-              fontWeight: FontWeight.w500,
+              letterSpacing: 14 * (-3 / 100),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -141,11 +137,8 @@ class _DateRow extends StatelessWidget {
                 child: Text(
                   displayText,
                   textAlign: TextAlign.end,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
+                  style: AppTextStyles.value.copyWith(
                     fontSize: 15,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

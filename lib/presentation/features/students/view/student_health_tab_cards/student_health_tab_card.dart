@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 
 
@@ -76,24 +77,18 @@ class _HealthCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Allergies',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         allergies,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -103,24 +98,18 @@ class _HealthCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Medication',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         medication!,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -130,24 +119,18 @@ class _HealthCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Diet Restrictions',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         dietRestrictions!,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],

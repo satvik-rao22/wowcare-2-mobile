@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 
 class StudentImmunizationTabCard extends StatefulWidget {
@@ -101,24 +102,18 @@ class _ImmunizationCardState extends State<_ImmunizationCard> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Text(
+                              Text(
                                 'Vaccine',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
+                                style: AppTextStyles.label.copyWith(
+                                  color: AppColors.primaryColor.withOpacity(0.5),
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color(0xff573353),
-                                  height: 16 / 13,
+                                  letterSpacing: 14 * (-3 / 100),
                                 ),
                               ),
                               Text(
                                 widget.vaccineName,
-                                style: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xff573353),
-                                  height: 19 / 14,
+                                style: AppTextStyles.value.copyWith(
+                                  fontSize: 15,
                                 ),
                               ),
                             ],
@@ -127,12 +122,12 @@ class _ImmunizationCardState extends State<_ImmunizationCard> {
 
                     ),
                     if (isExpanded) ...[
-                      const Divider(
+                      Divider(
                         height: 1,
                         thickness: 1,
                         indent: 16,
                         endIndent: 16,
-                        color: Color(0xFFE9ECEF),
+                        color: AppColors.dividerColor,
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -179,12 +174,10 @@ class _dose extends StatelessWidget{
           children: [
             Text(
               'Dose ${doseNo}',
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: Color(0xff573353),
-                height: 16 / 13,
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.primaryColor.withOpacity(0.5),
+                fontSize: 14,
+                letterSpacing: 14 * (-3 / 100),
               ),
             ),
             Row(
@@ -198,12 +191,8 @@ class _dose extends StatelessWidget{
                 SizedBox(width: 10,),
                 Text(
                   doseDate,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
-                    height: 19 / 14,
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 15,
                   ),
                 ),
               ],
@@ -243,8 +232,7 @@ class _Chip extends StatelessWidget {
           ],
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Manrope',
+            style: AppTextStyles.value.copyWith(
               fontWeight: FontWeight.w600,
               fontSize: 15,
               color: labelColor,
