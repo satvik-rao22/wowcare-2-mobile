@@ -61,11 +61,12 @@ class _PickupCard extends StatelessWidget{
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
+          // Match staff card styling: radius 12, 1px border.
           borderRadius: BorderRadius.only(
-              topRight: firstChild ? const Radius.circular(0) : const Radius.circular(8),
-              topLeft: const Radius.circular(8),
-              bottomLeft: const Radius.circular(8),
-              bottomRight: const Radius.circular(8)
+            topRight: firstChild ? const Radius.circular(0) : const Radius.circular(12),
+            topLeft: const Radius.circular(12),
+            bottomLeft: const Radius.circular(12),
+            bottomRight: const Radius.circular(12),
           ),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
@@ -73,7 +74,8 @@ class _PickupCard extends StatelessWidget{
         child: Column(
           children: [
             Container(
-              height: 80,
+              // Match staff card header height.
+              height: 60,
               padding: EdgeInsets.symmetric(
                 horizontal: isTablet ? 24 : 16,
               ),

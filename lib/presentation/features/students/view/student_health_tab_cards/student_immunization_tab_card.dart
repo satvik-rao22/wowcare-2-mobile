@@ -69,14 +69,14 @@ class _ImmunizationCardState extends State<_ImmunizationCard> {
         return IntrinsicHeight(
           child: Container(
             width: constraints.maxWidth,
-            //height: isExpanded ? null : 80.0,
             decoration: BoxDecoration(
               color: Colors.white,
+              // Match staff card styling: radius 12, 1px border.
               borderRadius: BorderRadius.only(
-                  topRight: widget.isFirstCard ? Radius.circular(0) : Radius.circular(8),
-                  topLeft:  const Radius.circular(8),
-                  bottomLeft: const Radius.circular(8),
-                  bottomRight: const Radius.circular(8)
+                topRight: widget.isFirstCard ? const Radius.circular(0) : const Radius.circular(12),
+                topLeft: const Radius.circular(12),
+                bottomLeft: const Radius.circular(12),
+                bottomRight: const Radius.circular(12),
               ),
               border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),

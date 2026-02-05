@@ -54,8 +54,9 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(14),
+               // Match staff card styling: card border color and radius 12.
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

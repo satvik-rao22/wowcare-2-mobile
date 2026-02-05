@@ -60,14 +60,16 @@ class _FamilyCard extends StatelessWidget{
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          // Match staff card styling: radius 12, 1px border.
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
           Container(
-          height: 80,
+          // Match staff card header height.
+          height: 60,
           padding: EdgeInsets.symmetric(
             horizontal: isTablet ? 24 : 16,
           ),

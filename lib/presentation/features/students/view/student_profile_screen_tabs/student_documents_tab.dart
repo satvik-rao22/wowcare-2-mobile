@@ -87,8 +87,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.cardBorderColor, width: 1),
+                      borderRadius: BorderRadius.circular(12),
                       color: Colors.white,
                     ),
                     child: CustomToggle(
@@ -133,12 +133,18 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                             backgroundColor: Colors.white,
                             collapsedBackgroundColor: Colors.white,
                             collapsedShape: RoundedRectangleBorder(
-                              side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
-                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color: AppColors.cardBorderColor,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             shape: RoundedRectangleBorder(
-                              side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
-                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color: AppColors.cardBorderColor,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                             children: [

@@ -33,12 +33,11 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       controller: widget.scrollController,
-
-        child:
-          _HealthCard(allergies: "No allergies", medication: 'No medication', dietRestrictions: "Can not eat candy"),
-
-
-
+      child: _HealthCard(
+        allergies: "No allergies",
+        medication: 'No medication',
+        dietRestrictions: "Can not eat candy",
+      ),
     );
   }
 
@@ -52,16 +51,19 @@ class _HealthCard extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.only(
-              topRight:  const Radius.circular(8),
-              bottomLeft: const Radius.circular(8),
-              bottomRight: const Radius.circular(8)
+          // Match staff card styling: 12 radius on all non-shared corners,
+          // 1px border with themed color.
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(12),
+            bottomLeft: Radius.circular(12),
+            bottomRight: Radius.circular(12),
           ),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
@@ -69,7 +71,12 @@ class _HealthCard extends StatelessWidget{
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: EdgeInsets.fromLTRB(
+                isTablet ? 24 : 16,
+                16,
+                isTablet ? 24 : 16,
+                0,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

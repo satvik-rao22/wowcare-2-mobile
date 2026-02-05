@@ -33,13 +33,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     return SingleChildScrollView(
       controller: widget.scrollController,
       child: Column(
-        children: [
+        children: const [
           _PhysicalExamCard(status: "Completed", checkupDate: 'Nov 09 ,2025'),
-          SizedBox(height: 20,),
-          _PhysicalExamCard(status: "Due", checkupDate: 'Nov 09 ,2026')
+          SizedBox(height: 20),
+          _PhysicalExamCard(status: "Due", checkupDate: 'Nov 09 ,2026'),
         ],
       ),
-
     );
   }
 
@@ -52,14 +51,13 @@ class _PhysicalExamCard extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          // Match staff card styling: radius 12, 1px border.
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
