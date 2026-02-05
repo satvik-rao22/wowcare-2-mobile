@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'full_attachment_viewer.dart';
 
 class Message {
@@ -29,6 +30,8 @@ class Message {
 
   final String? quotedMessageId;
   final List<ChatAttachment> attachments;
+  final String?
+  senderName; // or user id maybe to for parent messaging thread cause it is a group thread
 
   Message({
     required this.text,
@@ -39,8 +42,10 @@ class Message {
     this.deliveredTo = const [],
     this.readBy = const [],
     this.reactions = const {},
-    this.quotedMessageId, required this.id,
-    this.attachments = const []
+    this.quotedMessageId,
+    required this.id,
+    this.attachments = const [],
+    this.senderName,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -52,9 +57,9 @@ class Message {
   bool get hasMultiplePhotos => attachments.where((a) => a.isImage).length > 1;
 
   int get reactionCount => reactions.length;
-  Map<String, int> get emojiCounts{
+  Map<String, int> get emojiCounts {
     final counts = <String, int>{};
-    for (var emoji in reactions.values){
+    for (var emoji in reactions.values) {
       counts[emoji] = (counts[emoji] ?? 0) + 1;
     }
     return counts;
@@ -85,15 +90,22 @@ class MessageBubble extends StatefulWidget {
   //final void Function(String messageId, BuildContext context)? onContextReady;
   //final VoidCallback? onDelete;
   //final Function(String)? onEdit;
+  final bool isParentMessaging; // if yes then the avatar and name of the sender will also be shown
 
-  const MessageBubble({required this.message, this.quotedMessage, this.onLongPress, this.onScrollToQuoted, super.key});
+  const MessageBubble({
+    required this.message,
+    this.quotedMessage,
+    this.onLongPress,
+    this.isParentMessaging = false,
+    this.onScrollToQuoted,
+    super.key,
+  });
 
   @override
   State<MessageBubble> createState() => _MessageBubbleState();
 }
 
 class _MessageBubbleState extends State<MessageBubble> {
-
   // @override
   // void didChangeDependencies() {
   //   super.didChangeDependencies();
@@ -126,12 +138,511 @@ class _MessageBubbleState extends State<MessageBubble> {
     final hasAttachments = widget.message.hasAttachments;
 
     return GestureDetector(
-      onLongPressStart: widget.message.isSentByMe ? widget.onLongPress : null,
+      onLongPressStart: widget.onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 18),
         child: Align(
           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: ConstrainedBox(
+          child: widget.isParentMessaging ? Column(
+            crossAxisAlignment: isMe ? CrossAxisAlignment.end :CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: isMe ? MainAxisAlignment.end :MainAxisAlignment.start,
+                children: [
+                  DocumentImageWidget(
+                    fileUuid: widget.message.senderName ?? '',
+                    name: widget.message.senderName ?? '',
+                    size: 25,
+                    fontSize: 12,
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: CustomTextWidget(
+                      text: widget.message.senderName ?? '',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10,),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.70,
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      //key: widget.scrollKey,
+                      // padding: const EdgeInsets.symmetric(
+                      //   horizontal: 14,
+                      //   vertical: 10,
+                      // ),
+                      padding: EdgeInsets.fromLTRB(
+                        14,
+                        10,
+                        14,
+                        isMe
+                            ? reactions.isNotEmpty
+                                  ? 24
+                                  : 10
+                            : 26,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: isMe
+                            ? const LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [Color(0xFF5978F7), Color(0xFF9C84FF)],
+                              )
+                            : null,
+                        color: isMe ? null : Color(0xFFDCE6FF),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(18),
+                          topRight: const Radius.circular(18),
+                          bottomLeft: Radius.circular(isMe ? 18 : 4),
+                          bottomRight: Radius.circular(isMe ? 4 : 18),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (widget.message.quotedMessageId != null)
+                            GestureDetector(
+                              onTap: () {
+                                widget.onScrollToQuoted?.call(
+                                  widget.message.quotedMessageId!,
+                                );
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    CustomTextWidget(
+                                      text:
+                                          widget.quotedMessage!.text.length >
+                                              100
+                                          ? '${widget.quotedMessage?.text.substring(0, 100)}...'
+                                          : widget.quotedMessage?.text,
+                                      fontSize: 13,
+                                      fontColor: isMe
+                                          ? Colors.white
+                                          : AppColors.primaryColor,
+                                      softWrap: true,
+                                      overflow: TextOverflow.visible,
+                                      unlimitedLines: true,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                          if (hasAttachments) ...[
+                            const SizedBox(height: 8),
+                            _buildAttachmentsPreview(),
+                            const SizedBox(height: 10),
+                          ],
+
+                          CustomTextWidget(
+                            text: widget.message.text,
+                            fontSize: 15.5,
+                            fontColor: isMe
+                                ? Colors.white
+                                : AppColors.primaryColor,
+                            softWrap: true,
+                            overflow: TextOverflow.visible,
+                            unlimitedLines: true,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (reactions.isEmpty)
+                      Positioned(
+                        bottom: isMe ? -22 : 2,
+                        right: isMe ? 0 : 12,
+                        left: isMe ? null : null,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CustomTextWidget(
+                                text: _formatTime(widget.message.time),
+                                fontSize: 13,
+                                fontColor: const Color(0x8041414E),
+                                applyLetterSpacing: false,
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  widget.message.isRead
+                                      ? Icons.done_all
+                                      : widget.message.isDelivered
+                                      ? Icons.done_all
+                                      : Icons.done,
+                                  size: 16,
+                                  color: widget.message.isRead
+                                      ? Colors.blueAccent
+                                      : Colors.grey.shade600,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (reactions.isNotEmpty && !isMe) ...[
+                      Positioned(
+                        bottom: isMe ? -22 : 2,
+                        right: isMe ? 0 : 12,
+                        left: isMe ? null : null,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CustomTextWidget(
+                                text: _formatTime(widget.message.time),
+                                fontSize: 13,
+                                fontColor: const Color(0x8041414E),
+                                applyLetterSpacing: false,
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  widget.message.isRead
+                                      ? Icons.done_all
+                                      : widget.message.isDelivered
+                                      ? Icons.done_all
+                                      : Icons.done,
+                                  size: 16,
+                                  color: widget.message.isRead
+                                      ? Colors.blueAccent
+                                      : Colors.grey.shade600,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -20,
+                        right: isMe ? 12 : null,
+                        left: isMe ? null : 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Wrap(
+                            spacing: 4,
+                            runSpacing: 2,
+                            alignment: WrapAlignment.end,
+                            children: widget.message.emojiCounts.entries.map((
+                              entry,
+                            ) {
+                              final emoji = entry.key;
+                              final count = entry.value;
+                              // return Stack(
+                              //   clipBehavior: Clip.none,
+                              //   children: [
+                              //     Text(
+                              //       emoji,
+                              //       style: const TextStyle(fontSize: 16),
+                              //     ),
+                              //     if (count > 1)
+                              //       Positioned(
+                              //         right: -6,
+                              //         bottom: -4,
+                              //         child: Container(
+                              //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              //           decoration: BoxDecoration(
+                              //             color: AppColors.primaryColor,
+                              //             borderRadius: BorderRadius.circular(8),
+                              //             border: Border.all(color: Colors.white, width: 1.5),
+                              //           ),
+                              //           child: Text(
+                              //             '$count',
+                              //             style: const TextStyle(
+                              //               color: Colors.white,
+                              //               fontSize: 10,
+                              //               fontWeight: FontWeight.bold,
+                              //             ),
+                              //           ),
+                              //         ),
+                              //       ),
+                              //   ],
+                              // );
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  //color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      emoji,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                    if (count > 1)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: CustomTextWidget(
+                                          text: '$count',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          applyLetterSpacing: false,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ] else
+                      Positioned(
+                        bottom: isMe ? -22 : 2,
+                        right: isMe ? 0 : 12,
+                        left: isMe ? null : null,
+                        child: Row(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 4,
+                                right: 4,
+                                top: 10,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CustomTextWidget(
+                                    text: _formatTime(widget.message.time),
+                                    fontSize: 13,
+                                    fontColor: const Color(0x8041414E),
+                                    applyLetterSpacing: false,
+                                  ),
+                                  if (isMe) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      widget.message.isRead
+                                          ? Icons.done_all
+                                          : widget.message.isDelivered
+                                          ? Icons.done_all
+                                          : Icons.done,
+                                      size: 16,
+                                      color: widget.message.isRead
+                                          ? Colors.blueAccent
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 2,
+                                alignment: WrapAlignment.end,
+                                children: widget.message.emojiCounts.entries.map((
+                                  entry,
+                                ) {
+                                  final emoji = entry.key;
+                                  final count = entry.value;
+                                  // return Stack(
+                                  //   clipBehavior: Clip.none,
+                                  //   children: [
+                                  //     Text(
+                                  //       emoji,
+                                  //       style: const TextStyle(fontSize: 16),
+                                  //     ),
+                                  //     if (count > 1)
+                                  //       Positioned(
+                                  //         right: -6,
+                                  //         bottom: -4,
+                                  //         child: Container(
+                                  //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  //           decoration: BoxDecoration(
+                                  //             color: AppColors.primaryColor,
+                                  //             borderRadius: BorderRadius.circular(8),
+                                  //             border: Border.all(color: Colors.white, width: 1.5),
+                                  //           ),
+                                  //           child: Text(
+                                  //             '$count',
+                                  //             style: const TextStyle(
+                                  //               color: Colors.white,
+                                  //               fontSize: 10,
+                                  //               fontWeight: FontWeight.bold,
+                                  //             ),
+                                  //           ),
+                                  //         ),
+                                  //       ),
+                                  //   ],
+                                  // );
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 3,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      //color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          emoji,
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                        if (count > 1)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              left: 4,
+                                            ),
+                                            child: CustomTextWidget(
+                                              text: '$count',
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              applyLetterSpacing: false,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                // child: Column(
+                //   crossAxisAlignment: isMe
+                //       ? CrossAxisAlignment.end
+                //       : CrossAxisAlignment.start,
+                //   children: [
+                //     Container(
+                //       padding: const EdgeInsets.symmetric(
+                //         horizontal: 14,
+                //         vertical: 10,
+                //       ),
+                //       decoration: BoxDecoration(
+                //         gradient: isMe
+                //             ? const LinearGradient(
+                //                 begin: Alignment.centerLeft,
+                //                 end: Alignment.centerRight,
+                //                 colors: [Color(0xFF5978F7), Color(0xFF9C84FF)],
+                //               )
+                //             : null,
+                //         color: isMe ? null : Color(0xFFDCE6FF),
+                //         borderRadius: BorderRadius.only(
+                //           topLeft: const Radius.circular(18),
+                //           topRight: const Radius.circular(18),
+                //           bottomLeft: Radius.circular(isMe ? 18 : 4),
+                //           bottomRight: Radius.circular(isMe ? 4 : 18),
+                //         ),
+                //         boxShadow: [
+                //           BoxShadow(
+                //             color: Colors.black.withOpacity(0.08),
+                //             blurRadius: 4,
+                //             offset: const Offset(0, 1),
+                //           ),
+                //         ],
+                //       ),
+                //       child: CustomTextWidget(
+                //         text: widget.message.text,
+                //         fontSize: 15.5,
+                //         fontColor: isMe ? Colors.white : AppColors.primaryColor,softWrap: true,
+                //         overflow: TextOverflow.visible,
+                //         unlimitedLines: true,
+                //
+                //       ),
+                //     ),
+                //
+                //     Padding(
+                //       padding: const EdgeInsets.only(top: 3, right: 4, left: 4),
+                //       child: Row(
+                //         mainAxisAlignment: widget.message.isSentByMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                //         children: [
+                //           CustomTextWidget(
+                //             text: _formatTime(widget.message.time),
+                //             fontSize: 13,
+                //             fontColor: Color(0x8041414E),
+                //             applyLetterSpacing: false,
+                //           ),
+                //           if(widget.message.isSentByMe)
+                //             const SizedBox(width: 4,),
+                //           if(widget.message.isSentByMe)
+                //             Icon(
+                //               widget.message.isRead ? Icons.done_all : widget.message.isDelivered ? Icons.done_all : Icons.done,
+                //               size: 16,
+                //               color: widget.message.isRead ? AppColors.themeColor : Colors.grey.shade600,
+                //             )
+                //         ],
+                //       ),
+                //     ),
+                //   ],
+                // ),
+              ),
+            ],
+          ): ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.70,
             ),
@@ -144,14 +655,23 @@ class _MessageBubbleState extends State<MessageBubble> {
                   //   horizontal: 14,
                   //   vertical: 10,
                   // ),
-                  padding: EdgeInsets.fromLTRB(14, 10, 14, isMe ? reactions.isNotEmpty? 24: 10 : 26),
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    10,
+                    14,
+                    isMe
+                        ? reactions.isNotEmpty
+                        ? 24
+                        : 10
+                        : 26,
+                  ),
                   decoration: BoxDecoration(
                     gradient: isMe
                         ? const LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [Color(0xFF5978F7), Color(0xFF9C84FF)],
-                          )
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [Color(0xFF5978F7), Color(0xFF9C84FF)],
+                    )
                         : null,
                     color: isMe ? null : Color(0xFFDCE6FF),
                     borderRadius: BorderRadius.only(
@@ -174,7 +694,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                       if (widget.message.quotedMessageId != null)
                         GestureDetector(
                           onTap: () {
-                            widget.onScrollToQuoted?.call(widget.message.quotedMessageId!);
+                            widget.onScrollToQuoted?.call(
+                              widget.message.quotedMessageId!,
+                            );
                           },
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 8),
@@ -187,11 +709,15 @@ class _MessageBubbleState extends State<MessageBubble> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 CustomTextWidget(
-                                  text: widget.quotedMessage!.text.length > 100
+                                  text:
+                                  widget.quotedMessage!.text.length >
+                                      100
                                       ? '${widget.quotedMessage?.text.substring(0, 100)}...'
                                       : widget.quotedMessage?.text,
                                   fontSize: 13,
-                                  fontColor: isMe ? Colors.white : AppColors.primaryColor,
+                                  fontColor: isMe
+                                      ? Colors.white
+                                      : AppColors.primaryColor,
                                   softWrap: true,
                                   overflow: TextOverflow.visible,
                                   unlimitedLines: true,
@@ -204,13 +730,15 @@ class _MessageBubbleState extends State<MessageBubble> {
                       if (hasAttachments) ...[
                         const SizedBox(height: 8),
                         _buildAttachmentsPreview(),
-                        const SizedBox(height: 10,),
+                        const SizedBox(height: 10),
                       ],
 
                       CustomTextWidget(
                         text: widget.message.text,
                         fontSize: 15.5,
-                        fontColor: isMe ? Colors.white : AppColors.primaryColor,
+                        fontColor: isMe
+                            ? Colors.white
+                            : AppColors.primaryColor,
                         softWrap: true,
                         overflow: TextOverflow.visible,
                         unlimitedLines: true,
@@ -219,9 +747,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                   ),
                 ),
 
-                if(reactions.isEmpty)
+                if (reactions.isEmpty)
                   Positioned(
-                    bottom: isMe ?-22 : 2,
+                    bottom: isMe ? -22 : 2,
                     right: isMe ? 0 : 12,
                     left: isMe ? null : null,
                     child: Padding(
@@ -244,18 +772,18 @@ class _MessageBubbleState extends State<MessageBubble> {
                                   ? Icons.done_all
                                   : Icons.done,
                               size: 16,
-                              color: widget.message.isRead ? Colors.blueAccent : Colors.grey.shade600,
+                              color: widget.message.isRead
+                                  ? Colors.blueAccent
+                                  : Colors.grey.shade600,
                             ),
                           ],
                         ],
                       ),
                     ),
                   )
-
-
-                else if (reactions.isNotEmpty && !isMe)...[
+                else if (reactions.isNotEmpty && !isMe) ...[
                   Positioned(
-                    bottom: isMe ?-22 : 2,
+                    bottom: isMe ? -22 : 2,
                     right: isMe ? 0 : 12,
                     left: isMe ? null : null,
                     child: Padding(
@@ -278,7 +806,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                                   ? Icons.done_all
                                   : Icons.done,
                               size: 16,
-                              color: widget.message.isRead ? Colors.blueAccent : Colors.grey.shade600,
+                              color: widget.message.isRead
+                                  ? Colors.blueAccent
+                                  : Colors.grey.shade600,
                             ),
                           ],
                         ],
@@ -290,11 +820,17 @@ class _MessageBubbleState extends State<MessageBubble> {
                     right: isMe ? 12 : null,
                     left: isMe ? null : 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade300, width: 1),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
@@ -307,7 +843,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                         spacing: 4,
                         runSpacing: 2,
                         alignment: WrapAlignment.end,
-                        children: widget.message.emojiCounts.entries.map((entry) {
+                        children: widget.message.emojiCounts.entries.map((
+                            entry,
+                            ) {
                           final emoji = entry.key;
                           final count = entry.value;
                           // return Stack(
@@ -341,7 +879,10 @@ class _MessageBubbleState extends State<MessageBubble> {
                           //   ],
                           // );
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 3,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               //color: Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(12),
@@ -349,7 +890,10 @@ class _MessageBubbleState extends State<MessageBubble> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(emoji, style: const TextStyle(fontSize: 16)),
+                                Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
                                 if (count > 1)
                                   Padding(
                                     padding: const EdgeInsets.only(left: 4),
@@ -366,125 +910,143 @@ class _MessageBubbleState extends State<MessageBubble> {
                         }).toList(),
                       ),
                     ),
-                  )
-                ]
-
-                else
+                  ),
+                ] else
                   Positioned(
-                      bottom: isMe ?-22 : 2,
-                      right: isMe ? 0 : 12,
-                      left: isMe ? null : null,
-                      child: Row(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4,right: 4, top: 10),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CustomTextWidget(
-                                  text: _formatTime(widget.message.time),
-                                  fontSize: 13,
-                                  fontColor: const Color(0x8041414E),
-                                  applyLetterSpacing: false,
-                                ),
-                                if (isMe) ...[
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    widget.message.isRead
-                                        ? Icons.done_all
-                                        : widget.message.isDelivered
-                                        ? Icons.done_all
-                                        : Icons.done,
-                                    size: 16,
-                                    color: widget.message.isRead ? Colors.blueAccent : Colors.grey.shade600,
-                                  ),
-                                ],
-                              ],
-                            ),
+                    bottom: isMe ? -22 : 2,
+                    right: isMe ? 0 : 12,
+                    left: isMe ? null : null,
+                    child: Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 4,
+                            right: 4,
+                            top: 10,
                           ),
-                          const SizedBox(width: 4,),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.shade300, width: 1),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CustomTextWidget(
+                                text: _formatTime(widget.message.time),
+                                fontSize: 13,
+                                fontColor: const Color(0x8041414E),
+                                applyLetterSpacing: false,
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  widget.message.isRead
+                                      ? Icons.done_all
+                                      : widget.message.isDelivered
+                                      ? Icons.done_all
+                                      : Icons.done,
+                                  size: 16,
+                                  color: widget.message.isRead
+                                      ? Colors.blueAccent
+                                      : Colors.grey.shade600,
                                 ),
                               ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: 1,
                             ),
-                            child: Wrap(
-                              spacing: 4,
-                              runSpacing: 2,
-                              alignment: WrapAlignment.end,
-                              children: widget.message.emojiCounts.entries.map((entry) {
-                                final emoji = entry.key;
-                                final count = entry.value;
-                                // return Stack(
-                                //   clipBehavior: Clip.none,
-                                //   children: [
-                                //     Text(
-                                //       emoji,
-                                //       style: const TextStyle(fontSize: 16),
-                                //     ),
-                                //     if (count > 1)
-                                //       Positioned(
-                                //         right: -6,
-                                //         bottom: -4,
-                                //         child: Container(
-                                //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                //           decoration: BoxDecoration(
-                                //             color: AppColors.primaryColor,
-                                //             borderRadius: BorderRadius.circular(8),
-                                //             border: Border.all(color: Colors.white, width: 1.5),
-                                //           ),
-                                //           child: Text(
-                                //             '$count',
-                                //             style: const TextStyle(
-                                //               color: Colors.white,
-                                //               fontSize: 10,
-                                //               fontWeight: FontWeight.bold,
-                                //             ),
-                                //           ),
-                                //         ),
-                                //       ),
-                                //   ],
-                                // );
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    //color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(emoji, style: const TextStyle(fontSize: 16)),
-                                      if (count > 1)
-                                        Padding(
-                                          padding: const EdgeInsets.only(left: 4),
-                                          child: CustomTextWidget(
-                                            text: '$count',
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            applyLetterSpacing: false,
-                                          ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Wrap(
+                            spacing: 4,
+                            runSpacing: 2,
+                            alignment: WrapAlignment.end,
+                            children: widget.message.emojiCounts.entries.map((
+                                entry,
+                                ) {
+                              final emoji = entry.key;
+                              final count = entry.value;
+                              // return Stack(
+                              //   clipBehavior: Clip.none,
+                              //   children: [
+                              //     Text(
+                              //       emoji,
+                              //       style: const TextStyle(fontSize: 16),
+                              //     ),
+                              //     if (count > 1)
+                              //       Positioned(
+                              //         right: -6,
+                              //         bottom: -4,
+                              //         child: Container(
+                              //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              //           decoration: BoxDecoration(
+                              //             color: AppColors.primaryColor,
+                              //             borderRadius: BorderRadius.circular(8),
+                              //             border: Border.all(color: Colors.white, width: 1.5),
+                              //           ),
+                              //           child: Text(
+                              //             '$count',
+                              //             style: const TextStyle(
+                              //               color: Colors.white,
+                              //               fontSize: 10,
+                              //               fontWeight: FontWeight.bold,
+                              //             ),
+                              //           ),
+                              //         ),
+                              //       ),
+                              //   ],
+                              // );
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  //color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      emoji,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                    if (count > 1)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 4,
                                         ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            ),
+                                        child: CustomTextWidget(
+                                          text: '$count',
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          applyLetterSpacing: false,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                           ),
-
-                        ],
-                      )
-                  )
-
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
             // child: Column(
@@ -758,7 +1320,6 @@ class _MessageBubbleState extends State<MessageBubble> {
                       // );
                     }
                   } else if (att.remoteUrl != null) {
-
                     try {
                       // CoreUtils.showTopSnackBar(
                       //   context: context,
@@ -769,7 +1330,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                       //   const SnackBar(content: Text('Downloading file...')),
                       // );
 
-                      final response = await http.get(Uri.parse(att.remoteUrl!));
+                      final response = await http.get(
+                        Uri.parse(att.remoteUrl!),
+                      );
                       if (response.statusCode == 200) {
                         final tempDir = await getTemporaryDirectory();
                         final tempFile = File('${tempDir.path}/${att.name}');
@@ -824,36 +1387,50 @@ class _MessageBubbleState extends State<MessageBubble> {
                         height: multiImageWidth * 0.45,
                         child: source != null
                             ? Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: AppColors.primaryColor)
-                              ),
-                              child: Thumbnail(
-                                                        mimeType: att.mimeType ?? 'application/pdf',
-                                                        dataResolver: () async {
-                              if (att.remoteUrl != null) {
-                                try {
-                                  final response = await http.get(Uri.parse(source));
-                                  if (response.statusCode == 200) return response.bodyBytes;
-                                } catch (_) {}
-                                return Uint8List(0);
-                              } else {
-                                return await File(source).readAsBytes();
-                              }
-                                                        },
-                                                        //widgetSize: 80,
-                                                        widgetSize: multiImageWidth * 0.4,
-                                                        decoration: WidgetDecoration(
-                              backgroundColor: Colors.white,
-                              iconColor: Colors.redAccent,
-                                                        ),
-                                                        errorBuilder: (context, error) => const Center(
-                              child: Icon(Icons.picture_as_pdf, size: 40, color: Colors.redAccent),
-                                                        ),
-                                                      ),
-                            )
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: AppColors.primaryColor,
+                                  ),
+                                ),
+                                child: Thumbnail(
+                                  mimeType: att.mimeType ?? 'application/pdf',
+                                  dataResolver: () async {
+                                    if (att.remoteUrl != null) {
+                                      try {
+                                        final response = await http.get(
+                                          Uri.parse(source),
+                                        );
+                                        if (response.statusCode == 200)
+                                          return response.bodyBytes;
+                                      } catch (_) {}
+                                      return Uint8List(0);
+                                    } else {
+                                      return await File(source).readAsBytes();
+                                    }
+                                  },
+                                  //widgetSize: 80,
+                                  widgetSize: multiImageWidth * 0.4,
+                                  decoration: WidgetDecoration(
+                                    backgroundColor: Colors.white,
+                                    iconColor: Colors.redAccent,
+                                  ),
+                                  errorBuilder: (context, error) =>
+                                      const Center(
+                                        child: Icon(
+                                          Icons.picture_as_pdf,
+                                          size: 40,
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                ),
+                              )
                             : const Center(
-                          child: Icon(Icons.picture_as_pdf, size: 40, color: Colors.redAccent),
-                        ),
+                                child: Icon(
+                                  Icons.picture_as_pdf,
+                                  size: 40,
+                                  color: Colors.redAccent,
+                                ),
+                              ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -867,7 +1444,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                             ),
                             const SizedBox(height: 4),
                             CustomTextWidget(
-                              text: '${(att.sizeBytes / 1024 / 1024).toStringAsFixed(1)} MB • ${att.type.toUpperCase()}',
+                              text:
+                                  '${(att.sizeBytes / 1024 / 1024).toStringAsFixed(1)} MB • ${att.type.toUpperCase()}',
                               fontSize: 13,
                               fontColor: Colors.grey[700],
                             ),
@@ -885,7 +1463,6 @@ class _MessageBubbleState extends State<MessageBubble> {
         ],
 
         if (images.isNotEmpty) ...[
-
           if (imageCount == 1) ...[
             GestureDetector(
               onTap: () {
@@ -896,7 +1473,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                     MaterialPageRoute(
                       builder: (_) => ShowFullScreenMediaView(
                         imageUrl: att.remoteUrl,
-                        imageFile: att.localPath != null ? File(att.localPath!) : null,
+                        imageFile: att.localPath != null
+                            ? File(att.localPath!)
+                            : null,
                         title: att.name,
                       ),
                     ),
@@ -907,41 +1486,50 @@ class _MessageBubbleState extends State<MessageBubble> {
                 borderRadius: BorderRadius.circular(12),
                 child: displayImages.first.displaySource != null
                     ? Thumbnail(
-                  mimeType: displayImages.first.mimeType ?? 'image/jpeg',
-                  dataResolver: () async {
-                    final source = displayImages.first.displaySource!;
-                    if (displayImages.first.remoteUrl != null) {
-                      try {
-                        final response = await http.get(Uri.parse(source));
-                        if (response.statusCode == 200) return response.bodyBytes;
-                      } catch (_) {}
-                      return Uint8List(0);
-                    } else {
-                      return await File(source).readAsBytes();
-                    }
-                  },
-                  //widgetSize: 300,
-                  widgetSize: singleImageWidth,
-                  decoration: WidgetDecoration(
-                    backgroundColor: Colors.white,
-                    iconColor: Colors.green,
-                  ),
-                  errorBuilder: (context, error) => Container(
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.image, size: 80, color: Colors.grey),
-                  ),
-                )
+                        mimeType: displayImages.first.mimeType ?? 'image/jpeg',
+                        dataResolver: () async {
+                          final source = displayImages.first.displaySource!;
+                          if (displayImages.first.remoteUrl != null) {
+                            try {
+                              final response = await http.get(
+                                Uri.parse(source),
+                              );
+                              if (response.statusCode == 200)
+                                return response.bodyBytes;
+                            } catch (_) {}
+                            return Uint8List(0);
+                          } else {
+                            return await File(source).readAsBytes();
+                          }
+                        },
+                        //widgetSize: 300,
+                        widgetSize: singleImageWidth,
+                        decoration: WidgetDecoration(
+                          backgroundColor: Colors.white,
+                          iconColor: Colors.green,
+                        ),
+                        errorBuilder: (context, error) => Container(
+                          color: Colors.grey[300],
+                          child: const Icon(
+                            Icons.image,
+                            size: 80,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      )
                     : Container(
-                  //height: 200,
-                  height: singleImageWidth * 0.6,
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.broken_image, size: 80, color: Colors.grey),
-                ),
+                        //height: 200,
+                        height: singleImageWidth * 0.6,
+                        color: Colors.grey[300],
+                        child: const Icon(
+                          Icons.broken_image,
+                          size: 80,
+                          color: Colors.grey,
+                        ),
+                      ),
               ),
             ),
-          ]
-
-          else if (imageCount == 2 || imageCount == 4) ...[
+          ] else if (imageCount == 2 || imageCount == 4) ...[
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -962,7 +1550,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => FullAttachmentViewer(attachments: attachments),
+                          builder: (_) =>
+                              FullAttachmentViewer(attachments: attachments),
                         ),
                       );
                     } else if (att.displaySource != null) {
@@ -971,7 +1560,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                         MaterialPageRoute(
                           builder: (_) => ShowFullScreenMediaView(
                             imageUrl: att.remoteUrl,
-                            imageFile: att.localPath != null ? File(att.localPath!) : null,
+                            imageFile: att.localPath != null
+                                ? File(att.localPath!)
+                                : null,
                             title: att.name,
                           ),
                         ),
@@ -985,76 +1576,16 @@ class _MessageBubbleState extends State<MessageBubble> {
                         borderRadius: BorderRadius.circular(12),
                         child: att.displaySource != null
                             ? Thumbnail(
-                          mimeType: att.mimeType ?? 'image/jpeg',
-                          dataResolver: () async {
-                            final source = att.displaySource!;
-                            if (att.remoteUrl != null) {
-                              try {
-                                final response = await http.get(Uri.parse(source));
-                                if (response.statusCode == 200) return response.bodyBytes;
-                              } catch (_) {}
-                              return Uint8List(0);
-                            } else {
-                              return await File(source).readAsBytes();
-                            }
-                          },
-                          //widgetSize: 180,
-                          widgetSize: multiImageWidth,
-                          decoration: WidgetDecoration(
-                            backgroundColor: Colors.white,
-                            iconColor: Colors.green,
-                          ),
-                          errorBuilder: (context, error) => Container(
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.image, size: 50, color: Colors.grey),
-                          ),
-                        )
-                            : Container(
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ]
-
-          else if (imageCount == 3) ...[
-              Column(
-                children: [
-                  Row(
-                    children: displayImages.take(2).map((att) {
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: GestureDetector(
-                            onTap: () {
-                              if (att.displaySource != null) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ShowFullScreenMediaView(
-                                      imageUrl: att.remoteUrl,
-                                      imageFile: att.localPath != null ? File(att.localPath!) : null,
-                                      title: att.name,
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: att.displaySource != null
-                                  ? Thumbnail(
                                 mimeType: att.mimeType ?? 'image/jpeg',
                                 dataResolver: () async {
                                   final source = att.displaySource!;
                                   if (att.remoteUrl != null) {
                                     try {
-                                      final response = await http.get(Uri.parse(source));
-                                      if (response.statusCode == 200) return response.bodyBytes;
+                                      final response = await http.get(
+                                        Uri.parse(source),
+                                      );
+                                      if (response.statusCode == 200)
+                                        return response.bodyBytes;
                                     } catch (_) {}
                                     return Uint8List(0);
                                   } else {
@@ -1069,180 +1600,287 @@ class _MessageBubbleState extends State<MessageBubble> {
                                 ),
                                 errorBuilder: (context, error) => Container(
                                   color: Colors.grey[300],
-                                  child: const Icon(Icons.image, size: 50, color: Colors.grey),
+                                  child: const Icon(
+                                    Icons.image,
+                                    size: 50,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               )
-                                  : Container(
-                               // height: 180,
-                                height: multiImageWidth,
+                            : Container(
                                 color: Colors.grey[300],
-                                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                                child: const Icon(
+                                  Icons.broken_image,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  GestureDetector(
-                    onTap: () {
-                      final att = displayImages[2];
-                      if (att.displaySource != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ShowFullScreenMediaView(
-                              imageUrl: att.remoteUrl,
-                              imageFile: att.localPath != null ? File(att.localPath!) : null,
-                              title: att.name,
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: displayImages[2].displaySource != null
-                          ? Thumbnail(
-                        mimeType: displayImages[2].mimeType ?? 'image/jpeg',
-                        dataResolver: () async {
-                          final source = displayImages[2].displaySource!;
-                          if (displayImages[2].remoteUrl != null) {
-                            try {
-                              final response = await http.get(Uri.parse(source));
-                              if (response.statusCode == 200) return response.bodyBytes;
-                            } catch (_) {}
-                            return Uint8List(0);
-                          } else {
-                            return await File(source).readAsBytes();
-                          }
-                        },
-                        //widgetSize: 200,
-                        widgetSize: singleImageWidth,
-                        decoration: WidgetDecoration(
-                          backgroundColor: Colors.white,
-                          iconColor: Colors.green,
-                        ),
-                        errorBuilder: (context, error) => Container(
-                          //height: 180,
-                          height: singleImageWidth * 0.6,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.image, size: 80, color: Colors.grey),
-                        ),
-                      )
-                          : Container(
-                        //height: 180,
-                        height: singleImageWidth * 0.6,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.broken_image, size: 80, color: Colors.grey),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ]
-
-
-            else ...[
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1.0,
-                  ),
-                  itemCount: displayImages.length,
-                  itemBuilder: (context, index) {
-                    final att = displayImages[index];
-                    final isLast = index == displayImages.length - 1;
-                    final remaining = images.length - 4;
-
-                    return GestureDetector(
-                      onTap: () {
-                        if (hasMoreImages && isLast) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FullAttachmentViewer(attachments: attachments),
-                            ),
-                          );
-                        } else if (att.displaySource != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ShowFullScreenMediaView(
-                                imageUrl: att.remoteUrl,
-                                imageFile: att.localPath != null ? File(att.localPath!) : null,
-                                title: att.name,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ClipRRect(
+                );
+              },
+            ),
+          ] else if (imageCount == 3) ...[
+            Column(
+              children: [
+                Row(
+                  children: displayImages.take(2).map((att) {
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: GestureDetector(
+                          onTap: () {
+                            if (att.displaySource != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ShowFullScreenMediaView(
+                                    imageUrl: att.remoteUrl,
+                                    imageFile: att.localPath != null
+                                        ? File(att.localPath!)
+                                        : null,
+                                    title: att.name,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: att.displaySource != null
                                 ? Thumbnail(
-                              mimeType: att.mimeType ?? 'image/jpeg',
-                              dataResolver: () async {
-                                final source = att.displaySource!;
-                                if (att.remoteUrl != null) {
-                                  try {
-                                    final response = await http.get(Uri.parse(source));
-                                    if (response.statusCode == 200) return response.bodyBytes;
-                                  } catch (_) {}
-                                  return Uint8List(0);
-                                } else {
-                                  return await File(source).readAsBytes();
-                                }
-                              },
-                              //widgetSize: 180,
-                              widgetSize: multiImageWidth,
-                              decoration: WidgetDecoration(
-                                backgroundColor: Colors.white,
-                                iconColor: Colors.green,
-                              ),
-                              errorBuilder: (context, error) => Container(
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.image, size: 50, color: Colors.grey),
-                              ),
-                            )
+                                    mimeType: att.mimeType ?? 'image/jpeg',
+                                    dataResolver: () async {
+                                      final source = att.displaySource!;
+                                      if (att.remoteUrl != null) {
+                                        try {
+                                          final response = await http.get(
+                                            Uri.parse(source),
+                                          );
+                                          if (response.statusCode == 200)
+                                            return response.bodyBytes;
+                                        } catch (_) {}
+                                        return Uint8List(0);
+                                      } else {
+                                        return await File(source).readAsBytes();
+                                      }
+                                    },
+                                    //widgetSize: 180,
+                                    widgetSize: multiImageWidth,
+                                    decoration: WidgetDecoration(
+                                      backgroundColor: Colors.white,
+                                      iconColor: Colors.green,
+                                    ),
+                                    errorBuilder: (context, error) => Container(
+                                      color: Colors.grey[300],
+                                      child: const Icon(
+                                        Icons.image,
+                                        size: 50,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  )
                                 : Container(
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                            ),
+                                    // height: 180,
+                                    height: multiImageWidth,
+                                    color: Colors.grey[300],
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      size: 50,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                           ),
-                          if (hasMoreImages && isLast)
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.55),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: CustomTextWidget(
-                                  text: '+$remaining',
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  fontColor: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 8),
+
+                GestureDetector(
+                  onTap: () {
+                    final att = displayImages[2];
+                    if (att.displaySource != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ShowFullScreenMediaView(
+                            imageUrl: att.remoteUrl,
+                            imageFile: att.localPath != null
+                                ? File(att.localPath!)
+                                : null,
+                            title: att.name,
+                          ),
+                        ),
+                      );
+                    }
                   },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: displayImages[2].displaySource != null
+                        ? Thumbnail(
+                            mimeType: displayImages[2].mimeType ?? 'image/jpeg',
+                            dataResolver: () async {
+                              final source = displayImages[2].displaySource!;
+                              if (displayImages[2].remoteUrl != null) {
+                                try {
+                                  final response = await http.get(
+                                    Uri.parse(source),
+                                  );
+                                  if (response.statusCode == 200)
+                                    return response.bodyBytes;
+                                } catch (_) {}
+                                return Uint8List(0);
+                              } else {
+                                return await File(source).readAsBytes();
+                              }
+                            },
+                            //widgetSize: 200,
+                            widgetSize: singleImageWidth,
+                            decoration: WidgetDecoration(
+                              backgroundColor: Colors.white,
+                              iconColor: Colors.green,
+                            ),
+                            errorBuilder: (context, error) => Container(
+                              //height: 180,
+                              height: singleImageWidth * 0.6,
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.image,
+                                size: 80,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            //height: 180,
+                            height: singleImageWidth * 0.6,
+                            color: Colors.grey[300],
+                            child: const Icon(
+                              Icons.broken_image,
+                              size: 80,
+                              color: Colors.grey,
+                            ),
+                          ),
+                  ),
                 ),
               ],
+            ),
+          ] else ...[
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: displayImages.length,
+              itemBuilder: (context, index) {
+                final att = displayImages[index];
+                final isLast = index == displayImages.length - 1;
+                final remaining = images.length - 4;
+
+                return GestureDetector(
+                  onTap: () {
+                    if (hasMoreImages && isLast) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              FullAttachmentViewer(attachments: attachments),
+                        ),
+                      );
+                    } else if (att.displaySource != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ShowFullScreenMediaView(
+                            imageUrl: att.remoteUrl,
+                            imageFile: att.localPath != null
+                                ? File(att.localPath!)
+                                : null,
+                            title: att.name,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: att.displaySource != null
+                            ? Thumbnail(
+                                mimeType: att.mimeType ?? 'image/jpeg',
+                                dataResolver: () async {
+                                  final source = att.displaySource!;
+                                  if (att.remoteUrl != null) {
+                                    try {
+                                      final response = await http.get(
+                                        Uri.parse(source),
+                                      );
+                                      if (response.statusCode == 200)
+                                        return response.bodyBytes;
+                                    } catch (_) {}
+                                    return Uint8List(0);
+                                  } else {
+                                    return await File(source).readAsBytes();
+                                  }
+                                },
+                                //widgetSize: 180,
+                                widgetSize: multiImageWidth,
+                                decoration: WidgetDecoration(
+                                  backgroundColor: Colors.white,
+                                  iconColor: Colors.green,
+                                ),
+                                errorBuilder: (context, error) => Container(
+                                  color: Colors.grey[300],
+                                  child: const Icon(
+                                    Icons.image,
+                                    size: 50,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.broken_image,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                      ),
+                      if (hasMoreImages && isLast)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.55),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: CustomTextWidget(
+                              text: '+$remaining',
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              fontColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
         ],
-        if (images.isNotEmpty && documents.isNotEmpty) const SizedBox(height: 16),
+        if (images.isNotEmpty && documents.isNotEmpty)
+          const SizedBox(height: 16),
       ],
     );
   }
@@ -1440,3 +2078,4 @@ class _MessageBubbleState extends State<MessageBubble> {
     return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
   }
 }
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -147,6 +148,80 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
     },
 
   ];
+  // final List<Map<String, dynamic>> parentList = [
+  //   {
+  //     'name': 'Ajay Sundaram',
+  //     'avatar': 'https://randomuser.me/api/portraits/boys/45.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 1,
+  //     'classroom': '2-Green B',
+  //     'status': 'Upcoming',
+  //     'tags': ['5 Days', 'Full Day', 'Photo Permission', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Chaitanya Bhave',
+  //     'avatar': 'https://randomuser.me/api/portraits/men/67.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 1,
+  //     'classroom': '1-Yellow A',
+  //     'status': 'Active',
+  //     'tags': ['Full Day', 'Vegetarian', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Riken Mehta',
+  //     'avatar': 'https://randomuser.me/api/portraits/boys/12.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 1,
+  //     'classroom': '3-Purple C',
+  //     'status': 'Active',
+  //     'tags': ['5 Days', 'Medication', 'Allergy', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Thomas Edison',
+  //     'avatar': 'https://randomuser.me/api/portraits/boys/88.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': true,
+  //     'unreadCount': 0,
+  //     'classroom': '4-Blue D',
+  //     'status': 'Active',
+  //     'tags': ['Half Day', 'Pickup Authorized', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Olivia Gonsalves',
+  //     'avatar': 'https://randomuser.me/api/portraits/girls/23.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 0,
+  //     'classroom': '2-Red A',
+  //     'status': 'Active',
+  //     'tags': ['5 Days', 'Full Day', 'Girl', 'First Aid'],
+  //   },
+  //   {
+  //     'name': 'Satya Vani Kanumuri',
+  //     'avatar': 'https://randomuser.me/api/portraits/women/51.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': true,
+  //     'unreadCount': 0,
+  //     'classroom': '1-Blue D',
+  //     'status': 'Active',
+  //     'tags': ['Full Day', 'Photo Permission', 'Vegetarian', 'Girl'],
+  //   },
+  // ];
   final List<Map<String, dynamic>> parentList = [
     {
       'name': 'Ajay Sundaram',
@@ -159,6 +234,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'classroom': '2-Green B',
       'status': 'Upcoming',
       'tags': ['5 Days', 'Full Day', 'Photo Permission', 'Boy'],
+      'staffList': ['Eddie Barnes', 'John Doe', 'Priya Sharma', 'Mr. Kumar'],
+      'parents': ['Nitin Sundaram', 'Radha Sundaram'],
     },
     {
       'name': 'Chaitanya Bhave',
@@ -171,6 +248,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'classroom': '1-Yellow A',
       'status': 'Active',
       'tags': ['Full Day', 'Vegetarian', 'Boy'],
+      'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Patel'],
+      'parents': ['Vikas Bhave', 'Sneha Bhave'],
     },
     {
       'name': 'Riken Mehta',
@@ -183,6 +262,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'classroom': '3-Purple C',
       'status': 'Active',
       'tags': ['5 Days', 'Medication', 'Allergy', 'Boy'],
+      'staffList': ['John Doe', 'Priya Sharma', 'Ms. Gupta'],
+      'parents': ['Rakesh Mehta', 'Pooja Mehta'],
     },
     {
       'name': 'Thomas Edison',
@@ -195,6 +276,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'classroom': '4-Blue D',
       'status': 'Active',
       'tags': ['Half Day', 'Pickup Authorized', 'Boy'],
+      'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Kumar'],
+      'parents': ['James Edison', 'Mary Edison'],
     },
     {
       'name': 'Olivia Gonsalves',
@@ -207,6 +290,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'classroom': '2-Red A',
       'status': 'Active',
       'tags': ['5 Days', 'Full Day', 'Girl', 'First Aid'],
+      'staffList': ['Priya Sharma', 'Ms. Gupta', 'Mr. Patel'],
+      'parents': ['Antonio Gonsalves', 'Maria Gonsalves'],
     },
     {
       'name': 'Satya Vani Kanumuri',
@@ -219,6 +304,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'classroom': '1-Blue D',
       'status': 'Active',
       'tags': ['Full Day', 'Photo Permission', 'Vegetarian', 'Girl'],
+      'staffList': ['Eddie Barnes', 'John Doe', 'Sarah Lee'],
+      'parents': ['Ravi Kanumuri', 'Lakshmi Kanumuri'],
     },
   ];
   late List<Map<String, dynamic>> _filteredList;
@@ -527,7 +614,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
               final person = _filteredList[index];
               return InkWell(
                 onTap: (){
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffMessagingThread(staffInfo: person)));
+                  widget.isStaffMessaging ?
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffMessagingThread(staffInfo: person))) :
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => ParentMessagingThread(parentInfo: person)));
                 },
                 child: Container(
                   decoration: BoxDecoration(
