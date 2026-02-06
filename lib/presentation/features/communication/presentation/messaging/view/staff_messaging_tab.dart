@@ -236,6 +236,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'tags': ['5 Days', 'Full Day', 'Photo Permission', 'Boy'],
       'staffList': ['Eddie Barnes', 'John Doe', 'Priya Sharma', 'Mr. Kumar'],
       'parents': ['Nitin Sundaram', 'Radha Sundaram'],
+      'privateModeParents': ['Nitin Sundaram', 'Radha Sundaram'],
     },
     {
       'name': 'Chaitanya Bhave',
@@ -250,6 +251,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'tags': ['Full Day', 'Vegetarian', 'Boy'],
       'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Patel'],
       'parents': ['Vikas Bhave', 'Sneha Bhave'],
+      'privateModeParents': [],
     },
     {
       'name': 'Riken Mehta',
@@ -264,6 +266,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'tags': ['5 Days', 'Medication', 'Allergy', 'Boy'],
       'staffList': ['John Doe', 'Priya Sharma', 'Ms. Gupta'],
       'parents': ['Rakesh Mehta', 'Pooja Mehta'],
+      'privateModeParents': ['Pooja Mehta'],
     },
     {
       'name': 'Thomas Edison',
@@ -278,6 +281,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'tags': ['Half Day', 'Pickup Authorized', 'Boy'],
       'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Kumar'],
       'parents': ['James Edison', 'Mary Edison'],
+      'privateModeParents': [],
     },
     {
       'name': 'Olivia Gonsalves',
@@ -292,6 +296,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'tags': ['5 Days', 'Full Day', 'Girl', 'First Aid'],
       'staffList': ['Priya Sharma', 'Ms. Gupta', 'Mr. Patel'],
       'parents': ['Antonio Gonsalves', 'Maria Gonsalves'],
+      'privateModeParents': [],
     },
     {
       'name': 'Satya Vani Kanumuri',
@@ -306,6 +311,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       'tags': ['Full Day', 'Photo Permission', 'Vegetarian', 'Girl'],
       'staffList': ['Eddie Barnes', 'John Doe', 'Sarah Lee'],
       'parents': ['Ravi Kanumuri', 'Lakshmi Kanumuri'],
+      'privateModeParents': [],
     },
   ];
   late List<Map<String, dynamic>> _filteredList;

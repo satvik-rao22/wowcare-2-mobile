@@ -28,10 +28,75 @@ class ParentMessagingThread extends StatefulWidget {
   State<ParentMessagingThread> createState() => _ParentMessagingThreadState();
 }
 
-class _ParentMessagingThreadState extends State<ParentMessagingThread> {
-  final AutoScrollController _scrollController = AutoScrollController();
+class _ParentMessagingThreadState extends State<ParentMessagingThread>  with SingleTickerProviderStateMixin{
+
+
   final TextEditingController _controller = TextEditingController();
-  final List<Message> _messages = [
+
+  final AutoScrollController _groupController = AutoScrollController();
+  final AutoScrollController _parent1Controller = AutoScrollController();
+  final AutoScrollController _parent2Controller = AutoScrollController();
+  TabController? _tabController;
+
+  // final List<Message> _messages = [
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     senderName: "Radha Sundaram",
+  //     text: "How is Ajay Doing Today?",
+  //     isSentByMe: false,
+  //     time: DateTime(2025, 1, 13, 14, 45),
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     senderName: "Eddie Barnes",
+  //     text: "He is doing Great!",
+  //     isSentByMe: true,
+  //     time: DateTime(2025, 1, 13, 16, 45),
+  //     attachments: [
+  //       ChatAttachment(
+  //         name: 'Ajay Photo.jpg',
+  //         type: 'image',
+  //         sizeBytes: 3200000,
+  //         mimeType: 'image/jpeg',
+  //         remoteUrl: 'https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=800',
+  //       ),
+  //     ],
+  //   ),
+  //   Message(
+  //     id: const Uuid().v4(),
+  //     senderName: "Radha Sundaram",
+  //     text: "Thanks!",
+  //     isSentByMe: false,
+  //     time: DateTime(2025, 1, 13, 16, 50),
+  //   ),
+  // ];
+
+
+  List<Message> _groupMessages = [
+    Message(
+      id: const Uuid().v4(),
+      senderName: "Eddie Barnes",
+      text: "Good morning everyone! Ajay attended school today.",
+      isSentByMe: true,
+      time: DateTime(2025, 1, 13, 8, 30),
+    ),
+    Message(
+      id: const Uuid().v4(),
+      senderName: "Radha Sundaram",
+      text: "Thank you for the update!",
+      isSentByMe: false,
+      time: DateTime(2025, 1, 13, 8, 45),
+    ),
+    Message(
+      id: const Uuid().v4(),
+      senderName: "Nitin Sundaram",
+      text: "Yes, thanks Eddie. How was his math class?",
+      isSentByMe: false,
+      time: DateTime(2025, 1, 13, 9, 00),
+    ),
+  ];
+
+  List<Message> _parent1Messages = [
     Message(
       id: const Uuid().v4(),
       senderName: "Radha Sundaram",
@@ -42,7 +107,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
     Message(
       id: const Uuid().v4(),
       senderName: "Eddie Barnes",
-      text: "He is doing Great!",
+      text: "He is doing Great! Here's a photo from today's activity.",
       isSentByMe: true,
       time: DateTime(2025, 1, 13, 16, 45),
       attachments: [
@@ -58,26 +123,100 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
     Message(
       id: const Uuid().v4(),
       senderName: "Radha Sundaram",
-      text: "Thanks!",
+      text: "Thanks! He looks happy 😊",
       isSentByMe: false,
       time: DateTime(2025, 1, 13, 16, 50),
     ),
   ];
-  late final ReactionsController _reactionsController;
+
+  List<Message> _parent2Messages = [
+    Message(
+      id: const Uuid().v4(),
+      senderName: "Nitin Sundaram",
+      text: "Ajay forgot his water bottle again today?",
+      isSentByMe: false,
+      time: DateTime(2025, 1, 14, 10, 15),
+    ),
+    Message(
+      id: const Uuid().v4(),
+      senderName: "Eddie Barnes",
+      text: "Yes, but we gave him one from school stock. No worries.",
+      isSentByMe: true,
+      time: DateTime(2025, 1, 14, 10, 20),
+    ),
+    Message(
+      id: const Uuid().v4(),
+      senderName: "Nitin Sundaram",
+      text: "Thank you so much!",
+      isSentByMe: false,
+      time: DateTime(2025, 1, 14, 10, 25),
+    ),
+  ];
+  //late final ReactionsController _reactionsController;
   Message? _quotedMessage = null;
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
 
+  bool isPrivateModeEnabled(Map<String, dynamic> parentInfo) {
+    final privateParents = parentInfo['privateModeParents'] as List<dynamic>? ?? [];
+    return privateParents.isNotEmpty;
+  }
+
+  bool _isParentInPrivateMode(String parentName) {
+    final privateParents = widget.parentInfo['privateModeParents'] as List<dynamic>? ?? [];
+    return privateParents.contains(parentName);
+  }
+
+  bool get _privateModeEnabled => isPrivateModeEnabled(widget.parentInfo);
+
+  late final String parent1Name;
+  late final String parent2Name;
+
   @override
   void initState() {
     super.initState();
-    _reactionsController = ReactionsController(currentUserId: 'me');
+    //_reactionsController = ReactionsController(currentUserId: 'me');
+    final parents = (widget.parentInfo['parents'] as List<dynamic>).cast<String>();
+    parent1Name = parents[0];
+    parent2Name = parents[1];
+
+    _tabController = TabController(
+      length: _privateModeEnabled ? 2 : 1,
+      vsync: this,
+    );
+
+
+    _tabController?.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    _reactionsController.dispose();
+    //_reactionsController.dispose();
+    _controller.dispose();
+    _groupController.dispose();
+    _parent1Controller.dispose();
+    _parent2Controller.dispose();
+    _tabController?.dispose();
     super.dispose();
+  }
+
+  AutoScrollController _getActiveScrollController(){
+    if(!_privateModeEnabled) return _groupController;
+    return _tabController?.index == 0 ? _parent1Controller : _parent2Controller;
+  }
+
+  String? _getTagetParentForCurrentTab(){
+    if(!_privateModeEnabled) return null;
+    return _tabController?.index == 0 ? parent1Name : parent2Name;
+  }
+
+  List<Message> get _activeMessages {
+    if(!_privateModeEnabled){
+      return _groupMessages;
+    }
+    return _tabController?.index == 0 ? _parent1Messages : _parent2Messages;
   }
 
   void _sendMessage() {
@@ -87,6 +226,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
     final hasAttachments = _pendingAttachments.isNotEmpty;
 
     if(!hasText && !hasAttachments) return;
+
+    List<String> receivers = [];
+    receivers.addAll((widget.parentInfo['staffList'] as List<dynamic>).cast<String>() );
+
+    if(_privateModeEnabled){
+      final targetParent = _getTagetParentForCurrentTab();
+      if(targetParent != null){
+        receivers.add(targetParent);
+      }
+    } else {
+      receivers.addAll((widget.parentInfo['parents'] as List<dynamic>).cast<String>());
+    }
 
     final now = DateTime.now();
     final newMessage = Message(
@@ -99,12 +250,19 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
       readAt: null,
       attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageId,
+      receivers: receivers
       // For group simulation
       // deliveredTo: {},
       // readBy: {},
     );
     setState(() {
-      _messages.add(newMessage);
+      if(!_privateModeEnabled){
+        _groupMessages.add(newMessage);
+      } else if(_tabController?.index == 0){
+        _parent1Messages.add(newMessage);
+      } else {
+        _parent2Messages.add(newMessage);
+      }
       _controller.clear();
       _pendingAttachments.clear();
       _quotedMessage = null;
@@ -124,66 +282,21 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
     // });
 
     //_controller.clear();
+    final scrollController = _getActiveScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.scrollToIndex(
+      scrollController.scrollToIndex(
         0,
         preferPosition: AutoScrollPosition.begin,
         duration: const Duration(milliseconds: 300),
       );
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        final idx = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (idx == -1) return;
-
-
-        _messages[idx] = Message(
-          id: newMessage.id,
-          text: newMessage.text,
-          senderName: newMessage.senderName,
-          isSentByMe: true,
-          time: newMessage.time,
-          deliveredAt: DateTime.now(),
-          readAt: newMessage.readAt,
-          attachments: newMessage.attachments,
-          quotedMessageId: newMessage.quotedMessageId,
-          reactions: newMessage.reactions
-          // deliveredTo: newMessage.deliveredTo,
-        );
-      });
-    });
-
-
-    Future.delayed(const Duration(seconds: 7), () {
-      setState(() {
-        final idx = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (idx == -1) return;
-
-        _messages[idx] = Message(
-          id: newMessage.id,
-          text: newMessage.text,
-          senderName: newMessage.senderName,
-          isSentByMe: true,
-          time: newMessage.time,
-          deliveredAt: _messages[idx].deliveredAt,
-          readAt: DateTime.now(),
-          attachments: newMessage.attachments,
-          quotedMessageId: newMessage.quotedMessageId,
-          reactions: newMessage.reactions
-          // readBy: {'user123': DateTime.now()},
-        );
-        //_quotedMessageId = null;
-      });
-    });
   }
 
-
-
   int? _getReversedIndex(String messageId) {
-    final index = _messages.indexWhere((m) => m.id == messageId);
+    final index = _activeMessages.indexWhere((m) => m.id == messageId);
     if (index == -1) return null;
-    return _messages.length - 1 - index;
+    return _activeMessages.length - 1 - index;
   }
 
   void _scrollToMessage(String messageId) {
@@ -192,21 +305,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
       print("Message $messageId not found");
       return;
     }
-
-    _scrollController.scrollToIndex(
+    final scrollController = _getActiveScrollController();
+    scrollController.scrollToIndex(
       index,
       preferPosition: AutoScrollPosition.middle,
       duration: const Duration(milliseconds: 600),
     );
   }
 
-  void _showMessageOptions(
-      BuildContext context,
-      Message message,
-      LongPressStartDetails details,
-      ) {
-    final RenderBox overlay =
-    Overlay.of(context).context.findRenderObject() as RenderBox;
+  void _showMessageOptions(BuildContext context, Message message, LongPressStartDetails details,) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
 
     showMenu<String>(
       context: context,
@@ -328,7 +436,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
 
         case 'delete':
           setState(() {
-            _messages.removeWhere((m) => m.id == message.id);
+            _activeMessages.removeWhere((m) => m.id == message.id);
             CoreUtils.showTopSnackBar(
               context: context,
               message: 'Message deleted successfully',
@@ -398,13 +506,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
     final currentUserId =
         'me'; // dummy for now
     setState(() {
+      final _messages = _activeMessages;
       final index = _messages.indexWhere(
             (m) => m.id == message.id,
       );
       if (index != -1) {
         final currentReactions =
         Map<String, String>.from(
-          _messages[index].reactions,
+          _activeMessages[index].reactions,
         );
         currentReactions[currentUserId] =
             emoji;
@@ -535,6 +644,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
                 final newText = editingController.text.trim();
                 if (newText.isNotEmpty && newText != message.text) {
                   setState(() {
+                    final _messages = _activeMessages;
                     final idx = _messages.indexWhere(
                           (m) => m.id == message.id,
                     );
@@ -584,8 +694,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+    final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final tabNames = _privateModeEnabled ? [parent1Name, parent2Name] : ['${parent1Name}, ${parent2Name} and Staff'];
+    final _messages = _activeMessages;
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: !isLandscape,
@@ -601,420 +712,3110 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
                   borderRadius: BorderRadius.circular(12),
                   color: const Color(0xFFF4F7FD),
                 ),
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
-                  ),
-                  reverse: true,
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final message =
-                    _messages[_messages.length - 1 - index];
-                    final messageId = message.id;
-                    //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                    // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                    // final key = keyMap.putIfAbsent(
-                    //   messageId,
-                    //   () => GlobalKey(),
-                    // );
-                    Message? quotedMessage;
-                    if (message.quotedMessageId != null) {
-                      quotedMessage = _messages.firstWhere(
-                            (m) => m.id == message.quotedMessageId,
-                      ); // ?? null;
-                    }
-                    bool showDateHeader = false;
-                    final prevListIndex = _messages.length - 2 - index;
+                child: NestedScrollView(
+                    headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                      SliverToBoxAdapter(
+                        child: TabBar(
+                          controller: _tabController,
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          padding: EdgeInsets.all(0),
+                          labelColor: AppColors.primaryColor,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: AppColors.themeColor,
+                          dividerColor: Colors.transparent,
+                          //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                          tabs: tabNames.map((name) => _buildTab(name)).toList(),
+                        ),
+                      )
+                    ],
+                    body: TabBarView(
+                      controller: _tabController,
+                      children: _privateModeEnabled ?
+                      [
+                        ListView.builder(
+                          controller: _getActiveScrollController(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          reverse: true,
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message =
+                            _messages[_messages.length - 1 - index];
+                            final messageId = message.id;
+                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                            // final key = keyMap.putIfAbsent(
+                            //   messageId,
+                            //   () => GlobalKey(),
+                            // );
+                            Message? quotedMessage;
+                            if (message.quotedMessageId != null) {
+                              quotedMessage = _messages.firstWhere(
+                                    (m) => m.id == message.quotedMessageId,
+                              ); // ?? null;
+                            }
+                            bool showDateHeader = false;
+                            final prevListIndex =
+                                _messages.length - 2 - index;
 
-                    if (prevListIndex >= 0) {
-                      final prevMessage = _messages[prevListIndex];
+                            if (prevListIndex >= 0) {
+                              final prevMessage = _messages[prevListIndex];
 
-                      showDateHeader =
-                          message.time.year != prevMessage.time.year ||
-                              message.time.month != prevMessage.time.month ||
-                              message.time.day != prevMessage.time.day;
-                    } else {
-                      showDateHeader = true;
-                    }
+                              showDateHeader =
+                                  message.time.year !=
+                                      prevMessage.time.year ||
+                                      message.time.month !=
+                                          prevMessage.time.month ||
+                                      message.time.day != prevMessage.time.day;
+                            } else {
+                              showDateHeader = true;
+                            }
 
-                    return AutoScrollTag(
-                      key: ValueKey(messageId),
-                      controller: _scrollController,
-                      index: index,
-                      highlightColor: Colors.green.withValues(alpha: 0.7),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (showDateHeader)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: _buildDateChip(message.time),
+                            return AutoScrollTag(
+                              key: ValueKey(messageId),
+                              controller: _getActiveScrollController(),
+                              index: index,
+                              highlightColor: Colors.green.withValues(
+                                alpha: 0.7,
                               ),
-                            ),
-                          if (showDateHeader) const SizedBox(height: 10),
-                          MessageBubble(
-                            //key: key,
-                            //scrollKey: scrollKey,
-                            message: message,
-                            isParentMessaging: true,
-                            quotedMessage: quotedMessage,
-                            onLongPress:
-                                (LongPressStartDetails details) {
-                              _showMessageOptions(
-                                context,
-                                message,
-                                details,
-                              );
-                            },
-                            onScrollToQuoted: (quoteId) {
-                              _scrollToMessage(quoteId);
-                            },
-                            // onHeightMeasured: (id, height) {
-                            //   if (_bubbleHeights[id] != height) {
-                            //     setState(() {
-                            //       _bubbleHeights[id] = height;
-                            //     });
-                            //   }
-                            // },
-                            //onHeightMeasured:
-                            // onContextReady: (id, ctx) {
-                            //   if (_messageContexts[id] != ctx) {
-                            //     setState(() {
-                            //       _messageContexts[id] = ctx;
-                            //     });
-                            //   }
-                            // },
-                          )
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (showDateHeader)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
+                                        child: _buildDateChip(message.time),
+                                      ),
+                                    ),
+                                  if (showDateHeader)
+                                    const SizedBox(height: 10),
+                                  MessageBubble(
+                                    //key: key,
+                                    //scrollKey: scrollKey,
+                                    message: message,
+                                    isParentMessaging: true,
+                                    quotedMessage: quotedMessage,
+                                    onLongPress:
+                                        (LongPressStartDetails details) {
+                                      _showMessageOptions(
+                                        context,
+                                        message,
+                                        details,
+                                      );
+                                    },
+                                    onScrollToQuoted: (quoteId) {
+                                      _scrollToMessage(quoteId);
+                                    },
+                                    // onHeightMeasured: (id, height) {
+                                    //   if (_bubbleHeights[id] != height) {
+                                    //     setState(() {
+                                    //       _bubbleHeights[id] = height;
+                                    //     });
+                                    //   }
+                                    // },
+                                    //onHeightMeasured:
+                                    // onContextReady: (id, ctx) {
+                                    //   if (_messageContexts[id] != ctx) {
+                                    //     setState(() {
+                                    //       _messageContexts[id] = ctx;
+                                    //     });
+                                    //   }
+                                    // },
+                                  ),
 
-                          // if (message.isSentByMe)
-                          //   MessageBubble(
-                          //     //key: key,
-                          //     //scrollKey: scrollKey,
-                          //     message: message,
-                          //     isParentMessaging: true,
-                          //     quotedMessage: quotedMessage,
-                          //     onLongPress:
-                          //         (LongPressStartDetails details) {
-                          //       _showMessageOptions(
-                          //         context,
-                          //         message,
-                          //         details,
-                          //       );
-                          //     },
-                          //     onScrollToQuoted: (quoteId) {
-                          //       _scrollToMessage(quoteId);
-                          //     },
-                          //     // onHeightMeasured: (id, height) {
-                          //     //   if (_bubbleHeights[id] != height) {
-                          //     //     setState(() {
-                          //     //       _bubbleHeights[id] = height;
-                          //     //     });
-                          //     //   }
-                          //     // },
-                          //     //onHeightMeasured:
-                          //     // onContextReady: (id, ctx) {
-                          //     //   if (_messageContexts[id] != ctx) {
-                          //     //     setState(() {
-                          //     //       _messageContexts[id] = ctx;
-                          //     //     });
-                          //     //   }
-                          //     // },
-                          //   )
-                          // else
-                          //   ChatMessageWrapper(
-                          //     messageId: message.id,
-                          //     controller: _reactionsController,
-                          //     child: MessageBubble(
-                          //       //key: key,
-                          //       //scrollKey: scrollKey,
-                          //       message: message,
-                          //       isParentMessaging: true,
-                          //       quotedMessage: quotedMessage,
-                          //       onLongPress:
-                          //           (LongPressStartDetails details) {
-                          //         _showMessageOptions(
-                          //           context,
-                          //           message,
-                          //           details,
-                          //         );
-                          //       },
-                          //       onScrollToQuoted: (quoteId) {
-                          //         _scrollToMessage(quoteId);
-                          //       },
-                          //       // onHeightMeasured: (id, height) {
-                          //       //   if (_bubbleHeights[id] != height) {
-                          //       //     setState(() {
-                          //       //       _bubbleHeights[id] = height;
-                          //       //     });
-                          //       //   }
-                          //       // },
-                          //       // onContextReady: (id, ctx) {
-                          //       //   if (_messageContexts[id] != ctx) {
-                          //       //     setState(() {
-                          //       //       _messageContexts[id] = ctx;
-                          //       //     });
-                          //       //   }
-                          //       // },
-                          //     ),
-                          //     config: ChatReactionsConfig(
-                          //       availableReactions: const [
-                          //         '👍',
-                          //         '❤️',
-                          //         '😂',
-                          //         '😮',
-                          //         '😢',
-                          //         '😠',
-                          //         '➕',
-                          //       ],
-                          //
-                          //       // availableReactions: const [
-                          //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
-                          //       // ],
-                          //       showAddReactionButton: true,
-                          //       enableHapticFeedback: true,
-                          //       enableLongPress: true,
-                          //       enableDoubleTap: false,
-                          //       maxReactionsToShow: 5,
-                          //       reactionSize: 24.0,
-                          //       stackedValue: 4.0,
-                          //
-                          //       emojiPickerBuilder: (context, onEmojiSelected) {
-                          //         print(
-                          //           'emojiPickerBuilder was invoked!',
-                          //         );
-                          //         return SizedBox(
-                          //           height: 380,
-                          //           child: EmojiPicker(
-                          //             onEmojiSelected: (category, emoji) {
-                          //               onEmojiSelected(emoji.emoji);
-                          //               print(
-                          //                 'Emoji selected: ${emoji.emoji}',
-                          //               );
-                          //             },
-                          //             config: const Config(
-                          //               //height: 380,
-                          //               checkPlatformCompatibility: true,
-                          //               emojiSet: null,
-                          //               locale: Locale('en'),
-                          //               emojiTextStyle: null,
-                          //               customBackspaceIcon: null,
-                          //               customSearchIcon: null,
-                          //               viewOrderConfig:
-                          //               ViewOrderConfig(),
-                          //               emojiViewConfig:
-                          //               EmojiViewConfig(),
-                          //               skinToneConfig: SkinToneConfig(
-                          //                 enabled: true,
-                          //               ),
-                          //               categoryViewConfig:
-                          //               CategoryViewConfig(
-                          //                 recentTabBehavior:
-                          //                 RecentTabBehavior
-                          //                     .RECENT,
-                          //               ),
-                          //               bottomActionBarConfig:
-                          //               BottomActionBarConfig(
-                          //                 enabled: false,
-                          //               ),
-                          //               searchViewConfig:
-                          //               SearchViewConfig(),
-                          //             ),
-                          //           ),
-                          //         );
-                          //       },
-                          //
-                          //       menuItems: [
-                          //         MenuItem(
-                          //           label: 'Delete',
-                          //           icon: Icons.delete_outline,
-                          //           isDestructive: true,
-                          //         ),
-                          //         MenuItem(
-                          //           label: 'Copy',
-                          //           icon: Icons.copy,
-                          //           isDestructive: false,
-                          //         ),
-                          //         MenuItem(
-                          //           label: 'Reply',
-                          //           icon: Icons.reply,
-                          //           isDestructive: false,
-                          //         ),
-                          //       ],
-                          //
-                          //       showContextMenu: true,
-                          //     ),
-                          //
-                          //     onMenuItemTapped: (item) {
-                          //       final label = item.label.toLowerCase();
-                          //
-                          //       if (label == 'delete') {
-                          //         setState(() {
-                          //           _messages.removeWhere(
-                          //                 (m) => m.id == message.id,
-                          //           );
-                          //           CoreUtils.showTopSnackBar(
-                          //             context: context,
-                          //             message:
-                          //             'Message deleted successfully',
-                          //             isSuccess: true,
-                          //           );
-                          //         });
-                          //       } else if (label == 'reply') {
-                          //         setState(() {
-                          //           _quotedMessage = message;
-                          //           _quotedMessageId = message.id;
-                          //         });
-                          //         // ScaffoldMessenger.of(context).showSnackBar(
-                          //         //   SnackBar(content: Text('Replying to message')),
-                          //         // );
-                          //       } else if (label == 'copy') {
-                          //         Clipboard.setData(
-                          //           ClipboardData(text: message.text),
-                          //         );
-                          //         CoreUtils.showTopSnackBar(
-                          //           context: context,
-                          //           message:
-                          //           'Message copied successfully',
-                          //           isSuccess: true,
-                          //         );
-                          //       }
-                          //     },
-                          //
-                          //     onReactionAdded: (emoji) {
-                          //       // if (emoji == '+') {
-                          //       //   showModalBottomSheet(
-                          //       //     context: context,
-                          //       //     builder: (_) =>
-                          //       //         EmojiPicker(
-                          //       //           onEmojiSelected: (category, emoji) {
-                          //       //             Navigator.pop(context);
-                          //       //           },
-                          //       //           config: const Config(
-                          //       //             height: 380,
-                          //       //             checkPlatformCompatibility: true,
-                          //       //             emojiSet: null,
-                          //       //             locale: Locale('en'),
-                          //       //             emojiTextStyle: null,
-                          //       //             customBackspaceIcon: null,
-                          //       //             customSearchIcon: null,
-                          //       //             viewOrderConfig: ViewOrderConfig(),
-                          //       //             emojiViewConfig: EmojiViewConfig(),
-                          //       //             skinToneConfig: SkinToneConfig(enabled: true),
-                          //       //             categoryViewConfig: CategoryViewConfig(
-                          //       //               recentTabBehavior: RecentTabBehavior.RECENT,
-                          //       //             ),
-                          //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-                          //       //             searchViewConfig: SearchViewConfig(),
-                          //       //           ),
-                          //       //         ),
-                          //       //     // EmojiPicker(
-                          //       //     //   onEmojiSelected: (_, e) {
-                          //       //     //     Navigator.pop(context);
-                          //       //     //     // apply reaction manually
-                          //       //     //     print('Picked ${e.emoji}');
-                          //       //     //   },
-                          //       //     //   config: const Config(height: 380),
-                          //       //     // ),
-                          //       //   );
-                          //       // }
-                          //       final currentUserId =
-                          //           'me'; // dummy for now
-                          //       setState(() {
-                          //         final index = _messages.indexWhere(
-                          //               (m) => m.id == message.id,
-                          //         );
-                          //         if (index != -1) {
-                          //           final currentReactions =
-                          //           Map<String, String>.from(
-                          //             _messages[index].reactions,
-                          //           );
-                          //           currentReactions[currentUserId] =
-                          //               emoji;
-                          //           _messages[index] = Message(
-                          //             id: _messages[index].id,
-                          //             text: _messages[index].text,
-                          //             isSentByMe:
-                          //             _messages[index].isSentByMe,
-                          //             time: _messages[index].time,
-                          //             deliveredAt:
-                          //             _messages[index].deliveredAt,
-                          //             readAt: _messages[index].readAt,
-                          //             deliveredTo:
-                          //             _messages[index].deliveredTo,
-                          //             readBy: _messages[index].readBy,
-                          //             attachments: _messages[index].attachments,
-                          //             senderName: _messages[index].senderName,
-                          //             reactions: currentReactions,
-                          //           );
-                          //         }
-                          //         // ScaffoldMessenger.of(
-                          //         //   context,
-                          //         // ).showSnackBar(
-                          //         //   SnackBar(
-                          //         //     content: Text('Reacted with $emoji'),
-                          //         //   ),
-                          //         // );
-                          //       });
-                          //     },
-                          //
-                          //     onReactionRemoved: (emoji) {
-                          //       final currentUserId =
-                          //           'me'; // dummy for now
-                          //       setState(() {
-                          //         // message.reactions.remove(emoji);
-                          //         final index = _messages.indexWhere(
-                          //               (m) => m.id == message.id,
-                          //         );
-                          //         if (index != -1) {
-                          //           final currentReactions =
-                          //           Map<String, String>.from(
-                          //             _messages[index].reactions,
-                          //           );
-                          //           if (currentReactions[currentUserId] ==
-                          //               emoji) {
-                          //             currentReactions.remove(
-                          //               currentUserId,
-                          //             );
-                          //           }
-                          //           _messages[index] = Message(
-                          //             id: _messages[index].id,
-                          //             text: _messages[index].text,
-                          //             isSentByMe:
-                          //             _messages[index].isSentByMe,
-                          //             time: _messages[index].time,
-                          //             deliveredAt:
-                          //             _messages[index].deliveredAt,
-                          //             readAt: _messages[index].readAt,
-                          //             deliveredTo:
-                          //             _messages[index].deliveredTo,
-                          //             readBy: _messages[index].readBy,
-                          //             attachments: _messages[index].attachments,
-                          //             senderName: _messages[index].senderName,
-                          //             reactions: currentReactions,
-                          //           );
-                          //         }
-                          //         // ScaffoldMessenger.of(
-                          //         //   context,
-                          //         // ).showSnackBar(
-                          //         //   SnackBar(
-                          //         //     content: Text('Removed $emoji'),
-                          //         //   ),
-                          //         // );
-                          //       });
-                          //     },
-                          //
-                          //     alignment: message.isSentByMe
-                          //         ? Alignment.centerRight
-                          //         : Alignment.centerLeft,
-                          //   ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                                  // if (message.isSentByMe)
+                                  //   MessageBubble(
+                                  //     //key: key,
+                                  //     //scrollKey: scrollKey,
+                                  //     message: message,
+                                  //     quotedMessage: quotedMessage,
+                                  //     isParentMessaging: true,
+                                  //     onLongPress:
+                                  //         (LongPressStartDetails details) {
+                                  //       _showMessageOptions(
+                                  //         context,
+                                  //         message,
+                                  //         details,
+                                  //       );
+                                  //     },
+                                  //     onScrollToQuoted: (quoteId) {
+                                  //       _scrollToMessage(quoteId);
+                                  //     },
+                                  //     // onHeightMeasured: (id, height) {
+                                  //     //   if (_bubbleHeights[id] != height) {
+                                  //     //     setState(() {
+                                  //     //       _bubbleHeights[id] = height;
+                                  //     //     });
+                                  //     //   }
+                                  //     // },
+                                  //     //onHeightMeasured:
+                                  //     // onContextReady: (id, ctx) {
+                                  //     //   if (_messageContexts[id] != ctx) {
+                                  //     //     setState(() {
+                                  //     //       _messageContexts[id] = ctx;
+                                  //     //     });
+                                  //     //   }
+                                  //     // },
+                                  //   )
+                                  // else
+                                  //   ChatMessageWrapper(
+                                  //     messageId: message.id,
+                                  //     controller: _reactionsController,
+                                  //     child: MessageBubble(
+                                  //       //key: key,
+                                  //       //scrollKey: scrollKey,
+                                  //       message: message,
+                                  //       isParentMessaging: true,
+                                  //       quotedMessage: quotedMessage,
+                                  //       onLongPress:
+                                  //           (
+                                  //           LongPressStartDetails details,
+                                  //           ) {
+                                  //         _showMessageOptions(
+                                  //           context,
+                                  //           message,
+                                  //           details,
+                                  //         );
+                                  //       },
+                                  //       onScrollToQuoted: (quoteId) {
+                                  //         _scrollToMessage(quoteId);
+                                  //       },
+                                  //       // onHeightMeasured: (id, height) {
+                                  //       //   if (_bubbleHeights[id] != height) {
+                                  //       //     setState(() {
+                                  //       //       _bubbleHeights[id] = height;
+                                  //       //     });
+                                  //       //   }
+                                  //       // },
+                                  //       // onContextReady: (id, ctx) {
+                                  //       //   if (_messageContexts[id] != ctx) {
+                                  //       //     setState(() {
+                                  //       //       _messageContexts[id] = ctx;
+                                  //       //     });
+                                  //       //   }
+                                  //       // },
+                                  //     ),
+                                  //     config: ChatReactionsConfig(
+                                  //       availableReactions: const [
+                                  //         '👍',
+                                  //         '❤️',
+                                  //         '😂',
+                                  //         '😮',
+                                  //         '😢',
+                                  //         '😠',
+                                  //         '➕',
+                                  //       ],
+                                  //
+                                  //       // availableReactions: const [
+                                  //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                                  //       // ],
+                                  //       showAddReactionButton: true,
+                                  //       enableHapticFeedback: true,
+                                  //       enableLongPress: true,
+                                  //       enableDoubleTap: false,
+                                  //       maxReactionsToShow: 5,
+                                  //       reactionSize: 24.0,
+                                  //       stackedValue: 4.0,
+                                  //
+                                  //       emojiPickerBuilder: (context, onEmojiSelected) {
+                                  //         print(
+                                  //           'emojiPickerBuilder was invoked!',
+                                  //         );
+                                  //         return SizedBox(
+                                  //           height: 380,
+                                  //           child: EmojiPicker(
+                                  //             onEmojiSelected:
+                                  //                 (category, emoji) {
+                                  //               onEmojiSelected(
+                                  //                 emoji.emoji,
+                                  //               );
+                                  //               print(
+                                  //                 'Emoji selected: ${emoji.emoji}',
+                                  //               );
+                                  //             },
+                                  //             config: const Config(
+                                  //               //height: 380,
+                                  //               checkPlatformCompatibility:
+                                  //               true,
+                                  //               emojiSet: null,
+                                  //               locale: Locale('en'),
+                                  //               emojiTextStyle: null,
+                                  //               customBackspaceIcon: null,
+                                  //               customSearchIcon: null,
+                                  //               viewOrderConfig:
+                                  //               ViewOrderConfig(),
+                                  //               emojiViewConfig:
+                                  //               EmojiViewConfig(),
+                                  //               skinToneConfig:
+                                  //               SkinToneConfig(
+                                  //                 enabled: true,
+                                  //               ),
+                                  //               categoryViewConfig:
+                                  //               CategoryViewConfig(
+                                  //                 recentTabBehavior:
+                                  //                 RecentTabBehavior
+                                  //                     .RECENT,
+                                  //               ),
+                                  //               bottomActionBarConfig:
+                                  //               BottomActionBarConfig(
+                                  //                 enabled: false,
+                                  //               ),
+                                  //               searchViewConfig:
+                                  //               SearchViewConfig(),
+                                  //             ),
+                                  //           ),
+                                  //         );
+                                  //       },
+                                  //
+                                  //       menuItems: [
+                                  //         MenuItem(
+                                  //           label: 'Delete',
+                                  //           icon: Icons.delete_outline,
+                                  //           isDestructive: true,
+                                  //         ),
+                                  //         MenuItem(
+                                  //           label: 'Copy',
+                                  //           icon: Icons.copy,
+                                  //           isDestructive: false,
+                                  //         ),
+                                  //         MenuItem(
+                                  //           label: 'Reply',
+                                  //           icon: Icons.reply,
+                                  //           isDestructive: false,
+                                  //         ),
+                                  //       ],
+                                  //
+                                  //       showContextMenu: true,
+                                  //     ),
+                                  //
+                                  //     onMenuItemTapped: (item) {
+                                  //       final label = item.label
+                                  //           .toLowerCase();
+                                  //
+                                  //       if (label == 'delete') {
+                                  //         setState(() {
+                                  //           _messages.removeWhere(
+                                  //                 (m) => m.id == message.id,
+                                  //           );
+                                  //           CoreUtils.showTopSnackBar(
+                                  //             context: context,
+                                  //             message:
+                                  //             'Message deleted successfully',
+                                  //             isSuccess: true,
+                                  //           );
+                                  //         });
+                                  //       } else if (label == 'reply') {
+                                  //         setState(() {
+                                  //           _quotedMessage = message;
+                                  //           _quotedMessageId = message.id;
+                                  //         });
+                                  //         // ScaffoldMessenger.of(context).showSnackBar(
+                                  //         //   SnackBar(content: Text('Replying to message')),
+                                  //         // );
+                                  //       } else if (label == 'copy') {
+                                  //         Clipboard.setData(
+                                  //           ClipboardData(
+                                  //             text: message.text,
+                                  //           ),
+                                  //         );
+                                  //         CoreUtils.showTopSnackBar(
+                                  //           context: context,
+                                  //           message:
+                                  //           'Message copied successfully',
+                                  //           isSuccess: true,
+                                  //         );
+                                  //       }
+                                  //     },
+                                  //
+                                  //     onReactionAdded: (emoji) {
+                                  //       // if (emoji == '+') {
+                                  //       //   showModalBottomSheet(
+                                  //       //     context: context,
+                                  //       //     builder: (_) =>
+                                  //       //         EmojiPicker(
+                                  //       //           onEmojiSelected: (category, emoji) {
+                                  //       //             Navigator.pop(context);
+                                  //       //           },
+                                  //       //           config: const Config(
+                                  //       //             height: 380,
+                                  //       //             checkPlatformCompatibility: true,
+                                  //       //             emojiSet: null,
+                                  //       //             locale: Locale('en'),
+                                  //       //             emojiTextStyle: null,
+                                  //       //             customBackspaceIcon: null,
+                                  //       //             customSearchIcon: null,
+                                  //       //             viewOrderConfig: ViewOrderConfig(),
+                                  //       //             emojiViewConfig: EmojiViewConfig(),
+                                  //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                                  //       //             categoryViewConfig: CategoryViewConfig(
+                                  //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                                  //       //             ),
+                                  //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                                  //       //             searchViewConfig: SearchViewConfig(),
+                                  //       //           ),
+                                  //       //         ),
+                                  //       //     // EmojiPicker(
+                                  //       //     //   onEmojiSelected: (_, e) {
+                                  //       //     //     Navigator.pop(context);
+                                  //       //     //     // apply reaction manually
+                                  //       //     //     print('Picked ${e.emoji}');
+                                  //       //     //   },
+                                  //       //     //   config: const Config(height: 380),
+                                  //       //     // ),
+                                  //       //   );
+                                  //       // }
+                                  //       final currentUserId =
+                                  //           'me'; // dummy for now
+                                  //       setState(() {
+                                  //         final index = _messages
+                                  //             .indexWhere(
+                                  //               (m) => m.id == message.id,
+                                  //         );
+                                  //         if (index != -1) {
+                                  //           final currentReactions =
+                                  //           Map<String, String>.from(
+                                  //             _messages[index]
+                                  //                 .reactions,
+                                  //           );
+                                  //           currentReactions[currentUserId] =
+                                  //               emoji;
+                                  //           _messages[index] = Message(
+                                  //             id: _messages[index].id,
+                                  //             text: _messages[index].text,
+                                  //             isSentByMe: _messages[index]
+                                  //                 .isSentByMe,
+                                  //             time: _messages[index].time,
+                                  //             deliveredAt: _messages[index]
+                                  //                 .deliveredAt,
+                                  //             readAt:
+                                  //             _messages[index].readAt,
+                                  //             deliveredTo: _messages[index]
+                                  //                 .deliveredTo,
+                                  //             readBy:
+                                  //             _messages[index].readBy,
+                                  //             senderName: _messages[index].senderName,
+                                  //             attachments: _messages[index].attachments,
+                                  //             reactions: currentReactions,
+                                  //           );
+                                  //         }
+                                  //         // ScaffoldMessenger.of(
+                                  //         //   context,
+                                  //         // ).showSnackBar(
+                                  //         //   SnackBar(
+                                  //         //     content: Text('Reacted with $emoji'),
+                                  //         //   ),
+                                  //         // );
+                                  //       });
+                                  //     },
+                                  //
+                                  //     onReactionRemoved: (emoji) {
+                                  //       final currentUserId =
+                                  //           'me'; // dummy for now
+                                  //       setState(() {
+                                  //         // message.reactions.remove(emoji);
+                                  //         final index = _messages
+                                  //             .indexWhere(
+                                  //               (m) => m.id == message.id,
+                                  //         );
+                                  //         if (index != -1) {
+                                  //           final currentReactions =
+                                  //           Map<String, String>.from(
+                                  //             _messages[index]
+                                  //                 .reactions,
+                                  //           );
+                                  //           if (currentReactions[currentUserId] ==
+                                  //               emoji) {
+                                  //             currentReactions.remove(
+                                  //               currentUserId,
+                                  //             );
+                                  //           }
+                                  //           _messages[index] = Message(
+                                  //             id: _messages[index].id,
+                                  //             text: _messages[index].text,
+                                  //             isSentByMe: _messages[index]
+                                  //                 .isSentByMe,
+                                  //             time: _messages[index].time,
+                                  //             deliveredAt: _messages[index]
+                                  //                 .deliveredAt,
+                                  //             readAt:
+                                  //             _messages[index].readAt,
+                                  //             deliveredTo: _messages[index]
+                                  //                 .deliveredTo,
+                                  //             readBy:
+                                  //             _messages[index].readBy,
+                                  //             senderName: _messages[index].senderName,
+                                  //             attachments: _messages[index].attachments,
+                                  //             reactions: currentReactions,
+                                  //           );
+                                  //         }
+                                  //         // ScaffoldMessenger.of(
+                                  //         //   context,
+                                  //         // ).showSnackBar(
+                                  //         //   SnackBar(
+                                  //         //     content: Text('Removed $emoji'),
+                                  //         //   ),
+                                  //         // );
+                                  //       });
+                                  //     },
+                                  //
+                                  //     alignment: message.isSentByMe
+                                  //         ? Alignment.centerRight
+                                  //         : Alignment.centerLeft,
+                                  //   ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        ListView.builder(
+                          controller: _getActiveScrollController(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          reverse: true,
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message =
+                            _messages[_messages.length - 1 - index];
+                            final messageId = message.id;
+                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                            // final key = keyMap.putIfAbsent(
+                            //   messageId,
+                            //   () => GlobalKey(),
+                            // );
+                            Message? quotedMessage;
+                            if (message.quotedMessageId != null) {
+                              quotedMessage = _messages.firstWhere(
+                                    (m) => m.id == message.quotedMessageId,
+                              ); // ?? null;
+                            }
+                            bool showDateHeader = false;
+                            final prevListIndex =
+                                _messages.length - 2 - index;
+
+                            if (prevListIndex >= 0) {
+                              final prevMessage = _messages[prevListIndex];
+
+                              showDateHeader =
+                                  message.time.year !=
+                                      prevMessage.time.year ||
+                                      message.time.month !=
+                                          prevMessage.time.month ||
+                                      message.time.day != prevMessage.time.day;
+                            } else {
+                              showDateHeader = true;
+                            }
+
+                            return AutoScrollTag(
+                              key: ValueKey(messageId),
+                              controller: _getActiveScrollController(),
+                              index: index,
+                              highlightColor: Colors.green.withValues(
+                                alpha: 0.7,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (showDateHeader)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
+                                        child: _buildDateChip(message.time),
+                                      ),
+                                    ),
+                                  if (showDateHeader)
+                                    const SizedBox(height: 10),
+                                  MessageBubble(
+                                    //key: key,
+                                    //scrollKey: scrollKey,
+                                    message: message,
+                                    isParentMessaging: true,
+                                    quotedMessage: quotedMessage,
+                                    onLongPress:
+                                        (LongPressStartDetails details) {
+                                      _showMessageOptions(
+                                        context,
+                                        message,
+                                        details,
+                                      );
+                                    },
+                                    onScrollToQuoted: (quoteId) {
+                                      _scrollToMessage(quoteId);
+                                    },
+                                    // onHeightMeasured: (id, height) {
+                                    //   if (_bubbleHeights[id] != height) {
+                                    //     setState(() {
+                                    //       _bubbleHeights[id] = height;
+                                    //     });
+                                    //   }
+                                    // },
+                                    //onHeightMeasured:
+                                    // onContextReady: (id, ctx) {
+                                    //   if (_messageContexts[id] != ctx) {
+                                    //     setState(() {
+                                    //       _messageContexts[id] = ctx;
+                                    //     });
+                                    //   }
+                                    // },
+                                  ),
+
+                                  // if (message.isSentByMe)
+                                  //   MessageBubble(
+                                  //     //key: key,
+                                  //     //scrollKey: scrollKey,
+                                  //     message: message,
+                                  //     quotedMessage: quotedMessage,
+                                  //     isParentMessaging: true,
+                                  //     onLongPress:
+                                  //         (LongPressStartDetails details) {
+                                  //       _showMessageOptions(
+                                  //         context,
+                                  //         message,
+                                  //         details,
+                                  //       );
+                                  //     },
+                                  //     onScrollToQuoted: (quoteId) {
+                                  //       _scrollToMessage(quoteId);
+                                  //     },
+                                  //     // onHeightMeasured: (id, height) {
+                                  //     //   if (_bubbleHeights[id] != height) {
+                                  //     //     setState(() {
+                                  //     //       _bubbleHeights[id] = height;
+                                  //     //     });
+                                  //     //   }
+                                  //     // },
+                                  //     //onHeightMeasured:
+                                  //     // onContextReady: (id, ctx) {
+                                  //     //   if (_messageContexts[id] != ctx) {
+                                  //     //     setState(() {
+                                  //     //       _messageContexts[id] = ctx;
+                                  //     //     });
+                                  //     //   }
+                                  //     // },
+                                  //   )
+                                  // else
+                                  //   ChatMessageWrapper(
+                                  //     messageId: message.id,
+                                  //     controller: _reactionsController,
+                                  //     child: MessageBubble(
+                                  //       //key: key,
+                                  //       //scrollKey: scrollKey,
+                                  //       message: message,
+                                  //       isParentMessaging: true,
+                                  //       quotedMessage: quotedMessage,
+                                  //       onLongPress:
+                                  //           (
+                                  //           LongPressStartDetails details,
+                                  //           ) {
+                                  //         _showMessageOptions(
+                                  //           context,
+                                  //           message,
+                                  //           details,
+                                  //         );
+                                  //       },
+                                  //       onScrollToQuoted: (quoteId) {
+                                  //         _scrollToMessage(quoteId);
+                                  //       },
+                                  //       // onHeightMeasured: (id, height) {
+                                  //       //   if (_bubbleHeights[id] != height) {
+                                  //       //     setState(() {
+                                  //       //       _bubbleHeights[id] = height;
+                                  //       //     });
+                                  //       //   }
+                                  //       // },
+                                  //       // onContextReady: (id, ctx) {
+                                  //       //   if (_messageContexts[id] != ctx) {
+                                  //       //     setState(() {
+                                  //       //       _messageContexts[id] = ctx;
+                                  //       //     });
+                                  //       //   }
+                                  //       // },
+                                  //     ),
+                                  //     config: ChatReactionsConfig(
+                                  //       availableReactions: const [
+                                  //         '👍',
+                                  //         '❤️',
+                                  //         '😂',
+                                  //         '😮',
+                                  //         '😢',
+                                  //         '😠',
+                                  //         '➕',
+                                  //       ],
+                                  //
+                                  //       // availableReactions: const [
+                                  //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                                  //       // ],
+                                  //       showAddReactionButton: true,
+                                  //       enableHapticFeedback: true,
+                                  //       enableLongPress: true,
+                                  //       enableDoubleTap: false,
+                                  //       maxReactionsToShow: 5,
+                                  //       reactionSize: 24.0,
+                                  //       stackedValue: 4.0,
+                                  //
+                                  //       emojiPickerBuilder: (context, onEmojiSelected) {
+                                  //         print(
+                                  //           'emojiPickerBuilder was invoked!',
+                                  //         );
+                                  //         return SizedBox(
+                                  //           height: 380,
+                                  //           child: EmojiPicker(
+                                  //             onEmojiSelected:
+                                  //                 (category, emoji) {
+                                  //               onEmojiSelected(
+                                  //                 emoji.emoji,
+                                  //               );
+                                  //               print(
+                                  //                 'Emoji selected: ${emoji.emoji}',
+                                  //               );
+                                  //             },
+                                  //             config: const Config(
+                                  //               //height: 380,
+                                  //               checkPlatformCompatibility:
+                                  //               true,
+                                  //               emojiSet: null,
+                                  //               locale: Locale('en'),
+                                  //               emojiTextStyle: null,
+                                  //               customBackspaceIcon: null,
+                                  //               customSearchIcon: null,
+                                  //               viewOrderConfig:
+                                  //               ViewOrderConfig(),
+                                  //               emojiViewConfig:
+                                  //               EmojiViewConfig(),
+                                  //               skinToneConfig:
+                                  //               SkinToneConfig(
+                                  //                 enabled: true,
+                                  //               ),
+                                  //               categoryViewConfig:
+                                  //               CategoryViewConfig(
+                                  //                 recentTabBehavior:
+                                  //                 RecentTabBehavior
+                                  //                     .RECENT,
+                                  //               ),
+                                  //               bottomActionBarConfig:
+                                  //               BottomActionBarConfig(
+                                  //                 enabled: false,
+                                  //               ),
+                                  //               searchViewConfig:
+                                  //               SearchViewConfig(),
+                                  //             ),
+                                  //           ),
+                                  //         );
+                                  //       },
+                                  //
+                                  //       menuItems: [
+                                  //         MenuItem(
+                                  //           label: 'Delete',
+                                  //           icon: Icons.delete_outline,
+                                  //           isDestructive: true,
+                                  //         ),
+                                  //         MenuItem(
+                                  //           label: 'Copy',
+                                  //           icon: Icons.copy,
+                                  //           isDestructive: false,
+                                  //         ),
+                                  //         MenuItem(
+                                  //           label: 'Reply',
+                                  //           icon: Icons.reply,
+                                  //           isDestructive: false,
+                                  //         ),
+                                  //       ],
+                                  //
+                                  //       showContextMenu: true,
+                                  //     ),
+                                  //
+                                  //     onMenuItemTapped: (item) {
+                                  //       final label = item.label
+                                  //           .toLowerCase();
+                                  //
+                                  //       if (label == 'delete') {
+                                  //         setState(() {
+                                  //           _messages.removeWhere(
+                                  //                 (m) => m.id == message.id,
+                                  //           );
+                                  //           CoreUtils.showTopSnackBar(
+                                  //             context: context,
+                                  //             message:
+                                  //             'Message deleted successfully',
+                                  //             isSuccess: true,
+                                  //           );
+                                  //         });
+                                  //       } else if (label == 'reply') {
+                                  //         setState(() {
+                                  //           _quotedMessage = message;
+                                  //           _quotedMessageId = message.id;
+                                  //         });
+                                  //         // ScaffoldMessenger.of(context).showSnackBar(
+                                  //         //   SnackBar(content: Text('Replying to message')),
+                                  //         // );
+                                  //       } else if (label == 'copy') {
+                                  //         Clipboard.setData(
+                                  //           ClipboardData(
+                                  //             text: message.text,
+                                  //           ),
+                                  //         );
+                                  //         CoreUtils.showTopSnackBar(
+                                  //           context: context,
+                                  //           message:
+                                  //           'Message copied successfully',
+                                  //           isSuccess: true,
+                                  //         );
+                                  //       }
+                                  //     },
+                                  //
+                                  //     onReactionAdded: (emoji) {
+                                  //       // if (emoji == '+') {
+                                  //       //   showModalBottomSheet(
+                                  //       //     context: context,
+                                  //       //     builder: (_) =>
+                                  //       //         EmojiPicker(
+                                  //       //           onEmojiSelected: (category, emoji) {
+                                  //       //             Navigator.pop(context);
+                                  //       //           },
+                                  //       //           config: const Config(
+                                  //       //             height: 380,
+                                  //       //             checkPlatformCompatibility: true,
+                                  //       //             emojiSet: null,
+                                  //       //             locale: Locale('en'),
+                                  //       //             emojiTextStyle: null,
+                                  //       //             customBackspaceIcon: null,
+                                  //       //             customSearchIcon: null,
+                                  //       //             viewOrderConfig: ViewOrderConfig(),
+                                  //       //             emojiViewConfig: EmojiViewConfig(),
+                                  //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                                  //       //             categoryViewConfig: CategoryViewConfig(
+                                  //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                                  //       //             ),
+                                  //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                                  //       //             searchViewConfig: SearchViewConfig(),
+                                  //       //           ),
+                                  //       //         ),
+                                  //       //     // EmojiPicker(
+                                  //       //     //   onEmojiSelected: (_, e) {
+                                  //       //     //     Navigator.pop(context);
+                                  //       //     //     // apply reaction manually
+                                  //       //     //     print('Picked ${e.emoji}');
+                                  //       //     //   },
+                                  //       //     //   config: const Config(height: 380),
+                                  //       //     // ),
+                                  //       //   );
+                                  //       // }
+                                  //       final currentUserId =
+                                  //           'me'; // dummy for now
+                                  //       setState(() {
+                                  //         final index = _messages
+                                  //             .indexWhere(
+                                  //               (m) => m.id == message.id,
+                                  //         );
+                                  //         if (index != -1) {
+                                  //           final currentReactions =
+                                  //           Map<String, String>.from(
+                                  //             _messages[index]
+                                  //                 .reactions,
+                                  //           );
+                                  //           currentReactions[currentUserId] =
+                                  //               emoji;
+                                  //           _messages[index] = Message(
+                                  //             id: _messages[index].id,
+                                  //             text: _messages[index].text,
+                                  //             isSentByMe: _messages[index]
+                                  //                 .isSentByMe,
+                                  //             time: _messages[index].time,
+                                  //             deliveredAt: _messages[index]
+                                  //                 .deliveredAt,
+                                  //             readAt:
+                                  //             _messages[index].readAt,
+                                  //             deliveredTo: _messages[index]
+                                  //                 .deliveredTo,
+                                  //             readBy:
+                                  //             _messages[index].readBy,
+                                  //             senderName: _messages[index].senderName,
+                                  //             attachments: _messages[index].attachments,
+                                  //             reactions: currentReactions,
+                                  //           );
+                                  //         }
+                                  //         // ScaffoldMessenger.of(
+                                  //         //   context,
+                                  //         // ).showSnackBar(
+                                  //         //   SnackBar(
+                                  //         //     content: Text('Reacted with $emoji'),
+                                  //         //   ),
+                                  //         // );
+                                  //       });
+                                  //     },
+                                  //
+                                  //     onReactionRemoved: (emoji) {
+                                  //       final currentUserId =
+                                  //           'me'; // dummy for now
+                                  //       setState(() {
+                                  //         // message.reactions.remove(emoji);
+                                  //         final index = _messages
+                                  //             .indexWhere(
+                                  //               (m) => m.id == message.id,
+                                  //         );
+                                  //         if (index != -1) {
+                                  //           final currentReactions =
+                                  //           Map<String, String>.from(
+                                  //             _messages[index]
+                                  //                 .reactions,
+                                  //           );
+                                  //           if (currentReactions[currentUserId] ==
+                                  //               emoji) {
+                                  //             currentReactions.remove(
+                                  //               currentUserId,
+                                  //             );
+                                  //           }
+                                  //           _messages[index] = Message(
+                                  //             id: _messages[index].id,
+                                  //             text: _messages[index].text,
+                                  //             isSentByMe: _messages[index]
+                                  //                 .isSentByMe,
+                                  //             time: _messages[index].time,
+                                  //             deliveredAt: _messages[index]
+                                  //                 .deliveredAt,
+                                  //             readAt:
+                                  //             _messages[index].readAt,
+                                  //             deliveredTo: _messages[index]
+                                  //                 .deliveredTo,
+                                  //             readBy:
+                                  //             _messages[index].readBy,
+                                  //             senderName: _messages[index].senderName,
+                                  //             attachments: _messages[index].attachments,
+                                  //             reactions: currentReactions,
+                                  //           );
+                                  //         }
+                                  //         // ScaffoldMessenger.of(
+                                  //         //   context,
+                                  //         // ).showSnackBar(
+                                  //         //   SnackBar(
+                                  //         //     content: Text('Removed $emoji'),
+                                  //         //   ),
+                                  //         // );
+                                  //       });
+                                  //     },
+                                  //
+                                  //     alignment: message.isSentByMe
+                                  //         ? Alignment.centerRight
+                                  //         : Alignment.centerLeft,
+                                  //   ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ] :
+                      [
+                        ListView.builder(
+                          controller: _getActiveScrollController(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          reverse: true,
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message =
+                            _messages[_messages.length - 1 - index];
+                            final messageId = message.id;
+                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                            // final key = keyMap.putIfAbsent(
+                            //   messageId,
+                            //   () => GlobalKey(),
+                            // );
+                            Message? quotedMessage;
+                            if (message.quotedMessageId != null) {
+                              quotedMessage = _messages.firstWhere(
+                                    (m) => m.id == message.quotedMessageId,
+                              ); // ?? null;
+                            }
+                            bool showDateHeader = false;
+                            final prevListIndex =
+                                _messages.length - 2 - index;
+
+                            if (prevListIndex >= 0) {
+                              final prevMessage = _messages[prevListIndex];
+
+                              showDateHeader =
+                                  message.time.year !=
+                                      prevMessage.time.year ||
+                                      message.time.month !=
+                                          prevMessage.time.month ||
+                                      message.time.day != prevMessage.time.day;
+                            } else {
+                              showDateHeader = true;
+                            }
+
+                            return AutoScrollTag(
+                              key: ValueKey(messageId),
+                              controller: _getActiveScrollController(),
+                              index: index,
+                              highlightColor: Colors.green.withValues(
+                                alpha: 0.7,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (showDateHeader)
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
+                                        child: _buildDateChip(message.time),
+                                      ),
+                                    ),
+                                  if (showDateHeader)
+                                    const SizedBox(height: 10),
+                                  MessageBubble(
+                                    //key: key,
+                                    //scrollKey: scrollKey,
+                                    message: message,
+                                    isParentMessaging: true,
+                                    quotedMessage: quotedMessage,
+                                    onLongPress:
+                                        (LongPressStartDetails details) {
+                                      _showMessageOptions(
+                                        context,
+                                        message,
+                                        details,
+                                      );
+                                    },
+                                    onScrollToQuoted: (quoteId) {
+                                      _scrollToMessage(quoteId);
+                                    },
+                                    // onHeightMeasured: (id, height) {
+                                    //   if (_bubbleHeights[id] != height) {
+                                    //     setState(() {
+                                    //       _bubbleHeights[id] = height;
+                                    //     });
+                                    //   }
+                                    // },
+                                    //onHeightMeasured:
+                                    // onContextReady: (id, ctx) {
+                                    //   if (_messageContexts[id] != ctx) {
+                                    //     setState(() {
+                                    //       _messageContexts[id] = ctx;
+                                    //     });
+                                    //   }
+                                    // },
+                                  ),
+
+                                  // if (message.isSentByMe)
+                                  //   MessageBubble(
+                                  //     //key: key,
+                                  //     //scrollKey: scrollKey,
+                                  //     message: message,
+                                  //     quotedMessage: quotedMessage,
+                                  //     isParentMessaging: true,
+                                  //     onLongPress:
+                                  //         (LongPressStartDetails details) {
+                                  //       _showMessageOptions(
+                                  //         context,
+                                  //         message,
+                                  //         details,
+                                  //       );
+                                  //     },
+                                  //     onScrollToQuoted: (quoteId) {
+                                  //       _scrollToMessage(quoteId);
+                                  //     },
+                                  //     // onHeightMeasured: (id, height) {
+                                  //     //   if (_bubbleHeights[id] != height) {
+                                  //     //     setState(() {
+                                  //     //       _bubbleHeights[id] = height;
+                                  //     //     });
+                                  //     //   }
+                                  //     // },
+                                  //     //onHeightMeasured:
+                                  //     // onContextReady: (id, ctx) {
+                                  //     //   if (_messageContexts[id] != ctx) {
+                                  //     //     setState(() {
+                                  //     //       _messageContexts[id] = ctx;
+                                  //     //     });
+                                  //     //   }
+                                  //     // },
+                                  //   )
+                                  // else
+                                  //   ChatMessageWrapper(
+                                  //     messageId: message.id,
+                                  //     controller: _reactionsController,
+                                  //     child: MessageBubble(
+                                  //       //key: key,
+                                  //       //scrollKey: scrollKey,
+                                  //       message: message,
+                                  //       isParentMessaging: true,
+                                  //       quotedMessage: quotedMessage,
+                                  //       onLongPress:
+                                  //           (
+                                  //           LongPressStartDetails details,
+                                  //           ) {
+                                  //         _showMessageOptions(
+                                  //           context,
+                                  //           message,
+                                  //           details,
+                                  //         );
+                                  //       },
+                                  //       onScrollToQuoted: (quoteId) {
+                                  //         _scrollToMessage(quoteId);
+                                  //       },
+                                  //       // onHeightMeasured: (id, height) {
+                                  //       //   if (_bubbleHeights[id] != height) {
+                                  //       //     setState(() {
+                                  //       //       _bubbleHeights[id] = height;
+                                  //       //     });
+                                  //       //   }
+                                  //       // },
+                                  //       // onContextReady: (id, ctx) {
+                                  //       //   if (_messageContexts[id] != ctx) {
+                                  //       //     setState(() {
+                                  //       //       _messageContexts[id] = ctx;
+                                  //       //     });
+                                  //       //   }
+                                  //       // },
+                                  //     ),
+                                  //     config: ChatReactionsConfig(
+                                  //       availableReactions: const [
+                                  //         '👍',
+                                  //         '❤️',
+                                  //         '😂',
+                                  //         '😮',
+                                  //         '😢',
+                                  //         '😠',
+                                  //         '➕',
+                                  //       ],
+                                  //
+                                  //       // availableReactions: const [
+                                  //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                                  //       // ],
+                                  //       showAddReactionButton: true,
+                                  //       enableHapticFeedback: true,
+                                  //       enableLongPress: true,
+                                  //       enableDoubleTap: false,
+                                  //       maxReactionsToShow: 5,
+                                  //       reactionSize: 24.0,
+                                  //       stackedValue: 4.0,
+                                  //
+                                  //       emojiPickerBuilder: (context, onEmojiSelected) {
+                                  //         print(
+                                  //           'emojiPickerBuilder was invoked!',
+                                  //         );
+                                  //         return SizedBox(
+                                  //           height: 380,
+                                  //           child: EmojiPicker(
+                                  //             onEmojiSelected:
+                                  //                 (category, emoji) {
+                                  //               onEmojiSelected(
+                                  //                 emoji.emoji,
+                                  //               );
+                                  //               print(
+                                  //                 'Emoji selected: ${emoji.emoji}',
+                                  //               );
+                                  //             },
+                                  //             config: const Config(
+                                  //               //height: 380,
+                                  //               checkPlatformCompatibility:
+                                  //               true,
+                                  //               emojiSet: null,
+                                  //               locale: Locale('en'),
+                                  //               emojiTextStyle: null,
+                                  //               customBackspaceIcon: null,
+                                  //               customSearchIcon: null,
+                                  //               viewOrderConfig:
+                                  //               ViewOrderConfig(),
+                                  //               emojiViewConfig:
+                                  //               EmojiViewConfig(),
+                                  //               skinToneConfig:
+                                  //               SkinToneConfig(
+                                  //                 enabled: true,
+                                  //               ),
+                                  //               categoryViewConfig:
+                                  //               CategoryViewConfig(
+                                  //                 recentTabBehavior:
+                                  //                 RecentTabBehavior
+                                  //                     .RECENT,
+                                  //               ),
+                                  //               bottomActionBarConfig:
+                                  //               BottomActionBarConfig(
+                                  //                 enabled: false,
+                                  //               ),
+                                  //               searchViewConfig:
+                                  //               SearchViewConfig(),
+                                  //             ),
+                                  //           ),
+                                  //         );
+                                  //       },
+                                  //
+                                  //       menuItems: [
+                                  //         MenuItem(
+                                  //           label: 'Delete',
+                                  //           icon: Icons.delete_outline,
+                                  //           isDestructive: true,
+                                  //         ),
+                                  //         MenuItem(
+                                  //           label: 'Copy',
+                                  //           icon: Icons.copy,
+                                  //           isDestructive: false,
+                                  //         ),
+                                  //         MenuItem(
+                                  //           label: 'Reply',
+                                  //           icon: Icons.reply,
+                                  //           isDestructive: false,
+                                  //         ),
+                                  //       ],
+                                  //
+                                  //       showContextMenu: true,
+                                  //     ),
+                                  //
+                                  //     onMenuItemTapped: (item) {
+                                  //       final label = item.label
+                                  //           .toLowerCase();
+                                  //
+                                  //       if (label == 'delete') {
+                                  //         setState(() {
+                                  //           _messages.removeWhere(
+                                  //                 (m) => m.id == message.id,
+                                  //           );
+                                  //           CoreUtils.showTopSnackBar(
+                                  //             context: context,
+                                  //             message:
+                                  //             'Message deleted successfully',
+                                  //             isSuccess: true,
+                                  //           );
+                                  //         });
+                                  //       } else if (label == 'reply') {
+                                  //         setState(() {
+                                  //           _quotedMessage = message;
+                                  //           _quotedMessageId = message.id;
+                                  //         });
+                                  //         // ScaffoldMessenger.of(context).showSnackBar(
+                                  //         //   SnackBar(content: Text('Replying to message')),
+                                  //         // );
+                                  //       } else if (label == 'copy') {
+                                  //         Clipboard.setData(
+                                  //           ClipboardData(
+                                  //             text: message.text,
+                                  //           ),
+                                  //         );
+                                  //         CoreUtils.showTopSnackBar(
+                                  //           context: context,
+                                  //           message:
+                                  //           'Message copied successfully',
+                                  //           isSuccess: true,
+                                  //         );
+                                  //       }
+                                  //     },
+                                  //
+                                  //     onReactionAdded: (emoji) {
+                                  //       // if (emoji == '+') {
+                                  //       //   showModalBottomSheet(
+                                  //       //     context: context,
+                                  //       //     builder: (_) =>
+                                  //       //         EmojiPicker(
+                                  //       //           onEmojiSelected: (category, emoji) {
+                                  //       //             Navigator.pop(context);
+                                  //       //           },
+                                  //       //           config: const Config(
+                                  //       //             height: 380,
+                                  //       //             checkPlatformCompatibility: true,
+                                  //       //             emojiSet: null,
+                                  //       //             locale: Locale('en'),
+                                  //       //             emojiTextStyle: null,
+                                  //       //             customBackspaceIcon: null,
+                                  //       //             customSearchIcon: null,
+                                  //       //             viewOrderConfig: ViewOrderConfig(),
+                                  //       //             emojiViewConfig: EmojiViewConfig(),
+                                  //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                                  //       //             categoryViewConfig: CategoryViewConfig(
+                                  //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                                  //       //             ),
+                                  //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                                  //       //             searchViewConfig: SearchViewConfig(),
+                                  //       //           ),
+                                  //       //         ),
+                                  //       //     // EmojiPicker(
+                                  //       //     //   onEmojiSelected: (_, e) {
+                                  //       //     //     Navigator.pop(context);
+                                  //       //     //     // apply reaction manually
+                                  //       //     //     print('Picked ${e.emoji}');
+                                  //       //     //   },
+                                  //       //     //   config: const Config(height: 380),
+                                  //       //     // ),
+                                  //       //   );
+                                  //       // }
+                                  //       final currentUserId =
+                                  //           'me'; // dummy for now
+                                  //       setState(() {
+                                  //         final index = _messages
+                                  //             .indexWhere(
+                                  //               (m) => m.id == message.id,
+                                  //         );
+                                  //         if (index != -1) {
+                                  //           final currentReactions =
+                                  //           Map<String, String>.from(
+                                  //             _messages[index]
+                                  //                 .reactions,
+                                  //           );
+                                  //           currentReactions[currentUserId] =
+                                  //               emoji;
+                                  //           _messages[index] = Message(
+                                  //             id: _messages[index].id,
+                                  //             text: _messages[index].text,
+                                  //             isSentByMe: _messages[index]
+                                  //                 .isSentByMe,
+                                  //             time: _messages[index].time,
+                                  //             deliveredAt: _messages[index]
+                                  //                 .deliveredAt,
+                                  //             readAt:
+                                  //             _messages[index].readAt,
+                                  //             deliveredTo: _messages[index]
+                                  //                 .deliveredTo,
+                                  //             readBy:
+                                  //             _messages[index].readBy,
+                                  //             senderName: _messages[index].senderName,
+                                  //             attachments: _messages[index].attachments,
+                                  //             reactions: currentReactions,
+                                  //           );
+                                  //         }
+                                  //         // ScaffoldMessenger.of(
+                                  //         //   context,
+                                  //         // ).showSnackBar(
+                                  //         //   SnackBar(
+                                  //         //     content: Text('Reacted with $emoji'),
+                                  //         //   ),
+                                  //         // );
+                                  //       });
+                                  //     },
+                                  //
+                                  //     onReactionRemoved: (emoji) {
+                                  //       final currentUserId =
+                                  //           'me'; // dummy for now
+                                  //       setState(() {
+                                  //         // message.reactions.remove(emoji);
+                                  //         final index = _messages
+                                  //             .indexWhere(
+                                  //               (m) => m.id == message.id,
+                                  //         );
+                                  //         if (index != -1) {
+                                  //           final currentReactions =
+                                  //           Map<String, String>.from(
+                                  //             _messages[index]
+                                  //                 .reactions,
+                                  //           );
+                                  //           if (currentReactions[currentUserId] ==
+                                  //               emoji) {
+                                  //             currentReactions.remove(
+                                  //               currentUserId,
+                                  //             );
+                                  //           }
+                                  //           _messages[index] = Message(
+                                  //             id: _messages[index].id,
+                                  //             text: _messages[index].text,
+                                  //             isSentByMe: _messages[index]
+                                  //                 .isSentByMe,
+                                  //             time: _messages[index].time,
+                                  //             deliveredAt: _messages[index]
+                                  //                 .deliveredAt,
+                                  //             readAt:
+                                  //             _messages[index].readAt,
+                                  //             deliveredTo: _messages[index]
+                                  //                 .deliveredTo,
+                                  //             readBy:
+                                  //             _messages[index].readBy,
+                                  //             senderName: _messages[index].senderName,
+                                  //             attachments: _messages[index].attachments,
+                                  //             reactions: currentReactions,
+                                  //           );
+                                  //         }
+                                  //         // ScaffoldMessenger.of(
+                                  //         //   context,
+                                  //         // ).showSnackBar(
+                                  //         //   SnackBar(
+                                  //         //     content: Text('Removed $emoji'),
+                                  //         //   ),
+                                  //         // );
+                                  //       });
+                                  //     },
+                                  //
+                                  //     alignment: message.isSentByMe
+                                  //         ? Alignment.centerRight
+                                  //         : Alignment.centerLeft,
+                                  //   ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                )
+                // child: Column(
+                //   children: [
+                //     TabBar(
+                //       controller: _tabController,
+                //       isScrollable: true,
+                //       padding: EdgeInsets.all(0),
+                //       labelColor: AppColors.primaryColor,
+                //       unselectedLabelColor: Colors.grey,
+                //       indicatorColor: AppColors.themeColor,
+                //       dividerColor: Colors.transparent,
+                //       tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                //     ),
+                //     Expanded(
+                //       child: TabBarView(
+                //         controller: _tabController,
+                //         children: _privateModeEnabled ?
+                //         [
+                //           ListView.builder(
+                //             controller: _getActiveScrollController(),
+                //             padding: const EdgeInsets.symmetric(
+                //               horizontal: 8,
+                //               vertical: 12,
+                //             ),
+                //             reverse: true,
+                //             itemCount: _messages.length,
+                //             itemBuilder: (context, index) {
+                //               final message =
+                //               _messages[_messages.length - 1 - index];
+                //               final messageId = message.id;
+                //               //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                //               // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                //               // final key = keyMap.putIfAbsent(
+                //               //   messageId,
+                //               //   () => GlobalKey(),
+                //               // );
+                //               Message? quotedMessage;
+                //               if (message.quotedMessageId != null) {
+                //                 quotedMessage = _messages.firstWhere(
+                //                       (m) => m.id == message.quotedMessageId,
+                //                 ); // ?? null;
+                //               }
+                //               bool showDateHeader = false;
+                //               final prevListIndex =
+                //                   _messages.length - 2 - index;
+                //
+                //               if (prevListIndex >= 0) {
+                //                 final prevMessage = _messages[prevListIndex];
+                //
+                //                 showDateHeader =
+                //                     message.time.year !=
+                //                         prevMessage.time.year ||
+                //                         message.time.month !=
+                //                             prevMessage.time.month ||
+                //                         message.time.day != prevMessage.time.day;
+                //               } else {
+                //                 showDateHeader = true;
+                //               }
+                //
+                //               return AutoScrollTag(
+                //                 key: ValueKey(messageId),
+                //                 controller: _getActiveScrollController(),
+                //                 index: index,
+                //                 highlightColor: Colors.green.withValues(
+                //                   alpha: 0.7,
+                //                 ),
+                //                 child: Column(
+                //                   mainAxisSize: MainAxisSize.min,
+                //                   children: [
+                //                     if (showDateHeader)
+                //                       Center(
+                //                         child: Padding(
+                //                           padding: const EdgeInsets.only(
+                //                             top: 8.0,
+                //                           ),
+                //                           child: _buildDateChip(message.time),
+                //                         ),
+                //                       ),
+                //                     if (showDateHeader)
+                //                       const SizedBox(height: 10),
+                //                     MessageBubble(
+                //                       //key: key,
+                //                       //scrollKey: scrollKey,
+                //                       message: message,
+                //                       isParentMessaging: true,
+                //                       quotedMessage: quotedMessage,
+                //                       onLongPress:
+                //                           (LongPressStartDetails details) {
+                //                         _showMessageOptions(
+                //                           context,
+                //                           message,
+                //                           details,
+                //                         );
+                //                       },
+                //                       onScrollToQuoted: (quoteId) {
+                //                         _scrollToMessage(quoteId);
+                //                       },
+                //                       // onHeightMeasured: (id, height) {
+                //                       //   if (_bubbleHeights[id] != height) {
+                //                       //     setState(() {
+                //                       //       _bubbleHeights[id] = height;
+                //                       //     });
+                //                       //   }
+                //                       // },
+                //                       //onHeightMeasured:
+                //                       // onContextReady: (id, ctx) {
+                //                       //   if (_messageContexts[id] != ctx) {
+                //                       //     setState(() {
+                //                       //       _messageContexts[id] = ctx;
+                //                       //     });
+                //                       //   }
+                //                       // },
+                //                     ),
+                //
+                //                     // if (message.isSentByMe)
+                //                     //   MessageBubble(
+                //                     //     //key: key,
+                //                     //     //scrollKey: scrollKey,
+                //                     //     message: message,
+                //                     //     quotedMessage: quotedMessage,
+                //                     //     isParentMessaging: true,
+                //                     //     onLongPress:
+                //                     //         (LongPressStartDetails details) {
+                //                     //       _showMessageOptions(
+                //                     //         context,
+                //                     //         message,
+                //                     //         details,
+                //                     //       );
+                //                     //     },
+                //                     //     onScrollToQuoted: (quoteId) {
+                //                     //       _scrollToMessage(quoteId);
+                //                     //     },
+                //                     //     // onHeightMeasured: (id, height) {
+                //                     //     //   if (_bubbleHeights[id] != height) {
+                //                     //     //     setState(() {
+                //                     //     //       _bubbleHeights[id] = height;
+                //                     //     //     });
+                //                     //     //   }
+                //                     //     // },
+                //                     //     //onHeightMeasured:
+                //                     //     // onContextReady: (id, ctx) {
+                //                     //     //   if (_messageContexts[id] != ctx) {
+                //                     //     //     setState(() {
+                //                     //     //       _messageContexts[id] = ctx;
+                //                     //     //     });
+                //                     //     //   }
+                //                     //     // },
+                //                     //   )
+                //                     // else
+                //                     //   ChatMessageWrapper(
+                //                     //     messageId: message.id,
+                //                     //     controller: _reactionsController,
+                //                     //     child: MessageBubble(
+                //                     //       //key: key,
+                //                     //       //scrollKey: scrollKey,
+                //                     //       message: message,
+                //                     //       isParentMessaging: true,
+                //                     //       quotedMessage: quotedMessage,
+                //                     //       onLongPress:
+                //                     //           (
+                //                     //           LongPressStartDetails details,
+                //                     //           ) {
+                //                     //         _showMessageOptions(
+                //                     //           context,
+                //                     //           message,
+                //                     //           details,
+                //                     //         );
+                //                     //       },
+                //                     //       onScrollToQuoted: (quoteId) {
+                //                     //         _scrollToMessage(quoteId);
+                //                     //       },
+                //                     //       // onHeightMeasured: (id, height) {
+                //                     //       //   if (_bubbleHeights[id] != height) {
+                //                     //       //     setState(() {
+                //                     //       //       _bubbleHeights[id] = height;
+                //                     //       //     });
+                //                     //       //   }
+                //                     //       // },
+                //                     //       // onContextReady: (id, ctx) {
+                //                     //       //   if (_messageContexts[id] != ctx) {
+                //                     //       //     setState(() {
+                //                     //       //       _messageContexts[id] = ctx;
+                //                     //       //     });
+                //                     //       //   }
+                //                     //       // },
+                //                     //     ),
+                //                     //     config: ChatReactionsConfig(
+                //                     //       availableReactions: const [
+                //                     //         '👍',
+                //                     //         '❤️',
+                //                     //         '😂',
+                //                     //         '😮',
+                //                     //         '😢',
+                //                     //         '😠',
+                //                     //         '➕',
+                //                     //       ],
+                //                     //
+                //                     //       // availableReactions: const [
+                //                     //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                //                     //       // ],
+                //                     //       showAddReactionButton: true,
+                //                     //       enableHapticFeedback: true,
+                //                     //       enableLongPress: true,
+                //                     //       enableDoubleTap: false,
+                //                     //       maxReactionsToShow: 5,
+                //                     //       reactionSize: 24.0,
+                //                     //       stackedValue: 4.0,
+                //                     //
+                //                     //       emojiPickerBuilder: (context, onEmojiSelected) {
+                //                     //         print(
+                //                     //           'emojiPickerBuilder was invoked!',
+                //                     //         );
+                //                     //         return SizedBox(
+                //                     //           height: 380,
+                //                     //           child: EmojiPicker(
+                //                     //             onEmojiSelected:
+                //                     //                 (category, emoji) {
+                //                     //               onEmojiSelected(
+                //                     //                 emoji.emoji,
+                //                     //               );
+                //                     //               print(
+                //                     //                 'Emoji selected: ${emoji.emoji}',
+                //                     //               );
+                //                     //             },
+                //                     //             config: const Config(
+                //                     //               //height: 380,
+                //                     //               checkPlatformCompatibility:
+                //                     //               true,
+                //                     //               emojiSet: null,
+                //                     //               locale: Locale('en'),
+                //                     //               emojiTextStyle: null,
+                //                     //               customBackspaceIcon: null,
+                //                     //               customSearchIcon: null,
+                //                     //               viewOrderConfig:
+                //                     //               ViewOrderConfig(),
+                //                     //               emojiViewConfig:
+                //                     //               EmojiViewConfig(),
+                //                     //               skinToneConfig:
+                //                     //               SkinToneConfig(
+                //                     //                 enabled: true,
+                //                     //               ),
+                //                     //               categoryViewConfig:
+                //                     //               CategoryViewConfig(
+                //                     //                 recentTabBehavior:
+                //                     //                 RecentTabBehavior
+                //                     //                     .RECENT,
+                //                     //               ),
+                //                     //               bottomActionBarConfig:
+                //                     //               BottomActionBarConfig(
+                //                     //                 enabled: false,
+                //                     //               ),
+                //                     //               searchViewConfig:
+                //                     //               SearchViewConfig(),
+                //                     //             ),
+                //                     //           ),
+                //                     //         );
+                //                     //       },
+                //                     //
+                //                     //       menuItems: [
+                //                     //         MenuItem(
+                //                     //           label: 'Delete',
+                //                     //           icon: Icons.delete_outline,
+                //                     //           isDestructive: true,
+                //                     //         ),
+                //                     //         MenuItem(
+                //                     //           label: 'Copy',
+                //                     //           icon: Icons.copy,
+                //                     //           isDestructive: false,
+                //                     //         ),
+                //                     //         MenuItem(
+                //                     //           label: 'Reply',
+                //                     //           icon: Icons.reply,
+                //                     //           isDestructive: false,
+                //                     //         ),
+                //                     //       ],
+                //                     //
+                //                     //       showContextMenu: true,
+                //                     //     ),
+                //                     //
+                //                     //     onMenuItemTapped: (item) {
+                //                     //       final label = item.label
+                //                     //           .toLowerCase();
+                //                     //
+                //                     //       if (label == 'delete') {
+                //                     //         setState(() {
+                //                     //           _messages.removeWhere(
+                //                     //                 (m) => m.id == message.id,
+                //                     //           );
+                //                     //           CoreUtils.showTopSnackBar(
+                //                     //             context: context,
+                //                     //             message:
+                //                     //             'Message deleted successfully',
+                //                     //             isSuccess: true,
+                //                     //           );
+                //                     //         });
+                //                     //       } else if (label == 'reply') {
+                //                     //         setState(() {
+                //                     //           _quotedMessage = message;
+                //                     //           _quotedMessageId = message.id;
+                //                     //         });
+                //                     //         // ScaffoldMessenger.of(context).showSnackBar(
+                //                     //         //   SnackBar(content: Text('Replying to message')),
+                //                     //         // );
+                //                     //       } else if (label == 'copy') {
+                //                     //         Clipboard.setData(
+                //                     //           ClipboardData(
+                //                     //             text: message.text,
+                //                     //           ),
+                //                     //         );
+                //                     //         CoreUtils.showTopSnackBar(
+                //                     //           context: context,
+                //                     //           message:
+                //                     //           'Message copied successfully',
+                //                     //           isSuccess: true,
+                //                     //         );
+                //                     //       }
+                //                     //     },
+                //                     //
+                //                     //     onReactionAdded: (emoji) {
+                //                     //       // if (emoji == '+') {
+                //                     //       //   showModalBottomSheet(
+                //                     //       //     context: context,
+                //                     //       //     builder: (_) =>
+                //                     //       //         EmojiPicker(
+                //                     //       //           onEmojiSelected: (category, emoji) {
+                //                     //       //             Navigator.pop(context);
+                //                     //       //           },
+                //                     //       //           config: const Config(
+                //                     //       //             height: 380,
+                //                     //       //             checkPlatformCompatibility: true,
+                //                     //       //             emojiSet: null,
+                //                     //       //             locale: Locale('en'),
+                //                     //       //             emojiTextStyle: null,
+                //                     //       //             customBackspaceIcon: null,
+                //                     //       //             customSearchIcon: null,
+                //                     //       //             viewOrderConfig: ViewOrderConfig(),
+                //                     //       //             emojiViewConfig: EmojiViewConfig(),
+                //                     //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                //                     //       //             categoryViewConfig: CategoryViewConfig(
+                //                     //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                //                     //       //             ),
+                //                     //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                //                     //       //             searchViewConfig: SearchViewConfig(),
+                //                     //       //           ),
+                //                     //       //         ),
+                //                     //       //     // EmojiPicker(
+                //                     //       //     //   onEmojiSelected: (_, e) {
+                //                     //       //     //     Navigator.pop(context);
+                //                     //       //     //     // apply reaction manually
+                //                     //       //     //     print('Picked ${e.emoji}');
+                //                     //       //     //   },
+                //                     //       //     //   config: const Config(height: 380),
+                //                     //       //     // ),
+                //                     //       //   );
+                //                     //       // }
+                //                     //       final currentUserId =
+                //                     //           'me'; // dummy for now
+                //                     //       setState(() {
+                //                     //         final index = _messages
+                //                     //             .indexWhere(
+                //                     //               (m) => m.id == message.id,
+                //                     //         );
+                //                     //         if (index != -1) {
+                //                     //           final currentReactions =
+                //                     //           Map<String, String>.from(
+                //                     //             _messages[index]
+                //                     //                 .reactions,
+                //                     //           );
+                //                     //           currentReactions[currentUserId] =
+                //                     //               emoji;
+                //                     //           _messages[index] = Message(
+                //                     //             id: _messages[index].id,
+                //                     //             text: _messages[index].text,
+                //                     //             isSentByMe: _messages[index]
+                //                     //                 .isSentByMe,
+                //                     //             time: _messages[index].time,
+                //                     //             deliveredAt: _messages[index]
+                //                     //                 .deliveredAt,
+                //                     //             readAt:
+                //                     //             _messages[index].readAt,
+                //                     //             deliveredTo: _messages[index]
+                //                     //                 .deliveredTo,
+                //                     //             readBy:
+                //                     //             _messages[index].readBy,
+                //                     //             senderName: _messages[index].senderName,
+                //                     //             attachments: _messages[index].attachments,
+                //                     //             reactions: currentReactions,
+                //                     //           );
+                //                     //         }
+                //                     //         // ScaffoldMessenger.of(
+                //                     //         //   context,
+                //                     //         // ).showSnackBar(
+                //                     //         //   SnackBar(
+                //                     //         //     content: Text('Reacted with $emoji'),
+                //                     //         //   ),
+                //                     //         // );
+                //                     //       });
+                //                     //     },
+                //                     //
+                //                     //     onReactionRemoved: (emoji) {
+                //                     //       final currentUserId =
+                //                     //           'me'; // dummy for now
+                //                     //       setState(() {
+                //                     //         // message.reactions.remove(emoji);
+                //                     //         final index = _messages
+                //                     //             .indexWhere(
+                //                     //               (m) => m.id == message.id,
+                //                     //         );
+                //                     //         if (index != -1) {
+                //                     //           final currentReactions =
+                //                     //           Map<String, String>.from(
+                //                     //             _messages[index]
+                //                     //                 .reactions,
+                //                     //           );
+                //                     //           if (currentReactions[currentUserId] ==
+                //                     //               emoji) {
+                //                     //             currentReactions.remove(
+                //                     //               currentUserId,
+                //                     //             );
+                //                     //           }
+                //                     //           _messages[index] = Message(
+                //                     //             id: _messages[index].id,
+                //                     //             text: _messages[index].text,
+                //                     //             isSentByMe: _messages[index]
+                //                     //                 .isSentByMe,
+                //                     //             time: _messages[index].time,
+                //                     //             deliveredAt: _messages[index]
+                //                     //                 .deliveredAt,
+                //                     //             readAt:
+                //                     //             _messages[index].readAt,
+                //                     //             deliveredTo: _messages[index]
+                //                     //                 .deliveredTo,
+                //                     //             readBy:
+                //                     //             _messages[index].readBy,
+                //                     //             senderName: _messages[index].senderName,
+                //                     //             attachments: _messages[index].attachments,
+                //                     //             reactions: currentReactions,
+                //                     //           );
+                //                     //         }
+                //                     //         // ScaffoldMessenger.of(
+                //                     //         //   context,
+                //                     //         // ).showSnackBar(
+                //                     //         //   SnackBar(
+                //                     //         //     content: Text('Removed $emoji'),
+                //                     //         //   ),
+                //                     //         // );
+                //                     //       });
+                //                     //     },
+                //                     //
+                //                     //     alignment: message.isSentByMe
+                //                     //         ? Alignment.centerRight
+                //                     //         : Alignment.centerLeft,
+                //                     //   ),
+                //                   ],
+                //                 ),
+                //               );
+                //             },
+                //           ),
+                //           ListView.builder(
+                //             controller: _getActiveScrollController(),
+                //             padding: const EdgeInsets.symmetric(
+                //               horizontal: 8,
+                //               vertical: 12,
+                //             ),
+                //             reverse: true,
+                //             itemCount: _messages.length,
+                //             itemBuilder: (context, index) {
+                //               final message =
+                //               _messages[_messages.length - 1 - index];
+                //               final messageId = message.id;
+                //               //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                //               // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                //               // final key = keyMap.putIfAbsent(
+                //               //   messageId,
+                //               //   () => GlobalKey(),
+                //               // );
+                //               Message? quotedMessage;
+                //               if (message.quotedMessageId != null) {
+                //                 quotedMessage = _messages.firstWhere(
+                //                       (m) => m.id == message.quotedMessageId,
+                //                 ); // ?? null;
+                //               }
+                //               bool showDateHeader = false;
+                //               final prevListIndex =
+                //                   _messages.length - 2 - index;
+                //
+                //               if (prevListIndex >= 0) {
+                //                 final prevMessage = _messages[prevListIndex];
+                //
+                //                 showDateHeader =
+                //                     message.time.year !=
+                //                         prevMessage.time.year ||
+                //                         message.time.month !=
+                //                             prevMessage.time.month ||
+                //                         message.time.day != prevMessage.time.day;
+                //               } else {
+                //                 showDateHeader = true;
+                //               }
+                //
+                //               return AutoScrollTag(
+                //                 key: ValueKey(messageId),
+                //                 controller: _getActiveScrollController(),
+                //                 index: index,
+                //                 highlightColor: Colors.green.withValues(
+                //                   alpha: 0.7,
+                //                 ),
+                //                 child: Column(
+                //                   mainAxisSize: MainAxisSize.min,
+                //                   children: [
+                //                     if (showDateHeader)
+                //                       Center(
+                //                         child: Padding(
+                //                           padding: const EdgeInsets.only(
+                //                             top: 8.0,
+                //                           ),
+                //                           child: _buildDateChip(message.time),
+                //                         ),
+                //                       ),
+                //                     if (showDateHeader)
+                //                       const SizedBox(height: 10),
+                //                     MessageBubble(
+                //                       //key: key,
+                //                       //scrollKey: scrollKey,
+                //                       message: message,
+                //                       isParentMessaging: true,
+                //                       quotedMessage: quotedMessage,
+                //                       onLongPress:
+                //                           (LongPressStartDetails details) {
+                //                         _showMessageOptions(
+                //                           context,
+                //                           message,
+                //                           details,
+                //                         );
+                //                       },
+                //                       onScrollToQuoted: (quoteId) {
+                //                         _scrollToMessage(quoteId);
+                //                       },
+                //                       // onHeightMeasured: (id, height) {
+                //                       //   if (_bubbleHeights[id] != height) {
+                //                       //     setState(() {
+                //                       //       _bubbleHeights[id] = height;
+                //                       //     });
+                //                       //   }
+                //                       // },
+                //                       //onHeightMeasured:
+                //                       // onContextReady: (id, ctx) {
+                //                       //   if (_messageContexts[id] != ctx) {
+                //                       //     setState(() {
+                //                       //       _messageContexts[id] = ctx;
+                //                       //     });
+                //                       //   }
+                //                       // },
+                //                     ),
+                //
+                //                     // if (message.isSentByMe)
+                //                     //   MessageBubble(
+                //                     //     //key: key,
+                //                     //     //scrollKey: scrollKey,
+                //                     //     message: message,
+                //                     //     quotedMessage: quotedMessage,
+                //                     //     isParentMessaging: true,
+                //                     //     onLongPress:
+                //                     //         (LongPressStartDetails details) {
+                //                     //       _showMessageOptions(
+                //                     //         context,
+                //                     //         message,
+                //                     //         details,
+                //                     //       );
+                //                     //     },
+                //                     //     onScrollToQuoted: (quoteId) {
+                //                     //       _scrollToMessage(quoteId);
+                //                     //     },
+                //                     //     // onHeightMeasured: (id, height) {
+                //                     //     //   if (_bubbleHeights[id] != height) {
+                //                     //     //     setState(() {
+                //                     //     //       _bubbleHeights[id] = height;
+                //                     //     //     });
+                //                     //     //   }
+                //                     //     // },
+                //                     //     //onHeightMeasured:
+                //                     //     // onContextReady: (id, ctx) {
+                //                     //     //   if (_messageContexts[id] != ctx) {
+                //                     //     //     setState(() {
+                //                     //     //       _messageContexts[id] = ctx;
+                //                     //     //     });
+                //                     //     //   }
+                //                     //     // },
+                //                     //   )
+                //                     // else
+                //                     //   ChatMessageWrapper(
+                //                     //     messageId: message.id,
+                //                     //     controller: _reactionsController,
+                //                     //     child: MessageBubble(
+                //                     //       //key: key,
+                //                     //       //scrollKey: scrollKey,
+                //                     //       message: message,
+                //                     //       isParentMessaging: true,
+                //                     //       quotedMessage: quotedMessage,
+                //                     //       onLongPress:
+                //                     //           (
+                //                     //           LongPressStartDetails details,
+                //                     //           ) {
+                //                     //         _showMessageOptions(
+                //                     //           context,
+                //                     //           message,
+                //                     //           details,
+                //                     //         );
+                //                     //       },
+                //                     //       onScrollToQuoted: (quoteId) {
+                //                     //         _scrollToMessage(quoteId);
+                //                     //       },
+                //                     //       // onHeightMeasured: (id, height) {
+                //                     //       //   if (_bubbleHeights[id] != height) {
+                //                     //       //     setState(() {
+                //                     //       //       _bubbleHeights[id] = height;
+                //                     //       //     });
+                //                     //       //   }
+                //                     //       // },
+                //                     //       // onContextReady: (id, ctx) {
+                //                     //       //   if (_messageContexts[id] != ctx) {
+                //                     //       //     setState(() {
+                //                     //       //       _messageContexts[id] = ctx;
+                //                     //       //     });
+                //                     //       //   }
+                //                     //       // },
+                //                     //     ),
+                //                     //     config: ChatReactionsConfig(
+                //                     //       availableReactions: const [
+                //                     //         '👍',
+                //                     //         '❤️',
+                //                     //         '😂',
+                //                     //         '😮',
+                //                     //         '😢',
+                //                     //         '😠',
+                //                     //         '➕',
+                //                     //       ],
+                //                     //
+                //                     //       // availableReactions: const [
+                //                     //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                //                     //       // ],
+                //                     //       showAddReactionButton: true,
+                //                     //       enableHapticFeedback: true,
+                //                     //       enableLongPress: true,
+                //                     //       enableDoubleTap: false,
+                //                     //       maxReactionsToShow: 5,
+                //                     //       reactionSize: 24.0,
+                //                     //       stackedValue: 4.0,
+                //                     //
+                //                     //       emojiPickerBuilder: (context, onEmojiSelected) {
+                //                     //         print(
+                //                     //           'emojiPickerBuilder was invoked!',
+                //                     //         );
+                //                     //         return SizedBox(
+                //                     //           height: 380,
+                //                     //           child: EmojiPicker(
+                //                     //             onEmojiSelected:
+                //                     //                 (category, emoji) {
+                //                     //               onEmojiSelected(
+                //                     //                 emoji.emoji,
+                //                     //               );
+                //                     //               print(
+                //                     //                 'Emoji selected: ${emoji.emoji}',
+                //                     //               );
+                //                     //             },
+                //                     //             config: const Config(
+                //                     //               //height: 380,
+                //                     //               checkPlatformCompatibility:
+                //                     //               true,
+                //                     //               emojiSet: null,
+                //                     //               locale: Locale('en'),
+                //                     //               emojiTextStyle: null,
+                //                     //               customBackspaceIcon: null,
+                //                     //               customSearchIcon: null,
+                //                     //               viewOrderConfig:
+                //                     //               ViewOrderConfig(),
+                //                     //               emojiViewConfig:
+                //                     //               EmojiViewConfig(),
+                //                     //               skinToneConfig:
+                //                     //               SkinToneConfig(
+                //                     //                 enabled: true,
+                //                     //               ),
+                //                     //               categoryViewConfig:
+                //                     //               CategoryViewConfig(
+                //                     //                 recentTabBehavior:
+                //                     //                 RecentTabBehavior
+                //                     //                     .RECENT,
+                //                     //               ),
+                //                     //               bottomActionBarConfig:
+                //                     //               BottomActionBarConfig(
+                //                     //                 enabled: false,
+                //                     //               ),
+                //                     //               searchViewConfig:
+                //                     //               SearchViewConfig(),
+                //                     //             ),
+                //                     //           ),
+                //                     //         );
+                //                     //       },
+                //                     //
+                //                     //       menuItems: [
+                //                     //         MenuItem(
+                //                     //           label: 'Delete',
+                //                     //           icon: Icons.delete_outline,
+                //                     //           isDestructive: true,
+                //                     //         ),
+                //                     //         MenuItem(
+                //                     //           label: 'Copy',
+                //                     //           icon: Icons.copy,
+                //                     //           isDestructive: false,
+                //                     //         ),
+                //                     //         MenuItem(
+                //                     //           label: 'Reply',
+                //                     //           icon: Icons.reply,
+                //                     //           isDestructive: false,
+                //                     //         ),
+                //                     //       ],
+                //                     //
+                //                     //       showContextMenu: true,
+                //                     //     ),
+                //                     //
+                //                     //     onMenuItemTapped: (item) {
+                //                     //       final label = item.label
+                //                     //           .toLowerCase();
+                //                     //
+                //                     //       if (label == 'delete') {
+                //                     //         setState(() {
+                //                     //           _messages.removeWhere(
+                //                     //                 (m) => m.id == message.id,
+                //                     //           );
+                //                     //           CoreUtils.showTopSnackBar(
+                //                     //             context: context,
+                //                     //             message:
+                //                     //             'Message deleted successfully',
+                //                     //             isSuccess: true,
+                //                     //           );
+                //                     //         });
+                //                     //       } else if (label == 'reply') {
+                //                     //         setState(() {
+                //                     //           _quotedMessage = message;
+                //                     //           _quotedMessageId = message.id;
+                //                     //         });
+                //                     //         // ScaffoldMessenger.of(context).showSnackBar(
+                //                     //         //   SnackBar(content: Text('Replying to message')),
+                //                     //         // );
+                //                     //       } else if (label == 'copy') {
+                //                     //         Clipboard.setData(
+                //                     //           ClipboardData(
+                //                     //             text: message.text,
+                //                     //           ),
+                //                     //         );
+                //                     //         CoreUtils.showTopSnackBar(
+                //                     //           context: context,
+                //                     //           message:
+                //                     //           'Message copied successfully',
+                //                     //           isSuccess: true,
+                //                     //         );
+                //                     //       }
+                //                     //     },
+                //                     //
+                //                     //     onReactionAdded: (emoji) {
+                //                     //       // if (emoji == '+') {
+                //                     //       //   showModalBottomSheet(
+                //                     //       //     context: context,
+                //                     //       //     builder: (_) =>
+                //                     //       //         EmojiPicker(
+                //                     //       //           onEmojiSelected: (category, emoji) {
+                //                     //       //             Navigator.pop(context);
+                //                     //       //           },
+                //                     //       //           config: const Config(
+                //                     //       //             height: 380,
+                //                     //       //             checkPlatformCompatibility: true,
+                //                     //       //             emojiSet: null,
+                //                     //       //             locale: Locale('en'),
+                //                     //       //             emojiTextStyle: null,
+                //                     //       //             customBackspaceIcon: null,
+                //                     //       //             customSearchIcon: null,
+                //                     //       //             viewOrderConfig: ViewOrderConfig(),
+                //                     //       //             emojiViewConfig: EmojiViewConfig(),
+                //                     //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                //                     //       //             categoryViewConfig: CategoryViewConfig(
+                //                     //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                //                     //       //             ),
+                //                     //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                //                     //       //             searchViewConfig: SearchViewConfig(),
+                //                     //       //           ),
+                //                     //       //         ),
+                //                     //       //     // EmojiPicker(
+                //                     //       //     //   onEmojiSelected: (_, e) {
+                //                     //       //     //     Navigator.pop(context);
+                //                     //       //     //     // apply reaction manually
+                //                     //       //     //     print('Picked ${e.emoji}');
+                //                     //       //     //   },
+                //                     //       //     //   config: const Config(height: 380),
+                //                     //       //     // ),
+                //                     //       //   );
+                //                     //       // }
+                //                     //       final currentUserId =
+                //                     //           'me'; // dummy for now
+                //                     //       setState(() {
+                //                     //         final index = _messages
+                //                     //             .indexWhere(
+                //                     //               (m) => m.id == message.id,
+                //                     //         );
+                //                     //         if (index != -1) {
+                //                     //           final currentReactions =
+                //                     //           Map<String, String>.from(
+                //                     //             _messages[index]
+                //                     //                 .reactions,
+                //                     //           );
+                //                     //           currentReactions[currentUserId] =
+                //                     //               emoji;
+                //                     //           _messages[index] = Message(
+                //                     //             id: _messages[index].id,
+                //                     //             text: _messages[index].text,
+                //                     //             isSentByMe: _messages[index]
+                //                     //                 .isSentByMe,
+                //                     //             time: _messages[index].time,
+                //                     //             deliveredAt: _messages[index]
+                //                     //                 .deliveredAt,
+                //                     //             readAt:
+                //                     //             _messages[index].readAt,
+                //                     //             deliveredTo: _messages[index]
+                //                     //                 .deliveredTo,
+                //                     //             readBy:
+                //                     //             _messages[index].readBy,
+                //                     //             senderName: _messages[index].senderName,
+                //                     //             attachments: _messages[index].attachments,
+                //                     //             reactions: currentReactions,
+                //                     //           );
+                //                     //         }
+                //                     //         // ScaffoldMessenger.of(
+                //                     //         //   context,
+                //                     //         // ).showSnackBar(
+                //                     //         //   SnackBar(
+                //                     //         //     content: Text('Reacted with $emoji'),
+                //                     //         //   ),
+                //                     //         // );
+                //                     //       });
+                //                     //     },
+                //                     //
+                //                     //     onReactionRemoved: (emoji) {
+                //                     //       final currentUserId =
+                //                     //           'me'; // dummy for now
+                //                     //       setState(() {
+                //                     //         // message.reactions.remove(emoji);
+                //                     //         final index = _messages
+                //                     //             .indexWhere(
+                //                     //               (m) => m.id == message.id,
+                //                     //         );
+                //                     //         if (index != -1) {
+                //                     //           final currentReactions =
+                //                     //           Map<String, String>.from(
+                //                     //             _messages[index]
+                //                     //                 .reactions,
+                //                     //           );
+                //                     //           if (currentReactions[currentUserId] ==
+                //                     //               emoji) {
+                //                     //             currentReactions.remove(
+                //                     //               currentUserId,
+                //                     //             );
+                //                     //           }
+                //                     //           _messages[index] = Message(
+                //                     //             id: _messages[index].id,
+                //                     //             text: _messages[index].text,
+                //                     //             isSentByMe: _messages[index]
+                //                     //                 .isSentByMe,
+                //                     //             time: _messages[index].time,
+                //                     //             deliveredAt: _messages[index]
+                //                     //                 .deliveredAt,
+                //                     //             readAt:
+                //                     //             _messages[index].readAt,
+                //                     //             deliveredTo: _messages[index]
+                //                     //                 .deliveredTo,
+                //                     //             readBy:
+                //                     //             _messages[index].readBy,
+                //                     //             senderName: _messages[index].senderName,
+                //                     //             attachments: _messages[index].attachments,
+                //                     //             reactions: currentReactions,
+                //                     //           );
+                //                     //         }
+                //                     //         // ScaffoldMessenger.of(
+                //                     //         //   context,
+                //                     //         // ).showSnackBar(
+                //                     //         //   SnackBar(
+                //                     //         //     content: Text('Removed $emoji'),
+                //                     //         //   ),
+                //                     //         // );
+                //                     //       });
+                //                     //     },
+                //                     //
+                //                     //     alignment: message.isSentByMe
+                //                     //         ? Alignment.centerRight
+                //                     //         : Alignment.centerLeft,
+                //                     //   ),
+                //                   ],
+                //                 ),
+                //               );
+                //             },
+                //           ),
+                //         ] :
+                //         [
+                //           ListView.builder(
+                //             controller: _getActiveScrollController(),
+                //             padding: const EdgeInsets.symmetric(
+                //               horizontal: 8,
+                //               vertical: 12,
+                //             ),
+                //             reverse: true,
+                //             itemCount: _messages.length,
+                //             itemBuilder: (context, index) {
+                //               final message =
+                //               _messages[_messages.length - 1 - index];
+                //               final messageId = message.id;
+                //               //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                //               // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                //               // final key = keyMap.putIfAbsent(
+                //               //   messageId,
+                //               //   () => GlobalKey(),
+                //               // );
+                //               Message? quotedMessage;
+                //               if (message.quotedMessageId != null) {
+                //                 quotedMessage = _messages.firstWhere(
+                //                       (m) => m.id == message.quotedMessageId,
+                //                 ); // ?? null;
+                //               }
+                //               bool showDateHeader = false;
+                //               final prevListIndex =
+                //                   _messages.length - 2 - index;
+                //
+                //               if (prevListIndex >= 0) {
+                //                 final prevMessage = _messages[prevListIndex];
+                //
+                //                 showDateHeader =
+                //                     message.time.year !=
+                //                         prevMessage.time.year ||
+                //                         message.time.month !=
+                //                             prevMessage.time.month ||
+                //                         message.time.day != prevMessage.time.day;
+                //               } else {
+                //                 showDateHeader = true;
+                //               }
+                //
+                //               return AutoScrollTag(
+                //                 key: ValueKey(messageId),
+                //                 controller: _getActiveScrollController(),
+                //                 index: index,
+                //                 highlightColor: Colors.green.withValues(
+                //                   alpha: 0.7,
+                //                 ),
+                //                 child: Column(
+                //                   mainAxisSize: MainAxisSize.min,
+                //                   children: [
+                //                     if (showDateHeader)
+                //                       Center(
+                //                         child: Padding(
+                //                           padding: const EdgeInsets.only(
+                //                             top: 8.0,
+                //                           ),
+                //                           child: _buildDateChip(message.time),
+                //                         ),
+                //                       ),
+                //                     if (showDateHeader)
+                //                       const SizedBox(height: 10),
+                //                     MessageBubble(
+                //                       //key: key,
+                //                       //scrollKey: scrollKey,
+                //                       message: message,
+                //                       isParentMessaging: true,
+                //                       quotedMessage: quotedMessage,
+                //                       onLongPress:
+                //                           (LongPressStartDetails details) {
+                //                         _showMessageOptions(
+                //                           context,
+                //                           message,
+                //                           details,
+                //                         );
+                //                       },
+                //                       onScrollToQuoted: (quoteId) {
+                //                         _scrollToMessage(quoteId);
+                //                       },
+                //                       // onHeightMeasured: (id, height) {
+                //                       //   if (_bubbleHeights[id] != height) {
+                //                       //     setState(() {
+                //                       //       _bubbleHeights[id] = height;
+                //                       //     });
+                //                       //   }
+                //                       // },
+                //                       //onHeightMeasured:
+                //                       // onContextReady: (id, ctx) {
+                //                       //   if (_messageContexts[id] != ctx) {
+                //                       //     setState(() {
+                //                       //       _messageContexts[id] = ctx;
+                //                       //     });
+                //                       //   }
+                //                       // },
+                //                     ),
+                //
+                //                     // if (message.isSentByMe)
+                //                     //   MessageBubble(
+                //                     //     //key: key,
+                //                     //     //scrollKey: scrollKey,
+                //                     //     message: message,
+                //                     //     quotedMessage: quotedMessage,
+                //                     //     isParentMessaging: true,
+                //                     //     onLongPress:
+                //                     //         (LongPressStartDetails details) {
+                //                     //       _showMessageOptions(
+                //                     //         context,
+                //                     //         message,
+                //                     //         details,
+                //                     //       );
+                //                     //     },
+                //                     //     onScrollToQuoted: (quoteId) {
+                //                     //       _scrollToMessage(quoteId);
+                //                     //     },
+                //                     //     // onHeightMeasured: (id, height) {
+                //                     //     //   if (_bubbleHeights[id] != height) {
+                //                     //     //     setState(() {
+                //                     //     //       _bubbleHeights[id] = height;
+                //                     //     //     });
+                //                     //     //   }
+                //                     //     // },
+                //                     //     //onHeightMeasured:
+                //                     //     // onContextReady: (id, ctx) {
+                //                     //     //   if (_messageContexts[id] != ctx) {
+                //                     //     //     setState(() {
+                //                     //     //       _messageContexts[id] = ctx;
+                //                     //     //     });
+                //                     //     //   }
+                //                     //     // },
+                //                     //   )
+                //                     // else
+                //                     //   ChatMessageWrapper(
+                //                     //     messageId: message.id,
+                //                     //     controller: _reactionsController,
+                //                     //     child: MessageBubble(
+                //                     //       //key: key,
+                //                     //       //scrollKey: scrollKey,
+                //                     //       message: message,
+                //                     //       isParentMessaging: true,
+                //                     //       quotedMessage: quotedMessage,
+                //                     //       onLongPress:
+                //                     //           (
+                //                     //           LongPressStartDetails details,
+                //                     //           ) {
+                //                     //         _showMessageOptions(
+                //                     //           context,
+                //                     //           message,
+                //                     //           details,
+                //                     //         );
+                //                     //       },
+                //                     //       onScrollToQuoted: (quoteId) {
+                //                     //         _scrollToMessage(quoteId);
+                //                     //       },
+                //                     //       // onHeightMeasured: (id, height) {
+                //                     //       //   if (_bubbleHeights[id] != height) {
+                //                     //       //     setState(() {
+                //                     //       //       _bubbleHeights[id] = height;
+                //                     //       //     });
+                //                     //       //   }
+                //                     //       // },
+                //                     //       // onContextReady: (id, ctx) {
+                //                     //       //   if (_messageContexts[id] != ctx) {
+                //                     //       //     setState(() {
+                //                     //       //       _messageContexts[id] = ctx;
+                //                     //       //     });
+                //                     //       //   }
+                //                     //       // },
+                //                     //     ),
+                //                     //     config: ChatReactionsConfig(
+                //                     //       availableReactions: const [
+                //                     //         '👍',
+                //                     //         '❤️',
+                //                     //         '😂',
+                //                     //         '😮',
+                //                     //         '😢',
+                //                     //         '😠',
+                //                     //         '➕',
+                //                     //       ],
+                //                     //
+                //                     //       // availableReactions: const [
+                //                     //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                //                     //       // ],
+                //                     //       showAddReactionButton: true,
+                //                     //       enableHapticFeedback: true,
+                //                     //       enableLongPress: true,
+                //                     //       enableDoubleTap: false,
+                //                     //       maxReactionsToShow: 5,
+                //                     //       reactionSize: 24.0,
+                //                     //       stackedValue: 4.0,
+                //                     //
+                //                     //       emojiPickerBuilder: (context, onEmojiSelected) {
+                //                     //         print(
+                //                     //           'emojiPickerBuilder was invoked!',
+                //                     //         );
+                //                     //         return SizedBox(
+                //                     //           height: 380,
+                //                     //           child: EmojiPicker(
+                //                     //             onEmojiSelected:
+                //                     //                 (category, emoji) {
+                //                     //               onEmojiSelected(
+                //                     //                 emoji.emoji,
+                //                     //               );
+                //                     //               print(
+                //                     //                 'Emoji selected: ${emoji.emoji}',
+                //                     //               );
+                //                     //             },
+                //                     //             config: const Config(
+                //                     //               //height: 380,
+                //                     //               checkPlatformCompatibility:
+                //                     //               true,
+                //                     //               emojiSet: null,
+                //                     //               locale: Locale('en'),
+                //                     //               emojiTextStyle: null,
+                //                     //               customBackspaceIcon: null,
+                //                     //               customSearchIcon: null,
+                //                     //               viewOrderConfig:
+                //                     //               ViewOrderConfig(),
+                //                     //               emojiViewConfig:
+                //                     //               EmojiViewConfig(),
+                //                     //               skinToneConfig:
+                //                     //               SkinToneConfig(
+                //                     //                 enabled: true,
+                //                     //               ),
+                //                     //               categoryViewConfig:
+                //                     //               CategoryViewConfig(
+                //                     //                 recentTabBehavior:
+                //                     //                 RecentTabBehavior
+                //                     //                     .RECENT,
+                //                     //               ),
+                //                     //               bottomActionBarConfig:
+                //                     //               BottomActionBarConfig(
+                //                     //                 enabled: false,
+                //                     //               ),
+                //                     //               searchViewConfig:
+                //                     //               SearchViewConfig(),
+                //                     //             ),
+                //                     //           ),
+                //                     //         );
+                //                     //       },
+                //                     //
+                //                     //       menuItems: [
+                //                     //         MenuItem(
+                //                     //           label: 'Delete',
+                //                     //           icon: Icons.delete_outline,
+                //                     //           isDestructive: true,
+                //                     //         ),
+                //                     //         MenuItem(
+                //                     //           label: 'Copy',
+                //                     //           icon: Icons.copy,
+                //                     //           isDestructive: false,
+                //                     //         ),
+                //                     //         MenuItem(
+                //                     //           label: 'Reply',
+                //                     //           icon: Icons.reply,
+                //                     //           isDestructive: false,
+                //                     //         ),
+                //                     //       ],
+                //                     //
+                //                     //       showContextMenu: true,
+                //                     //     ),
+                //                     //
+                //                     //     onMenuItemTapped: (item) {
+                //                     //       final label = item.label
+                //                     //           .toLowerCase();
+                //                     //
+                //                     //       if (label == 'delete') {
+                //                     //         setState(() {
+                //                     //           _messages.removeWhere(
+                //                     //                 (m) => m.id == message.id,
+                //                     //           );
+                //                     //           CoreUtils.showTopSnackBar(
+                //                     //             context: context,
+                //                     //             message:
+                //                     //             'Message deleted successfully',
+                //                     //             isSuccess: true,
+                //                     //           );
+                //                     //         });
+                //                     //       } else if (label == 'reply') {
+                //                     //         setState(() {
+                //                     //           _quotedMessage = message;
+                //                     //           _quotedMessageId = message.id;
+                //                     //         });
+                //                     //         // ScaffoldMessenger.of(context).showSnackBar(
+                //                     //         //   SnackBar(content: Text('Replying to message')),
+                //                     //         // );
+                //                     //       } else if (label == 'copy') {
+                //                     //         Clipboard.setData(
+                //                     //           ClipboardData(
+                //                     //             text: message.text,
+                //                     //           ),
+                //                     //         );
+                //                     //         CoreUtils.showTopSnackBar(
+                //                     //           context: context,
+                //                     //           message:
+                //                     //           'Message copied successfully',
+                //                     //           isSuccess: true,
+                //                     //         );
+                //                     //       }
+                //                     //     },
+                //                     //
+                //                     //     onReactionAdded: (emoji) {
+                //                     //       // if (emoji == '+') {
+                //                     //       //   showModalBottomSheet(
+                //                     //       //     context: context,
+                //                     //       //     builder: (_) =>
+                //                     //       //         EmojiPicker(
+                //                     //       //           onEmojiSelected: (category, emoji) {
+                //                     //       //             Navigator.pop(context);
+                //                     //       //           },
+                //                     //       //           config: const Config(
+                //                     //       //             height: 380,
+                //                     //       //             checkPlatformCompatibility: true,
+                //                     //       //             emojiSet: null,
+                //                     //       //             locale: Locale('en'),
+                //                     //       //             emojiTextStyle: null,
+                //                     //       //             customBackspaceIcon: null,
+                //                     //       //             customSearchIcon: null,
+                //                     //       //             viewOrderConfig: ViewOrderConfig(),
+                //                     //       //             emojiViewConfig: EmojiViewConfig(),
+                //                     //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                //                     //       //             categoryViewConfig: CategoryViewConfig(
+                //                     //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                //                     //       //             ),
+                //                     //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                //                     //       //             searchViewConfig: SearchViewConfig(),
+                //                     //       //           ),
+                //                     //       //         ),
+                //                     //       //     // EmojiPicker(
+                //                     //       //     //   onEmojiSelected: (_, e) {
+                //                     //       //     //     Navigator.pop(context);
+                //                     //       //     //     // apply reaction manually
+                //                     //       //     //     print('Picked ${e.emoji}');
+                //                     //       //     //   },
+                //                     //       //     //   config: const Config(height: 380),
+                //                     //       //     // ),
+                //                     //       //   );
+                //                     //       // }
+                //                     //       final currentUserId =
+                //                     //           'me'; // dummy for now
+                //                     //       setState(() {
+                //                     //         final index = _messages
+                //                     //             .indexWhere(
+                //                     //               (m) => m.id == message.id,
+                //                     //         );
+                //                     //         if (index != -1) {
+                //                     //           final currentReactions =
+                //                     //           Map<String, String>.from(
+                //                     //             _messages[index]
+                //                     //                 .reactions,
+                //                     //           );
+                //                     //           currentReactions[currentUserId] =
+                //                     //               emoji;
+                //                     //           _messages[index] = Message(
+                //                     //             id: _messages[index].id,
+                //                     //             text: _messages[index].text,
+                //                     //             isSentByMe: _messages[index]
+                //                     //                 .isSentByMe,
+                //                     //             time: _messages[index].time,
+                //                     //             deliveredAt: _messages[index]
+                //                     //                 .deliveredAt,
+                //                     //             readAt:
+                //                     //             _messages[index].readAt,
+                //                     //             deliveredTo: _messages[index]
+                //                     //                 .deliveredTo,
+                //                     //             readBy:
+                //                     //             _messages[index].readBy,
+                //                     //             senderName: _messages[index].senderName,
+                //                     //             attachments: _messages[index].attachments,
+                //                     //             reactions: currentReactions,
+                //                     //           );
+                //                     //         }
+                //                     //         // ScaffoldMessenger.of(
+                //                     //         //   context,
+                //                     //         // ).showSnackBar(
+                //                     //         //   SnackBar(
+                //                     //         //     content: Text('Reacted with $emoji'),
+                //                     //         //   ),
+                //                     //         // );
+                //                     //       });
+                //                     //     },
+                //                     //
+                //                     //     onReactionRemoved: (emoji) {
+                //                     //       final currentUserId =
+                //                     //           'me'; // dummy for now
+                //                     //       setState(() {
+                //                     //         // message.reactions.remove(emoji);
+                //                     //         final index = _messages
+                //                     //             .indexWhere(
+                //                     //               (m) => m.id == message.id,
+                //                     //         );
+                //                     //         if (index != -1) {
+                //                     //           final currentReactions =
+                //                     //           Map<String, String>.from(
+                //                     //             _messages[index]
+                //                     //                 .reactions,
+                //                     //           );
+                //                     //           if (currentReactions[currentUserId] ==
+                //                     //               emoji) {
+                //                     //             currentReactions.remove(
+                //                     //               currentUserId,
+                //                     //             );
+                //                     //           }
+                //                     //           _messages[index] = Message(
+                //                     //             id: _messages[index].id,
+                //                     //             text: _messages[index].text,
+                //                     //             isSentByMe: _messages[index]
+                //                     //                 .isSentByMe,
+                //                     //             time: _messages[index].time,
+                //                     //             deliveredAt: _messages[index]
+                //                     //                 .deliveredAt,
+                //                     //             readAt:
+                //                     //             _messages[index].readAt,
+                //                     //             deliveredTo: _messages[index]
+                //                     //                 .deliveredTo,
+                //                     //             readBy:
+                //                     //             _messages[index].readBy,
+                //                     //             senderName: _messages[index].senderName,
+                //                     //             attachments: _messages[index].attachments,
+                //                     //             reactions: currentReactions,
+                //                     //           );
+                //                     //         }
+                //                     //         // ScaffoldMessenger.of(
+                //                     //         //   context,
+                //                     //         // ).showSnackBar(
+                //                     //         //   SnackBar(
+                //                     //         //     content: Text('Removed $emoji'),
+                //                     //         //   ),
+                //                     //         // );
+                //                     //       });
+                //                     //     },
+                //                     //
+                //                     //     alignment: message.isSentByMe
+                //                     //         ? Alignment.centerRight
+                //                     //         : Alignment.centerLeft,
+                //                     //   ),
+                //                   ],
+                //                 ),
+                //               );
+                //             },
+                //           ),
+                //         ],
+                //       ),
+                //     ),
+                //   ],
+                // ),
+                // child: ListView.builder(
+                //   controller: _getActiveScrollController(),
+                //   padding: const EdgeInsets.symmetric(
+                //     horizontal: 8,
+                //     vertical: 12,
+                //   ),
+                //   reverse: true,
+                //   itemCount: _messages.length,
+                //   itemBuilder: (context, index) {
+                //     final message =
+                //     _messages[_messages.length - 1 - index];
+                //     final messageId = message.id;
+                //     //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                //     // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                //     // final key = keyMap.putIfAbsent(
+                //     //   messageId,
+                //     //   () => GlobalKey(),
+                //     // );
+                //     Message? quotedMessage;
+                //     if (message.quotedMessageId != null) {
+                //       quotedMessage = _messages.firstWhere(
+                //             (m) => m.id == message.quotedMessageId,
+                //       ); // ?? null;
+                //     }
+                //     bool showDateHeader = false;
+                //     final prevListIndex = _messages.length - 2 - index;
+                //
+                //     if (prevListIndex >= 0) {
+                //       final prevMessage = _messages[prevListIndex];
+                //
+                //       showDateHeader =
+                //           message.time.year != prevMessage.time.year ||
+                //               message.time.month != prevMessage.time.month ||
+                //               message.time.day != prevMessage.time.day;
+                //     } else {
+                //       showDateHeader = true;
+                //     }
+                //
+                //     return AutoScrollTag(
+                //       key: ValueKey(messageId),
+                //       controller: _getActiveScrollController(),
+                //       index: index,
+                //       highlightColor: Colors.green.withValues(alpha: 0.7),
+                //       child: Column(
+                //         mainAxisSize: MainAxisSize.min,
+                //         children: [
+                //           if (showDateHeader)
+                //             Center(
+                //               child: Padding(
+                //                 padding: const EdgeInsets.only(top: 8.0),
+                //                 child: _buildDateChip(message.time),
+                //               ),
+                //             ),
+                //           if (showDateHeader) const SizedBox(height: 10),
+                //           MessageBubble(
+                //             //key: key,
+                //             //scrollKey: scrollKey,
+                //             message: message,
+                //             isParentMessaging: true,
+                //             quotedMessage: quotedMessage,
+                //             onLongPress:
+                //                 (LongPressStartDetails details) {
+                //               _showMessageOptions(
+                //                 context,
+                //                 message,
+                //                 details,
+                //               );
+                //             },
+                //             onScrollToQuoted: (quoteId) {
+                //               _scrollToMessage(quoteId);
+                //             },
+                //             // onHeightMeasured: (id, height) {
+                //             //   if (_bubbleHeights[id] != height) {
+                //             //     setState(() {
+                //             //       _bubbleHeights[id] = height;
+                //             //     });
+                //             //   }
+                //             // },
+                //             //onHeightMeasured:
+                //             // onContextReady: (id, ctx) {
+                //             //   if (_messageContexts[id] != ctx) {
+                //             //     setState(() {
+                //             //       _messageContexts[id] = ctx;
+                //             //     });
+                //             //   }
+                //             // },
+                //           )
+                //
+                //           // if (message.isSentByMe)
+                //           //   MessageBubble(
+                //           //     //key: key,
+                //           //     //scrollKey: scrollKey,
+                //           //     message: message,
+                //           //     isParentMessaging: true,
+                //           //     quotedMessage: quotedMessage,
+                //           //     onLongPress:
+                //           //         (LongPressStartDetails details) {
+                //           //       _showMessageOptions(
+                //           //         context,
+                //           //         message,
+                //           //         details,
+                //           //       );
+                //           //     },
+                //           //     onScrollToQuoted: (quoteId) {
+                //           //       _scrollToMessage(quoteId);
+                //           //     },
+                //           //     // onHeightMeasured: (id, height) {
+                //           //     //   if (_bubbleHeights[id] != height) {
+                //           //     //     setState(() {
+                //           //     //       _bubbleHeights[id] = height;
+                //           //     //     });
+                //           //     //   }
+                //           //     // },
+                //           //     //onHeightMeasured:
+                //           //     // onContextReady: (id, ctx) {
+                //           //     //   if (_messageContexts[id] != ctx) {
+                //           //     //     setState(() {
+                //           //     //       _messageContexts[id] = ctx;
+                //           //     //     });
+                //           //     //   }
+                //           //     // },
+                //           //   )
+                //           // else
+                //           //   ChatMessageWrapper(
+                //           //     messageId: message.id,
+                //           //     controller: _reactionsController,
+                //           //     child: MessageBubble(
+                //           //       //key: key,
+                //           //       //scrollKey: scrollKey,
+                //           //       message: message,
+                //           //       isParentMessaging: true,
+                //           //       quotedMessage: quotedMessage,
+                //           //       onLongPress:
+                //           //           (LongPressStartDetails details) {
+                //           //         _showMessageOptions(
+                //           //           context,
+                //           //           message,
+                //           //           details,
+                //           //         );
+                //           //       },
+                //           //       onScrollToQuoted: (quoteId) {
+                //           //         _scrollToMessage(quoteId);
+                //           //       },
+                //           //       // onHeightMeasured: (id, height) {
+                //           //       //   if (_bubbleHeights[id] != height) {
+                //           //       //     setState(() {
+                //           //       //       _bubbleHeights[id] = height;
+                //           //       //     });
+                //           //       //   }
+                //           //       // },
+                //           //       // onContextReady: (id, ctx) {
+                //           //       //   if (_messageContexts[id] != ctx) {
+                //           //       //     setState(() {
+                //           //       //       _messageContexts[id] = ctx;
+                //           //       //     });
+                //           //       //   }
+                //           //       // },
+                //           //     ),
+                //           //     config: ChatReactionsConfig(
+                //           //       availableReactions: const [
+                //           //         '👍',
+                //           //         '❤️',
+                //           //         '😂',
+                //           //         '😮',
+                //           //         '😢',
+                //           //         '😠',
+                //           //         '➕',
+                //           //       ],
+                //           //
+                //           //       // availableReactions: const [
+                //           //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                //           //       // ],
+                //           //       showAddReactionButton: true,
+                //           //       enableHapticFeedback: true,
+                //           //       enableLongPress: true,
+                //           //       enableDoubleTap: false,
+                //           //       maxReactionsToShow: 5,
+                //           //       reactionSize: 24.0,
+                //           //       stackedValue: 4.0,
+                //           //
+                //           //       emojiPickerBuilder: (context, onEmojiSelected) {
+                //           //         print(
+                //           //           'emojiPickerBuilder was invoked!',
+                //           //         );
+                //           //         return SizedBox(
+                //           //           height: 380,
+                //           //           child: EmojiPicker(
+                //           //             onEmojiSelected: (category, emoji) {
+                //           //               onEmojiSelected(emoji.emoji);
+                //           //               print(
+                //           //                 'Emoji selected: ${emoji.emoji}',
+                //           //               );
+                //           //             },
+                //           //             config: const Config(
+                //           //               //height: 380,
+                //           //               checkPlatformCompatibility: true,
+                //           //               emojiSet: null,
+                //           //               locale: Locale('en'),
+                //           //               emojiTextStyle: null,
+                //           //               customBackspaceIcon: null,
+                //           //               customSearchIcon: null,
+                //           //               viewOrderConfig:
+                //           //               ViewOrderConfig(),
+                //           //               emojiViewConfig:
+                //           //               EmojiViewConfig(),
+                //           //               skinToneConfig: SkinToneConfig(
+                //           //                 enabled: true,
+                //           //               ),
+                //           //               categoryViewConfig:
+                //           //               CategoryViewConfig(
+                //           //                 recentTabBehavior:
+                //           //                 RecentTabBehavior
+                //           //                     .RECENT,
+                //           //               ),
+                //           //               bottomActionBarConfig:
+                //           //               BottomActionBarConfig(
+                //           //                 enabled: false,
+                //           //               ),
+                //           //               searchViewConfig:
+                //           //               SearchViewConfig(),
+                //           //             ),
+                //           //           ),
+                //           //         );
+                //           //       },
+                //           //
+                //           //       menuItems: [
+                //           //         MenuItem(
+                //           //           label: 'Delete',
+                //           //           icon: Icons.delete_outline,
+                //           //           isDestructive: true,
+                //           //         ),
+                //           //         MenuItem(
+                //           //           label: 'Copy',
+                //           //           icon: Icons.copy,
+                //           //           isDestructive: false,
+                //           //         ),
+                //           //         MenuItem(
+                //           //           label: 'Reply',
+                //           //           icon: Icons.reply,
+                //           //           isDestructive: false,
+                //           //         ),
+                //           //       ],
+                //           //
+                //           //       showContextMenu: true,
+                //           //     ),
+                //           //
+                //           //     onMenuItemTapped: (item) {
+                //           //       final label = item.label.toLowerCase();
+                //           //
+                //           //       if (label == 'delete') {
+                //           //         setState(() {
+                //           //           _messages.removeWhere(
+                //           //                 (m) => m.id == message.id,
+                //           //           );
+                //           //           CoreUtils.showTopSnackBar(
+                //           //             context: context,
+                //           //             message:
+                //           //             'Message deleted successfully',
+                //           //             isSuccess: true,
+                //           //           );
+                //           //         });
+                //           //       } else if (label == 'reply') {
+                //           //         setState(() {
+                //           //           _quotedMessage = message;
+                //           //           _quotedMessageId = message.id;
+                //           //         });
+                //           //         // ScaffoldMessenger.of(context).showSnackBar(
+                //           //         //   SnackBar(content: Text('Replying to message')),
+                //           //         // );
+                //           //       } else if (label == 'copy') {
+                //           //         Clipboard.setData(
+                //           //           ClipboardData(text: message.text),
+                //           //         );
+                //           //         CoreUtils.showTopSnackBar(
+                //           //           context: context,
+                //           //           message:
+                //           //           'Message copied successfully',
+                //           //           isSuccess: true,
+                //           //         );
+                //           //       }
+                //           //     },
+                //           //
+                //           //     onReactionAdded: (emoji) {
+                //           //       // if (emoji == '+') {
+                //           //       //   showModalBottomSheet(
+                //           //       //     context: context,
+                //           //       //     builder: (_) =>
+                //           //       //         EmojiPicker(
+                //           //       //           onEmojiSelected: (category, emoji) {
+                //           //       //             Navigator.pop(context);
+                //           //       //           },
+                //           //       //           config: const Config(
+                //           //       //             height: 380,
+                //           //       //             checkPlatformCompatibility: true,
+                //           //       //             emojiSet: null,
+                //           //       //             locale: Locale('en'),
+                //           //       //             emojiTextStyle: null,
+                //           //       //             customBackspaceIcon: null,
+                //           //       //             customSearchIcon: null,
+                //           //       //             viewOrderConfig: ViewOrderConfig(),
+                //           //       //             emojiViewConfig: EmojiViewConfig(),
+                //           //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                //           //       //             categoryViewConfig: CategoryViewConfig(
+                //           //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                //           //       //             ),
+                //           //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                //           //       //             searchViewConfig: SearchViewConfig(),
+                //           //       //           ),
+                //           //       //         ),
+                //           //       //     // EmojiPicker(
+                //           //       //     //   onEmojiSelected: (_, e) {
+                //           //       //     //     Navigator.pop(context);
+                //           //       //     //     // apply reaction manually
+                //           //       //     //     print('Picked ${e.emoji}');
+                //           //       //     //   },
+                //           //       //     //   config: const Config(height: 380),
+                //           //       //     // ),
+                //           //       //   );
+                //           //       // }
+                //           //       final currentUserId =
+                //           //           'me'; // dummy for now
+                //           //       setState(() {
+                //           //         final index = _messages.indexWhere(
+                //           //               (m) => m.id == message.id,
+                //           //         );
+                //           //         if (index != -1) {
+                //           //           final currentReactions =
+                //           //           Map<String, String>.from(
+                //           //             _messages[index].reactions,
+                //           //           );
+                //           //           currentReactions[currentUserId] =
+                //           //               emoji;
+                //           //           _messages[index] = Message(
+                //           //             id: _messages[index].id,
+                //           //             text: _messages[index].text,
+                //           //             isSentByMe:
+                //           //             _messages[index].isSentByMe,
+                //           //             time: _messages[index].time,
+                //           //             deliveredAt:
+                //           //             _messages[index].deliveredAt,
+                //           //             readAt: _messages[index].readAt,
+                //           //             deliveredTo:
+                //           //             _messages[index].deliveredTo,
+                //           //             readBy: _messages[index].readBy,
+                //           //             attachments: _messages[index].attachments,
+                //           //             senderName: _messages[index].senderName,
+                //           //             reactions: currentReactions,
+                //           //           );
+                //           //         }
+                //           //         // ScaffoldMessenger.of(
+                //           //         //   context,
+                //           //         // ).showSnackBar(
+                //           //         //   SnackBar(
+                //           //         //     content: Text('Reacted with $emoji'),
+                //           //         //   ),
+                //           //         // );
+                //           //       });
+                //           //     },
+                //           //
+                //           //     onReactionRemoved: (emoji) {
+                //           //       final currentUserId =
+                //           //           'me'; // dummy for now
+                //           //       setState(() {
+                //           //         // message.reactions.remove(emoji);
+                //           //         final index = _messages.indexWhere(
+                //           //               (m) => m.id == message.id,
+                //           //         );
+                //           //         if (index != -1) {
+                //           //           final currentReactions =
+                //           //           Map<String, String>.from(
+                //           //             _messages[index].reactions,
+                //           //           );
+                //           //           if (currentReactions[currentUserId] ==
+                //           //               emoji) {
+                //           //             currentReactions.remove(
+                //           //               currentUserId,
+                //           //             );
+                //           //           }
+                //           //           _messages[index] = Message(
+                //           //             id: _messages[index].id,
+                //           //             text: _messages[index].text,
+                //           //             isSentByMe:
+                //           //             _messages[index].isSentByMe,
+                //           //             time: _messages[index].time,
+                //           //             deliveredAt:
+                //           //             _messages[index].deliveredAt,
+                //           //             readAt: _messages[index].readAt,
+                //           //             deliveredTo:
+                //           //             _messages[index].deliveredTo,
+                //           //             readBy: _messages[index].readBy,
+                //           //             attachments: _messages[index].attachments,
+                //           //             senderName: _messages[index].senderName,
+                //           //             reactions: currentReactions,
+                //           //           );
+                //           //         }
+                //           //         // ScaffoldMessenger.of(
+                //           //         //   context,
+                //           //         // ).showSnackBar(
+                //           //         //   SnackBar(
+                //           //         //     content: Text('Removed $emoji'),
+                //           //         //   ),
+                //           //         // );
+                //           //       });
+                //           //     },
+                //           //
+                //           //     alignment: message.isSentByMe
+                //           //         ? Alignment.centerRight
+                //           //         : Alignment.centerLeft,
+                //           //   ),
+                //         ],
+                //       ),
+                //     );
+                //   },
+                // ),
               ),
             ),
             const SizedBox(width: 10),
@@ -1083,7 +3884,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24.0,
-                          vertical: 16,
+                          vertical: 10,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.start,
@@ -1135,446 +3936,1347 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
                         ),
                       ),
                     ),
-                    Flexible(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        reverse: true,
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message =
-                          _messages[_messages.length - 1 - index];
-                          final messageId = message.id;
-                          //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                          // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                          // final key = keyMap.putIfAbsent(
-                          //   messageId,
-                          //   () => GlobalKey(),
-                          // );
-                          Message? quotedMessage;
-                          if (message.quotedMessageId != null) {
-                            quotedMessage = _messages.firstWhere(
-                                  (m) => m.id == message.quotedMessageId,
-                            ); // ?? null;
-                          }
-                          bool showDateHeader = false;
-                          final prevListIndex =
-                              _messages.length - 2 - index;
+                    //const SizedBox(height: 10,),
+                    TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      padding: EdgeInsets.all(0),
+                      labelColor: AppColors.primaryColor,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppColors.themeColor,
+                      dividerColor: Colors.transparent,
+                      //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                      tabs: tabNames.map((name) => _buildTab(name)).toList(),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                          controller: _tabController,
+                          children: _privateModeEnabled ?
+                          [
+                            ListView.builder(
+                              controller: _getActiveScrollController(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                              reverse: true,
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final message =
+                                _messages[_messages.length - 1 - index];
+                                final messageId = message.id;
+                                //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                // final key = keyMap.putIfAbsent(
+                                //   messageId,
+                                //   () => GlobalKey(),
+                                // );
+                                Message? quotedMessage;
+                                if (message.quotedMessageId != null) {
+                                  quotedMessage = _messages.firstWhere(
+                                        (m) => m.id == message.quotedMessageId,
+                                  ); // ?? null;
+                                }
+                                bool showDateHeader = false;
+                                final prevListIndex =
+                                    _messages.length - 2 - index;
 
-                          if (prevListIndex >= 0) {
-                            final prevMessage = _messages[prevListIndex];
+                                if (prevListIndex >= 0) {
+                                  final prevMessage = _messages[prevListIndex];
 
-                            showDateHeader =
-                                message.time.year !=
-                                    prevMessage.time.year ||
-                                    message.time.month !=
-                                        prevMessage.time.month ||
-                                    message.time.day != prevMessage.time.day;
-                          } else {
-                            showDateHeader = true;
-                          }
+                                  showDateHeader =
+                                      message.time.year !=
+                                          prevMessage.time.year ||
+                                          message.time.month !=
+                                              prevMessage.time.month ||
+                                          message.time.day != prevMessage.time.day;
+                                } else {
+                                  showDateHeader = true;
+                                }
 
-                          return AutoScrollTag(
-                            key: ValueKey(messageId),
-                            controller: _scrollController,
-                            index: index,
-                            highlightColor: Colors.green.withValues(
-                              alpha: 0.7,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (showDateHeader)
-                                  Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 8.0,
-                                      ),
-                                      child: _buildDateChip(message.time),
-                                    ),
+                                return AutoScrollTag(
+                                  key: ValueKey(messageId),
+                                  controller: _getActiveScrollController(),
+                                  index: index,
+                                  highlightColor: Colors.green.withValues(
+                                    alpha: 0.7,
                                   ),
-                                if (showDateHeader)
-                                  const SizedBox(height: 10),
-                                MessageBubble(
-                                  //key: key,
-                                  //scrollKey: scrollKey,
-                                  message: message,
-                                  isParentMessaging: true,
-                                  quotedMessage: quotedMessage,
-                                  onLongPress:
-                                      (LongPressStartDetails details) {
-                                    _showMessageOptions(
-                                      context,
-                                      message,
-                                      details,
-                                    );
-                                  },
-                                  onScrollToQuoted: (quoteId) {
-                                    _scrollToMessage(quoteId);
-                                  },
-                                  // onHeightMeasured: (id, height) {
-                                  //   if (_bubbleHeights[id] != height) {
-                                  //     setState(() {
-                                  //       _bubbleHeights[id] = height;
-                                  //     });
-                                  //   }
-                                  // },
-                                  //onHeightMeasured:
-                                  // onContextReady: (id, ctx) {
-                                  //   if (_messageContexts[id] != ctx) {
-                                  //     setState(() {
-                                  //       _messageContexts[id] = ctx;
-                                  //     });
-                                  //   }
-                                  // },
-                                ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (showDateHeader)
+                                        Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 8.0,
+                                            ),
+                                            child: _buildDateChip(message.time),
+                                          ),
+                                        ),
+                                      if (showDateHeader)
+                                        const SizedBox(height: 10),
+                                      MessageBubble(
+                                        //key: key,
+                                        //scrollKey: scrollKey,
+                                        message: message,
+                                        isParentMessaging: true,
+                                        quotedMessage: quotedMessage,
+                                        onLongPress:
+                                            (LongPressStartDetails details) {
+                                          _showMessageOptions(
+                                            context,
+                                            message,
+                                            details,
+                                          );
+                                        },
+                                        onScrollToQuoted: (quoteId) {
+                                          _scrollToMessage(quoteId);
+                                        },
+                                        // onHeightMeasured: (id, height) {
+                                        //   if (_bubbleHeights[id] != height) {
+                                        //     setState(() {
+                                        //       _bubbleHeights[id] = height;
+                                        //     });
+                                        //   }
+                                        // },
+                                        //onHeightMeasured:
+                                        // onContextReady: (id, ctx) {
+                                        //   if (_messageContexts[id] != ctx) {
+                                        //     setState(() {
+                                        //       _messageContexts[id] = ctx;
+                                        //     });
+                                        //   }
+                                        // },
+                                      ),
 
-                                // if (message.isSentByMe)
-                                //   MessageBubble(
-                                //     //key: key,
-                                //     //scrollKey: scrollKey,
-                                //     message: message,
-                                //     quotedMessage: quotedMessage,
-                                //     isParentMessaging: true,
-                                //     onLongPress:
-                                //         (LongPressStartDetails details) {
-                                //       _showMessageOptions(
-                                //         context,
-                                //         message,
-                                //         details,
-                                //       );
-                                //     },
-                                //     onScrollToQuoted: (quoteId) {
-                                //       _scrollToMessage(quoteId);
-                                //     },
-                                //     // onHeightMeasured: (id, height) {
-                                //     //   if (_bubbleHeights[id] != height) {
-                                //     //     setState(() {
-                                //     //       _bubbleHeights[id] = height;
-                                //     //     });
-                                //     //   }
-                                //     // },
-                                //     //onHeightMeasured:
-                                //     // onContextReady: (id, ctx) {
-                                //     //   if (_messageContexts[id] != ctx) {
-                                //     //     setState(() {
-                                //     //       _messageContexts[id] = ctx;
-                                //     //     });
-                                //     //   }
-                                //     // },
-                                //   )
-                                // else
-                                //   ChatMessageWrapper(
-                                //     messageId: message.id,
-                                //     controller: _reactionsController,
-                                //     child: MessageBubble(
-                                //       //key: key,
-                                //       //scrollKey: scrollKey,
-                                //       message: message,
-                                //       isParentMessaging: true,
-                                //       quotedMessage: quotedMessage,
-                                //       onLongPress:
-                                //           (
-                                //           LongPressStartDetails details,
-                                //           ) {
-                                //         _showMessageOptions(
-                                //           context,
-                                //           message,
-                                //           details,
-                                //         );
-                                //       },
-                                //       onScrollToQuoted: (quoteId) {
-                                //         _scrollToMessage(quoteId);
-                                //       },
-                                //       // onHeightMeasured: (id, height) {
-                                //       //   if (_bubbleHeights[id] != height) {
-                                //       //     setState(() {
-                                //       //       _bubbleHeights[id] = height;
-                                //       //     });
-                                //       //   }
-                                //       // },
-                                //       // onContextReady: (id, ctx) {
-                                //       //   if (_messageContexts[id] != ctx) {
-                                //       //     setState(() {
-                                //       //       _messageContexts[id] = ctx;
-                                //       //     });
-                                //       //   }
-                                //       // },
-                                //     ),
-                                //     config: ChatReactionsConfig(
-                                //       availableReactions: const [
-                                //         '👍',
-                                //         '❤️',
-                                //         '😂',
-                                //         '😮',
-                                //         '😢',
-                                //         '😠',
-                                //         '➕',
-                                //       ],
-                                //
-                                //       // availableReactions: const [
-                                //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
-                                //       // ],
-                                //       showAddReactionButton: true,
-                                //       enableHapticFeedback: true,
-                                //       enableLongPress: true,
-                                //       enableDoubleTap: false,
-                                //       maxReactionsToShow: 5,
-                                //       reactionSize: 24.0,
-                                //       stackedValue: 4.0,
-                                //
-                                //       emojiPickerBuilder: (context, onEmojiSelected) {
-                                //         print(
-                                //           'emojiPickerBuilder was invoked!',
-                                //         );
-                                //         return SizedBox(
-                                //           height: 380,
-                                //           child: EmojiPicker(
-                                //             onEmojiSelected:
-                                //                 (category, emoji) {
-                                //               onEmojiSelected(
-                                //                 emoji.emoji,
-                                //               );
-                                //               print(
-                                //                 'Emoji selected: ${emoji.emoji}',
-                                //               );
-                                //             },
-                                //             config: const Config(
-                                //               //height: 380,
-                                //               checkPlatformCompatibility:
-                                //               true,
-                                //               emojiSet: null,
-                                //               locale: Locale('en'),
-                                //               emojiTextStyle: null,
-                                //               customBackspaceIcon: null,
-                                //               customSearchIcon: null,
-                                //               viewOrderConfig:
-                                //               ViewOrderConfig(),
-                                //               emojiViewConfig:
-                                //               EmojiViewConfig(),
-                                //               skinToneConfig:
-                                //               SkinToneConfig(
-                                //                 enabled: true,
-                                //               ),
-                                //               categoryViewConfig:
-                                //               CategoryViewConfig(
-                                //                 recentTabBehavior:
-                                //                 RecentTabBehavior
-                                //                     .RECENT,
-                                //               ),
-                                //               bottomActionBarConfig:
-                                //               BottomActionBarConfig(
-                                //                 enabled: false,
-                                //               ),
-                                //               searchViewConfig:
-                                //               SearchViewConfig(),
-                                //             ),
-                                //           ),
-                                //         );
-                                //       },
-                                //
-                                //       menuItems: [
-                                //         MenuItem(
-                                //           label: 'Delete',
-                                //           icon: Icons.delete_outline,
-                                //           isDestructive: true,
-                                //         ),
-                                //         MenuItem(
-                                //           label: 'Copy',
-                                //           icon: Icons.copy,
-                                //           isDestructive: false,
-                                //         ),
-                                //         MenuItem(
-                                //           label: 'Reply',
-                                //           icon: Icons.reply,
-                                //           isDestructive: false,
-                                //         ),
-                                //       ],
-                                //
-                                //       showContextMenu: true,
-                                //     ),
-                                //
-                                //     onMenuItemTapped: (item) {
-                                //       final label = item.label
-                                //           .toLowerCase();
-                                //
-                                //       if (label == 'delete') {
-                                //         setState(() {
-                                //           _messages.removeWhere(
-                                //                 (m) => m.id == message.id,
-                                //           );
-                                //           CoreUtils.showTopSnackBar(
-                                //             context: context,
-                                //             message:
-                                //             'Message deleted successfully',
-                                //             isSuccess: true,
-                                //           );
-                                //         });
-                                //       } else if (label == 'reply') {
-                                //         setState(() {
-                                //           _quotedMessage = message;
-                                //           _quotedMessageId = message.id;
-                                //         });
-                                //         // ScaffoldMessenger.of(context).showSnackBar(
-                                //         //   SnackBar(content: Text('Replying to message')),
-                                //         // );
-                                //       } else if (label == 'copy') {
-                                //         Clipboard.setData(
-                                //           ClipboardData(
-                                //             text: message.text,
-                                //           ),
-                                //         );
-                                //         CoreUtils.showTopSnackBar(
-                                //           context: context,
-                                //           message:
-                                //           'Message copied successfully',
-                                //           isSuccess: true,
-                                //         );
-                                //       }
-                                //     },
-                                //
-                                //     onReactionAdded: (emoji) {
-                                //       // if (emoji == '+') {
-                                //       //   showModalBottomSheet(
-                                //       //     context: context,
-                                //       //     builder: (_) =>
-                                //       //         EmojiPicker(
-                                //       //           onEmojiSelected: (category, emoji) {
-                                //       //             Navigator.pop(context);
-                                //       //           },
-                                //       //           config: const Config(
-                                //       //             height: 380,
-                                //       //             checkPlatformCompatibility: true,
-                                //       //             emojiSet: null,
-                                //       //             locale: Locale('en'),
-                                //       //             emojiTextStyle: null,
-                                //       //             customBackspaceIcon: null,
-                                //       //             customSearchIcon: null,
-                                //       //             viewOrderConfig: ViewOrderConfig(),
-                                //       //             emojiViewConfig: EmojiViewConfig(),
-                                //       //             skinToneConfig: SkinToneConfig(enabled: true),
-                                //       //             categoryViewConfig: CategoryViewConfig(
-                                //       //               recentTabBehavior: RecentTabBehavior.RECENT,
-                                //       //             ),
-                                //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-                                //       //             searchViewConfig: SearchViewConfig(),
-                                //       //           ),
-                                //       //         ),
-                                //       //     // EmojiPicker(
-                                //       //     //   onEmojiSelected: (_, e) {
-                                //       //     //     Navigator.pop(context);
-                                //       //     //     // apply reaction manually
-                                //       //     //     print('Picked ${e.emoji}');
-                                //       //     //   },
-                                //       //     //   config: const Config(height: 380),
-                                //       //     // ),
-                                //       //   );
-                                //       // }
-                                //       final currentUserId =
-                                //           'me'; // dummy for now
-                                //       setState(() {
-                                //         final index = _messages
-                                //             .indexWhere(
-                                //               (m) => m.id == message.id,
-                                //         );
-                                //         if (index != -1) {
-                                //           final currentReactions =
-                                //           Map<String, String>.from(
-                                //             _messages[index]
-                                //                 .reactions,
-                                //           );
-                                //           currentReactions[currentUserId] =
-                                //               emoji;
-                                //           _messages[index] = Message(
-                                //             id: _messages[index].id,
-                                //             text: _messages[index].text,
-                                //             isSentByMe: _messages[index]
-                                //                 .isSentByMe,
-                                //             time: _messages[index].time,
-                                //             deliveredAt: _messages[index]
-                                //                 .deliveredAt,
-                                //             readAt:
-                                //             _messages[index].readAt,
-                                //             deliveredTo: _messages[index]
-                                //                 .deliveredTo,
-                                //             readBy:
-                                //             _messages[index].readBy,
-                                //             senderName: _messages[index].senderName,
-                                //             attachments: _messages[index].attachments,
-                                //             reactions: currentReactions,
-                                //           );
-                                //         }
-                                //         // ScaffoldMessenger.of(
-                                //         //   context,
-                                //         // ).showSnackBar(
-                                //         //   SnackBar(
-                                //         //     content: Text('Reacted with $emoji'),
-                                //         //   ),
-                                //         // );
-                                //       });
-                                //     },
-                                //
-                                //     onReactionRemoved: (emoji) {
-                                //       final currentUserId =
-                                //           'me'; // dummy for now
-                                //       setState(() {
-                                //         // message.reactions.remove(emoji);
-                                //         final index = _messages
-                                //             .indexWhere(
-                                //               (m) => m.id == message.id,
-                                //         );
-                                //         if (index != -1) {
-                                //           final currentReactions =
-                                //           Map<String, String>.from(
-                                //             _messages[index]
-                                //                 .reactions,
-                                //           );
-                                //           if (currentReactions[currentUserId] ==
-                                //               emoji) {
-                                //             currentReactions.remove(
-                                //               currentUserId,
-                                //             );
-                                //           }
-                                //           _messages[index] = Message(
-                                //             id: _messages[index].id,
-                                //             text: _messages[index].text,
-                                //             isSentByMe: _messages[index]
-                                //                 .isSentByMe,
-                                //             time: _messages[index].time,
-                                //             deliveredAt: _messages[index]
-                                //                 .deliveredAt,
-                                //             readAt:
-                                //             _messages[index].readAt,
-                                //             deliveredTo: _messages[index]
-                                //                 .deliveredTo,
-                                //             readBy:
-                                //             _messages[index].readBy,
-                                //             senderName: _messages[index].senderName,
-                                //             attachments: _messages[index].attachments,
-                                //             reactions: currentReactions,
-                                //           );
-                                //         }
-                                //         // ScaffoldMessenger.of(
-                                //         //   context,
-                                //         // ).showSnackBar(
-                                //         //   SnackBar(
-                                //         //     content: Text('Removed $emoji'),
-                                //         //   ),
-                                //         // );
-                                //       });
-                                //     },
-                                //
-                                //     alignment: message.isSentByMe
-                                //         ? Alignment.centerRight
-                                //         : Alignment.centerLeft,
-                                //   ),
-                              ],
+                                      // if (message.isSentByMe)
+                                      //   MessageBubble(
+                                      //     //key: key,
+                                      //     //scrollKey: scrollKey,
+                                      //     message: message,
+                                      //     quotedMessage: quotedMessage,
+                                      //     isParentMessaging: true,
+                                      //     onLongPress:
+                                      //         (LongPressStartDetails details) {
+                                      //       _showMessageOptions(
+                                      //         context,
+                                      //         message,
+                                      //         details,
+                                      //       );
+                                      //     },
+                                      //     onScrollToQuoted: (quoteId) {
+                                      //       _scrollToMessage(quoteId);
+                                      //     },
+                                      //     // onHeightMeasured: (id, height) {
+                                      //     //   if (_bubbleHeights[id] != height) {
+                                      //     //     setState(() {
+                                      //     //       _bubbleHeights[id] = height;
+                                      //     //     });
+                                      //     //   }
+                                      //     // },
+                                      //     //onHeightMeasured:
+                                      //     // onContextReady: (id, ctx) {
+                                      //     //   if (_messageContexts[id] != ctx) {
+                                      //     //     setState(() {
+                                      //     //       _messageContexts[id] = ctx;
+                                      //     //     });
+                                      //     //   }
+                                      //     // },
+                                      //   )
+                                      // else
+                                      //   ChatMessageWrapper(
+                                      //     messageId: message.id,
+                                      //     controller: _reactionsController,
+                                      //     child: MessageBubble(
+                                      //       //key: key,
+                                      //       //scrollKey: scrollKey,
+                                      //       message: message,
+                                      //       isParentMessaging: true,
+                                      //       quotedMessage: quotedMessage,
+                                      //       onLongPress:
+                                      //           (
+                                      //           LongPressStartDetails details,
+                                      //           ) {
+                                      //         _showMessageOptions(
+                                      //           context,
+                                      //           message,
+                                      //           details,
+                                      //         );
+                                      //       },
+                                      //       onScrollToQuoted: (quoteId) {
+                                      //         _scrollToMessage(quoteId);
+                                      //       },
+                                      //       // onHeightMeasured: (id, height) {
+                                      //       //   if (_bubbleHeights[id] != height) {
+                                      //       //     setState(() {
+                                      //       //       _bubbleHeights[id] = height;
+                                      //       //     });
+                                      //       //   }
+                                      //       // },
+                                      //       // onContextReady: (id, ctx) {
+                                      //       //   if (_messageContexts[id] != ctx) {
+                                      //       //     setState(() {
+                                      //       //       _messageContexts[id] = ctx;
+                                      //       //     });
+                                      //       //   }
+                                      //       // },
+                                      //     ),
+                                      //     config: ChatReactionsConfig(
+                                      //       availableReactions: const [
+                                      //         '👍',
+                                      //         '❤️',
+                                      //         '😂',
+                                      //         '😮',
+                                      //         '😢',
+                                      //         '😠',
+                                      //         '➕',
+                                      //       ],
+                                      //
+                                      //       // availableReactions: const [
+                                      //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                                      //       // ],
+                                      //       showAddReactionButton: true,
+                                      //       enableHapticFeedback: true,
+                                      //       enableLongPress: true,
+                                      //       enableDoubleTap: false,
+                                      //       maxReactionsToShow: 5,
+                                      //       reactionSize: 24.0,
+                                      //       stackedValue: 4.0,
+                                      //
+                                      //       emojiPickerBuilder: (context, onEmojiSelected) {
+                                      //         print(
+                                      //           'emojiPickerBuilder was invoked!',
+                                      //         );
+                                      //         return SizedBox(
+                                      //           height: 380,
+                                      //           child: EmojiPicker(
+                                      //             onEmojiSelected:
+                                      //                 (category, emoji) {
+                                      //               onEmojiSelected(
+                                      //                 emoji.emoji,
+                                      //               );
+                                      //               print(
+                                      //                 'Emoji selected: ${emoji.emoji}',
+                                      //               );
+                                      //             },
+                                      //             config: const Config(
+                                      //               //height: 380,
+                                      //               checkPlatformCompatibility:
+                                      //               true,
+                                      //               emojiSet: null,
+                                      //               locale: Locale('en'),
+                                      //               emojiTextStyle: null,
+                                      //               customBackspaceIcon: null,
+                                      //               customSearchIcon: null,
+                                      //               viewOrderConfig:
+                                      //               ViewOrderConfig(),
+                                      //               emojiViewConfig:
+                                      //               EmojiViewConfig(),
+                                      //               skinToneConfig:
+                                      //               SkinToneConfig(
+                                      //                 enabled: true,
+                                      //               ),
+                                      //               categoryViewConfig:
+                                      //               CategoryViewConfig(
+                                      //                 recentTabBehavior:
+                                      //                 RecentTabBehavior
+                                      //                     .RECENT,
+                                      //               ),
+                                      //               bottomActionBarConfig:
+                                      //               BottomActionBarConfig(
+                                      //                 enabled: false,
+                                      //               ),
+                                      //               searchViewConfig:
+                                      //               SearchViewConfig(),
+                                      //             ),
+                                      //           ),
+                                      //         );
+                                      //       },
+                                      //
+                                      //       menuItems: [
+                                      //         MenuItem(
+                                      //           label: 'Delete',
+                                      //           icon: Icons.delete_outline,
+                                      //           isDestructive: true,
+                                      //         ),
+                                      //         MenuItem(
+                                      //           label: 'Copy',
+                                      //           icon: Icons.copy,
+                                      //           isDestructive: false,
+                                      //         ),
+                                      //         MenuItem(
+                                      //           label: 'Reply',
+                                      //           icon: Icons.reply,
+                                      //           isDestructive: false,
+                                      //         ),
+                                      //       ],
+                                      //
+                                      //       showContextMenu: true,
+                                      //     ),
+                                      //
+                                      //     onMenuItemTapped: (item) {
+                                      //       final label = item.label
+                                      //           .toLowerCase();
+                                      //
+                                      //       if (label == 'delete') {
+                                      //         setState(() {
+                                      //           _messages.removeWhere(
+                                      //                 (m) => m.id == message.id,
+                                      //           );
+                                      //           CoreUtils.showTopSnackBar(
+                                      //             context: context,
+                                      //             message:
+                                      //             'Message deleted successfully',
+                                      //             isSuccess: true,
+                                      //           );
+                                      //         });
+                                      //       } else if (label == 'reply') {
+                                      //         setState(() {
+                                      //           _quotedMessage = message;
+                                      //           _quotedMessageId = message.id;
+                                      //         });
+                                      //         // ScaffoldMessenger.of(context).showSnackBar(
+                                      //         //   SnackBar(content: Text('Replying to message')),
+                                      //         // );
+                                      //       } else if (label == 'copy') {
+                                      //         Clipboard.setData(
+                                      //           ClipboardData(
+                                      //             text: message.text,
+                                      //           ),
+                                      //         );
+                                      //         CoreUtils.showTopSnackBar(
+                                      //           context: context,
+                                      //           message:
+                                      //           'Message copied successfully',
+                                      //           isSuccess: true,
+                                      //         );
+                                      //       }
+                                      //     },
+                                      //
+                                      //     onReactionAdded: (emoji) {
+                                      //       // if (emoji == '+') {
+                                      //       //   showModalBottomSheet(
+                                      //       //     context: context,
+                                      //       //     builder: (_) =>
+                                      //       //         EmojiPicker(
+                                      //       //           onEmojiSelected: (category, emoji) {
+                                      //       //             Navigator.pop(context);
+                                      //       //           },
+                                      //       //           config: const Config(
+                                      //       //             height: 380,
+                                      //       //             checkPlatformCompatibility: true,
+                                      //       //             emojiSet: null,
+                                      //       //             locale: Locale('en'),
+                                      //       //             emojiTextStyle: null,
+                                      //       //             customBackspaceIcon: null,
+                                      //       //             customSearchIcon: null,
+                                      //       //             viewOrderConfig: ViewOrderConfig(),
+                                      //       //             emojiViewConfig: EmojiViewConfig(),
+                                      //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                                      //       //             categoryViewConfig: CategoryViewConfig(
+                                      //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                                      //       //             ),
+                                      //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                                      //       //             searchViewConfig: SearchViewConfig(),
+                                      //       //           ),
+                                      //       //         ),
+                                      //       //     // EmojiPicker(
+                                      //       //     //   onEmojiSelected: (_, e) {
+                                      //       //     //     Navigator.pop(context);
+                                      //       //     //     // apply reaction manually
+                                      //       //     //     print('Picked ${e.emoji}');
+                                      //       //     //   },
+                                      //       //     //   config: const Config(height: 380),
+                                      //       //     // ),
+                                      //       //   );
+                                      //       // }
+                                      //       final currentUserId =
+                                      //           'me'; // dummy for now
+                                      //       setState(() {
+                                      //         final index = _messages
+                                      //             .indexWhere(
+                                      //               (m) => m.id == message.id,
+                                      //         );
+                                      //         if (index != -1) {
+                                      //           final currentReactions =
+                                      //           Map<String, String>.from(
+                                      //             _messages[index]
+                                      //                 .reactions,
+                                      //           );
+                                      //           currentReactions[currentUserId] =
+                                      //               emoji;
+                                      //           _messages[index] = Message(
+                                      //             id: _messages[index].id,
+                                      //             text: _messages[index].text,
+                                      //             isSentByMe: _messages[index]
+                                      //                 .isSentByMe,
+                                      //             time: _messages[index].time,
+                                      //             deliveredAt: _messages[index]
+                                      //                 .deliveredAt,
+                                      //             readAt:
+                                      //             _messages[index].readAt,
+                                      //             deliveredTo: _messages[index]
+                                      //                 .deliveredTo,
+                                      //             readBy:
+                                      //             _messages[index].readBy,
+                                      //             senderName: _messages[index].senderName,
+                                      //             attachments: _messages[index].attachments,
+                                      //             reactions: currentReactions,
+                                      //           );
+                                      //         }
+                                      //         // ScaffoldMessenger.of(
+                                      //         //   context,
+                                      //         // ).showSnackBar(
+                                      //         //   SnackBar(
+                                      //         //     content: Text('Reacted with $emoji'),
+                                      //         //   ),
+                                      //         // );
+                                      //       });
+                                      //     },
+                                      //
+                                      //     onReactionRemoved: (emoji) {
+                                      //       final currentUserId =
+                                      //           'me'; // dummy for now
+                                      //       setState(() {
+                                      //         // message.reactions.remove(emoji);
+                                      //         final index = _messages
+                                      //             .indexWhere(
+                                      //               (m) => m.id == message.id,
+                                      //         );
+                                      //         if (index != -1) {
+                                      //           final currentReactions =
+                                      //           Map<String, String>.from(
+                                      //             _messages[index]
+                                      //                 .reactions,
+                                      //           );
+                                      //           if (currentReactions[currentUserId] ==
+                                      //               emoji) {
+                                      //             currentReactions.remove(
+                                      //               currentUserId,
+                                      //             );
+                                      //           }
+                                      //           _messages[index] = Message(
+                                      //             id: _messages[index].id,
+                                      //             text: _messages[index].text,
+                                      //             isSentByMe: _messages[index]
+                                      //                 .isSentByMe,
+                                      //             time: _messages[index].time,
+                                      //             deliveredAt: _messages[index]
+                                      //                 .deliveredAt,
+                                      //             readAt:
+                                      //             _messages[index].readAt,
+                                      //             deliveredTo: _messages[index]
+                                      //                 .deliveredTo,
+                                      //             readBy:
+                                      //             _messages[index].readBy,
+                                      //             senderName: _messages[index].senderName,
+                                      //             attachments: _messages[index].attachments,
+                                      //             reactions: currentReactions,
+                                      //           );
+                                      //         }
+                                      //         // ScaffoldMessenger.of(
+                                      //         //   context,
+                                      //         // ).showSnackBar(
+                                      //         //   SnackBar(
+                                      //         //     content: Text('Removed $emoji'),
+                                      //         //   ),
+                                      //         // );
+                                      //       });
+                                      //     },
+                                      //
+                                      //     alignment: message.isSentByMe
+                                      //         ? Alignment.centerRight
+                                      //         : Alignment.centerLeft,
+                                      //   ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
+                            ListView.builder(
+                              controller: _getActiveScrollController(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                              reverse: true,
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final message =
+                                _messages[_messages.length - 1 - index];
+                                final messageId = message.id;
+                                //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                // final key = keyMap.putIfAbsent(
+                                //   messageId,
+                                //   () => GlobalKey(),
+                                // );
+                                Message? quotedMessage;
+                                if (message.quotedMessageId != null) {
+                                  quotedMessage = _messages.firstWhere(
+                                        (m) => m.id == message.quotedMessageId,
+                                  ); // ?? null;
+                                }
+                                bool showDateHeader = false;
+                                final prevListIndex =
+                                    _messages.length - 2 - index;
+
+                                if (prevListIndex >= 0) {
+                                  final prevMessage = _messages[prevListIndex];
+
+                                  showDateHeader =
+                                      message.time.year !=
+                                          prevMessage.time.year ||
+                                          message.time.month !=
+                                              prevMessage.time.month ||
+                                          message.time.day != prevMessage.time.day;
+                                } else {
+                                  showDateHeader = true;
+                                }
+
+                                return AutoScrollTag(
+                                  key: ValueKey(messageId),
+                                  controller: _getActiveScrollController(),
+                                  index: index,
+                                  highlightColor: Colors.green.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (showDateHeader)
+                                        Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 8.0,
+                                            ),
+                                            child: _buildDateChip(message.time),
+                                          ),
+                                        ),
+                                      if (showDateHeader)
+                                        const SizedBox(height: 10),
+                                      MessageBubble(
+                                        //key: key,
+                                        //scrollKey: scrollKey,
+                                        message: message,
+                                        isParentMessaging: true,
+                                        quotedMessage: quotedMessage,
+                                        onLongPress:
+                                            (LongPressStartDetails details) {
+                                          _showMessageOptions(
+                                            context,
+                                            message,
+                                            details,
+                                          );
+                                        },
+                                        onScrollToQuoted: (quoteId) {
+                                          _scrollToMessage(quoteId);
+                                        },
+                                        // onHeightMeasured: (id, height) {
+                                        //   if (_bubbleHeights[id] != height) {
+                                        //     setState(() {
+                                        //       _bubbleHeights[id] = height;
+                                        //     });
+                                        //   }
+                                        // },
+                                        //onHeightMeasured:
+                                        // onContextReady: (id, ctx) {
+                                        //   if (_messageContexts[id] != ctx) {
+                                        //     setState(() {
+                                        //       _messageContexts[id] = ctx;
+                                        //     });
+                                        //   }
+                                        // },
+                                      ),
+
+                                      // if (message.isSentByMe)
+                                      //   MessageBubble(
+                                      //     //key: key,
+                                      //     //scrollKey: scrollKey,
+                                      //     message: message,
+                                      //     quotedMessage: quotedMessage,
+                                      //     isParentMessaging: true,
+                                      //     onLongPress:
+                                      //         (LongPressStartDetails details) {
+                                      //       _showMessageOptions(
+                                      //         context,
+                                      //         message,
+                                      //         details,
+                                      //       );
+                                      //     },
+                                      //     onScrollToQuoted: (quoteId) {
+                                      //       _scrollToMessage(quoteId);
+                                      //     },
+                                      //     // onHeightMeasured: (id, height) {
+                                      //     //   if (_bubbleHeights[id] != height) {
+                                      //     //     setState(() {
+                                      //     //       _bubbleHeights[id] = height;
+                                      //     //     });
+                                      //     //   }
+                                      //     // },
+                                      //     //onHeightMeasured:
+                                      //     // onContextReady: (id, ctx) {
+                                      //     //   if (_messageContexts[id] != ctx) {
+                                      //     //     setState(() {
+                                      //     //       _messageContexts[id] = ctx;
+                                      //     //     });
+                                      //     //   }
+                                      //     // },
+                                      //   )
+                                      // else
+                                      //   ChatMessageWrapper(
+                                      //     messageId: message.id,
+                                      //     controller: _reactionsController,
+                                      //     child: MessageBubble(
+                                      //       //key: key,
+                                      //       //scrollKey: scrollKey,
+                                      //       message: message,
+                                      //       isParentMessaging: true,
+                                      //       quotedMessage: quotedMessage,
+                                      //       onLongPress:
+                                      //           (
+                                      //           LongPressStartDetails details,
+                                      //           ) {
+                                      //         _showMessageOptions(
+                                      //           context,
+                                      //           message,
+                                      //           details,
+                                      //         );
+                                      //       },
+                                      //       onScrollToQuoted: (quoteId) {
+                                      //         _scrollToMessage(quoteId);
+                                      //       },
+                                      //       // onHeightMeasured: (id, height) {
+                                      //       //   if (_bubbleHeights[id] != height) {
+                                      //       //     setState(() {
+                                      //       //       _bubbleHeights[id] = height;
+                                      //       //     });
+                                      //       //   }
+                                      //       // },
+                                      //       // onContextReady: (id, ctx) {
+                                      //       //   if (_messageContexts[id] != ctx) {
+                                      //       //     setState(() {
+                                      //       //       _messageContexts[id] = ctx;
+                                      //       //     });
+                                      //       //   }
+                                      //       // },
+                                      //     ),
+                                      //     config: ChatReactionsConfig(
+                                      //       availableReactions: const [
+                                      //         '👍',
+                                      //         '❤️',
+                                      //         '😂',
+                                      //         '😮',
+                                      //         '😢',
+                                      //         '😠',
+                                      //         '➕',
+                                      //       ],
+                                      //
+                                      //       // availableReactions: const [
+                                      //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                                      //       // ],
+                                      //       showAddReactionButton: true,
+                                      //       enableHapticFeedback: true,
+                                      //       enableLongPress: true,
+                                      //       enableDoubleTap: false,
+                                      //       maxReactionsToShow: 5,
+                                      //       reactionSize: 24.0,
+                                      //       stackedValue: 4.0,
+                                      //
+                                      //       emojiPickerBuilder: (context, onEmojiSelected) {
+                                      //         print(
+                                      //           'emojiPickerBuilder was invoked!',
+                                      //         );
+                                      //         return SizedBox(
+                                      //           height: 380,
+                                      //           child: EmojiPicker(
+                                      //             onEmojiSelected:
+                                      //                 (category, emoji) {
+                                      //               onEmojiSelected(
+                                      //                 emoji.emoji,
+                                      //               );
+                                      //               print(
+                                      //                 'Emoji selected: ${emoji.emoji}',
+                                      //               );
+                                      //             },
+                                      //             config: const Config(
+                                      //               //height: 380,
+                                      //               checkPlatformCompatibility:
+                                      //               true,
+                                      //               emojiSet: null,
+                                      //               locale: Locale('en'),
+                                      //               emojiTextStyle: null,
+                                      //               customBackspaceIcon: null,
+                                      //               customSearchIcon: null,
+                                      //               viewOrderConfig:
+                                      //               ViewOrderConfig(),
+                                      //               emojiViewConfig:
+                                      //               EmojiViewConfig(),
+                                      //               skinToneConfig:
+                                      //               SkinToneConfig(
+                                      //                 enabled: true,
+                                      //               ),
+                                      //               categoryViewConfig:
+                                      //               CategoryViewConfig(
+                                      //                 recentTabBehavior:
+                                      //                 RecentTabBehavior
+                                      //                     .RECENT,
+                                      //               ),
+                                      //               bottomActionBarConfig:
+                                      //               BottomActionBarConfig(
+                                      //                 enabled: false,
+                                      //               ),
+                                      //               searchViewConfig:
+                                      //               SearchViewConfig(),
+                                      //             ),
+                                      //           ),
+                                      //         );
+                                      //       },
+                                      //
+                                      //       menuItems: [
+                                      //         MenuItem(
+                                      //           label: 'Delete',
+                                      //           icon: Icons.delete_outline,
+                                      //           isDestructive: true,
+                                      //         ),
+                                      //         MenuItem(
+                                      //           label: 'Copy',
+                                      //           icon: Icons.copy,
+                                      //           isDestructive: false,
+                                      //         ),
+                                      //         MenuItem(
+                                      //           label: 'Reply',
+                                      //           icon: Icons.reply,
+                                      //           isDestructive: false,
+                                      //         ),
+                                      //       ],
+                                      //
+                                      //       showContextMenu: true,
+                                      //     ),
+                                      //
+                                      //     onMenuItemTapped: (item) {
+                                      //       final label = item.label
+                                      //           .toLowerCase();
+                                      //
+                                      //       if (label == 'delete') {
+                                      //         setState(() {
+                                      //           _messages.removeWhere(
+                                      //                 (m) => m.id == message.id,
+                                      //           );
+                                      //           CoreUtils.showTopSnackBar(
+                                      //             context: context,
+                                      //             message:
+                                      //             'Message deleted successfully',
+                                      //             isSuccess: true,
+                                      //           );
+                                      //         });
+                                      //       } else if (label == 'reply') {
+                                      //         setState(() {
+                                      //           _quotedMessage = message;
+                                      //           _quotedMessageId = message.id;
+                                      //         });
+                                      //         // ScaffoldMessenger.of(context).showSnackBar(
+                                      //         //   SnackBar(content: Text('Replying to message')),
+                                      //         // );
+                                      //       } else if (label == 'copy') {
+                                      //         Clipboard.setData(
+                                      //           ClipboardData(
+                                      //             text: message.text,
+                                      //           ),
+                                      //         );
+                                      //         CoreUtils.showTopSnackBar(
+                                      //           context: context,
+                                      //           message:
+                                      //           'Message copied successfully',
+                                      //           isSuccess: true,
+                                      //         );
+                                      //       }
+                                      //     },
+                                      //
+                                      //     onReactionAdded: (emoji) {
+                                      //       // if (emoji == '+') {
+                                      //       //   showModalBottomSheet(
+                                      //       //     context: context,
+                                      //       //     builder: (_) =>
+                                      //       //         EmojiPicker(
+                                      //       //           onEmojiSelected: (category, emoji) {
+                                      //       //             Navigator.pop(context);
+                                      //       //           },
+                                      //       //           config: const Config(
+                                      //       //             height: 380,
+                                      //       //             checkPlatformCompatibility: true,
+                                      //       //             emojiSet: null,
+                                      //       //             locale: Locale('en'),
+                                      //       //             emojiTextStyle: null,
+                                      //       //             customBackspaceIcon: null,
+                                      //       //             customSearchIcon: null,
+                                      //       //             viewOrderConfig: ViewOrderConfig(),
+                                      //       //             emojiViewConfig: EmojiViewConfig(),
+                                      //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                                      //       //             categoryViewConfig: CategoryViewConfig(
+                                      //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                                      //       //             ),
+                                      //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                                      //       //             searchViewConfig: SearchViewConfig(),
+                                      //       //           ),
+                                      //       //         ),
+                                      //       //     // EmojiPicker(
+                                      //       //     //   onEmojiSelected: (_, e) {
+                                      //       //     //     Navigator.pop(context);
+                                      //       //     //     // apply reaction manually
+                                      //       //     //     print('Picked ${e.emoji}');
+                                      //       //     //   },
+                                      //       //     //   config: const Config(height: 380),
+                                      //       //     // ),
+                                      //       //   );
+                                      //       // }
+                                      //       final currentUserId =
+                                      //           'me'; // dummy for now
+                                      //       setState(() {
+                                      //         final index = _messages
+                                      //             .indexWhere(
+                                      //               (m) => m.id == message.id,
+                                      //         );
+                                      //         if (index != -1) {
+                                      //           final currentReactions =
+                                      //           Map<String, String>.from(
+                                      //             _messages[index]
+                                      //                 .reactions,
+                                      //           );
+                                      //           currentReactions[currentUserId] =
+                                      //               emoji;
+                                      //           _messages[index] = Message(
+                                      //             id: _messages[index].id,
+                                      //             text: _messages[index].text,
+                                      //             isSentByMe: _messages[index]
+                                      //                 .isSentByMe,
+                                      //             time: _messages[index].time,
+                                      //             deliveredAt: _messages[index]
+                                      //                 .deliveredAt,
+                                      //             readAt:
+                                      //             _messages[index].readAt,
+                                      //             deliveredTo: _messages[index]
+                                      //                 .deliveredTo,
+                                      //             readBy:
+                                      //             _messages[index].readBy,
+                                      //             senderName: _messages[index].senderName,
+                                      //             attachments: _messages[index].attachments,
+                                      //             reactions: currentReactions,
+                                      //           );
+                                      //         }
+                                      //         // ScaffoldMessenger.of(
+                                      //         //   context,
+                                      //         // ).showSnackBar(
+                                      //         //   SnackBar(
+                                      //         //     content: Text('Reacted with $emoji'),
+                                      //         //   ),
+                                      //         // );
+                                      //       });
+                                      //     },
+                                      //
+                                      //     onReactionRemoved: (emoji) {
+                                      //       final currentUserId =
+                                      //           'me'; // dummy for now
+                                      //       setState(() {
+                                      //         // message.reactions.remove(emoji);
+                                      //         final index = _messages
+                                      //             .indexWhere(
+                                      //               (m) => m.id == message.id,
+                                      //         );
+                                      //         if (index != -1) {
+                                      //           final currentReactions =
+                                      //           Map<String, String>.from(
+                                      //             _messages[index]
+                                      //                 .reactions,
+                                      //           );
+                                      //           if (currentReactions[currentUserId] ==
+                                      //               emoji) {
+                                      //             currentReactions.remove(
+                                      //               currentUserId,
+                                      //             );
+                                      //           }
+                                      //           _messages[index] = Message(
+                                      //             id: _messages[index].id,
+                                      //             text: _messages[index].text,
+                                      //             isSentByMe: _messages[index]
+                                      //                 .isSentByMe,
+                                      //             time: _messages[index].time,
+                                      //             deliveredAt: _messages[index]
+                                      //                 .deliveredAt,
+                                      //             readAt:
+                                      //             _messages[index].readAt,
+                                      //             deliveredTo: _messages[index]
+                                      //                 .deliveredTo,
+                                      //             readBy:
+                                      //             _messages[index].readBy,
+                                      //             senderName: _messages[index].senderName,
+                                      //             attachments: _messages[index].attachments,
+                                      //             reactions: currentReactions,
+                                      //           );
+                                      //         }
+                                      //         // ScaffoldMessenger.of(
+                                      //         //   context,
+                                      //         // ).showSnackBar(
+                                      //         //   SnackBar(
+                                      //         //     content: Text('Removed $emoji'),
+                                      //         //   ),
+                                      //         // );
+                                      //       });
+                                      //     },
+                                      //
+                                      //     alignment: message.isSentByMe
+                                      //         ? Alignment.centerRight
+                                      //         : Alignment.centerLeft,
+                                      //   ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ] :
+                          [
+                            ListView.builder(
+                              controller: _getActiveScrollController(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                              reverse: true,
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final message =
+                                _messages[_messages.length - 1 - index];
+                                final messageId = message.id;
+                                //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                // final key = keyMap.putIfAbsent(
+                                //   messageId,
+                                //   () => GlobalKey(),
+                                // );
+                                Message? quotedMessage;
+                                if (message.quotedMessageId != null) {
+                                  quotedMessage = _messages.firstWhere(
+                                        (m) => m.id == message.quotedMessageId,
+                                  ); // ?? null;
+                                }
+                                bool showDateHeader = false;
+                                final prevListIndex =
+                                    _messages.length - 2 - index;
+
+                                if (prevListIndex >= 0) {
+                                  final prevMessage = _messages[prevListIndex];
+
+                                  showDateHeader =
+                                      message.time.year !=
+                                          prevMessage.time.year ||
+                                          message.time.month !=
+                                              prevMessage.time.month ||
+                                          message.time.day != prevMessage.time.day;
+                                } else {
+                                  showDateHeader = true;
+                                }
+
+                                return AutoScrollTag(
+                                  key: ValueKey(messageId),
+                                  controller: _getActiveScrollController(),
+                                  index: index,
+                                  highlightColor: Colors.green.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (showDateHeader)
+                                        Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 8.0,
+                                            ),
+                                            child: _buildDateChip(message.time),
+                                          ),
+                                        ),
+                                      if (showDateHeader)
+                                        const SizedBox(height: 10),
+                                      MessageBubble(
+                                        //key: key,
+                                        //scrollKey: scrollKey,
+                                        message: message,
+                                        isParentMessaging: true,
+                                        quotedMessage: quotedMessage,
+                                        onLongPress:
+                                            (LongPressStartDetails details) {
+                                          _showMessageOptions(
+                                            context,
+                                            message,
+                                            details,
+                                          );
+                                        },
+                                        onScrollToQuoted: (quoteId) {
+                                          _scrollToMessage(quoteId);
+                                        },
+                                        // onHeightMeasured: (id, height) {
+                                        //   if (_bubbleHeights[id] != height) {
+                                        //     setState(() {
+                                        //       _bubbleHeights[id] = height;
+                                        //     });
+                                        //   }
+                                        // },
+                                        //onHeightMeasured:
+                                        // onContextReady: (id, ctx) {
+                                        //   if (_messageContexts[id] != ctx) {
+                                        //     setState(() {
+                                        //       _messageContexts[id] = ctx;
+                                        //     });
+                                        //   }
+                                        // },
+                                      ),
+
+                                      // if (message.isSentByMe)
+                                      //   MessageBubble(
+                                      //     //key: key,
+                                      //     //scrollKey: scrollKey,
+                                      //     message: message,
+                                      //     quotedMessage: quotedMessage,
+                                      //     isParentMessaging: true,
+                                      //     onLongPress:
+                                      //         (LongPressStartDetails details) {
+                                      //       _showMessageOptions(
+                                      //         context,
+                                      //         message,
+                                      //         details,
+                                      //       );
+                                      //     },
+                                      //     onScrollToQuoted: (quoteId) {
+                                      //       _scrollToMessage(quoteId);
+                                      //     },
+                                      //     // onHeightMeasured: (id, height) {
+                                      //     //   if (_bubbleHeights[id] != height) {
+                                      //     //     setState(() {
+                                      //     //       _bubbleHeights[id] = height;
+                                      //     //     });
+                                      //     //   }
+                                      //     // },
+                                      //     //onHeightMeasured:
+                                      //     // onContextReady: (id, ctx) {
+                                      //     //   if (_messageContexts[id] != ctx) {
+                                      //     //     setState(() {
+                                      //     //       _messageContexts[id] = ctx;
+                                      //     //     });
+                                      //     //   }
+                                      //     // },
+                                      //   )
+                                      // else
+                                      //   ChatMessageWrapper(
+                                      //     messageId: message.id,
+                                      //     controller: _reactionsController,
+                                      //     child: MessageBubble(
+                                      //       //key: key,
+                                      //       //scrollKey: scrollKey,
+                                      //       message: message,
+                                      //       isParentMessaging: true,
+                                      //       quotedMessage: quotedMessage,
+                                      //       onLongPress:
+                                      //           (
+                                      //           LongPressStartDetails details,
+                                      //           ) {
+                                      //         _showMessageOptions(
+                                      //           context,
+                                      //           message,
+                                      //           details,
+                                      //         );
+                                      //       },
+                                      //       onScrollToQuoted: (quoteId) {
+                                      //         _scrollToMessage(quoteId);
+                                      //       },
+                                      //       // onHeightMeasured: (id, height) {
+                                      //       //   if (_bubbleHeights[id] != height) {
+                                      //       //     setState(() {
+                                      //       //       _bubbleHeights[id] = height;
+                                      //       //     });
+                                      //       //   }
+                                      //       // },
+                                      //       // onContextReady: (id, ctx) {
+                                      //       //   if (_messageContexts[id] != ctx) {
+                                      //       //     setState(() {
+                                      //       //       _messageContexts[id] = ctx;
+                                      //       //     });
+                                      //       //   }
+                                      //       // },
+                                      //     ),
+                                      //     config: ChatReactionsConfig(
+                                      //       availableReactions: const [
+                                      //         '👍',
+                                      //         '❤️',
+                                      //         '😂',
+                                      //         '😮',
+                                      //         '😢',
+                                      //         '😠',
+                                      //         '➕',
+                                      //       ],
+                                      //
+                                      //       // availableReactions: const [
+                                      //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
+                                      //       // ],
+                                      //       showAddReactionButton: true,
+                                      //       enableHapticFeedback: true,
+                                      //       enableLongPress: true,
+                                      //       enableDoubleTap: false,
+                                      //       maxReactionsToShow: 5,
+                                      //       reactionSize: 24.0,
+                                      //       stackedValue: 4.0,
+                                      //
+                                      //       emojiPickerBuilder: (context, onEmojiSelected) {
+                                      //         print(
+                                      //           'emojiPickerBuilder was invoked!',
+                                      //         );
+                                      //         return SizedBox(
+                                      //           height: 380,
+                                      //           child: EmojiPicker(
+                                      //             onEmojiSelected:
+                                      //                 (category, emoji) {
+                                      //               onEmojiSelected(
+                                      //                 emoji.emoji,
+                                      //               );
+                                      //               print(
+                                      //                 'Emoji selected: ${emoji.emoji}',
+                                      //               );
+                                      //             },
+                                      //             config: const Config(
+                                      //               //height: 380,
+                                      //               checkPlatformCompatibility:
+                                      //               true,
+                                      //               emojiSet: null,
+                                      //               locale: Locale('en'),
+                                      //               emojiTextStyle: null,
+                                      //               customBackspaceIcon: null,
+                                      //               customSearchIcon: null,
+                                      //               viewOrderConfig:
+                                      //               ViewOrderConfig(),
+                                      //               emojiViewConfig:
+                                      //               EmojiViewConfig(),
+                                      //               skinToneConfig:
+                                      //               SkinToneConfig(
+                                      //                 enabled: true,
+                                      //               ),
+                                      //               categoryViewConfig:
+                                      //               CategoryViewConfig(
+                                      //                 recentTabBehavior:
+                                      //                 RecentTabBehavior
+                                      //                     .RECENT,
+                                      //               ),
+                                      //               bottomActionBarConfig:
+                                      //               BottomActionBarConfig(
+                                      //                 enabled: false,
+                                      //               ),
+                                      //               searchViewConfig:
+                                      //               SearchViewConfig(),
+                                      //             ),
+                                      //           ),
+                                      //         );
+                                      //       },
+                                      //
+                                      //       menuItems: [
+                                      //         MenuItem(
+                                      //           label: 'Delete',
+                                      //           icon: Icons.delete_outline,
+                                      //           isDestructive: true,
+                                      //         ),
+                                      //         MenuItem(
+                                      //           label: 'Copy',
+                                      //           icon: Icons.copy,
+                                      //           isDestructive: false,
+                                      //         ),
+                                      //         MenuItem(
+                                      //           label: 'Reply',
+                                      //           icon: Icons.reply,
+                                      //           isDestructive: false,
+                                      //         ),
+                                      //       ],
+                                      //
+                                      //       showContextMenu: true,
+                                      //     ),
+                                      //
+                                      //     onMenuItemTapped: (item) {
+                                      //       final label = item.label
+                                      //           .toLowerCase();
+                                      //
+                                      //       if (label == 'delete') {
+                                      //         setState(() {
+                                      //           _messages.removeWhere(
+                                      //                 (m) => m.id == message.id,
+                                      //           );
+                                      //           CoreUtils.showTopSnackBar(
+                                      //             context: context,
+                                      //             message:
+                                      //             'Message deleted successfully',
+                                      //             isSuccess: true,
+                                      //           );
+                                      //         });
+                                      //       } else if (label == 'reply') {
+                                      //         setState(() {
+                                      //           _quotedMessage = message;
+                                      //           _quotedMessageId = message.id;
+                                      //         });
+                                      //         // ScaffoldMessenger.of(context).showSnackBar(
+                                      //         //   SnackBar(content: Text('Replying to message')),
+                                      //         // );
+                                      //       } else if (label == 'copy') {
+                                      //         Clipboard.setData(
+                                      //           ClipboardData(
+                                      //             text: message.text,
+                                      //           ),
+                                      //         );
+                                      //         CoreUtils.showTopSnackBar(
+                                      //           context: context,
+                                      //           message:
+                                      //           'Message copied successfully',
+                                      //           isSuccess: true,
+                                      //         );
+                                      //       }
+                                      //     },
+                                      //
+                                      //     onReactionAdded: (emoji) {
+                                      //       // if (emoji == '+') {
+                                      //       //   showModalBottomSheet(
+                                      //       //     context: context,
+                                      //       //     builder: (_) =>
+                                      //       //         EmojiPicker(
+                                      //       //           onEmojiSelected: (category, emoji) {
+                                      //       //             Navigator.pop(context);
+                                      //       //           },
+                                      //       //           config: const Config(
+                                      //       //             height: 380,
+                                      //       //             checkPlatformCompatibility: true,
+                                      //       //             emojiSet: null,
+                                      //       //             locale: Locale('en'),
+                                      //       //             emojiTextStyle: null,
+                                      //       //             customBackspaceIcon: null,
+                                      //       //             customSearchIcon: null,
+                                      //       //             viewOrderConfig: ViewOrderConfig(),
+                                      //       //             emojiViewConfig: EmojiViewConfig(),
+                                      //       //             skinToneConfig: SkinToneConfig(enabled: true),
+                                      //       //             categoryViewConfig: CategoryViewConfig(
+                                      //       //               recentTabBehavior: RecentTabBehavior.RECENT,
+                                      //       //             ),
+                                      //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+                                      //       //             searchViewConfig: SearchViewConfig(),
+                                      //       //           ),
+                                      //       //         ),
+                                      //       //     // EmojiPicker(
+                                      //       //     //   onEmojiSelected: (_, e) {
+                                      //       //     //     Navigator.pop(context);
+                                      //       //     //     // apply reaction manually
+                                      //       //     //     print('Picked ${e.emoji}');
+                                      //       //     //   },
+                                      //       //     //   config: const Config(height: 380),
+                                      //       //     // ),
+                                      //       //   );
+                                      //       // }
+                                      //       final currentUserId =
+                                      //           'me'; // dummy for now
+                                      //       setState(() {
+                                      //         final index = _messages
+                                      //             .indexWhere(
+                                      //               (m) => m.id == message.id,
+                                      //         );
+                                      //         if (index != -1) {
+                                      //           final currentReactions =
+                                      //           Map<String, String>.from(
+                                      //             _messages[index]
+                                      //                 .reactions,
+                                      //           );
+                                      //           currentReactions[currentUserId] =
+                                      //               emoji;
+                                      //           _messages[index] = Message(
+                                      //             id: _messages[index].id,
+                                      //             text: _messages[index].text,
+                                      //             isSentByMe: _messages[index]
+                                      //                 .isSentByMe,
+                                      //             time: _messages[index].time,
+                                      //             deliveredAt: _messages[index]
+                                      //                 .deliveredAt,
+                                      //             readAt:
+                                      //             _messages[index].readAt,
+                                      //             deliveredTo: _messages[index]
+                                      //                 .deliveredTo,
+                                      //             readBy:
+                                      //             _messages[index].readBy,
+                                      //             senderName: _messages[index].senderName,
+                                      //             attachments: _messages[index].attachments,
+                                      //             reactions: currentReactions,
+                                      //           );
+                                      //         }
+                                      //         // ScaffoldMessenger.of(
+                                      //         //   context,
+                                      //         // ).showSnackBar(
+                                      //         //   SnackBar(
+                                      //         //     content: Text('Reacted with $emoji'),
+                                      //         //   ),
+                                      //         // );
+                                      //       });
+                                      //     },
+                                      //
+                                      //     onReactionRemoved: (emoji) {
+                                      //       final currentUserId =
+                                      //           'me'; // dummy for now
+                                      //       setState(() {
+                                      //         // message.reactions.remove(emoji);
+                                      //         final index = _messages
+                                      //             .indexWhere(
+                                      //               (m) => m.id == message.id,
+                                      //         );
+                                      //         if (index != -1) {
+                                      //           final currentReactions =
+                                      //           Map<String, String>.from(
+                                      //             _messages[index]
+                                      //                 .reactions,
+                                      //           );
+                                      //           if (currentReactions[currentUserId] ==
+                                      //               emoji) {
+                                      //             currentReactions.remove(
+                                      //               currentUserId,
+                                      //             );
+                                      //           }
+                                      //           _messages[index] = Message(
+                                      //             id: _messages[index].id,
+                                      //             text: _messages[index].text,
+                                      //             isSentByMe: _messages[index]
+                                      //                 .isSentByMe,
+                                      //             time: _messages[index].time,
+                                      //             deliveredAt: _messages[index]
+                                      //                 .deliveredAt,
+                                      //             readAt:
+                                      //             _messages[index].readAt,
+                                      //             deliveredTo: _messages[index]
+                                      //                 .deliveredTo,
+                                      //             readBy:
+                                      //             _messages[index].readBy,
+                                      //             senderName: _messages[index].senderName,
+                                      //             attachments: _messages[index].attachments,
+                                      //             reactions: currentReactions,
+                                      //           );
+                                      //         }
+                                      //         // ScaffoldMessenger.of(
+                                      //         //   context,
+                                      //         // ).showSnackBar(
+                                      //         //   SnackBar(
+                                      //         //     content: Text('Removed $emoji'),
+                                      //         //   ),
+                                      //         // );
+                                      //       });
+                                      //     },
+                                      //
+                                      //     alignment: message.isSentByMe
+                                      //         ? Alignment.centerRight
+                                      //         : Alignment.centerLeft,
+                                      //   ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                       ),
                     ),
                   ],
@@ -1908,6 +5610,35 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread> {
       fontSize: 12,
       fontWeight: FontWeight.w500,
       applyLetterSpacing: false,
+    );
+  }
+
+  Widget _buildTab(String name) {
+    final bool isPrivate = _privateModeEnabled && _isParentInPrivateMode(name);
+
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text( // did not use CustomTextWidget here cause it was overriding the label color property of the tab bar
+            name,
+            style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+            ),
+          overflow: TextOverflow.ellipsis,
+          ),
+          if (isPrivate) ...[
+            const SizedBox(width: 4),
+            Icon(
+              Icons.visibility_off,
+              size: 16,
+              color: Colors.red,
+            ),
+          ],
+        ],
+      ),
     );
   }
 

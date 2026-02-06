@@ -30,8 +30,8 @@ class Message {
 
   final String? quotedMessageId;
   final List<ChatAttachment> attachments;
-  final String?
-  senderName; // or user id maybe to for parent messaging thread cause it is a group thread
+  final String? senderName; // or user id maybe to for parent messaging thread cause it is a group thread
+  final List<String> receivers; // names of the recipients, later can be replaced by ids
 
   Message({
     required this.text,
@@ -46,6 +46,8 @@ class Message {
     required this.id,
     this.attachments = const [],
     this.senderName,
+    this.receivers = const[],
+
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
