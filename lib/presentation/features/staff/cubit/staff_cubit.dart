@@ -323,6 +323,83 @@ class StaffCubit extends Cubit<StaffState> {
     );
   }
 
+  /// Clears all filters (search, status, designation) and refreshes the list.
+  Future<void> clearAllFiltersAndRefresh() async {
+    // Update state first to clear filters
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        statusFilter: null,
+        designationFilter: null,
+        isRefreshing: true,
+        errorMessage: null,
+      ),
+    );
+
+    final schoolCode = await _resolveSchoolCode();
+
+    try {
+      // Start both requests in parallel with cleared filters
+      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final firstPageFuture = _getStaffPageUseCase(
+        schoolCode: schoolCode,
+        page: 0,
+        size: _pageSize,
+        status: 'ACTIVE', // Default to ACTIVE when filters are cleared
+        designation: null, // Explicitly null
+        search: '', // Explicitly empty
+      );
+
+      if (isClosed) return;
+
+      final staffCount = await staffCountFuture;
+      final firstPage = await firstPageFuture;
+
+      var items = List<StaffMember>.from(firstPage.items);
+      var currentPage = firstPage.page;
+      var hasMore = firstPage.hasMore;
+
+      // Auto-load next page so that page 0 and 1 are both visible initially
+      if (hasMore) {
+        final secondPage = await _getStaffPageUseCase(
+          schoolCode: schoolCode,
+          page: 1,
+          size: _pageSize,
+          status: 'ACTIVE', // Default to ACTIVE when filters are cleared
+          designation: null, // Explicitly null
+          search: '', // Explicitly empty
+        );
+
+        items.addAll(secondPage.items);
+        currentPage = secondPage.page;
+        hasMore = secondPage.hasMore;
+      }
+
+      emit(
+        state.copyWith(
+          items: items,
+          currentPage: currentPage,
+          hasMore: hasMore,
+          staffCountTotal: staffCount.total,
+          staffCountActive: staffCount.active,
+          staffCountUpcoming: staffCount.upcoming,
+          isLoading: false,
+          isRefreshing: false,
+          isFromCache: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
+
   // To be called by add/edit/delete flows to keep cache + UI in sync
   void upsertStaffMember(StaffMember member) {
     final updated = List<StaffMember>.from(state.items);

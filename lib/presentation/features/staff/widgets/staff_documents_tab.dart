@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 class StaffDocumentsTab extends StatefulWidget {
   const StaffDocumentsTab({
@@ -42,6 +47,141 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     _scrollController.dispose();
     _documentsListCubit.close();
     super.dispose();
+  }
+
+  Future<void> _handleEdit(BuildContext context, StaffDocument doc) async {
+    if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Document UUID not available',
+        isError: true,
+      );
+      return;
+    }
+
+    final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
+    
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => BlocProvider<StaffDocumentCubit>(
+          create: (_) => serviceLocator<StaffDocumentCubit>(),
+          child: AddDocumentScreen(
+            staffCode: widget.staffCode,
+            isEdit: true,
+            documentUuid: doc.documentUuid,
+            initialDocumentName: doc.documentName,
+            initialDocumentType: doc.documentType,
+            initialExpiryDate: expiryDate,
+            initialFilePath: doc.documentUrl,
+            initialMimeType: doc.mimeType,
+            initialFileSizeKb: doc.documentSizeKb,
+          ),
+        ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      _documentsListCubit.refresh(
+        widget.staffCode,
+        expired: _showExpired ? true : null,
+      );
+    }
+  }
+
+  Future<void> _handleDelete(BuildContext context, StaffDocument doc) async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DeleteConfirmationBottomSheet(
+          name: doc.documentName,
+          type: 'document',
+          onDelete: () async {
+            try {
+              if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
+                Navigator.of(ctx).pop();
+                if (!mounted) return;
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Document UUID not available',
+                  isError: true,
+                );
+                return;
+              }
+
+              final errorMessage = await _documentsListCubit.deleteDocument(
+                widget.staffCode,
+                doc.documentUuid!,
+              );
+
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+
+              if (errorMessage != null) {
+                // Show error message
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: errorMessage,
+                  isError: true,
+                );
+              } else {
+                // Success - list already refreshed in cubit
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Document deleted successfully',
+                  isSuccess: true,
+                );
+              }
+            } catch (e) {
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+              final message = ApiErrorHandler.extractErrorMessage(e);
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isError: true,
+              );
+            }
+          },
+          onCancel: () {
+            Navigator.of(ctx).pop();
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleDownload(BuildContext context, StaffDocument doc) async {
+    if (doc.documentUrl.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Document URL not available',
+        isError: true,
+      );
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(doc.documentUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Could not open document',
+          isError: true,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Error downloading document: ${e.toString()}',
+        isError: true,
+      );
+    }
   }
 
   @override
@@ -161,6 +301,88 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                     ),
                                     const SizedBox(height: 16),
                                     _DocRow(label: 'Document', text: doc.documentName, trailingIcon: Icons.insert_drive_file_outlined),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(8),
+                                              gradient: AppColors.buildPrimaryGradient(),
+                                            ),
+                                            child: TextButton(
+                                              onPressed: () => _handleEdit(context, doc),
+                                              style: TextButton.styleFrom(
+                                                padding: EdgeInsets.zero,
+                                              ),
+                                              child: const Text(
+                                                'Edit',
+                                                style: TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.white,
+                                                  height: 16 / 16,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: SizedBox(
+                                            height: 40,
+                                            child: OutlinedButton(
+                                              onPressed: () => _handleDelete(context, doc),
+                                              style: OutlinedButton.styleFrom(
+                                                side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                padding: EdgeInsets.zero,
+                                              ),
+                                              child: const Text(
+                                                'Delete',
+                                                style: TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF6C7FD8),
+                                                  height: 16 / 16,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Container(
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(8),
+                                              gradient: AppColors.buildPrimaryGradient(),
+                                            ),
+                                            child: TextButton(
+                                              onPressed: () => _handleDownload(context, doc),
+                                              style: TextButton.styleFrom(
+                                                padding: EdgeInsets.zero,
+                                              ),
+                                              child: const Text(
+                                                'Download',
+                                                style: TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.white,
+                                                  height: 16 / 16,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               );
@@ -259,4 +481,5 @@ class _DocRow extends StatelessWidget {
     );
   }
 }
+
 

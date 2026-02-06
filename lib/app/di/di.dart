@@ -29,6 +29,8 @@ import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
+import '../../domain/features/staff/usecases/delete_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
@@ -146,6 +148,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<AddStaffDocumentUseCase>(
     () => AddStaffDocumentUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UpdateStaffDocumentUseCase>(
+    () => UpdateStaffDocumentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStaffDocumentUseCase>(
+    () => DeleteStaffDocumentUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStaffDocumentsUseCase>(
     () => GetStaffDocumentsUseCase(serviceLocator()),
   );
@@ -187,11 +195,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<StaffDocumentCubit>(
     () => StaffDocumentCubit(
       addStaffDocumentUseCase: serviceLocator(),
+      updateStaffDocumentUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffDocumentsListCubit>(
     () => StaffDocumentsListCubit(
       getStaffDocumentsUseCase: serviceLocator(),
+      deleteStaffDocumentUseCase: serviceLocator(),
       repository: serviceLocator(),
     ),
   );

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class StaffDatesTab extends StatefulWidget {
   const StaffDatesTab({super.key, required this.staffCode});
@@ -28,13 +30,41 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     _loadDates();
   }
 
-  Future<void> _loadDates() async {
+  Future<void> _loadDates({bool useCache = true}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      // Try cache first if useCache is true
+      if (useCache) {
+        final repository = serviceLocator<StaffRepository>();
+        if (repository is StaffRepositoryWithCache) {
+          final cached = await (repository as StaffRepositoryWithCache)
+              .loadCachedImportantDates(widget.staffCode);
+
+          if (cached != null && mounted) {
+            _datesByType.clear();
+            for (final date in cached) {
+              final type = (date['importantDateType'] ?? '').toUpperCase();
+              final dueDate = date['dueDate'] ?? '';
+              if (type.isEmpty || dueDate.isEmpty) continue;
+              _datesByType[type] = _formatDate(dueDate);
+            }
+
+            setState(() {
+              _isLoading = false;
+              _errorMessage = null;
+            });
+
+            // Don't hit API if cache is valid - return early
+            return;
+          }
+        }
+      }
+
+      // No cache or cache invalid - load from API
       final useCase = serviceLocator<GetImportantDatesUseCase>();
       final result = await useCase(staffCode: widget.staffCode);
 
@@ -94,7 +124,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     final brcDate = _getDateForType('BRC');
 
     return CustomRefreshIndicator(
-      onRefresh: _loadDates,
+      onRefresh: () => _loadDates(useCache: false),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
@@ -159,10 +189,9 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                 const SizedBox(height: 16),
                 if (_isLoading)
                   const Center(
-                    child: SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                    child: PrimaryCircularLoader(
+                      size: 24,
+                      strokeWidth: 2,
                     ),
                   )
                 else if (_errorMessage != null)

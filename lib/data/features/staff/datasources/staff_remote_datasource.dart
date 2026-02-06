@@ -27,6 +27,15 @@ abstract class StaffRemoteDataSource {
     required StaffDocumentRequestModel request,
   });
 
+  Future<StaffDocumentResponseModel> updateStaffDocument({
+    required String documentUuid,
+    required StaffDocumentRequestModel request,
+  });
+
+  Future<StaffDocumentResponseModel> deleteStaffDocument({
+    required String documentUuid,
+  });
+
   Future<StaffDocumentsPageModel> getStaffDocuments({
     required String staffCode,
     int page = 0,
@@ -239,6 +248,61 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff document API response format');
+    }
+
+    return StaffDocumentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffDocumentResponseModel> updateStaffDocument({
+    required String documentUuid,
+    required StaffDocumentRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDocumentUpdate}/$documentUuid',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff document update API response format');
+    }
+
+    return StaffDocumentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffDocumentResponseModel> deleteStaffDocument({
+    required String documentUuid,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDocuments}/$documentUuid',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    // DELETE requests might return null data or empty response
+    if (response.data == null) {
+      // Return a success response if DELETE returns null (common for DELETE endpoints)
+      return const StaffDocumentResponseModel(
+        success: true,
+        message: 'Document deleted successfully',
+        data: null,
+        timestamp: '',
+      );
+    }
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff document delete API response format');
     }
 
     return StaffDocumentResponseModel.fromJson(

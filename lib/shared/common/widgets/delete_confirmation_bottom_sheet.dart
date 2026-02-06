@@ -111,6 +111,8 @@ class _DeleteConfirmationBottomSheetState
         ? "Are you sure you want to reject this request for \"${widget.name}\"? This action cannot be reversed."
         : widget.type == 'attendance'
         ? "Do you want to delete ${widget.name}'s Attendance?"
+        : widget.type == 'document'
+        ? 'Do you want to delete this Document -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'

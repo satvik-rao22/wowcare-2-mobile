@@ -302,10 +302,14 @@ class _StaffScreenState extends State<StaffScreen> {
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () async {
+                              final classroomCubit = context.read<ClassroomCubit>();
                               final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const StaffFilterScreen(),
+                                  builder: (_) => BlocProvider<ClassroomCubit>.value(
+                                    value: classroomCubit,
+                                    child: const StaffFilterScreen(),
+                                  ),
                                 ),
                               );
                               if (!mounted) return;
@@ -349,7 +353,14 @@ class _StaffScreenState extends State<StaffScreen> {
                               color: Color.fromRGBO(177, 175, 233, 0.3),
                             ),
                             const SizedBox(width: 8),
-                            const CustomClearAllChip(onTap: null),
+                            CustomClearAllChip(
+                              onTap: () async {
+                                // Clear search field
+                                _searchController.clear();
+                                // Clear all filters and refresh atomically (updates cache)
+                                await staffCubit.clearAllFiltersAndRefresh();
+                              },
+                            ),
                           ],
                         ),
                         Row(
@@ -463,6 +474,7 @@ class _StaffScreenState extends State<StaffScreen> {
                   return Column(
                     children: [
                       StaffCard(
+                                staffCode: staff.code,
                                 name: staff.name,
                                 classroom: primaryClassroomName,
                                 allowedClassrooms: allowedClassroomNames,
@@ -471,6 +483,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 email: staff.email,
                                 phoneNumber: staff.phoneNumber,
                                 isActive: isActive,
+                                status: staff.status,
                                 availableClassrooms: classroomNames,
                                 classroomCodeByName: classroomNameByCode,
                                 onPrimaryAction: () async {

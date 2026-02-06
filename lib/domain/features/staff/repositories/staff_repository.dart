@@ -25,6 +25,17 @@ abstract class StaffRepository {
     required StaffDocument document,
   });
 
+  Future<String> updateStaffDocument({
+    required String documentUuid,
+    required StaffDocument document,
+    required String staffCode, // Required for cache invalidation
+  });
+
+  Future<String> deleteStaffDocument({
+    required String documentUuid,
+    required String staffCode, // Required for cache invalidation
+  });
+
   Future<StaffDocumentsPage> getStaffDocuments({
     required String staffCode,
     int page,
@@ -129,6 +140,7 @@ abstract class StaffRepositoryWithCache {
   Future<StaffPage?> loadCachedStaffPage(String schoolCode);
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode);
+  Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
 }
 
 

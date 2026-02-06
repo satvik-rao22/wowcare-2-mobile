@@ -19,19 +19,25 @@ class AddDocumentScreen extends StatefulWidget {
     super.key,
     required this.staffCode,
     this.isEdit = false,
+    this.documentUuid,
     this.initialDocumentName,
     this.initialDocumentType,
     this.initialExpiryDate,
     this.initialFilePath,
+    this.initialMimeType,
+    this.initialFileSizeKb,
   });
   static const String routeName = '/add-document-screen';
 
   final String staffCode;
   final bool isEdit;
+  final String? documentUuid;
   final String? initialDocumentName;
   final String? initialDocumentType;
   final DateTime? initialExpiryDate;
   final String? initialFilePath;
+  final String? initialMimeType;
+  final int? initialFileSizeKb;
 
   @override
   _AddDocumentScreenState createState() => _AddDocumentScreenState();
@@ -89,16 +95,31 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       return;
     }
 
-    if (_selectedFile == null) {
+    // In edit mode, file upload is optional (can use existing file)
+    if (!widget.isEdit && _selectedFile == null) {
       _showWarningMessage('Please upload a document');
       return;
     }
 
-    final fileSizeKb = (_selectedFile!.size / 1024).ceil();
-    final extension = _selectedFile!.extension?.toLowerCase() ?? '';
-    final mimeType = _getMimeType(extension);
-    // Send just the filename, not the full local path
-    final documentUrl = _selectedFile!.name;
+    // Use new file if selected, otherwise use existing file URL in edit mode
+    String documentUrl;
+    int fileSizeKb;
+    String mimeType;
+
+    if (_selectedFile != null) {
+      fileSizeKb = (_selectedFile!.size / 1024).ceil();
+      final extension = _selectedFile!.extension?.toLowerCase() ?? '';
+      mimeType = _getMimeType(extension);
+      documentUrl = _selectedFile!.name;
+    } else if (widget.isEdit && widget.initialFilePath != null) {
+      // Use existing file info in edit mode
+      documentUrl = widget.initialFilePath!;
+      fileSizeKb = widget.initialFileSizeKb ?? 0;
+      mimeType = widget.initialMimeType ?? 'application/pdf';
+    } else {
+      _showWarningMessage('Please upload a document');
+      return;
+    }
 
     final document = StaffDocument(
       documentType: _selectedDocumentType!,
@@ -109,10 +130,18 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       expiryDate: DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!),
     );
 
-    context.read<StaffDocumentCubit>().addDocument(
-          staffCode: widget.staffCode,
-          document: document,
-        );
+    if (widget.isEdit && widget.documentUuid != null) {
+      context.read<StaffDocumentCubit>().updateDocument(
+            documentUuid: widget.documentUuid!,
+            staffCode: widget.staffCode,
+            document: document,
+          );
+    } else {
+      context.read<StaffDocumentCubit>().addDocument(
+            staffCode: widget.staffCode,
+            document: document,
+          );
+    }
   }
 
   String _getMimeType(String extension) {

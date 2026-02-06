@@ -40,6 +40,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         resource: 'profile',
         identifier: staffCode,
       );
+  static String _staffImportantDatesCacheKey(String staffCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'staff',
+        resource: 'important_dates',
+        identifier: staffCode,
+      );
 
   @override
   Future<StaffCount> getStaffCount({
@@ -154,11 +160,46 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     return response.message;
   }
 
-  // TODO: When implementing updateStaffDocument, add cache invalidation:
-  // await _cacheManager.invalidateCache(_staffDocumentsCacheKey(staffCode));
-  
-  // TODO: When implementing deleteStaffDocument, add cache invalidation:
-  // await _cacheManager.invalidateCache(_staffDocumentsCacheKey(staffCode));
+  @override
+  Future<String> updateStaffDocument({
+    required String documentUuid,
+    required StaffDocument document,
+    required String staffCode, // Required for cache invalidation
+  }) async {
+    final request = StaffDocumentRequestModel(
+      documentType: document.documentType,
+      documentName: document.documentName,
+      documentUrl: document.documentUrl,
+      documentSizeKb: document.documentSizeKb,
+      mimeType: document.mimeType,
+      expiryDate: document.expiryDate,
+    );
+
+    final response = await _remoteDataSource.updateStaffDocument(
+      documentUuid: documentUuid,
+      request: request,
+    );
+
+    // Invalidate cache after update
+    await _cacheManager.invalidateCache(_staffDocumentsCacheKey(staffCode));
+
+    return response.message;
+  }
+
+  @override
+  Future<String> deleteStaffDocument({
+    required String documentUuid,
+    required String staffCode, // Required for cache invalidation
+  }) async {
+    final response = await _remoteDataSource.deleteStaffDocument(
+      documentUuid: documentUuid,
+    );
+
+    // Invalidate cache after delete
+    await _cacheManager.invalidateCache(_staffDocumentsCacheKey(staffCode));
+
+    return response.message;
+  }
 
   @override
   Future<StaffDocumentsPage> getStaffDocuments({
@@ -350,7 +391,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       staffCode: staffCode,
     );
 
-    return models
+    final result = models
         .map(
           (m) => <String, String>{
             'importantDateType': m.importantDateType,
@@ -358,6 +399,34 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             if (m.completedDate != null) 'completedDate': m.completedDate!,
           },
         )
+        .toList();
+
+    // Cache the important dates
+    await _cacheManager.saveCache(
+      _staffImportantDatesCacheKey(staffCode),
+      {
+        'dates': result,
+      },
+    );
+
+    return result;
+  }
+
+  @override
+  Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode) async {
+    final payload = await _cacheManager.loadCache(_staffImportantDatesCacheKey(staffCode));
+    if (payload == null) return null;
+
+    final dates = payload['dates'] as List<dynamic>?;
+    if (dates == null) return null;
+
+    return dates
+        .map((d) => d as Map<String, dynamic>)
+        .map((d) => <String, String>{
+              'importantDateType': d['importantDateType']?.toString() ?? '',
+              'dueDate': d['dueDate']?.toString() ?? '',
+              if (d['completedDate'] != null) 'completedDate': d['completedDate']!.toString(),
+            })
         .toList();
   }
 
@@ -380,6 +449,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       staffCode: staffCode,
       dates: dateRequests,
     );
+
+    // Invalidate cache after update
+    await _cacheManager.invalidateCache(_staffImportantDatesCacheKey(staffCode));
 
     // Invalidate profile cache since dates are part of profile
     await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
