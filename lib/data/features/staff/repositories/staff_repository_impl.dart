@@ -343,6 +343,25 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<List<Map<String, String>>> getImportantDates({
+    required String staffCode,
+  }) async {
+    final models = await _remoteDataSource.getImportantDates(
+      staffCode: staffCode,
+    );
+
+    return models
+        .map(
+          (m) => <String, String>{
+            'importantDateType': m.importantDateType,
+            'dueDate': m.dueDate,
+            if (m.completedDate != null) 'completedDate': m.completedDate!,
+          },
+        )
+        .toList();
+  }
+
+  @override
   Future<String> updateImportantDates({
     required String staffCode,
     required List<Map<String, String>> dates,

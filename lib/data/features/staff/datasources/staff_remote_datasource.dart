@@ -73,6 +73,18 @@ abstract class StaffRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// Fetches staff important dates via `GET /api/v1/staff-dates/{staffCode}`.
+  ///
+  /// Returns a list of [ImportantDateRequestModel]-shaped items:
+  /// {
+  ///   "importantDateType": "HIRE_DATE",
+  ///   "dueDate": "2026-02-06",
+  ///   "completedDate": "2026-02-06"
+  /// }
+  Future<List<ImportantDateRequestModel>> getImportantDates({
+    required String staffCode,
+  });
+
   Future<ImportantDatesResponseModel> updateImportantDates({
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
@@ -336,6 +348,39 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Address updated successfully';
+  }
+
+  @override
+  Future<List<ImportantDateRequestModel>> getImportantDates({
+    required String staffCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDates}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected important dates API response format');
+    }
+
+    final data = (response.data! as Map<String, dynamic>)['data'];
+    if (data is! List) {
+      // Backend can return null/empty; normalize to empty list.
+      return const <ImportantDateRequestModel>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (json) => ImportantDateRequestModel(
+            importantDateType: (json['importantDateType'] ?? '').toString(),
+            dueDate: (json['dueDate'] ?? '').toString(),
+            completedDate: json['completedDate']?.toString(),
+          ),
+        )
+        .toList();
   }
 
   @override

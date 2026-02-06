@@ -31,6 +31,7 @@ import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
@@ -150,6 +151,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStaffProfileUseCase>(
     () => GetStaffProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetImportantDatesUseCase>(
+    () => GetImportantDatesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<UpdateImportantDatesUseCase>(
     () => UpdateImportantDatesUseCase(serviceLocator()),

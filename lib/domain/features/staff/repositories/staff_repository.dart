@@ -53,6 +53,18 @@ abstract class StaffRepository {
     required Map<String, dynamic> fields,
   });
 
+  /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
+  ///
+  /// Returns a list of map entries shaped as:
+  /// {
+  ///   "importantDateType": "HIRE_DATE",
+  ///   "dueDate": "2026-02-06",
+  ///   "completedDate": "2026-02-06"
+  /// }
+  Future<List<Map<String, String>>> getImportantDates({
+    required String staffCode,
+  });
+
   Future<String> updateImportantDates({
     required String staffCode,
     required List<Map<String, String>> dates,
