@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 // Mock classes for now - replace with actual implementations
 class FilterData {
@@ -111,28 +111,31 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   }
 
   void _fetchFilterData() {
-    // Mock data - replace with actual API calls
+    // Load classrooms from ClassroomCubit
+    context.read<ClassroomCubit>().loadActiveClassrooms();
+    
     setState(() {
-      _primaryClassroomIdList = List.generate(14, (index) => index + 1);
-      _primaryClassroomList = [
-        'Pre-K A', 'Pre-K B', 'Kindergarten A', 'Kindergarten B',
-        'Grade 1 A', 'Grade 1 B', 'Grade 2 A', 'Grade 2 B',
-        'Grade 3 A', 'Grade 3 B', 'Grade 4 A', 'Grade 4 B',
-        'Grade 5 A', 'Grade 5 B'
-      ];
-      _allowedClassroomIdList = List.from(_primaryClassroomIdList);
-      _allowedClassroomList = List.from(_primaryClassroomList);
-      _statusList = ['Active', 'Upcoming'];
+      // Status options: ACTIVE, INACTIVE, ARCHIVE, UPCOMING
+      _statusList = ['ACTIVE', 'INACTIVE', 'ARCHIVE', 'UPCOMING'];
+      
+      // Designation options from the API
       _designationList = [
-        'Principal', 'Vice Principal', 'Head Teacher', 'Teacher',
-        'Assistant Teacher', 'Counselor', 'Librarian', 'PE Teacher',
-        'Art Teacher', 'Music Teacher', 'Admin Staff', 'Support Staff'
+        'OWNER',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'LEAD_TEACHER',
+        'ASSOCIATE_TEACHER',
+        'ASSISTANT_TEACHER',
+        'FLOATER',
+        'KIOSK_USER',
       ];
+      
       _attendanceStatusList = ['Expected', 'Present', 'Absent'];
       
-      // Set default Active status if no status is pre-selected
-      if (_selectedStatusList.isEmpty && _statusList.contains('Active')) {
-        _selectedStatusList.add('Active');
+      // Set default ACTIVE status if no status is pre-selected
+      if (_selectedStatusList.isEmpty && _statusList.contains('ACTIVE')) {
+        _selectedStatusList.add('ACTIVE');
       }
     });
   }
@@ -140,14 +143,15 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   void _applyFilters() {
     _syncPrimaryClassroomIds();
     _syncAllowedClassroomIds();
-    final filterData = FilterData.createWithTagMapping(
-      classroomIds: _selectedPrimaryClassroomIdList,
-      classrooms: _selectedPrimaryClassroomList,
-      statuses: _selectedStatusList,
-      tags: _selectedDesignationList,
-      attendanceStatuses: _selectedAttendanceStatusList,
-    );
-    Navigator.pop(context, filterData);
+    
+    // Return Map format expected by staff_screen.dart
+    final String? status = _selectedStatusList.isNotEmpty ? _selectedStatusList.first : null;
+    final String? designation = _selectedDesignationList.isNotEmpty ? _selectedDesignationList.first : null;
+    
+    Navigator.pop(context, {
+      'status': status,
+      'designation': designation,
+    });
   }
 
   @override
@@ -203,74 +207,93 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   }
 
   Widget _buildFilterContent() {
-    // Check if data is loaded
-    if (_primaryClassroomList.isNotEmpty &&
-        _statusList.isNotEmpty &&
-        _designationList.isNotEmpty &&
-        _attendanceStatusList.isNotEmpty) {
-      final _dropdownLists = [
-        _primaryClassroomList,
-        _allowedClassroomList,
-        _statusList,
-        _designationList,
-        _attendanceStatusList,
-      ];
-      final _selectedDropdownLists = [
-        _selectedPrimaryClassroomList,
-        _selectedAllowedClassroomList,
-        _selectedStatusList,
-        _selectedDesignationList,
-        _selectedAttendanceStatusList,
-      ];
-      
-      return GridView.builder(
-        padding: EdgeInsets.zero,
-        itemCount: _dropdownLists.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.6, // Further reduced to 1.6 to give more height
-        ),
-        itemBuilder: (context, index) => CustomMultiSelectDropdown(
-          label: _labelList[index],
-          hintText: 'Select',
-          items: _dropdownLists[index],
-          selectedItems: _selectedDropdownLists[index],
-          onChanged: (selectedItems) {
+    return BlocBuilder<ClassroomCubit, ClassroomState>(
+      builder: (context, classroomState) {
+        // Load classrooms from cubit state
+        final classroomNames = classroomState.classrooms.map((c) => c.name).toList();
+        
+        // Update classroom lists when cubit state changes
+        if (classroomNames.isNotEmpty && _primaryClassroomList.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
-              _selectedDropdownLists[index].clear();
-              _selectedDropdownLists[index].addAll(selectedItems);
-              if (index == 0) _syncPrimaryClassroomIds();
-              if (index == 1) _syncAllowedClassroomIds();
+              _primaryClassroomList = List.from(classroomNames);
+              _allowedClassroomList = List.from(classroomNames);
+              _primaryClassroomIdList = List.generate(classroomNames.length, (index) => index);
+              _allowedClassroomIdList = List.generate(classroomNames.length, (index) => index);
             });
-          },
-        ),
-      );
-    }
-    
-    // Show loading state
-    return GridView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: 5,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.6, // Further reduced to 1.6 to give more height
-      ),
-      itemBuilder: (context, index) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_labelList[index],
-              style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400)),
-          const SizedBox(height: 8),
-          const ShimmerLoader(height: 40),
-        ],
-      ),
+          });
+        }
+        
+        // Check if data is loaded
+        if (_primaryClassroomList.isNotEmpty &&
+            _statusList.isNotEmpty &&
+            _designationList.isNotEmpty &&
+            _attendanceStatusList.isNotEmpty) {
+          final _dropdownLists = [
+            _primaryClassroomList,
+            _allowedClassroomList,
+            _statusList,
+            _designationList,
+            _attendanceStatusList,
+          ];
+          final _selectedDropdownLists = [
+            _selectedPrimaryClassroomList,
+            _selectedAllowedClassroomList,
+            _selectedStatusList,
+            _selectedDesignationList,
+            _selectedAttendanceStatusList,
+          ];
+          
+          return GridView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _dropdownLists.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 1.6, // Further reduced to 1.6 to give more height
+            ),
+            itemBuilder: (context, index) => CustomMultiSelectDropdown(
+              label: _labelList[index],
+              hintText: 'Select',
+              items: _dropdownLists[index],
+              selectedItems: _selectedDropdownLists[index],
+              onChanged: (selectedItems) {
+                setState(() {
+                  _selectedDropdownLists[index].clear();
+                  _selectedDropdownLists[index].addAll(selectedItems);
+                  if (index == 0) _syncPrimaryClassroomIds();
+                  if (index == 1) _syncAllowedClassroomIds();
+                });
+              },
+            ),
+          );
+        }
+        
+        // Show loading state
+        return GridView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: 5,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.6, // Further reduced to 1.6 to give more height
+          ),
+          itemBuilder: (context, index) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_labelList[index],
+                  style: TextStyle(
+                      color: AppColors.primaryColor.withValues(alpha: 0.5),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400)),
+              const SizedBox(height: 8),
+              const ShimmerLoader(height: 40),
+            ],
+          ),
+        );
+      },
     );
   }
 

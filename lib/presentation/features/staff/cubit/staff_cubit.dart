@@ -29,6 +29,12 @@ class StaffCubit extends Cubit<StaffState> {
   // How many staff records to load per page from the API
   static const int _pageSize = 15;
 
+  String? _effectiveStatusFilter() {
+    final raw = state.statusFilter;
+    if (raw == null || raw.isEmpty) return 'ACTIVE';
+    return raw;
+  }
+
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
     // TEMP: Always use default school code from StorageKeys (ignore stored prefs).
@@ -82,8 +88,8 @@ class StaffCubit extends Cubit<StaffState> {
     }
   }
 
-  Future<void> refresh() async {
-    if (state.isRefreshing) return;
+  Future<void> refresh({bool ignoreRefreshingGuard = false}) async {
+    if (state.isRefreshing && !ignoreRefreshingGuard) return;
 
     final schoolCode = await _resolveSchoolCode();
 
@@ -102,7 +108,7 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: state.statusFilter,
+        status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
       );
@@ -122,7 +128,7 @@ class StaffCubit extends Cubit<StaffState> {
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: state.statusFilter,
+          status: _effectiveStatusFilter(),
           designation: state.designationFilter,
           search: state.searchQuery,
         );
@@ -170,7 +176,7 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
         page: nextPageIndex,
         size: _pageSize,
-        status: state.statusFilter,
+        status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
       );
@@ -241,6 +247,60 @@ class StaffCubit extends Cubit<StaffState> {
     await refresh();
 
     return message;
+  }
+
+  /// Performs a lightweight search that only calls the staff list API (no count
+  /// refresh or automatic second-page preloading). Intended for rapid typing.
+  Future<void> searchStaff(String query) async {
+    final schoolCode = await _resolveSchoolCode();
+
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        searchQuery: query,
+      ),
+    );
+
+    try {
+      final firstPage = await _getStaffPageUseCase(
+        schoolCode: schoolCode,
+        page: 0,
+        size: _pageSize,
+        status: _effectiveStatusFilter(),
+        designation: state.designationFilter,
+        search: query,
+      );
+
+      if (isClosed) return;
+
+      // If the search query has changed while this request was in-flight
+      // (e.g. user cleared the field), drop these stale results.
+      if (state.searchQuery != query) {
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          items: List<StaffMember>.from(firstPage.items),
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isLoading: false,
+          isRefreshing: false,
+          isFromCache: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
   }
 
   void updateSearch(String query) {

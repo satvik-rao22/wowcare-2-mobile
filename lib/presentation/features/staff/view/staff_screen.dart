@@ -281,9 +281,19 @@ class _StaffScreenState extends State<StaffScreen> {
                             controller: _searchController,
                             hintText: 'Search Staff',
                             onChanged: (value) {
-                              // Apply search to staff list and refresh (also updates cache via repository)
-                              staffCubit.updateSearch(value.trim());
-                              staffCubit.refresh();
+                              final query = value.trim();
+                              final classroomCubit = context.read<ClassroomCubit>();
+                              // Keep classrooms in sync while searching.
+                              classroomCubit.loadActiveClassrooms(force: true);
+
+                              // For empty query, reset to full data (staff + counts).
+                              if (query.isEmpty) {
+                                staffCubit.updateSearch('');
+                                staffCubit.refresh(ignoreRefreshingGuard: true);
+                              } else {
+                                // Rapid search: only hit the staff list API on each keystroke.
+                                staffCubit.searchStaff(query);
+                              }
                             },
                           ),
                         ),

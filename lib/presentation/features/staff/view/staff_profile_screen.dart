@@ -6,7 +6,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_important_dates_tab.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:image_picker/image_picker.dart';
@@ -119,7 +119,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   classroomNames: widget.classroomNames,
                   classroomNameByCode: widget.classroomNameByCode,
                 ),
-                StaffImportantDatesTab(staffCode: widget.staffCode),
+                StaffDatesTab(staffCode: widget.staffCode),
                 StaffDocumentsTab(staffCode: widget.staffCode),
               ],
             ),
