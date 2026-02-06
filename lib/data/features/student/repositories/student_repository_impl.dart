@@ -83,15 +83,61 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }
 
   @override
-  Future<String> deactivateStudent({required String code}) async {
+  Future<String> deactivateStudent({
+    required String code,
+    required String schoolCode,
+  }) async {
     final message = await _remoteDataSource.deactivateStudent(code);
+    // Invalidate student list cache since status change affects listing.
+    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
     return message;
   }
 
   @override
-  Future<String> reactivateStudent({required String code}) async {
+  Future<String> reactivateStudent({
+    required String code,
+    required String schoolCode,
+  }) async {
     final message = await _remoteDataSource.reactivateStudent(code);
+    // Invalidate student list cache since status change affects listing.
+    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
     return message;
+  }
+
+  @override
+  Future<Student> createStudent({
+    required String schoolCode,
+    required String firstName,
+    required String lastName,
+    required String status,
+    required String classroom,
+    String? profilePhotoUrl,
+    DateTime? dob,
+    DateTime? schoolStartDate,
+  }) async {
+    final model = await _remoteDataSource.createStudent(
+      schoolCode: schoolCode,
+      firstName: firstName,
+      lastName: lastName,
+      status: status,
+      classroom: classroom,
+      profilePhotoUrl: profilePhotoUrl,
+      dob: dob,
+      schoolStartDate: schoolStartDate,
+    );
+
+    // New student created – invalidate first-page cache so next load/refresh sees it.
+    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
+
+    return Student(
+      code: model.code,
+      firstName: model.firstName,
+      lastName: model.lastName,
+      status: model.status,
+      classroom: model.classroom,
+      dob: model.dob,
+      movementDate: model.movementDate,
+    );
   }
 }
 

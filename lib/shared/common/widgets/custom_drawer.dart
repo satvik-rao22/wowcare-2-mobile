@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/students/view/student_screen.dart'
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -134,8 +135,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => BlocProvider<StudentCubit>(
-                                  create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+                                builder: (_) => MultiBlocProvider(
+                                  providers: [
+                                    BlocProvider<StudentCubit>(
+                                      create: (_) => serviceLocator<StudentCubit>()
+                                        ..loadInitial(),
+                                    ),
+                                    BlocProvider<ClassroomCubit>(
+                                      create: (_) => serviceLocator<ClassroomCubit>()
+                                        ..loadActiveClassrooms(),
+                                    ),
+                                  ],
                                   child: const StudentScreen(),
                                 ),
                               ),
@@ -250,8 +260,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => BlocProvider<StudentCubit>(
-                                  create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+                                builder: (_) => MultiBlocProvider(
+                                  providers: [
+                                    BlocProvider<StudentCubit>(
+                                      create: (_) => serviceLocator<StudentCubit>()
+                                        ..loadInitial(),
+                                    ),
+                                    BlocProvider<ClassroomCubit>(
+                                      create: (_) => serviceLocator<ClassroomCubit>()
+                                        ..loadActiveClassrooms(),
+                                    ),
+                                  ],
                                   child: const StudentScreen(),
                                 ),
                               ),

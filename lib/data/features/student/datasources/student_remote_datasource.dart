@@ -18,6 +18,17 @@ abstract class StudentRemoteDataSource {
   Future<String> deactivateStudent(String code);
 
   Future<String> reactivateStudent(String code);
+
+  Future<StudentListItemModel> createStudent({
+    required String schoolCode,
+    required String firstName,
+    required String lastName,
+    required String status,
+    required String classroom,
+    String? profilePhotoUrl,
+    DateTime? dob,
+    DateTime? schoolStartDate,
+  });
 }
 
 class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
@@ -113,6 +124,67 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Student reactivated successfully';
+  }
+
+  @override
+  Future<StudentListItemModel> createStudent({
+    required String schoolCode,
+    required String firstName,
+    required String lastName,
+    required String status,
+    required String classroom,
+    String? profilePhotoUrl,
+    DateTime? dob,
+    DateTime? schoolStartDate,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentList,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = <String, dynamic>{
+      'schoolCode': schoolCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'status': status,
+      'classroom': classroom,
+    };
+
+    if (profilePhotoUrl != null && profilePhotoUrl.isNotEmpty) {
+      body['profilePhotoUrl'] = profilePhotoUrl;
+    }
+    if (dob != null) {
+      // Backend expects yyyy-MM-dd
+      body['dob'] = '${dob.year.toString().padLeft(4, '0')}-'
+          '${dob.month.toString().padLeft(2, '0')}-'
+          '${dob.day.toString().padLeft(2, '0')}';
+    }
+    if (schoolStartDate != null) {
+      body['schoolStartDate'] =
+          '${schoolStartDate.year.toString().padLeft(4, '0')}-'
+          '${schoolStartDate.month.toString().padLeft(2, '0')}-'
+          '${schoolStartDate.day.toString().padLeft(2, '0')}';
+    }
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected create student API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>? ?? const {};
+
+    // Map schoolStartDate from API into movementDate used by list model.
+    final mapped = Map<String, dynamic>.from(data);
+    if (data.containsKey('schoolStartDate')) {
+      mapped['movementDate'] = data['schoolStartDate'];
+    }
+
+    return StudentListItemModel.fromJson(mapped);
   }
 }
 

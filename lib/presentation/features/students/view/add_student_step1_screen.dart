@@ -11,6 +11,11 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
@@ -369,23 +374,68 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     }
   }
 
-  void _completeWizard(
+  Future<void> _completeWizard(
     Map<String, dynamic> step1Data,
     List<dynamic> parents,
     dynamic schedule,
-  ) {
-    // TODO: Call API to create student
-    final studentName = '${step1Data['firstName']} ${step1Data['lastName']}'.trim();
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully',
-      isSuccess: true,
-    );
-
-    Navigator.pop(context, {
-      'showPostAddPrompt': true,
-      'studentName': studentName,
+  ) async {
+    setState(() {
+      _isSubmitting = true;
     });
+
+    try {
+      final firstName = (step1Data['firstName'] as String?)?.trim() ?? '';
+      final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
+      final rawStatus = (step1Data['status'] as String?) ?? 'Active';
+      final status = rawStatus.toUpperCase();
+      final classroom = (step1Data['classroom'] as String?) ?? '';
+      final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
+      final DateTime? schoolStartDate = step1Data['schoolStartDate'] as DateTime?;
+
+      final schoolCode = StorageKeys.defaultSchoolCode;
+
+      final repo = serviceLocator<StudentRepository>();
+
+      final Student student = await repo.createStudent(
+        schoolCode: schoolCode,
+        firstName: firstName,
+        lastName: lastName,
+        status: status,
+        classroom: classroom,
+        dob: birthdate,
+        schoolStartDate: schoolStartDate,
+        profilePhotoUrl: null,
+      );
+
+      final studentName = student.fullName.isNotEmpty
+          ? student.fullName
+          : '$firstName $lastName'.trim();
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully',
+        isSuccess: true,
+      );
+
+      Navigator.pop(context, {
+        'showPostAddPrompt': true,
+        'studentName': studentName,
+      });
+    } catch (e) {
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override

@@ -413,7 +413,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 8),
                             Row(
                               children: [
                                 Expanded(
@@ -421,7 +421,8 @@ class _StudentCardState extends State<StudentCard> {
                                     height: 40,
                                     child: OutlinedButton(
                                       onPressed: () {
-                                        final isActive = widget.status == 'Active';
+                                        final isActive =
+                                            widget.status.toUpperCase() == 'ACTIVE';
                                         showModalBottomSheet(
                                           context: context,
                                           isScrollControlled: true,
@@ -454,7 +455,7 @@ class _StudentCardState extends State<StudentCard> {
                                         padding: EdgeInsets.zero,
                                       ),
                                       child: Text(
-                                        widget.status == 'Active'
+                                        widget.status.toUpperCase() == 'ACTIVE'
                                             ? 'Deactivate'
                                             : 'Reactivate',
                                         style: const TextStyle(

@@ -203,14 +203,22 @@ class StudentCubit extends Cubit<StudentState> {
 
   /// Deactivates a student and refreshes the list. Returns backend message.
   Future<String> deactivateStudent(String code) async {
-    final message = await _repository.deactivateStudent(code: code);
+    final schoolCode = await _resolveSchoolCode();
+    final message = await _repository.deactivateStudent(
+      code: code,
+      schoolCode: schoolCode,
+    );
     await refresh();
     return message;
   }
 
   /// Reactivates a student and refreshes the list. Returns backend message.
   Future<String> reactivateStudent(String code) async {
-    final message = await _repository.reactivateStudent(code: code);
+    final schoolCode = await _resolveSchoolCode();
+    final message = await _repository.reactivateStudent(
+      code: code,
+      schoolCode: schoolCode,
+    );
     await refresh();
     return message;
   }

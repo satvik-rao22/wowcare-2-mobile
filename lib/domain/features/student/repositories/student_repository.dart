@@ -14,10 +14,23 @@ abstract class StudentRepository {
 
   Future<String> deactivateStudent({
     required String code,
+    required String schoolCode,
   });
 
   Future<String> reactivateStudent({
     required String code,
+    required String schoolCode,
+  });
+
+  Future<Student> createStudent({
+    required String schoolCode,
+    required String firstName,
+    required String lastName,
+    required String status,
+    required String classroom,
+    String? profilePhotoUrl,
+    DateTime? dob,
+    DateTime? schoolStartDate,
   });
 }
 
