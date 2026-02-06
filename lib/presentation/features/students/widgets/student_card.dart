@@ -413,7 +413,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 20),
                             Row(
                               children: [
                                 Expanded(
@@ -421,8 +421,6 @@ class _StudentCardState extends State<StudentCard> {
                                     height: 40,
                                     child: OutlinedButton(
                                       onPressed: () {
-                                        final isActive =
-                                            widget.status.toUpperCase() == 'ACTIVE';
                                         showModalBottomSheet(
                                           context: context,
                                           isScrollControlled: true,
@@ -430,11 +428,10 @@ class _StudentCardState extends State<StudentCard> {
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
-                                              type: isActive
-                                                  ? 'student_deactivate'
-                                                  : 'student_reactivate',
+                                              type: 'student',
                                               onDelete: () {
-                                                widget.onDeactivate?.call();
+                                                Navigator.of(ctx).pop();
+                                                //widget.onDelete?.call();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -454,11 +451,9 @@ class _StudentCardState extends State<StudentCard> {
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: Text(
-                                        widget.status.toUpperCase() == 'ACTIVE'
-                                            ? 'Deactivate'
-                                            : 'Reactivate',
-                                        style: const TextStyle(
+                                      child: const Text(
+                                        'Deactivate',
+                                        style: TextStyle(
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,

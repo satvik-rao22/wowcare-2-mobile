@@ -216,7 +216,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required StaffDocumentRequestModel request,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffDocumentAdd}/$staffCode/documents',
+      '${ApiPaths.staffDocumentAdd}/$staffCode',
       ApiConstants.staffBaseUrl,
     );
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/network/api_logger.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
@@ -12,6 +13,9 @@ import 'package:wowcare/data/features/auth/models/school_names_response_model.da
 abstract class AuthRemoteDataSource {
   Future<LoginResponseModel> login(LoginRequestModel request);
   Future<void> logout(LogoutRequestModel request);
+  Future<Map<String, dynamic>> getLoginContext({
+    required String accessToken,
+  });
   Future<SchoolNamesResponseModel> getSchoolNamesByOrg({
     required String organizationCode,
     required List<String> schoolCodes,
@@ -40,10 +44,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       ApiLogger.logRequest(
         url: loginUrl,
         method: 'POST',
-        headers: const {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-        },
+        headers: ApiHeaders.json,
         body: requestBody,
       );
 
@@ -51,10 +52,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         ApiPaths.authLogin,
         data: requestBody,
         options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            'accept': 'application/json',
-          },
+          headers: ApiHeaders.json,
         ),
       );
 
@@ -66,7 +64,20 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        return LoginResponseModel.fromJson(response.data!);
+        final apiResponse = ApiResponse<LoginResponseModel>.fromJson(
+          response.data!,
+          (dataJson) =>
+              LoginResponseModel.fromJson(dataJson as Map<String, dynamic>),
+        );
+        if (apiResponse.data == null) {
+          throw DioException(
+            requestOptions: response.requestOptions,
+            response: response,
+            type: DioExceptionType.badResponse,
+            error: 'Login failed: Missing data in response',
+          );
+        }
+        return apiResponse.data!;
       } else {
         throw DioException(
           requestOptions: response.requestOptions,
@@ -127,10 +138,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       ApiLogger.logRequest(
         url: url,
         method: 'POST',
-        headers: const {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-        },
+        headers: ApiHeaders.json,
         body: requestBody,
       );
 
@@ -138,10 +146,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         ApiPaths.authLogout,
         data: requestBody,
         options: Options(
-          headers: const {
-            'Content-Type': 'application/json',
-            'accept': 'application/json',
-          },
+          headers: ApiHeaders.json,
         ),
       );
 
@@ -186,6 +191,93 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>> getLoginContext({
+    required String accessToken,
+  }) async {
+    final url = ApiPaths.url(ApiPaths.authLoginContext);
+
+    try {
+      final headers = ApiHeaders.authorizedJson(accessToken);
+      ApiLogger.logRequest(
+        url: url,
+        method: 'GET',
+        headers: headers,
+        queryParameters: const <String, dynamic>{},
+        body: null,
+      );
+
+      final response = await _dio.get<Map<String, dynamic>>(
+        url,
+        options: Options(
+          headers: headers,
+        ),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'GET',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
+          response.data!,
+          (dataJson) =>
+              (dataJson as Map<String, dynamic>? ?? <String, dynamic>{}),
+        );
+        return apiResponse.data ?? <String, dynamic>{};
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Failed to get login context: Invalid response',
+        );
+      }
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: url,
+        method: 'GET',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      if (e.response != null) {
+        final statusCode = e.response?.statusCode;
+        final errorMessage = e.response?.data?['message'] ??
+            e.response?.data?['error'] ??
+            'Failed to get login context';
+        throw DioException(
+          requestOptions: e.requestOptions,
+          response: e.response,
+          type: DioExceptionType.badResponse,
+          error: 'Status: $statusCode - $errorMessage',
+        );
+      } else {
+        throw DioException(
+          requestOptions: e.requestOptions,
+          type: DioExceptionType.connectionTimeout,
+          error: 'Network error: ${e.message}',
+        );
+      }
+    } catch (e, stackTrace) {
+      ApiLogger.logUnexpectedError(
+        url: url,
+        method: 'GET',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: url),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
   Future<SchoolNamesResponseModel> getSchoolNamesByOrg({
     required String organizationCode,
     required List<String> schoolCodes,
@@ -206,14 +298,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'schoolCodes': schoolCodes, // Include even if empty array
       };
 
+      final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-          'Authorization': 'Bearer $accessToken',
-        },
+        headers: headers,
         queryParameters: queryParams,
         body: null,
       );
@@ -222,11 +311,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         url,
         queryParameters: queryParams,
         options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            'accept': 'application/json',
-            'Authorization': 'Bearer $accessToken',
-          },
+          headers: headers,
         ),
       );
 
@@ -314,14 +399,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'organizationCodes': organizationCodes,
       };
 
+      final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-          'Authorization': 'Bearer $accessToken',
-        },
+        headers: headers,
         queryParameters: queryParams,
         body: null,
       );
@@ -330,11 +412,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         url,
         queryParameters: queryParams,
         options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            'accept': 'application/json',
-            'Authorization': 'Bearer $accessToken',
-          },
+          headers: headers,
         ),
       );
 
@@ -427,10 +505,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       ApiLogger.logRequest(
         url: url,
         method: 'POST',
-        headers: const {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-        },
+        headers: ApiHeaders.json,
         queryParameters: queryParams,
         body: null,
       );

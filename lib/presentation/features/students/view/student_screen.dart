@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -228,7 +229,12 @@ class _StudentScreenState extends State<StudentScreen> {
         final stackChildren = <Widget>[
           CustomRefreshIndicator(
             onRefresh: () async {
-              await studentCubit.refresh();
+              await Future.wait([
+                studentCubit.refresh(),
+                context
+                    .read<ClassroomCubit>()
+                    .loadActiveClassrooms(force: true),
+              ]);
             },
             child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
@@ -271,6 +277,8 @@ class _StudentScreenState extends State<StudentScreen> {
                           print('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
                           if (result is Map && (result['showPostAddPrompt'] == true)) {
                             final studentName = (result['studentName'] as String?) ?? '';
+                            // New student added successfully → refresh list (uses invalidated cache)
+                            await studentCubit.refresh();
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               showModalBottomSheet(
                                 context: context,

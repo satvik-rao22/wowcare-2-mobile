@@ -208,39 +208,31 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       final dayOfWeek = day.toUpperCase(); // MONDAY, TUESDAY, ...
 
       if (schedule.workStartTime != null && schedule.workEndTime != null) {
+        final startHour = schedule.workStartTime!.hour.toString().padLeft(2, '0');
+        final startMinute = schedule.workStartTime!.minute.toString().padLeft(2, '0');
+        final endHour = schedule.workEndTime!.hour.toString().padLeft(2, '0');
+        final endMinute = schedule.workEndTime!.minute.toString().padLeft(2, '0');
+
         workSchedules.add({
           'dayOfWeek': dayOfWeek,
-          'workStartTime': {
-            'hour': schedule.workStartTime!.hour,
-            'minute': schedule.workStartTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
-          'workEndTime': {
-            'hour': schedule.workEndTime!.hour,
-            'minute': schedule.workEndTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
+          // Backend expects java.time.LocalTime as a string (e.g. "09:00:00")
+          'workStartTime': '$startHour:$startMinute:00',
+          'workEndTime': '$endHour:$endMinute:00',
         });
       }
 
       if (schedule.breakStartTime != null && schedule.breakEndTime != null) {
+        final startHour = schedule.breakStartTime!.hour.toString().padLeft(2, '0');
+        final startMinute = schedule.breakStartTime!.minute.toString().padLeft(2, '0');
+        final endHour = schedule.breakEndTime!.hour.toString().padLeft(2, '0');
+        final endMinute = schedule.breakEndTime!.minute.toString().padLeft(2, '0');
+
         breakSchedules.add({
           'dayOfWeek': dayOfWeek,
           'breakType': 'LUNCH',
-          'breakStartTime': {
-            'hour': schedule.breakStartTime!.hour,
-            'minute': schedule.breakStartTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
-          'breakEndTime': {
-            'hour': schedule.breakEndTime!.hour,
-            'minute': schedule.breakEndTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
+          // Backend expects java.time.LocalTime as a string (e.g. "12:00:00")
+          'breakStartTime': '$startHour:$startMinute:00',
+          'breakEndTime': '$endHour:$endMinute:00',
         });
       }
     }

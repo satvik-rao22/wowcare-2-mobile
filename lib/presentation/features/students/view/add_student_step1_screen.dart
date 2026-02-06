@@ -16,6 +16,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
@@ -60,12 +62,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   bool _isSubmitting = false;
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
-  final List<String> _classrooms = [
-    'Nursery A',
-    'Nursery B',
-    'Playgroup',
-    'Daycare',
-  ]; // Mock data - should come from API
 
   bool get _isActive => (_selectedStatus ?? '').toLowerCase() == 'active';
   bool get _isUpcoming => (_selectedStatus ?? '').toLowerCase() == 'upcoming';
@@ -444,189 +440,206 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: const CustomAppBar(hasBackButton: true),
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            Column(
+    return BlocBuilder<ClassroomCubit, ClassroomState>(
+      builder: (context, classroomState) {
+        final classroomNames =
+            classroomState.classrooms.map((c) => c.name).toList();
+
+        return GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: const CustomAppBar(hasBackButton: true),
+            body: Stack(
               children: [
-                const SizedBox(height: 16),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Add Student - Step 1 of 3',
-                      style: TextStyle(
-                        fontFamily: "Manrope",
-                        fontSize: responsive.titleFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
-                      ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buildScaffoldGradient(),
+                    ),
+                    child: Image.asset(
+                      MediaRes.wowcareMobileBg,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
                     ),
                   ),
                 ),
-                SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                Expanded(
-                  child: Container(
-                    width: responsive.containerWidth,
-                    margin: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
-                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Status
-                              CustomDropdown(
-                                label: "Status",
-                                hintText: 'Select',
-                                items: _statusOptions,
-                                selectedItem: _selectedStatus,
-                                labelStyle: TextStyle(
-                                  fontSize: responsive.labelFontSize,
-                                  fontFamily: "Manrope",
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xff573353),
-                                ),
-                                showAsterisk: true,
-                                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                                onSelect: (val) {
-                                  setState(() {
-                                    _selectedStatus = val;
-                                  });
-                                },
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // First Name and Last Name
-                              _buildRowInputs(context),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Classroom
-                              CustomDropdown(
-                                label: "Classroom",
-                                hintText: 'Select',
-                                items: _classrooms,
-                                selectedItem: _selectedClassroom,
-                                labelStyle: TextStyle(
-                                  fontSize: responsive.labelFontSize,
-                                  fontFamily: "Manrope",
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xff573353),
-                                ),
-                                showAsterisk: true,
-                                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                                onSelect: (val) {
-                                  setState(() {
-                                    _selectedClassroom = val;
-                                  });
-                                },
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Profile Photo
-                              _buildProfilePhotoField(responsive),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Birthdate
-                              _buildDateField(
-                                "Birthdate",
-                                _selectedBirthdate,
-                                _selectBirthdate,
-                                isRequired: _isActive,
-                                age: _calculatedAge,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // School Start Date
-                              _buildDateField(
-                                "School Start Date",
-                                _selectedSchoolStartDate,
-                                _selectSchoolStartDate,
-                                isRequired: _isUpcoming,
-                              ),
-                              const SizedBox(height: 12),
-                            ],
+                Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: responsive.horizontalSpacing),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Add Student - Step 1 of 3',
+                          style: TextStyle(
+                            fontFamily: "Manrope",
+                            fontSize: responsive.titleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff573353),
                           ),
                         ),
-                      ],
+                      ),
+                    ),
+                    SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                    Expanded(
+                      child: Container(
+                        width: responsive.containerWidth,
+                        margin: EdgeInsets.symmetric(
+                            horizontal: responsive.horizontalSpacing),
+                        padding: EdgeInsets.all(
+                            responsive.isTablet ? 32.0 : 16.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(
+                                responsive.isTablet ? 40.0 : 24.0),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: ListView(
+                                padding: EdgeInsets.zero,
+                                children: [
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Status
+                                  CustomDropdown(
+                                    label: "Status",
+                                    hintText: 'Select',
+                                    items: _statusOptions,
+                                    selectedItem: _selectedStatus,
+                                    labelStyle: TextStyle(
+                                      fontSize: responsive.labelFontSize,
+                                      fontFamily: "Manrope",
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xff573353),
+                                    ),
+                                    showAsterisk: true,
+                                    labelBottomSpacing:
+                                        responsive.isTablet ? 8.0 : 6.0,
+                                    onSelect: (val) {
+                                      setState(() {
+                                        _selectedStatus = val;
+                                      });
+                                    },
+                                  ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // First Name and Last Name
+                                  _buildRowInputs(context),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Classroom
+                                  CustomDropdown(
+                                    label: "Classroom",
+                                    hintText: 'Select',
+                                    items: classroomNames,
+                                    selectedItem: _selectedClassroom,
+                                    labelStyle: TextStyle(
+                                      fontSize: responsive.labelFontSize,
+                                      fontFamily: "Manrope",
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xff573353),
+                                    ),
+                                    showAsterisk: true,
+                                    labelBottomSpacing:
+                                        responsive.isTablet ? 8.0 : 6.0,
+                                    onSelect: (val) {
+                                      setState(() {
+                                        _selectedClassroom = val;
+                                      });
+                                    },
+                                  ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Profile Photo
+                                  _buildProfilePhotoField(responsive),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Birthdate
+                                  _buildDateField(
+                                    "Birthdate",
+                                    _selectedBirthdate,
+                                    _selectBirthdate,
+                                    isRequired: _isActive,
+                                    age: _calculatedAge,
+                                  ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // School Start Date
+                                  _buildDateField(
+                                    "School Start Date",
+                                    _selectedSchoolStartDate,
+                                    _selectSchoolStartDate,
+                                    isRequired: _isUpcoming,
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ],
+            ),
+            bottomNavigationBar: Container(
+              padding: EdgeInsets.only(
+                bottom: safeAreaBottom,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  topLeft:
+                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight:
+                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                ),
+              ),
+              child: Container(
+                height: responsive.buttonHeight,
+                decoration: BoxDecoration(
+                  gradient:
+                      _isSubmitting ? null : AppColors.buildPrimaryGradient(),
+                  color: _isSubmitting ? Colors.grey[300] : null,
+                  borderRadius: BorderRadius.circular(
+                      responsive.isTablet ? 16.0 : 8.0),
+                ),
+                child: TextButton(
+                  onPressed: _isSubmitting ? null : _onNext,
+                  child: Text(
+                    'Next',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: responsive.buttonFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ],
-        ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : _onNext,
-              child: Text(
-                'Next',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

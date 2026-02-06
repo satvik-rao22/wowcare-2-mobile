@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../models/student_models.dart';
@@ -153,17 +154,14 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     if (profilePhotoUrl != null && profilePhotoUrl.isNotEmpty) {
       body['profilePhotoUrl'] = profilePhotoUrl;
     }
+    // Backend expects ISO-style date strings: yyyy-MM-dd
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+
     if (dob != null) {
-      // Backend expects yyyy-MM-dd
-      body['dob'] = '${dob.year.toString().padLeft(4, '0')}-'
-          '${dob.month.toString().padLeft(2, '0')}-'
-          '${dob.day.toString().padLeft(2, '0')}';
+      body['dob'] = dateFormatter.format(dob);
     }
     if (schoolStartDate != null) {
-      body['schoolStartDate'] =
-          '${schoolStartDate.year.toString().padLeft(4, '0')}-'
-          '${schoolStartDate.month.toString().padLeft(2, '0')}-'
-          '${schoolStartDate.day.toString().padLeft(2, '0')}';
+      body['schoolStartDate'] = dateFormatter.format(schoolStartDate);
     }
 
     final response = await _client.post<dynamic>(

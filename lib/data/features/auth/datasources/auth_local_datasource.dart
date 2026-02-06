@@ -8,6 +8,8 @@ abstract class AuthLocalDataSource {
   Future<LoginResponseModel?> getCachedLoginResponse();
   Future<bool> isCacheValid();
   Future<void> clearCache();
+  Future<void> saveLoginContext(Map<String, dynamic> context);
+  Future<Map<String, dynamic>?> getLoginContext();
   Future<void> saveCredentials(String username, String password, bool rememberMe);
   Future<Map<String, String?>> getSavedCredentials();
   Future<void> clearCredentials();
@@ -96,6 +98,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.remove(StorageKeys.organizationCode);
     await _storage.remove(StorageKeys.selectedSchoolName);
     await _storage.remove(StorageKeys.loginCompleted);
+    await _storage.remove(StorageKeys.loginContext);
   }
 
   @override
@@ -106,6 +109,16 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
     await _storage.saveBool(StorageKeys.loginCompleted, true);
+  }
+
+  @override
+  Future<void> saveLoginContext(Map<String, dynamic> context) async {
+    await _storage.saveJson(StorageKeys.loginContext, context);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getLoginContext() async {
+    return _storage.getJson(StorageKeys.loginContext);
   }
 
   @override

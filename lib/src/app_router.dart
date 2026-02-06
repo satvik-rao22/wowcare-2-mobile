@@ -89,8 +89,16 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
     case StudentScreen.routeName:
       return MaterialPageRoute(
-        builder: (_) => BlocProvider<StudentCubit>(
-          create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StudentCubit>(
+              create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) =>
+                  serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+            ),
+          ],
           child: const StudentScreen(),
         ),
         settings: settings,

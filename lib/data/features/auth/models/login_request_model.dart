@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class LoginRequestModel {
   final String username;
   final String password;
@@ -10,7 +12,8 @@ class LoginRequestModel {
   Map<String, dynamic> toJson() {
     return {
       'username': username,
-      'password': password,
+      // Backend expects password as base64-encoded string
+      'password': base64Encode(password.codeUnits),
     };
   }
 }

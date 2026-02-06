@@ -9,10 +9,10 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-// LOGIN BYPASSED - Commented out for now
-// import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
@@ -208,29 +208,58 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     if (mounted) {
       final storage = serviceLocator<StorageService>();
 
-      // TEMP (implementation phase): Always override org + school in prefs
-      // so all APIs use the constants from StorageKeys, ignoring any old values.
-      await storage.saveString(
-        StorageKeys.organizationCode,
-        StorageKeys.defaultOrganizationCode,
-      );
-      await storage.saveString(
-        StorageKeys.schoolCode,
-        StorageKeys.defaultSchoolCode,
-      );
-
       final seenOnboarding =
           await storage.getBool(StorageKeys.onboardingSeen) ?? false;
+      final loginCompleted =
+          await storage.getBool(StorageKeys.loginCompleted) ?? false;
 
       if (!seenOnboarding) {
-        // If onboarding is available, always clear any old auth state so the user
-        // must complete the login flow after onboarding.
+        // Very first app launch: always show onboarding once and clear any old auth.
         await serviceLocator<AuthLocalDataSource>().clearCache();
         Navigator.pushReplacementNamed(context, '/first-screen');
       } else {
-        // Always go to role selection first (bypassing login)
-        // Role selection will then navigate to dashboard
-        Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
+        // After onboarding:
+        // - Always call login-context on app start if we already have a login,
+        //   so backend can tell us which org/school should be active.
+        if (loginCompleted) {
+          try {
+            final authLocal = serviceLocator<AuthLocalDataSource>();
+            final cachedLogin = await authLocal.getCachedLoginResponse();
+            if (cachedLogin != null) {
+              final authRemote = serviceLocator<AuthRemoteDataSource>();
+              final contextData = await authRemote.getLoginContext(
+                accessToken: cachedLogin.accessToken,
+              );
+              await authLocal.saveLoginContext(contextData);
+
+              // Best-effort: if the context payload exposes org/school codes,
+              // sync them into the generic storage keys so all APIs use them.
+              final orgCode =
+                  (contextData['organizationCode'] as String?) ?? '';
+              if (orgCode.isNotEmpty) {
+                await storage.saveString(
+                  StorageKeys.organizationCode,
+                  orgCode,
+                );
+              }
+              final schoolCode =
+                  (contextData['schoolCode'] as String?) ?? '';
+              if (schoolCode.isNotEmpty) {
+                await storage.saveString(
+                  StorageKeys.schoolCode,
+                  schoolCode,
+                );
+              }
+            }
+          } catch (_) {
+            // Non-fatal: if context fetch fails, we still navigate to dashboard.
+          }
+
+          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+        } else {
+          // Not logged in yet: go to Login, which will call login-context after success.
+          Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+        }
       }
     }
   }

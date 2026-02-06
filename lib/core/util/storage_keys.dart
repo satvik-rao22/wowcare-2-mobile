@@ -22,6 +22,7 @@ class StorageKeys {
   static const String loginCompleted = 'loginCompleted';
   static const String onboardingSeen = 'onboardingSeen';
   static const String schoolCode = 'schoolCode';
+  static const String loginContext = 'loginContext';
 
   // Cache Duration
   static const Duration cacheValidDuration = Duration(minutes: 5);
