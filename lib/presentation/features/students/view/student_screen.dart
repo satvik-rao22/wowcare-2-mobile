@@ -33,6 +33,7 @@ class StudentScreen extends StatefulWidget {
 
 class _StudentScreenState extends State<StudentScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _showActivitiesPanel = false;
   List<bool> _selectedDemo = [];
   bool _selectAll = false;
@@ -56,6 +57,7 @@ class _StudentScreenState extends State<StudentScreen> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -141,6 +143,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
     return BlocBuilder<StudentCubit, StudentState>(
       builder: (context, state) {
+        final studentCubit = context.read<StudentCubit>();
         final students = state.items;
         final bool anySelected = _selectedDemo.any((e) => e);
         final int selectedCount = _selectedDemo.where((e) => e).length;
@@ -223,14 +226,24 @@ class _StudentScreenState extends State<StudentScreen> {
         final stackChildren = <Widget>[
           CustomRefreshIndicator(
             onRefresh: () async {
-              await context.read<StudentCubit>().refresh();
+              await studentCubit.refresh();
             },
-            child: SingleChildScrollView(
-              child: Padding(
-              padding: ResponsiveSizing.contentPadding(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification.metrics.pixels >=
+                    notification.metrics.maxScrollExtent - 200) {
+                  studentCubit.loadNextPage();
+                }
+                return false;
+              },
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: ResponsiveSizing.contentPadding(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   Row(
                     children: [
                       Expanded(
@@ -597,21 +610,22 @@ class _StudentScreenState extends State<StudentScreen> {
                               birthDate: studentMap['birthDate'] as String,
                               movementDate: studentMap['movementDate'] as String,
                               status: studentMap['Status'] as String,
-                              isSelected: index < _selectedDemo.length ? _selectedDemo[index]: false,
+                              isSelected: index < _selectedDemo.length ? _selectedDemo[index] : false,
                               onSelected: (v) => setState(() {
-                                if (index < _selectedDemo.length){
+                                if (index < _selectedDemo.length) {
                                   _selectedDemo[index] = v ?? false;
                                 }
                                 if (!_selectedDemo.any((e) => e)) {
                                   _currentPanel = StudentPanelType.none;
                                   _showActivitiesPanel = false;
                                 }
-                                _selectAll = _selectedDemo.every((e) => (e));
+                                _selectAll = _selectedDemo.every((e) => e);
                               }),
                               onEdit: () {},
                               onDeactivate: () {},
                             ),
-                            if (index != students.length -1) const SizedBox(height: 10),
+                            if (index != students.length - 1)
+                              const SizedBox(height: 10),
                           ],
                         );
                       },
@@ -631,8 +645,8 @@ class _StudentScreenState extends State<StudentScreen> {
           body: Stack(
             children: stackChildren,
           ),
-      showCustomNavigationBar: true,
-    );
+          showCustomNavigationBar: true,
+        );
       },
     );
   }
