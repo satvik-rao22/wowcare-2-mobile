@@ -201,6 +201,20 @@ class StudentCubit extends Cubit<StudentState> {
     );
   }
 
+  /// Deactivates a student and refreshes the list. Returns backend message.
+  Future<String> deactivateStudent(String code) async {
+    final message = await _repository.deactivateStudent(code: code);
+    await refresh();
+    return message;
+  }
+
+  /// Reactivates a student and refreshes the list. Returns backend message.
+  Future<String> reactivateStudent(String code) async {
+    final message = await _repository.reactivateStudent(code: code);
+    await refresh();
+    return message;
+  }
+
   // To be called by add/edit/delete flows to keep cache + UI in sync
   void upsertStudent(Student student) {
     final updated = List<Student>.from(state.items);

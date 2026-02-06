@@ -83,8 +83,10 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to deactivate this Staff -\n"${widget.name}" ?'
         : widget.type == 'staff_reactivate'
         ? 'Do you want to reactivate this Staff -\n"${widget.name}" ?'
-        : widget.type == 'student'
+        : widget.type == 'student_deactivate'
         ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
+        : widget.type == 'student_reactivate'
+        ? 'Do you want to reactivate this Student -\n"${widget.name}" ?'
         : widget.type == 'subsidy'
         ? 'Do you want to delete the subsidy -\n${widget.name} ?'
         : widget.type == 'classroom'
@@ -115,9 +117,9 @@ class _DeleteConfirmationBottomSheetState
         ? "Mark Complete"
         : widget.type == 'Activity'
         ? 'Delete'
-        : (widget.type == 'staff_deactivate' || widget.type == 'student')
+        : (widget.type == 'staff_deactivate' || widget.type == 'student_deactivate')
         ? "Deactivate"
-        : widget.type == 'staff_reactivate'
+        : (widget.type == 'staff_reactivate' || widget.type == 'student_reactivate')
         ? "Reactivate"
         : widget.type == 'order_purchase'
         ? "Mark as Ordered"

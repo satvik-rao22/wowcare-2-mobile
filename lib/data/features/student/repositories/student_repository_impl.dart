@@ -81,5 +81,17 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       hasMore: model.hasMore,
     );
   }
+
+  @override
+  Future<String> deactivateStudent({required String code}) async {
+    final message = await _remoteDataSource.deactivateStudent(code);
+    return message;
+  }
+
+  @override
+  Future<String> reactivateStudent({required String code}) async {
+    final message = await _remoteDataSource.reactivateStudent(code);
+    return message;
+  }
 }
 

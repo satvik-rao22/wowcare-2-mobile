@@ -421,6 +421,7 @@ class _StudentCardState extends State<StudentCard> {
                                     height: 40,
                                     child: OutlinedButton(
                                       onPressed: () {
+                                        final isActive = widget.status == 'Active';
                                         showModalBottomSheet(
                                           context: context,
                                           isScrollControlled: true,
@@ -428,10 +429,11 @@ class _StudentCardState extends State<StudentCard> {
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
-                                              type: 'student',
+                                              type: isActive
+                                                  ? 'student_deactivate'
+                                                  : 'student_reactivate',
                                               onDelete: () {
-                                                Navigator.of(ctx).pop();
-                                                //widget.onDelete?.call();
+                                                widget.onDeactivate?.call();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -451,9 +453,11 @@ class _StudentCardState extends State<StudentCard> {
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
-                                        'Deactivate',
-                                        style: TextStyle(
+                                      child: Text(
+                                        widget.status == 'Active'
+                                            ? 'Deactivate'
+                                            : 'Reactivate',
+                                        style: const TextStyle(
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,

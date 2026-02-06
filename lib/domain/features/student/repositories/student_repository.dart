@@ -11,6 +11,14 @@ abstract class StudentRepository {
     int page,
     int size,
   });
+
+  Future<String> deactivateStudent({
+    required String code,
+  });
+
+  Future<String> reactivateStudent({
+    required String code,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

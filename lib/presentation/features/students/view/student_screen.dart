@@ -16,6 +16,8 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -598,6 +600,8 @@ class _StudentScreenState extends State<StudentScreen> {
                       itemBuilder: (context, index) {
                         final student = students[index];
                         final studentMap = _studentToMap(student);
+                        final isActive =
+                            (student.status).toUpperCase() == 'ACTIVE';
 
                         return Column(
                           children: [
@@ -605,12 +609,16 @@ class _StudentScreenState extends State<StudentScreen> {
                               name: studentMap['name'] as String,
                               classroom: studentMap['Classroom'] as String,
                               tags: studentMap['Tags'] as List<String>,
-                              sibling: studentMap['sibling'] as Map<String, dynamic>,
+                              sibling:
+                                  studentMap['sibling'] as Map<String, dynamic>,
                               schedule: studentMap['schedule'] as List<String>,
                               birthDate: studentMap['birthDate'] as String,
-                              movementDate: studentMap['movementDate'] as String,
+                              movementDate:
+                                  studentMap['movementDate'] as String,
                               status: studentMap['Status'] as String,
-                              isSelected: index < _selectedDemo.length ? _selectedDemo[index] : false,
+                              isSelected: index < _selectedDemo.length
+                                  ? _selectedDemo[index]
+                                  : false,
                               onSelected: (v) => setState(() {
                                 if (index < _selectedDemo.length) {
                                   _selectedDemo[index] = v ?? false;
@@ -622,7 +630,31 @@ class _StudentScreenState extends State<StudentScreen> {
                                 _selectAll = _selectedDemo.every((e) => e);
                               }),
                               onEdit: () {},
-                              onDeactivate: () {},
+                              onDeactivate: () async {
+                                try {
+                                  final message = isActive
+                                      ? await studentCubit
+                                          .deactivateStudent(student.code)
+                                      : await studentCubit
+                                          .reactivateStudent(student.code);
+                                  if (!mounted) return;
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: message,
+                                    isSuccess: true,
+                                  );
+                                  Navigator.of(context).maybePop();
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  final msg =
+                                      ApiErrorHandler.extractErrorMessage(e);
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: msg,
+                                    isError: true,
+                                  );
+                                }
+                              },
                             ),
                             if (index != students.length - 1)
                               const SizedBox(height: 10),
@@ -635,6 +667,7 @@ class _StudentScreenState extends State<StudentScreen> {
               ),
             ),
           ),
+        ),
         ];
         
         if (actionPanel != null) {

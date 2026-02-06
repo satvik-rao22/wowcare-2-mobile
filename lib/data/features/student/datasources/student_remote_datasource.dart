@@ -14,6 +14,10 @@ abstract class StudentRemoteDataSource {
     int page = 0,
     int size = 10,
   });
+
+  Future<String> deactivateStudent(String code);
+
+  Future<String> reactivateStudent(String code);
 }
 
 class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
@@ -75,6 +79,40 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     return StudentPageModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<String> deactivateStudent(String code) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentList}/$code/deactivate',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student deactivate API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student deactivated successfully';
+  }
+
+  @override
+  Future<String> reactivateStudent(String code) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentList}/$code/reactivate',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student reactivate API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student reactivated successfully';
   }
 }
 
