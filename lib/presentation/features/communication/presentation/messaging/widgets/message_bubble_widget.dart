@@ -108,30 +108,90 @@ class MessageBubble extends StatefulWidget {
 }
 
 class _MessageBubbleState extends State<MessageBubble> {
-  // @override
-  // void didChangeDependencies() {
-  //   super.didChangeDependencies();
-  //   WidgetsBinding.instance.addPostFrameCallback((_) {
-  //     widget.onContextReady?.call(
-  //       widget.message.id,
-  //       context,
-  //     );
-  //   });
-  // }
 
-  // @override
-  // void didChangeDependencies() {
-  //   super.didChangeDependencies();
-  //   WidgetsBinding.instance.addPostFrameCallback((_) {
-  //     final box = context.findRenderObject() as RenderBox?;
-  //     if (box != null && box.hasSize) {
-  //       widget.onHeightMeasured?.call(
-  //         widget.message.id,
-  //         box.size.height,
-  //       );
-  //     }
-  //   });
-  // }
+
+  void _showReactionsDialog(BuildContext context, Message message) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: EdgeInsets.zero,
+        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        title: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Color.fromRGBO(89, 120, 247, 0.1),
+                Color.fromRGBO(156, 132, 255, 0.1),
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const CustomTextWidget(
+                text: 'Reactions',
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: AppColors.primaryColor),
+                onPressed: () => Navigator.pop(dialogContext),
+              ),
+            ],
+          ),
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.primaryColor, width: 1),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: message.reactions.entries.map((entry) {
+                  final name = entry.key;
+                  final emoji = entry.value;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CustomTextWidget(
+                            text: name,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -345,139 +405,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                         bottom: -20,
                         right: isMe ? 12 : null,
                         left: isMe ? null : 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 2,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Wrap(
-                            spacing: 4,
-                            runSpacing: 2,
-                            alignment: WrapAlignment.end,
-                            children: widget.message.emojiCounts.entries.map((
-                              entry,
-                            ) {
-                              final emoji = entry.key;
-                              final count = entry.value;
-                              // return Stack(
-                              //   clipBehavior: Clip.none,
-                              //   children: [
-                              //     Text(
-                              //       emoji,
-                              //       style: const TextStyle(fontSize: 16),
-                              //     ),
-                              //     if (count > 1)
-                              //       Positioned(
-                              //         right: -6,
-                              //         bottom: -4,
-                              //         child: Container(
-                              //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                              //           decoration: BoxDecoration(
-                              //             color: AppColors.primaryColor,
-                              //             borderRadius: BorderRadius.circular(8),
-                              //             border: Border.all(color: Colors.white, width: 1.5),
-                              //           ),
-                              //           child: Text(
-                              //             '$count',
-                              //             style: const TextStyle(
-                              //               color: Colors.white,
-                              //               fontSize: 10,
-                              //               fontWeight: FontWeight.bold,
-                              //             ),
-                              //           ),
-                              //         ),
-                              //       ),
-                              //   ],
-                              // );
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 3,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  //color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      emoji,
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                    if (count > 1)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 4),
-                                        child: CustomTextWidget(
-                                          text: '$count',
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          applyLetterSpacing: false,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                    ] else
-                      Positioned(
-                        bottom: isMe ? -22 : 2,
-                        right: isMe ? 0 : 12,
-                        left: isMe ? null : null,
-                        child: Row(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: 4,
-                                right: 4,
-                                top: 10,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CustomTextWidget(
-                                    text: _formatTime(widget.message.time),
-                                    fontSize: 13,
-                                    fontColor: const Color(0x8041414E),
-                                    applyLetterSpacing: false,
-                                  ),
-                                  if (isMe) ...[
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      widget.message.isRead
-                                          ? Icons.done_all
-                                          : widget.message.isDelivered
-                                          ? Icons.done_all
-                                          : Icons.done,
-                                      size: 16,
-                                      color: widget.message.isRead
-                                          ? Colors.blueAccent
-                                          : Colors.grey.shade600,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Container(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _showReactionsDialog(context, widget.message),
+                            child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 2,
                                 vertical: 2,
@@ -536,40 +468,171 @@ class _MessageBubbleState extends State<MessageBubble> {
                                   //       ),
                                   //   ],
                                   // );
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 3,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      //color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          emoji,
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
-                                        if (count > 1)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 4,
-                                            ),
-                                            child: CustomTextWidget(
-                                              text: '$count',
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              applyLetterSpacing: false,
-                                            ),
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        emoji,
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                      if (count > 1)
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 4),
+                                          child: CustomTextWidget(
+                                            text: '$count',
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            applyLetterSpacing: false,
                                           ),
-                                      ],
-                                    ),
+                                        ),
+                                    ],
                                   );
                                 }).toList(),
                               ),
                             ),
+                          ),
+                        ),
+                      ),
+                    ] else
+                      Positioned(
+                        bottom: isMe ? -22 : 2,
+                        right: isMe ? 0 : 12,
+                        left: isMe ? null : null,
+                        child: Row(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 4,
+                                right: 4,
+                                top: 10,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CustomTextWidget(
+                                    text: _formatTime(widget.message.time),
+                                    fontSize: 13,
+                                    fontColor: const Color(0x8041414E),
+                                    applyLetterSpacing: false,
+                                  ),
+                                  if (isMe) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      widget.message.isRead
+                                          ? Icons.done_all
+                                          : widget.message.isDelivered
+                                          ? Icons.done_all
+                                          : Icons.done,
+                                      size: 16,
+                                      color: widget.message.isRead
+                                          ? Colors.blueAccent
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _showReactionsDialog(context, widget.message),
+                                child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Wrap(
+                                      spacing: 4,
+                                      runSpacing: 2,
+                                      alignment: WrapAlignment.end,
+                                      children: widget.message.emojiCounts.entries.map((
+                                        entry,
+                                      ) {
+                                        final emoji = entry.key;
+                                        final count = entry.value;
+                                        // return Stack(
+                                        //   clipBehavior: Clip.none,
+                                        //   children: [
+                                        //     Text(
+                                        //       emoji,
+                                        //       style: const TextStyle(fontSize: 16),
+                                        //     ),
+                                        //     if (count > 1)
+                                        //       Positioned(
+                                        //         right: -6,
+                                        //         bottom: -4,
+                                        //         child: Container(
+                                        //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        //           decoration: BoxDecoration(
+                                        //             color: AppColors.primaryColor,
+                                        //             borderRadius: BorderRadius.circular(8),
+                                        //             border: Border.all(color: Colors.white, width: 1.5),
+                                        //           ),
+                                        //           child: Text(
+                                        //             '$count',
+                                        //             style: const TextStyle(
+                                        //               color: Colors.white,
+                                        //               fontSize: 10,
+                                        //               fontWeight: FontWeight.bold,
+                                        //             ),
+                                        //           ),
+                                        //         ),
+                                        //       ),
+                                        //   ],
+                                        // );
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 3,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            //color: Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                emoji,
+                                                style: const TextStyle(fontSize: 16),
+                                              ),
+                                              if (count > 1)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(
+                                                    left: 4,
+                                                  ),
+                                                  child: CustomTextWidget(
+                                                    text: '$count',
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    applyLetterSpacing: false,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                              ),
+                            ),
+
                           ],
                         ),
                       ),
@@ -821,139 +884,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                     bottom: -20,
                     right: isMe ? 12 : null,
                     left: isMe ? null : 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 2,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Wrap(
-                        spacing: 4,
-                        runSpacing: 2,
-                        alignment: WrapAlignment.end,
-                        children: widget.message.emojiCounts.entries.map((
-                            entry,
-                            ) {
-                          final emoji = entry.key;
-                          final count = entry.value;
-                          // return Stack(
-                          //   clipBehavior: Clip.none,
-                          //   children: [
-                          //     Text(
-                          //       emoji,
-                          //       style: const TextStyle(fontSize: 16),
-                          //     ),
-                          //     if (count > 1)
-                          //       Positioned(
-                          //         right: -6,
-                          //         bottom: -4,
-                          //         child: Container(
-                          //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          //           decoration: BoxDecoration(
-                          //             color: AppColors.primaryColor,
-                          //             borderRadius: BorderRadius.circular(8),
-                          //             border: Border.all(color: Colors.white, width: 1.5),
-                          //           ),
-                          //           child: Text(
-                          //             '$count',
-                          //             style: const TextStyle(
-                          //               color: Colors.white,
-                          //               fontSize: 10,
-                          //               fontWeight: FontWeight.bold,
-                          //             ),
-                          //           ),
-                          //         ),
-                          //       ),
-                          //   ],
-                          // );
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 3,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              //color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  emoji,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                                if (count > 1)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 4),
-                                    child: CustomTextWidget(
-                                      text: '$count',
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      applyLetterSpacing: false,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                ] else
-                  Positioned(
-                    bottom: isMe ? -22 : 2,
-                    right: isMe ? 0 : 12,
-                    left: isMe ? null : null,
-                    child: Row(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            left: 4,
-                            right: 4,
-                            top: 10,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CustomTextWidget(
-                                text: _formatTime(widget.message.time),
-                                fontSize: 13,
-                                fontColor: const Color(0x8041414E),
-                                applyLetterSpacing: false,
-                              ),
-                              if (isMe) ...[
-                                const SizedBox(width: 4),
-                                Icon(
-                                  widget.message.isRead
-                                      ? Icons.done_all
-                                      : widget.message.isDelivered
-                                      ? Icons.done_all
-                                      : Icons.done,
-                                  size: 16,
-                                  color: widget.message.isRead
-                                      ? Colors.blueAccent
-                                      : Colors.grey.shade600,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _showReactionsDialog(context, widget.message),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 2,
                             vertical: 2,
@@ -1030,9 +965,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                                     ),
                                     if (count > 1)
                                       Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 4,
-                                        ),
+                                        padding: const EdgeInsets.only(left: 4),
                                         child: CustomTextWidget(
                                           text: '$count',
                                           fontSize: 11,
@@ -1046,6 +979,149 @@ class _MessageBubbleState extends State<MessageBubble> {
                             }).toList(),
                           ),
                         ),
+                      ),
+                    ),
+                  ),
+                ] else
+                  Positioned(
+                    bottom: isMe ? -22 : 2,
+                    right: isMe ? 0 : 12,
+                    left: isMe ? null : null,
+                    child: Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 4,
+                            right: 4,
+                            top: 10,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CustomTextWidget(
+                                text: _formatTime(widget.message.time),
+                                fontSize: 13,
+                                fontColor: const Color(0x8041414E),
+                                applyLetterSpacing: false,
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  widget.message.isRead
+                                      ? Icons.done_all
+                                      : widget.message.isDelivered
+                                      ? Icons.done_all
+                                      : Icons.done,
+                                  size: 16,
+                                  color: widget.message.isRead
+                                      ? Colors.blueAccent
+                                      : Colors.grey.shade600,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _showReactionsDialog(context, widget.message),
+                            child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 2,
+                                  alignment: WrapAlignment.end,
+                                  children: widget.message.emojiCounts.entries.map((
+                                      entry,
+                                      ) {
+                                    final emoji = entry.key;
+                                    final count = entry.value;
+                                    // return Stack(
+                                    //   clipBehavior: Clip.none,
+                                    //   children: [
+                                    //     Text(
+                                    //       emoji,
+                                    //       style: const TextStyle(fontSize: 16),
+                                    //     ),
+                                    //     if (count > 1)
+                                    //       Positioned(
+                                    //         right: -6,
+                                    //         bottom: -4,
+                                    //         child: Container(
+                                    //           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    //           decoration: BoxDecoration(
+                                    //             color: AppColors.primaryColor,
+                                    //             borderRadius: BorderRadius.circular(8),
+                                    //             border: Border.all(color: Colors.white, width: 1.5),
+                                    //           ),
+                                    //           child: Text(
+                                    //             '$count',
+                                    //             style: const TextStyle(
+                                    //               color: Colors.white,
+                                    //               fontSize: 10,
+                                    //               fontWeight: FontWeight.bold,
+                                    //             ),
+                                    //           ),
+                                    //         ),
+                                    //       ),
+                                    //   ],
+                                    // );
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 3,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        //color: Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            emoji,
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                          if (count > 1)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 4,
+                                              ),
+                                              child: CustomTextWidget(
+                                                text: '$count',
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                applyLetterSpacing: false,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                          ),
+                        ),
+
                       ],
                     ),
                   ),
