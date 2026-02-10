@@ -1,50 +1,18 @@
 import 'package:equatable/equatable.dart';
 
-class StaffListItemModel extends Equatable {
-  const StaffListItemModel({
+class StaffClassroomModel extends Equatable {
+  const StaffClassroomModel({
     required this.code,
     required this.name,
-    required this.primaryClassroomCode,
-    required this.allowedClassroomCodes,
-    required this.designation,
-    required this.phoneNumber,
-    required this.status,
-    required this.email,
   });
 
   final String code;
   final String name;
-  /// Classroom code (from API field `primaryClassroom`).
-  final String primaryClassroomCode;
-  /// Classroom codes (from API field `allowedClassrooms`).
-  final List<String> allowedClassroomCodes;
-  final String designation;
-  final String phoneNumber;
-  final String status;
-  final String email;
 
-  factory StaffListItemModel.fromJson(Map<String, dynamic> json) {
-    // Backend contract (new): `primaryClassroom`, `allowedClassrooms`
-    // Legacy fallback (old): `classroomCodes`
-    final allowed = (json['allowedClassrooms'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        (json['classroomCodes'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        const [];
-
-    return StaffListItemModel(
+  factory StaffClassroomModel.fromJson(Map<String, dynamic> json) {
+    return StaffClassroomModel(
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      primaryClassroomCode: (json['primaryClassroom'] as String?) ??
-          (json['primaryClassroomCode'] as String?) ??
-          '',
-      allowedClassroomCodes: allowed,
-      designation: json['designation'] as String? ?? '',
-      phoneNumber: json['phoneNumber'] as String? ?? '',
-      status: json['status'] as String? ?? '',
-      email: json['email'] as String? ?? '',
     );
   }
 
@@ -52,26 +20,151 @@ class StaffListItemModel extends Equatable {
     return {
       'code': code,
       'name': name,
-      'primaryClassroom': primaryClassroomCode,
-      'allowedClassrooms': allowedClassroomCodes,
-      'designation': designation,
-      'phoneNumber': phoneNumber,
-      'status': status,
-      'email': email,
     };
   }
 
   @override
-  List<Object?> get props =>
-      [
+  List<Object?> get props => [code, name];
+}
+
+class StaffListItemModel extends Equatable {
+  const StaffListItemModel({
+    required this.code,
+    required this.name,
+    this.primaryClassroom,
+    required this.allowedClassrooms,
+    required this.designation,
+    required this.phoneNumber,
+    required this.status,
+    required this.userCode,
+    required this.email,
+    required this.staffType,
+    required this.workSchedules,
+    required this.breakSchedules,
+  });
+
+  final String code;
+  final String name;
+  /// Primary classroom object (from API field `primaryClassroom`).
+  final StaffClassroomModel? primaryClassroom;
+  /// Allowed classrooms array (from API field `allowedClassrooms`).
+  final List<StaffClassroomModel> allowedClassrooms;
+  final String designation;
+  final String phoneNumber;
+  final String status;
+  final String userCode;
+  final String email;
+  final String staffType;
+  final List<StaffProfileWorkScheduleModel> workSchedules;
+  final List<StaffProfileBreakScheduleModel> breakSchedules;
+
+  /// Get primary classroom code (backward compatibility).
+  String get primaryClassroomCode => primaryClassroom?.code ?? '';
+
+  /// Get allowed classroom codes (backward compatibility).
+  List<String> get allowedClassroomCodes =>
+      allowedClassrooms.map((c) => c.code).toList();
+
+  factory StaffListItemModel.fromJson(Map<String, dynamic> json) {
+    // Parse primaryClassroom (can be object or null)
+    StaffClassroomModel? primaryClassroomObj;
+    if (json['primaryClassroom'] != null) {
+      if (json['primaryClassroom'] is Map<String, dynamic>) {
+        primaryClassroomObj = StaffClassroomModel.fromJson(
+          json['primaryClassroom'] as Map<String, dynamic>,
+        );
+      } else if (json['primaryClassroom'] is String) {
+        // Legacy fallback: if it's a string, create object with code only
+        primaryClassroomObj = StaffClassroomModel(
+          code: json['primaryClassroom'] as String,
+          name: '',
+        );
+      }
+    }
+
+    // Parse allowedClassrooms (can be array of objects or array of strings)
+    List<StaffClassroomModel> allowedClassroomsList = [];
+    if (json['allowedClassrooms'] != null) {
+      final allowed = json['allowedClassrooms'] as List<dynamic>?;
+      if (allowed != null) {
+        allowedClassroomsList = allowed.map((e) {
+          if (e is Map<String, dynamic>) {
+            return StaffClassroomModel.fromJson(e);
+          } else {
+            // Legacy fallback: if it's a string, create object with code only
+            return StaffClassroomModel(code: e.toString(), name: '');
+          }
+        }).toList();
+      }
+    } else if (json['classroomCodes'] != null) {
+      // Legacy fallback for old API format
+      final codes = json['classroomCodes'] as List<dynamic>?;
+      if (codes != null) {
+        allowedClassroomsList = codes
+            .map((e) => StaffClassroomModel(code: e.toString(), name: ''))
+            .toList();
+      }
+    }
+
+    // Parse workSchedules
+    final workSchedulesJson = json['workSchedules'] as List<dynamic>? ?? const [];
+    final workSchedulesList = workSchedulesJson
+        .map((e) => StaffProfileWorkScheduleModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    // Parse breakSchedules
+    final breakSchedulesJson = json['breakSchedules'] as List<dynamic>? ?? const [];
+    final breakSchedulesList = breakSchedulesJson
+        .map((e) => StaffProfileBreakScheduleModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    return StaffListItemModel(
+      code: json['code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      primaryClassroom: primaryClassroomObj,
+      allowedClassrooms: allowedClassroomsList,
+      designation: json['designation'] as String? ?? '',
+      phoneNumber: json['phoneNumber'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      userCode: json['userCode'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      staffType: json['staffType'] as String? ?? '',
+      workSchedules: workSchedulesList,
+      breakSchedules: breakSchedulesList,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      'name': name,
+      'primaryClassroom': primaryClassroom?.toJson(),
+      'allowedClassrooms': allowedClassrooms.map((e) => e.toJson()).toList(),
+      'designation': designation,
+      'phoneNumber': phoneNumber,
+      'status': status,
+      'userCode': userCode,
+      'email': email,
+      'staffType': staffType,
+      'workSchedules': workSchedules.map((e) => e.toJson()).toList(),
+      'breakSchedules': breakSchedules.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  @override
+  List<Object?> get props => [
         code,
         name,
-        primaryClassroomCode,
-        allowedClassroomCodes,
+        primaryClassroom,
+        allowedClassrooms,
         designation,
         phoneNumber,
         status,
+        userCode,
         email,
+        staffType,
+        workSchedules,
+        breakSchedules,
       ];
 }
 
