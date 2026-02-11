@@ -2,10 +2,12 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 
 import 'package:flutter/material.dart';
 import 'package:rich_field_controller/rich_field_controller.dart';
+import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -241,58 +243,58 @@ class _MessageCompositionBulkMessagingState
                               child: Column(
                                 children: [
 
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.format_bold, size: 20),
-                                          onPressed: () {
-                                            _controller.updateStyle(TextStyle(fontWeight: FontWeight.bold));
-                                          },
-                                          tooltip: 'Bold',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.format_italic, size: 20),
-                                          onPressed: () {
-                                            _controller.updateStyle(TextStyle(fontStyle: FontStyle.italic));
-                                          },
-                                          tooltip: 'Italic',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.format_underlined, size: 20),
-                                          onPressed: () {
-                                            _controller.updateStyle(TextStyle(decoration: TextDecoration.underline));
-                                          },
-                                          tooltip: 'Underline',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.format_strikethrough, size: 20),
-                                          onPressed: () {
-                                            _controller.updateStyle(TextStyle(decoration: TextDecoration.lineThrough));
-                                          },
-                                          tooltip: 'Strikethrough',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.launch, size: 20),
-                                          onPressed: () {
-                                            _controller.updateStyle(
-                                              const TextStyle(
-                                                color: Colors.blue,
-                                                decoration: TextDecoration.underline, decorationColor: Colors.blue
-                                              ),
-                                            );
-                                          },
-                                          tooltip: 'Format as Link',
-                                        ),
-                                        const Spacer(),
-
-                                      ],
-                                    ),
-                                  ),
+                                  // Container(
+                                  //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  //   decoration: BoxDecoration(
+                                  //     border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                                  //   ),
+                                  //   child: Row(
+                                  //     children: [
+                                  //       IconButton(
+                                  //         icon: const Icon(Icons.format_bold, size: 20),
+                                  //         onPressed: () {
+                                  //           _controller.updateStyle(TextStyle(fontWeight: FontWeight.bold));
+                                  //         },
+                                  //         tooltip: 'Bold',
+                                  //       ),
+                                  //       IconButton(
+                                  //         icon: const Icon(Icons.format_italic, size: 20),
+                                  //         onPressed: () {
+                                  //           _controller.updateStyle(TextStyle(fontStyle: FontStyle.italic));
+                                  //         },
+                                  //         tooltip: 'Italic',
+                                  //       ),
+                                  //       IconButton(
+                                  //         icon: const Icon(Icons.format_underlined, size: 20),
+                                  //         onPressed: () {
+                                  //           _controller.updateStyle(TextStyle(decoration: TextDecoration.underline));
+                                  //         },
+                                  //         tooltip: 'Underline',
+                                  //       ),
+                                  //       IconButton(
+                                  //         icon: const Icon(Icons.format_strikethrough, size: 20),
+                                  //         onPressed: () {
+                                  //           _controller.updateStyle(TextStyle(decoration: TextDecoration.lineThrough));
+                                  //         },
+                                  //         tooltip: 'Strikethrough',
+                                  //       ),
+                                  //       IconButton(
+                                  //         icon: const Icon(Icons.launch, size: 20),
+                                  //         onPressed: () {
+                                  //           _controller.updateStyle(
+                                  //             const TextStyle(
+                                  //               color: Colors.blue,
+                                  //               decoration: TextDecoration.underline, decorationColor: Colors.blue
+                                  //             ),
+                                  //           );
+                                  //         },
+                                  //         tooltip: 'Format as Link',
+                                  //       ),
+                                  //       const Spacer(),
+                                  //
+                                  //     ],
+                                  //   ),
+                                  // ),
 
 
                                   TextField(
@@ -300,6 +302,58 @@ class _MessageCompositionBulkMessagingState
                                     focusNode: _focusNode,
                                     maxLines: null,
                                     minLines: 5,
+                                    textCapitalization: TextCapitalization.sentences,
+                                    contextMenuBuilder: (context, editableTextState) {
+                                      return AdaptiveTextSelectionToolbar.buttonItems(
+                                        anchors: editableTextState.contextMenuAnchors,
+                                        buttonItems: <ContextMenuButtonItem>[
+                                          ContextMenuButtonItem(
+                                            label: 'Bold',
+                                            onPressed: () {
+                                              _controller.updateStyle(const TextStyle(fontWeight: FontWeight.bold));
+                                              editableTextState.hideToolbar();
+                                            },
+                                          ),
+                                          ContextMenuButtonItem(
+                                            label: 'Italic',
+                                            onPressed: () {
+                                              _controller.updateStyle(const TextStyle(fontStyle: FontStyle.italic));
+                                              editableTextState.hideToolbar();
+                                            },
+                                          ),
+                                          ContextMenuButtonItem(
+                                            label: 'Underline',
+                                            onPressed: () {
+                                              _controller.updateStyle(const TextStyle(decoration: TextDecoration.underline));
+                                              editableTextState.hideToolbar();
+                                            },
+                                          ),
+                                          ContextMenuButtonItem(
+                                            label: 'Strikethrough',
+                                            onPressed: () {
+                                              _controller.updateStyle(const TextStyle(decoration: TextDecoration.lineThrough));
+                                              editableTextState.hideToolbar();
+                                            },
+                                          ),
+                                          ContextMenuButtonItem(
+                                            label: 'Link',
+                                            onPressed: () {
+                                              _controller.updateStyle(
+                                                const TextStyle(
+                                                  color: Colors.blue,
+                                                  decoration: TextDecoration.underline,
+                                                  decorationColor: Colors.blue,
+                                                ),
+                                              );
+                                              editableTextState.hideToolbar();
+                                            },
+                                          ),
+
+
+                                          ...editableTextState.contextMenuButtonItems,
+                                        ],
+                                      );
+                                    },
                                     maxLength: maxChars,
                                     decoration: const InputDecoration(
                                       hintText:
@@ -497,37 +551,60 @@ class _MessageCompositionBulkMessagingState
           width: previewSize,
           height: previewSize,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            //border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: att.isImage
-              ? ClipRRect(
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.file(
-              att.file,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
-            ),
-          )
-              : Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.picture_as_pdf, size: 40, color: Colors.red),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    path.basename(att.file.path),
-                    style: const TextStyle(fontSize: 11),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+            child: Thumbnail(
+              mimeType: lookupMimeType(att.file.path) ?? 'application/octet-stream',
+              dataResolver: () async {
+                return await att.file.readAsBytes();
+              },
+              widgetSize: previewSize,
+              decoration: WidgetDecoration(
+                backgroundColor: Colors.white,
+                iconColor: AppColors.primaryColor,
+                textColor: AppColors.primaryColor,
+                wrapperBgColor: Colors.transparent,
+                //wrapperSize: 84,
+              ),
+              errorBuilder: (context, error) => Container(
+                color: Colors.grey[200],
+                child: Center(
+                  child: Icon(
+                    att.isImage ? Icons.image : Icons.picture_as_pdf,
+                    size: 40,
+                    color: AppColors.primaryColor,
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+            // child: Image.file(
+            //   att.file,
+            //   fit: BoxFit.cover,
+            //   errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
+            // ),
+          )
+          //     : Center(
+          //   child: Column(
+          //     mainAxisSize: MainAxisSize.min,
+          //     children: [
+          //       const Icon(Icons.picture_as_pdf, size: 40, color: Colors.red),
+          //       const SizedBox(height: 4),
+          //       Padding(
+          //         padding: const EdgeInsets.symmetric(horizontal: 4),
+          //         child: Text(
+          //           path.basename(att.file.path),
+          //           style: const TextStyle(fontSize: 11),
+          //           textAlign: TextAlign.center,
+          //           maxLines: 2,
+          //           overflow: TextOverflow.ellipsis,
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
         ),
 
         // Remove button

@@ -2119,6 +2119,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                             minLines: 1,
                             maxLines: 10,
                             textCapitalization: TextCapitalization.sentences,
+                            maxLength: 2000,
                             decoration: InputDecoration(
                               hintText: "Type your message here...",
                               contentPadding: const EdgeInsets.symmetric(
@@ -2130,8 +2131,21 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                 borderSide: BorderSide.none,
                               ),
                             ),
+                            buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '$currentLength / $maxLength',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: currentLength >= maxLength! ? Colors.red : Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
+
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             vertical: 8.0,

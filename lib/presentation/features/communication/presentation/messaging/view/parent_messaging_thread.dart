@@ -5488,6 +5488,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>  with Sin
                             controller: _controller,
                             minLines: 1,
                             maxLines: 10,
+                            maxLength: 2000,
                             textCapitalization: TextCapitalization.sentences,
                             decoration: InputDecoration(
                               hintText: "Type your message here...",
@@ -5500,6 +5501,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>  with Sin
                                 borderSide: BorderSide.none,
                               ),
                             ),
+                            buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '$currentLength / $maxLength',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: currentLength >= maxLength! ? Colors.red : Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
                         Padding(
