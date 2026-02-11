@@ -381,6 +381,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   MaterialPageRoute(
                                     builder: (_) => const MessagingScreen(
                                       userPersona: UserPersona.admin,
+                                      initialTabIndex: 1,
                                     ),
                                     settings: const RouteSettings(
                                         name: MessagingScreen.routeName),

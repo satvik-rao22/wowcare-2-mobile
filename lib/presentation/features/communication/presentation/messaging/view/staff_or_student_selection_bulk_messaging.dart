@@ -12,22 +12,27 @@ import '../../../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../../../shared/common/widgets/custom_search_bar.dart';
 
-
-class StaffSelectionBulkMessaging extends StatefulWidget {
-  const StaffSelectionBulkMessaging({super.key});
+class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
+  const StaffOrStudentSelectionBulkMessaging({
+    super.key,
+    this.isStaffSelection = true,
+  });
   final bool showLoading = false;
+  final bool isStaffSelection;
 
   @override
-  State<StaffSelectionBulkMessaging> createState() =>
-      _StaffSelectionBulkMessagingState();
+  State<StaffOrStudentSelectionBulkMessaging> createState() =>
+      _StaffOrStudentSelectionBulkMessagingState();
 }
 
-class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessaging> {
+class _StaffOrStudentSelectionBulkMessagingState
+    extends State<StaffOrStudentSelectionBulkMessaging> {
   final TextEditingController _searchController = TextEditingController();
   List<String> _selectedClassrooms = [];
   String? _selectedStatus;
   bool _selectAll = false;
   List<String> _selectedDesignations = [];
+  List<String> _selectedTags = [];
   final List<String> _statusOptions = ['Active', 'Upcoming'];
   final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<Map<String, dynamic>> staffList = [
@@ -41,7 +46,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 1,
       'classroom': '1-Blue D',
       'designation': 'Lead Teacher',
-      'status': 'Active'
+      'status': 'Active',
     },
     {
       'name': 'Eddie Barnes',
@@ -53,7 +58,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 0,
       'classroom': '2-Red A',
       'designation': 'Lead Teacher',
-      'status': 'Active'
+      'status': 'Active',
     },
     {
       'name': 'Lara Adams',
@@ -65,7 +70,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 3,
       'classroom': '1-Blue D',
       'designation': 'Lead Teacher',
-      'status': 'Active'
+      'status': 'Active',
     },
     {
       'name': 'Michael Chen',
@@ -77,7 +82,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 0,
       'classroom': '3-Orange-D',
       'designation': 'Admin',
-      'status': 'Upcoming'
+      'status': 'Upcoming',
     },
     {
       'name': 'Sarah Johnson',
@@ -89,8 +94,9 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 7,
       'classroom': '3-Orange-D',
       'designation': 'Admin',
-      'status': 'Upcoming'
-    },{
+      'status': 'Upcoming',
+    },
+    {
       'name': 'Natasha White',
       'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
       'dateTime': DateTime(2026, 1, 20, 17, 30),
@@ -100,7 +106,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 1,
       'classroom': '3-Orange-D',
       'designation': 'Admin',
-      'status': 'Upcoming'
+      'status': 'Upcoming',
     },
     {
       'name': 'Eddie Barnes',
@@ -112,7 +118,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 0,
       'classroom': '3-Orange-D',
       'designation': 'Admin',
-      'status': 'Upcoming'
+      'status': 'Upcoming',
     },
     {
       'name': 'Lara Adams',
@@ -124,7 +130,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 3,
       'classroom': '3-Orange-D',
       'designation': 'Admin',
-      'status': 'Upcoming'
+      'status': 'Upcoming',
     },
     {
       'name': 'Michael Chen',
@@ -136,7 +142,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 0,
       'classroom': '3-Orange-D',
       'designation': 'Admin',
-      'status': 'Upcoming'
+      'status': 'Upcoming',
     },
     {
       'name': 'Sarah Johnson',
@@ -148,9 +154,100 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
       'unreadCount': 7,
       'classroom': '3-Orange-D',
       'designation': 'Admin',
-      'status': 'Upcoming'
+      'status': 'Upcoming',
     },
-
+  ];
+  final List<Map<String, dynamic>> parentList = [
+    {
+      'name': 'Ajay Sundaram',
+      'avatar': 'https://randomuser.me/api/portraits/boys/45.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 1,
+      'classroom': '2-Green B',
+      'status': 'Upcoming',
+      'tags': ['5 Days', 'Full Day', 'Photo Permission', 'Boy'],
+      'staffList': ['Eddie Barnes', 'John Doe', 'Priya Sharma', 'Mr. Kumar'],
+      'parents': ['Nitin Sundaram', 'Radha Sundaram'],
+      'privateModeParents': ['Nitin Sundaram', 'Radha Sundaram'],
+    },
+    {
+      'name': 'Chaitanya Bhave',
+      'avatar': 'https://randomuser.me/api/portraits/men/67.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 1,
+      'classroom': '1-Yellow A',
+      'status': 'Active',
+      'tags': ['Full Day', 'Vegetarian', 'Boy'],
+      'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Patel'],
+      'parents': ['Vikas Bhave', 'Sneha Bhave'],
+      'privateModeParents': [],
+    },
+    {
+      'name': 'Riken Mehta',
+      'avatar': 'https://randomuser.me/api/portraits/boys/12.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 1,
+      'classroom': '3-Purple C',
+      'status': 'Active',
+      'tags': ['5 Days', 'Medication', 'Allergy', 'Boy'],
+      'staffList': ['John Doe', 'Priya Sharma', 'Ms. Gupta'],
+      'parents': ['Rakesh Mehta', 'Pooja Mehta'],
+      'privateModeParents': ['Pooja Mehta'],
+    },
+    {
+      'name': 'Thomas Edison',
+      'avatar': 'https://randomuser.me/api/portraits/boys/88.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': true,
+      'unreadCount': 0,
+      'classroom': '4-Blue D',
+      'status': 'Active',
+      'tags': ['Half Day', 'Pickup Authorized', 'Boy'],
+      'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Kumar'],
+      'parents': ['James Edison', 'Mary Edison'],
+      'privateModeParents': [],
+    },
+    {
+      'name': 'Olivia Gonsalves',
+      'avatar': 'https://randomuser.me/api/portraits/girls/23.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 0,
+      'classroom': '2-Red A',
+      'status': 'Active',
+      'tags': ['5 Days', 'Full Day', 'Girl', 'First Aid'],
+      'staffList': ['Priya Sharma', 'Ms. Gupta', 'Mr. Patel'],
+      'parents': ['Antonio Gonsalves', 'Maria Gonsalves'],
+      'privateModeParents': [],
+    },
+    {
+      'name': 'Satya Vani Kanumuri',
+      'avatar': 'https://randomuser.me/api/portraits/women/51.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': true,
+      'unreadCount': 0,
+      'classroom': '1-Blue D',
+      'status': 'Active',
+      'tags': ['Full Day', 'Photo Permission', 'Vegetarian', 'Girl'],
+      'staffList': ['Eddie Barnes', 'John Doe', 'Sarah Lee'],
+      'parents': ['Ravi Kanumuri', 'Lakshmi Kanumuri'],
+      'privateModeParents': [],
+    },
   ];
   final List<String> _designationOptions = [
     'Kiosk',
@@ -161,39 +258,59 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
     'Associate Teacher',
     'Assistant Teacher',
     'Owner',
-    'Floater'
+    'Floater',
+  ];
+  final List<String> _tagOptions = [
+    '5 Days',
+    'Full Day',
+    'Photo Permission',
+    'Vegetarian',
+    'First Aid',
+    'Allergy',
+    'Pickup Authorized',
+    'Medication',
+    'Half Day',
+    'Boy',
+    'Girl',
   ];
   Set<Map<String, dynamic>> _selectedStaff = <Map<String, dynamic>>{};
+  Set<Map<String, dynamic>> _selectedStudents = <Map<String, dynamic>>{};
 
-  List<MapEntry<String, Map<String, dynamic>>> get _filteredStaff {
+  List<MapEntry<String, Map<String, dynamic>>> get _filteredList {
     final query = _searchController.text.trim().toLowerCase();
+    var filtered = widget.isStaffSelection ? List<Map<String, dynamic>>.from(staffList) : List<Map<String, dynamic>>.from(parentList);
 
-    List<Map<String, dynamic>> filtered = List.from(staffList);
 
     if (_selectedStatus != null) {
-      filtered = filtered.where((staff) {
-        final status = staff['status'] as String?;
+      filtered = filtered.where((person) {
+        final status = person['status'] as String?;
         return status != null && _selectedStatus == status;
       }).toList();
     }
     if (_selectedClassrooms.isNotEmpty) {
-      filtered = filtered.where((staff) {
-        final classroom = staff['classroom'] as String?;
+      filtered = filtered.where((person) {
+        final classroom = person['classroom'] as String?;
         return classroom != null && _selectedClassrooms.contains(classroom);
       }).toList();
     }
-    if (_selectedDesignations.isNotEmpty) {
-      filtered = filtered.where((staff) {
-        final designation = staff['designation'] as String?;
-        return designation != null && _selectedDesignations.contains(designation);
+    if (_selectedDesignations.isNotEmpty && widget.isStaffSelection) {
+      filtered = filtered.where((person) {
+        final designation = person['designation'] as String?;
+        return designation != null &&
+            _selectedDesignations.contains(designation);
+      }).toList();
+    }
+    if(_selectedTags.isNotEmpty && !widget.isStaffSelection){
+      filtered = filtered.where((person) {
+        final tags = List<String>.from(person['tags']);
+        return tags.any((tag) => _selectedTags.contains(tag));
       }).toList();
     }
 
-
     if (query.isNotEmpty) {
-      filtered = filtered.where((staff) {
-        final name = (staff['name'] as String?)?.toLowerCase() ?? '';
-        final message = (staff['message'] as String?)?.toLowerCase() ?? '';
+      filtered = filtered.where((person) {
+        final name = (person['name'] as String?)?.toLowerCase() ?? '';
+        final message = (person['message'] as String?)?.toLowerCase() ?? '';
         return name.contains(query) || message.contains(query);
       }).toList();
     }
@@ -203,20 +320,24 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
     }).toList();
   }
 
-
-
   void _updateSelectAllState() {
-    if (_filteredStaff.isEmpty) {
+    if (_filteredList.isEmpty) {
       _selectAll = false;
     } else {
-      _selectAll = _filteredStaff
-          .every((entry) => _selectedStaff.contains(entry.value) );
+      if(widget.isStaffSelection){
+        _selectAll = _filteredList.every(
+              (entry) => _selectedStaff.contains(entry.value),
+        );
+      } else {
+        _selectAll = _filteredList.every((entry) => _selectedStudents.contains(entry.value));
+      }
+
     }
   }
 
   void _showWarningMessage(String message) {
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      if(!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).removeCurrentSnackBar();
       final snackBar = SnackBar(
         content: Row(
@@ -245,7 +366,6 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
     });
   }
 
-
   @override
   void initState() {
     super.initState();
@@ -253,7 +373,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
     _searchController.addListener(_applyFilters);
   }
 
-  void _applyFilters(){
+  void _applyFilters() {
     setState(() {});
   }
 
@@ -315,7 +435,9 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
                         margin: EdgeInsets.symmetric(
                           horizontal: responsive.horizontalSpacing,
                         ),
-                        padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
+                        padding: EdgeInsets.all(
+                          responsive.isTablet ? 32.0 : 16.0,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.all(
@@ -336,7 +458,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 10),
                                 child: Text(
-                                  'Select Staff',
+                                  widget.isStaffSelection ?'Select Staff' : 'Select Students',
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -352,26 +474,28 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
                                 Expanded(
                                   child: CustomSearchBar(
                                     controller: _searchController,
-                                    hintText: 'Search Students',
+                                    hintText: widget.isStaffSelection ? 'Search Staff':'Search Students',
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 SizedBox(
                                   height: 38,
                                   child: CustomClearAllChip(
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedClassrooms = [];
-                                          _selectedStaff.clear();
-                                          _searchController.clear();
-                                          _selectedDesignations = [];
-                                          _selectedStatus = null;
-                                          _updateSelectAllState();
-
-                                        });
-                                        //print(_filterTags);
-                                      },
-                                      label: 'Clear All'),
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedClassrooms = [];
+                                        _selectedStaff.clear();
+                                        _selectedStudents.clear();
+                                        _selectedTags = [];
+                                        _searchController.clear();
+                                        _selectedDesignations = [];
+                                        _selectedStatus = null;
+                                        _updateSelectAllState();
+                                      });
+                                      //print(_filterTags);
+                                    },
+                                    label: 'Clear All',
+                                  ),
                                 ),
                               ],
                             ),
@@ -383,7 +507,7 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
                                     'Status',
                                     _statusOptions,
                                     _selectedStatus,
-                                        (v) => setState(() {
+                                    (v) => setState(() {
                                       _selectedStatus = v;
                                       _selectedStaff.clear();
                                       _selectAll = false;
@@ -391,20 +515,36 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Expanded(
-                                  child: CustomMultiSelectDropdown(
-                                    hintText: 'Select Designation',
-                                    items: _designationOptions,
-                                    selectedItems: _selectedDesignations,
-                                    gapHeight: 40,
-                                    onChanged: (selectedItems) {
-                                      setState(() {
-                                        _selectedDesignations = selectedItems;
-                                        _updateSelectAllState();
-                                      });
-                                    },
+                                if(widget.isStaffSelection)
+                                  Expanded(
+                                    child: CustomMultiSelectDropdown(
+                                      hintText: 'Select Designation',
+                                      items: _designationOptions,
+                                      selectedItems: _selectedDesignations,
+                                      gapHeight: 40,
+                                      onChanged: (selectedItems) {
+                                        setState(() {
+                                          _selectedDesignations = selectedItems;
+                                          _updateSelectAllState();
+                                        });
+                                      },
+                                    ),
+                                  )
+                                else
+                                  Expanded(
+                                    child: CustomMultiSelectDropdown(
+                                      hintText: 'Select Tags',
+                                      items: _tagOptions,
+                                      selectedItems: _selectedTags,
+                                      gapHeight: 40,
+                                      onChanged: (selectedItems) {
+                                        setState(() {
+                                          _selectedTags = selectedItems;
+                                          _updateSelectAllState();
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                             const SizedBox(height: 12),
@@ -432,72 +572,91 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
                                   final newVal = v ?? false;
                                   setState(() {
                                     _selectAll = newVal;
-                                    if(newVal) {
-                                      _selectedStaff.addAll(_filteredStaff.map((e) => e.value));
+                                    if (newVal) {
+                                      if(widget.isStaffSelection){
+                                        _selectedStaff.addAll(
+                                          _filteredList.map((e) => e.value),
+                                        );
+                                      } else {
+                                        _selectedStudents.addAll(_filteredList.map((e) => e.value));
+                                      }
                                     } else {
-                                      _selectedStaff.clear();
+                                      if(widget.isStaffSelection){
+                                        _selectedStaff.clear();
+                                      } else {
+                                        _selectedStudents.clear();
+                                      }
+
                                     }
                                   });
                                 },
                               ),
                             ),
-                            const SizedBox(height: 12,),
-                            _filteredStaff.isEmpty
+                            const SizedBox(height: 12),
+                            _filteredList.isEmpty
                                 ? Center(
-                              child: Text(
-                                 'No staff match the selected filters',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                                :
-                            GridView.builder(
-                                shrinkWrap: true,
-                                physics: NeverScrollableScrollPhysics(),
-                                padding: EdgeInsets.all(10),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: responsive.isTablet ? 3 : 2,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    //childAspectRatio: 3.8
-                                    childAspectRatio: responsive.isTablet ? 3.8 : 4.2
-                                ),
-                                itemCount: _filteredStaff.length,
-                                itemBuilder: (context, index) {
-                                  final entry= _filteredStaff[index];
-                                  final staff = entry.value;
-                                  final String fullName = staff['name'] ;
-                                  final String firstName = fullName.trim().split(' ').first;
+                                    child: Text(
+                                      widget.isStaffSelection ? 'No staff match the selected filters' : 'No student match the selected filters',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 16,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  )
+                                : GridView.builder(
+                                    shrinkWrap: true,
+                                    physics: NeverScrollableScrollPhysics(),
+                                    padding: EdgeInsets.all(10),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: responsive.isTablet
+                                              ? 3
+                                              : 2,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                          //childAspectRatio: 3.8
+                                          childAspectRatio: responsive.isTablet
+                                              ? 3.8
+                                              : 4.2,
+                                        ),
+                                    itemCount: _filteredList.length,
+                                    itemBuilder: (context, index) {
+                                      final entry = _filteredList[index];
+                                      final person = entry.value;
+                                      final String fullName = person['name'];
+                                      final String firstName = fullName
+                                          .trim()
+                                          .split(' ')
+                                          .first;
 
-                                  final bool isSelected = _selectedStaff.contains(staff);
+                                      final bool isSelected = widget.isStaffSelection ? _selectedStaff
+                                          .contains(person) : _selectedStudents.contains(person);
 
-                                  return StudentTile(
-                                    name: firstName,
-                                    isSelected: isSelected,
-                                    onSelected: (bool? selected){
-                                      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                                      setState(() {
-                                        if(selected == true){
-                                          _selectedStaff.add(staff);
-                                        }else {
-                                          _selectedStaff.remove(staff);
-                                        }
-                                        _updateSelectAllState();
-                                      });
+                                      return StudentTile(
+                                        name: firstName,
+                                        isSelected: isSelected,
+                                        onSelected: (bool? selected) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).removeCurrentSnackBar();
+                                          setState(() {
+                                            if (selected == true) {
+                                              (widget.isStaffSelection ? _selectedStaff : _selectedStudents).add(person);
+                                            } else {
+                                              (widget.isStaffSelection ? _selectedStaff : _selectedStudents).remove(person);
+                                            }
+                                            _updateSelectAllState();
+                                          });
+                                        },
+                                      );
                                     },
-                                  );
-                                }
-                            ),
-                            const SizedBox(height: 30,),
-
+                                  ),
+                            const SizedBox(height: 30),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
-
                     ],
                   ),
                 ),
@@ -511,13 +670,13 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
   }
 
   Widget _buildCustomDropdown(
-      String hintText,
-      List<String> items,
-      String? selectedItem,
-      ValueChanged<String?> onSelect, {
-        bool isRequired = false,
-        double? height = null,
-      }) {
+    String hintText,
+    List<String> items,
+    String? selectedItem,
+    ValueChanged<String?> onSelect, {
+    bool isRequired = false,
+    double? height = null,
+  }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: null,
@@ -539,7 +698,9 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
         fontFamily: 'Manrope',
         fontSize: responsive.inputFontSize,
         fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
-        color: selectedItem != null ?const Color(0xff573353):Colors.grey[600],
+        color: selectedItem != null
+            ? const Color(0xff573353)
+            : Colors.grey[600],
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
@@ -548,11 +709,8 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
         fontWeight: FontWeight.w400,
         color: const Color(0xff573353),
       ),
-
     );
   }
-
-
 
   Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
@@ -637,13 +795,32 @@ class _StaffSelectionBulkMessagingState extends State<StaffSelectionBulkMessagin
                 ),
               ),
               child: TextButton(
-                onPressed: (){
-                  if(_selectedStaff.isNotEmpty){
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => MessageCompositionBulkMessaging(selectedRecipients: _selectedStaff.toList())));
+                onPressed: () {
+                  if(widget.isStaffSelection){
+                    if (_selectedStaff.isNotEmpty) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MessageCompositionBulkMessaging(
+                            selectedRecipients: _selectedStaff.toList(),
+                          ),
+                        ),
+                      );
+                    } else {
+                      _showWarningMessage('Select at least one staff.');
+                    }
                   } else {
-                    _showWarningMessage('Select at least one staff.');
+                    if (_selectedStudents.isNotEmpty) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MessageCompositionBulkMessaging(
+                            selectedRecipients: _selectedStudents.toList(),
+                          ),
+                        ),
+                      );
+                    } else {
+                      _showWarningMessage('Select at least one student.');
+                    }
                   }
-
                 },
                 style: TextButton.styleFrom(overlayColor: Colors.transparent),
                 child: Text(

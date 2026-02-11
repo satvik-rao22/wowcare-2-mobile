@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_view_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 import '../../../../../../app/theme/colors.dart';
 
 class MessagingScreen extends StatefulWidget {
-  const MessagingScreen({super.key, required this.userPersona});
+  const MessagingScreen({super.key, required this.userPersona, this.initialTabIndex = 0});
   final UserPersona userPersona;
+  final int initialTabIndex;
 
   static const String routeName = '/messageFeed';
 
@@ -34,7 +36,8 @@ class _MessagingScreenState extends State<MessagingScreen> with TickerProviderSt
   Widget build(BuildContext context) {
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     return GlobalScaffold(
-        hasBackButton: true,
+        hasBackButton: widget.userPersona == UserPersona.parent ? false :true,
+        studentList: widget.userPersona == UserPersona.parent ? ['Ajay Sundaram', 'Jaya Sundaram'] : null,
         showCustomNavigationBar: !isLandscape,
         body: Column(
           mainAxisSize: MainAxisSize.min,
@@ -69,14 +72,23 @@ class _MessagingScreenState extends State<MessagingScreen> with TickerProviderSt
                 ]
             ),
             //const SizedBox(height: 16,),
-            Expanded(child: TabBarView(
-                controller: _tabController,
-                children: [
-                  MessagingTab(),
-                  MessagingTab()
+            if(widget.userPersona == UserPersona.parent)...[
+              Expanded(child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    ParentViewScreen(),
+                    ParentViewScreen()
+                  ]
+              ),)
+            ] else
+              Expanded(child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    MessagingTab(initialTabIndex: widget.initialTabIndex,),
+                    MessagingTab(initialTabIndex: widget.initialTabIndex,)
 
-                ]
-            ),)
+                  ]
+              ),)
 
           ],
         )
