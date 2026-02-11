@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -307,7 +308,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                       builder: (_) =>
-                                          const ComingSoonScreen()),
+                                          const StudentAttendanceTabbedView()),
                                 );
                               },
                             ),
