@@ -4,30 +4,64 @@ class StaffListItemModel extends Equatable {
   const StaffListItemModel({
     required this.code,
     required this.name,
-    required this.classroomCodes,
+    required this.primaryClassroomCode,
+    required this.allowedClassroomCodes,
     required this.designation,
     required this.phoneNumber,
     required this.status,
+    required this.email,
   });
 
   final String code;
   final String name;
-  final List<String> classroomCodes;
+  /// Classroom code (from API field `primaryClassroom`).
+  final String primaryClassroomCode;
+  /// Classroom codes (from API field `allowedClassrooms`).
+  final List<String> allowedClassroomCodes;
   final String designation;
   final String phoneNumber;
   final String status;
+  final String email;
 
   factory StaffListItemModel.fromJson(Map<String, dynamic> json) {
+    String _extractClassroomCode(dynamic value) {
+      // New backend shape: { "code": "...", "name": "..." }
+      if (value is Map<String, dynamic>) {
+        return value['code']?.toString() ?? '';
+      }
+      // Legacy: "CLS_..."
+      return value?.toString() ?? '';
+    }
+
+    // Backend contract (new):
+    // - `primaryClassroom`: {code,name} or nulls
+    // - `allowedClassrooms`: [{code,name}, ...]
+    // Legacy fallback (old):
+    // - `primaryClassroomCode`: "CLS_..."
+    // - `classroomCodes`: ["CLS_...", ...]
+    final primaryClassroomCode = _extractClassroomCode(json['primaryClassroom']);
+
+    final allowed = (json['allowedClassrooms'] as List<dynamic>?)
+            ?.map(_extractClassroomCode)
+            .where((c) => c.isNotEmpty)
+            .toList() ??
+        (json['classroomCodes'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((c) => c.isNotEmpty)
+            .toList() ??
+        const <String>[];
+
     return StaffListItemModel(
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      classroomCodes: (json['classroomCodes'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
+      primaryClassroomCode: primaryClassroomCode.isNotEmpty
+          ? primaryClassroomCode
+          : (json['primaryClassroomCode'] as String?) ?? '',
+      allowedClassroomCodes: allowed,
       designation: json['designation'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      email: json['email'] as String? ?? '',
     );
   }
 
@@ -35,16 +69,27 @@ class StaffListItemModel extends Equatable {
     return {
       'code': code,
       'name': name,
-      'classroomCodes': classroomCodes,
+      'primaryClassroom': primaryClassroomCode,
+      'allowedClassrooms': allowedClassroomCodes,
       'designation': designation,
       'phoneNumber': phoneNumber,
       'status': status,
+      'email': email,
     };
   }
 
   @override
   List<Object?> get props =>
-      [code, name, classroomCodes, designation, phoneNumber, status];
+      [
+        code,
+        name,
+        primaryClassroomCode,
+        allowedClassroomCodes,
+        designation,
+        phoneNumber,
+        status,
+        email,
+      ];
 }
 
 class StaffPageModel extends Equatable {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
 
@@ -60,11 +61,12 @@ class _PickupCard extends StatelessWidget{
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
+          // Match staff card styling: radius 12, 1px border.
           borderRadius: BorderRadius.only(
-              topRight: firstChild ? const Radius.circular(0) : const Radius.circular(8),
-              topLeft: const Radius.circular(8),
-              bottomLeft: const Radius.circular(8),
-              bottomRight: const Radius.circular(8)
+            topRight: firstChild ? const Radius.circular(0) : const Radius.circular(12),
+            topLeft: const Radius.circular(12),
+            bottomLeft: const Radius.circular(12),
+            bottomRight: const Radius.circular(12),
           ),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
@@ -72,7 +74,8 @@ class _PickupCard extends StatelessWidget{
         child: Column(
           children: [
             Container(
-              height: 80,
+              // Match staff card header height.
+              height: 60,
               padding: EdgeInsets.symmetric(
                 horizontal: isTablet ? 24 : 16,
               ),
@@ -90,12 +93,8 @@ class _PickupCard extends StatelessWidget{
                   Flexible(
                     child: Text(
                       name,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
+                      style: AppTextStyles.value.copyWith(
                         fontSize: isTablet ? 16 : 14,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xff573353),
-                        height: 19 / 14,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -103,12 +102,12 @@ class _PickupCard extends StatelessWidget{
                 ],
               ),
             ),
-            const Divider(
+            Divider(
               height: 1,
               thickness: 1,
               indent: 16,
               endIndent: 16,
-              color: Color(0xFFE9ECEF),
+              color: AppColors.dividerColor,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -119,24 +118,18 @@ class _PickupCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Relation',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         relation!,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -146,24 +139,18 @@ class _PickupCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Email ID',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         email!,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -173,24 +160,18 @@ class _PickupCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Phone Number',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         "(986) 027-1627",
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -214,15 +195,9 @@ class _PickupCard extends StatelessWidget{
                               ),
                               padding: EdgeInsets.zero,
                             ),
-                            child: const Text(
+                            child: Text(
                               'Delete',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF6C7FD8),
-                                height: 16 / 16,
-                              ),
+                              style: AppTextStyles.button(color: const Color(0xFF6C7FD8)),
                             ),
                           ),
                         ),
@@ -243,15 +218,9 @@ class _PickupCard extends StatelessWidget{
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                             ),
-                            child: const Text(
+                            child: Text(
                               'Edit',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                height: 16 / 16,
-                              ),
+                              style: AppTextStyles.button(color: Colors.white),
                             ),
                           ),
                         ),

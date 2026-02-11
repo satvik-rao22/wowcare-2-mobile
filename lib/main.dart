@@ -8,6 +8,8 @@ import 'package:sizer/sizer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -16,7 +18,6 @@ import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Create a global instance of NotificationService that will be initialized later
@@ -99,6 +100,7 @@ class _MyAppState extends State<MyApp> {
         // ChangeNotifierProvider(create: (_) => StaffProviders()),
         // ChangeNotifierProvider(create: (_) => GuardianProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        // Needed by GlobalScaffold/Drawer/NavBar to determine role-based UI
         ChangeNotifierProvider(create: (_) => RoleProvider()),
         // ChangeNotifierProvider(create: (_) => AuthProvider()),
         // ChangeNotifierProvider(create: (_) => NavBarHeightProvider()),
@@ -204,23 +206,61 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
-      // Navigate to role selection screen first
-      Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
-      
-      // Original login flow (commented out for now):
-      // final storage = serviceLocator<StorageService>();
-      // final seenOnboarding =
-      //     await storage.getBool(StorageKeys.onboardingSeen) ?? false;
-      // final loginCompleted =
-      //     await storage.getBool(StorageKeys.loginCompleted) ?? false;
-      //
-      // if (!seenOnboarding) {
-      //   Navigator.pushReplacementNamed(context, '/first-screen');
-      // } else if (!loginCompleted) {
-      //   Navigator.pushReplacementNamed(context, SignInScreen.routeName);
-      // } else {
-      //   Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-      // }
+      final storage = serviceLocator<StorageService>();
+
+      final seenOnboarding =
+          await storage.getBool(StorageKeys.onboardingSeen) ?? false;
+      final loginCompleted =
+          await storage.getBool(StorageKeys.loginCompleted) ?? false;
+
+      if (!seenOnboarding) {
+        // Very first app launch: always show onboarding once and clear any old auth.
+        await serviceLocator<AuthLocalDataSource>().clearCache();
+        Navigator.pushReplacementNamed(context, '/first-screen');
+      } else {
+        // After onboarding:
+        // - Always call login-context on app start if we already have a login,
+        //   so backend can tell us which org/school should be active.
+        if (loginCompleted) {
+          try {
+            final authLocal = serviceLocator<AuthLocalDataSource>();
+            final cachedLogin = await authLocal.getCachedLoginResponse();
+            if (cachedLogin != null) {
+              final authRemote = serviceLocator<AuthRemoteDataSource>();
+              final contextData = await authRemote.getLoginContext(
+                accessToken: cachedLogin.accessToken,
+              );
+              await authLocal.saveLoginContext(contextData);
+
+              // Best-effort: if the context payload exposes org/school codes,
+              // sync them into the generic storage keys so all APIs use them.
+              final orgCode =
+                  (contextData['organizationCode'] as String?) ?? '';
+              if (orgCode.isNotEmpty) {
+                await storage.saveString(
+                  StorageKeys.organizationCode,
+                  orgCode,
+                );
+              }
+              final schoolCode =
+                  (contextData['schoolCode'] as String?) ?? '';
+              if (schoolCode.isNotEmpty) {
+                await storage.saveString(
+                  StorageKeys.schoolCode,
+                  schoolCode,
+                );
+              }
+            }
+          } catch (_) {
+            // Non-fatal: if context fetch fails, we still navigate to dashboard.
+          }
+
+          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+        } else {
+          // Not logged in yet: go to Login, which will call login-context after success.
+          Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+        }
+      }
     }
   }
 

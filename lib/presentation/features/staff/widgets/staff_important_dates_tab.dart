@@ -1,87 +1,234 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
-class StaffImportantDatesTab extends StatelessWidget {
-  const StaffImportantDatesTab({super.key});
+class StaffImportantDatesTab extends StatefulWidget {
+  const StaffImportantDatesTab({
+    super.key,
+    required this.staffCode,
+  });
+
+  final String staffCode;
+
+  @override
+  State<StaffImportantDatesTab> createState() => _StaffImportantDatesTabState();
+}
+
+class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
+  final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
+
+  bool _isLoading = true;
+  String? _errorMessage;
+  Map<String, String> _dates = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDates();
+  }
+
+  Future<void> _loadDates({bool useCache = true}) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Try cache first if useCache is true
+      if (useCache) {
+        final repository = serviceLocator<StaffRepository>();
+        if (repository is StaffRepositoryWithCache) {
+          final cached = await (repository as StaffRepositoryWithCache)
+              .loadCachedImportantDates(widget.staffCode);
+
+          if (cached != null && mounted) {
+            final mapped = <String, String>{};
+            for (final date in cached) {
+              final type = (date['importantDateType'] ?? '').toUpperCase();
+              final dueDate = date['dueDate'] ?? '';
+              if (dueDate.isEmpty) continue;
+
+              final label = _mapTypeToLabel(type);
+              mapped[label] = _formatDate(dueDate);
+            }
+
+            setState(() {
+              _isLoading = false;
+              _errorMessage = null;
+              _dates = mapped;
+            });
+
+            // Don't hit API if cache is valid - return early
+            return;
+          }
+        }
+      }
+
+      // No cache or cache invalid - load from API
+      final useCase = serviceLocator<GetImportantDatesUseCase>();
+      final result = await useCase(staffCode: widget.staffCode);
+
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = failure.message ?? 'Failed to load important dates';
+            _dates = const {};
+          });
+        },
+        (dates) {
+          final mapped = <String, String>{};
+          for (final date in dates) {
+            final type = (date['importantDateType'] ?? '').toUpperCase();
+            final dueDate = date['dueDate'] ?? '';
+            if (dueDate.isEmpty) continue;
+
+            final label = _mapTypeToLabel(type);
+            mapped[label] = _formatDate(dueDate);
+          }
+
+          setState(() {
+            _isLoading = false;
+            _errorMessage = null;
+            _dates = mapped;
+          });
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load important dates';
+        _dates = const {};
+      });
+    }
+  }
+
+  String _mapTypeToLabel(String type) {
+    switch (type) {
+      case 'HIRE_DATE':
+        return 'Hire Date';
+      case 'CDA':
+        return 'CDA Examination Date';
+      case 'BRC':
+        return 'Background Record Check Expiration Date';
+      case 'FIRST_AID_CPR':
+        return 'First Aid / CPR Expiration Date';
+      case 'PHYSICAL_CHECKUP':
+        return 'Physical Checkup';
+      default:
+        return type.isEmpty ? 'Other' : type;
+    }
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      return _displayFormatter.format(date);
+    } catch (_) {
+      return isoDate;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, String> dates = {
-      'Joining Date': 'Jan 12, 2022',
-      'Last Status Update': 'Sep 05, 2024',
-      'Contract Expiry': 'Dec 31, 2025',
-      'Verification Due': 'Nov 15, 2024',
-    };
+    final entries = _dates.entries.toList();
 
-    final entries = dates.entries.toList();
     return MediaQuery.removePadding(
       context: context,
       removeLeft: true,
       removeRight: true,
       child: CustomRefreshIndicator(
-        onRefresh: () async {
-          // TODO: Add refresh logic to reload important dates
-          await Future.delayed(const Duration(milliseconds: 500));
-        },
+        onRefresh: () => _loadDates(useCache: false),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Important Dates',
-                  style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Important Dates',
+                      style: TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildPrimaryGradient(),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.edit,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.edit,
-                    size: 10,
-                    color: Colors.white,
-                  ),
-                ),
+                const SizedBox(height: 16),
+                if (_isLoading)
+                  const Center(
+                    child: PrimaryCircularLoader(
+                      size: 24,
+                      strokeWidth: 2,
+                    ),
+                  )
+                else if (_errorMessage != null)
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 14,
+                    ),
+                  )
+                else if (entries.isEmpty)
+                  const Text(
+                    'No important dates available.',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 14,
+                    ),
+                  )
+                else
+                  ...List.generate(entries.length * 2 - 1, (i) {
+                    if (i.isOdd) return const SizedBox(height: 16);
+                    final idx = i ~/ 2;
+                    final e = entries[idx];
+                    final lowerLabel = e.key.toLowerCase();
+                    final isCda = lowerLabel.contains('cda');
+                    final isBackgroundRecord = lowerLabel.contains('background') && lowerLabel.contains('record');
+                    return _DateRow(
+                      label: e.key,
+                      text: e.value,
+                      showInfo: isCda && !isBackgroundRecord,
+                      infoText: 'CDA - Child Development Associate',
+                    );
+                  }),
               ],
             ),
-            const SizedBox(height: 16),
-            ...List.generate(entries.length * 2 - 1, (i) {
-              if (i.isOdd) return const SizedBox(height: 16);
-              final idx = i ~/ 2;
-              final e = entries[idx];
-              final lowerLabel = e.key.toLowerCase();
-              final isCda = lowerLabel.contains('cda');
-              final isBackgroundRecord = lowerLabel.contains('background') && lowerLabel.contains('record');
-              return _DateRow(
-                label: e.key,
-                text: e.value,
-                showInfo: isCda && !isBackgroundRecord,
-                infoText: 'CDA - Child Development Associate',
-              );
-            }),
-          ],
-        ),
-      ),
+          ),
         ),
       ),
     );
@@ -139,10 +286,9 @@ class _DateRow extends StatelessWidget {
                 GestureDetector(
                   onTap: () {
                     final overlay = Overlay.of(context);
-                    final renderBox = context.findRenderObject() as RenderBox?;
-                    final offset = renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
-                    final size = renderBox?.size ?? const Size(0, 0);
-
+                    final renderObject = context.findRenderObject();
+                    if (renderObject is! RenderBox) return;
+                    final offset = renderObject.localToGlobal(Offset.zero);
                     final entry = OverlayEntry(
                       builder: (ctx) => Positioned(
                         left: offset.dx - 8,
@@ -164,7 +310,7 @@ class _DateRow extends StatelessWidget {
                       ),
                     );
 
-                    overlay?.insert(entry);
+                    overlay.insert(entry);
                     Future.delayed(const Duration(seconds: 2)).then((_) => entry.remove());
                   },
                   child: const Icon(Icons.info_outline, size: 24, color: AppColors.primaryColor),

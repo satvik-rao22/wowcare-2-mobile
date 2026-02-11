@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -15,6 +18,14 @@ class RoleSelectionScreen extends StatefulWidget {
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  Future<void> _completeLoginAndGoDashboard() async {
+    // Mark login flow as completed so Splash routes to dashboard on next launch.
+    await serviceLocator<StorageService>().saveBool(StorageKeys.loginCompleted, true);
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -72,10 +83,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       onTap: () {
                         // Set role to Admin
                         context.read<RoleProvider>().setRole('admin');
-                        Navigator.pushReplacementNamed(
-                          context,
-                          DashboardScreen.routeName,
-                        );
+                        _completeLoginAndGoDashboard();
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -104,10 +112,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       onTap: () {
                         // Set role to Parent
                         context.read<RoleProvider>().setRole('parent');
-                        Navigator.pushReplacementNamed(
-                          context,
-                          DashboardScreen.routeName,
-                        );
+                        _completeLoginAndGoDashboard();
                       },
                       child: Container(
                         decoration: BoxDecoration(

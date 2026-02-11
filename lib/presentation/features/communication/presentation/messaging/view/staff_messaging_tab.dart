@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -11,7 +12,8 @@ import '../../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StaffMessagingTab extends StatefulWidget {
-  const StaffMessagingTab({super.key});
+  const StaffMessagingTab({super.key, this.isStaffMessaging = true});
+  final bool isStaffMessaging;
 
   static const String routeName = '/staffMessagingTab';
 
@@ -146,6 +148,173 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
     },
 
   ];
+  // final List<Map<String, dynamic>> parentList = [
+  //   {
+  //     'name': 'Ajay Sundaram',
+  //     'avatar': 'https://randomuser.me/api/portraits/boys/45.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 1,
+  //     'classroom': '2-Green B',
+  //     'status': 'Upcoming',
+  //     'tags': ['5 Days', 'Full Day', 'Photo Permission', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Chaitanya Bhave',
+  //     'avatar': 'https://randomuser.me/api/portraits/men/67.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 1,
+  //     'classroom': '1-Yellow A',
+  //     'status': 'Active',
+  //     'tags': ['Full Day', 'Vegetarian', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Riken Mehta',
+  //     'avatar': 'https://randomuser.me/api/portraits/boys/12.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 1,
+  //     'classroom': '3-Purple C',
+  //     'status': 'Active',
+  //     'tags': ['5 Days', 'Medication', 'Allergy', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Thomas Edison',
+  //     'avatar': 'https://randomuser.me/api/portraits/boys/88.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': true,
+  //     'unreadCount': 0,
+  //     'classroom': '4-Blue D',
+  //     'status': 'Active',
+  //     'tags': ['Half Day', 'Pickup Authorized', 'Boy'],
+  //   },
+  //   {
+  //     'name': 'Olivia Gonsalves',
+  //     'avatar': 'https://randomuser.me/api/portraits/girls/23.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': false,
+  //     'unreadCount': 0,
+  //     'classroom': '2-Red A',
+  //     'status': 'Active',
+  //     'tags': ['5 Days', 'Full Day', 'Girl', 'First Aid'],
+  //   },
+  //   {
+  //     'name': 'Satya Vani Kanumuri',
+  //     'avatar': 'https://randomuser.me/api/portraits/women/51.jpg',
+  //     'dateTime': DateTime(2026, 2, 4, 13, 30),
+  //     'message': 'Oh, hello! All perfectly.',
+  //     'isSigned': true,
+  //     'isFavorite': true,
+  //     'unreadCount': 0,
+  //     'classroom': '1-Blue D',
+  //     'status': 'Active',
+  //     'tags': ['Full Day', 'Photo Permission', 'Vegetarian', 'Girl'],
+  //   },
+  // ];
+  final List<Map<String, dynamic>> parentList = [
+    {
+      'name': 'Ajay Sundaram',
+      'avatar': 'https://randomuser.me/api/portraits/boys/45.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 1,
+      'classroom': '2-Green B',
+      'status': 'Upcoming',
+      'tags': ['5 Days', 'Full Day', 'Photo Permission', 'Boy'],
+      'staffList': ['Eddie Barnes', 'John Doe', 'Priya Sharma', 'Mr. Kumar'],
+      'parents': ['Nitin Sundaram', 'Radha Sundaram'],
+      'privateModeParents': ['Nitin Sundaram', 'Radha Sundaram'],
+    },
+    {
+      'name': 'Chaitanya Bhave',
+      'avatar': 'https://randomuser.me/api/portraits/men/67.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 1,
+      'classroom': '1-Yellow A',
+      'status': 'Active',
+      'tags': ['Full Day', 'Vegetarian', 'Boy'],
+      'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Patel'],
+      'parents': ['Vikas Bhave', 'Sneha Bhave'],
+      'privateModeParents': [],
+    },
+    {
+      'name': 'Riken Mehta',
+      'avatar': 'https://randomuser.me/api/portraits/boys/12.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 1,
+      'classroom': '3-Purple C',
+      'status': 'Active',
+      'tags': ['5 Days', 'Medication', 'Allergy', 'Boy'],
+      'staffList': ['John Doe', 'Priya Sharma', 'Ms. Gupta'],
+      'parents': ['Rakesh Mehta', 'Pooja Mehta'],
+      'privateModeParents': ['Pooja Mehta'],
+    },
+    {
+      'name': 'Thomas Edison',
+      'avatar': 'https://randomuser.me/api/portraits/boys/88.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': true,
+      'unreadCount': 0,
+      'classroom': '4-Blue D',
+      'status': 'Active',
+      'tags': ['Half Day', 'Pickup Authorized', 'Boy'],
+      'staffList': ['Eddie Barnes', 'Sarah Lee', 'Mr. Kumar'],
+      'parents': ['James Edison', 'Mary Edison'],
+      'privateModeParents': [],
+    },
+    {
+      'name': 'Olivia Gonsalves',
+      'avatar': 'https://randomuser.me/api/portraits/girls/23.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': false,
+      'unreadCount': 0,
+      'classroom': '2-Red A',
+      'status': 'Active',
+      'tags': ['5 Days', 'Full Day', 'Girl', 'First Aid'],
+      'staffList': ['Priya Sharma', 'Ms. Gupta', 'Mr. Patel'],
+      'parents': ['Antonio Gonsalves', 'Maria Gonsalves'],
+      'privateModeParents': [],
+    },
+    {
+      'name': 'Satya Vani Kanumuri',
+      'avatar': 'https://randomuser.me/api/portraits/women/51.jpg',
+      'dateTime': DateTime(2026, 2, 4, 13, 30),
+      'message': 'Oh, hello! All perfectly.',
+      'isSigned': true,
+      'isFavorite': true,
+      'unreadCount': 0,
+      'classroom': '1-Blue D',
+      'status': 'Active',
+      'tags': ['Full Day', 'Photo Permission', 'Vegetarian', 'Girl'],
+      'staffList': ['Eddie Barnes', 'John Doe', 'Sarah Lee'],
+      'parents': ['Ravi Kanumuri', 'Lakshmi Kanumuri'],
+      'privateModeParents': [],
+    },
+  ];
+  late List<Map<String, dynamic>> _filteredList;
 
 
   String _formatMessageTime(DateTime dateTime) {
@@ -174,6 +343,91 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
     }
   }
 
+  void _applyFilters(){
+    final query = _searchController.text.trim().toLowerCase();
+    final unfilteredList = widget.isStaffMessaging ? staffList: parentList;
+    setState(() {
+      _filteredList = unfilteredList.where((person) {
+        final name = (person['name'] as String).toLowerCase();
+        if(query.isNotEmpty && !name.contains(query)){
+          return false;
+        }
+        bool matches = true;
+
+        widget.isStaffMessaging ?
+        _currentFilters.forEach((filterKey, selectedValues){
+          if(selectedValues.isEmpty) return;
+          switch (filterKey){
+            case 'Classroom':
+              if(!selectedValues.contains(person['classroom'])) matches = false;
+              break;
+            case 'Status':
+              if(!selectedValues.contains(person['status'])) matches = false;
+              break;
+            case  'Designation':
+              if(!selectedValues.contains(person['designation'])) matches = false;
+              break;
+            case 'Unread':
+              final showUnreadOnly = selectedValues.contains('true');
+              final hasUnread = (person['unreadCount'] as num? ?? 0) > 0;
+              if (showUnreadOnly && !hasUnread){
+                matches = false;
+              }
+              break;
+          }
+        }) :
+        _currentFilters.forEach((filterKey, selectedValues){
+          if(selectedValues.isEmpty) return;
+          switch (filterKey){
+            case 'Classroom':
+              if(!selectedValues.contains(person['classroom'])) matches = false;
+              break;
+            case 'Status':
+              if(!selectedValues.contains(person['status'])) matches = false;
+              break;
+            case  'Tags':
+              if(!selectedValues.every((selectedTag) => person['tags'].contains(selectedTag))) matches = false;
+              break;
+            case 'Unread':
+              final showUnreadOnly = selectedValues.contains('true');
+              final hasUnread = (person['unreadCount'] as num? ?? 0) > 0;
+              if (showUnreadOnly && !hasUnread){
+                matches = false;
+              }
+              break;
+          }
+        })
+        ;
+        return matches;
+      }).toList();
+    });
+
+  }
+
+  void _clearAllFilters(){
+    setState(() {
+      _currentFilters.clear();
+      _showUnread = false;
+      _currentFilters['Unread'] = [];
+      _searchController.clear();
+    });
+    _applyFilters();
+  }
+
+  @override
+  void initState(){
+    super.initState();
+    _applyFilters();
+    _searchController.addListener(_applyFilters);
+  }
+
+  @override
+  void dispose(){
+    _searchController.removeListener(_applyFilters);
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
@@ -193,7 +447,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                       ),
                       child: CustomSearchBar(
                         controller: _searchController,
-                        hintText: 'Search Staff',
+                        hintText: widget.isStaffMessaging ? 'Search Staff' : 'Search student',
                         searchBarColor: WidgetStatePropertyAll(Colors.transparent),
                         borderColor: Colors.transparent,
                       ),
@@ -207,7 +461,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => FilterScreen(
+                            builder: (_) => widget.isStaffMessaging ? FilterScreen(
                                 sections: [
                                   FilerSection(
                                       label: 'Classroom',
@@ -246,6 +500,51 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                                   setState(() {
                                     _currentFilters = filters;
                                   });
+                                  _applyFilters();
+
+                                }
+                            ) : FilterScreen(
+                                sections: [
+                                  FilerSection(
+                                      label: 'Classroom',
+                                      hintText: 'Select classroom',
+                                      items: ['1-Blue D', '3-Orange-D', '2-Red A'],
+                                      initialSelected: _currentFilters['Classroom'] ?? [],
+                                      isMultiSelectDropDown: true
+                                  ),
+                                  FilerSection(
+                                      label: 'Status',
+                                      hintText: 'Select status',
+                                      items: ['Active', 'Upcoming'],
+                                      initialSelected: _currentFilters['Status'] ?? [],
+                                      isSingleSelect: true
+                                  ),
+                                  FilerSection(
+                                    label: 'Tags',
+                                    hintText: 'Select tags',
+                                    items: [
+                                      '5 Days',
+                                      'Full Day',
+                                      'Photo Permission',
+                                      'Vegetarian',
+                                      'First Aid',
+                                      'Allergy',
+                                      'Pickup Authorized',
+                                      'Medication',
+                                      'Half Day',
+                                      'Boy',
+                                      'Girl',
+                                    ],
+                                    initialSelected: _currentFilters['Tags'] ?? [],
+                                    isMultiSelectDropDown: false,
+                                  ),
+
+                                ],
+                                onApply: (filters) {
+                                  setState(() {
+                                    _currentFilters = filters;
+                                  });
+                                  _applyFilters();
 
                                 }
                             ),
@@ -275,12 +574,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                     child: CustomToggle(
                       label: 'Show Only Unread',
                       isToggled: _showUnread,
-                      onToggle: (v) => setState(() => _showUnread = v),
+                      onToggle: (v) {
+                        setState(() {
+                          _showUnread = v;
+                          _currentFilters['Unread'] = v ? ['true'] : [];
+                        });
+                        _applyFilters();
+                      }
+                      //onToggle: (v) => setState(() => _showUnread = v),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                    child: CustomClearAllChip(onTap: () {  },),
+                    child: CustomClearAllChip(onTap: () { _clearAllFilters(); },),
                   ),
 
               ],)
@@ -310,10 +616,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
         SliverList(
           delegate: SliverChildBuilderDelegate(
                 (context, index) {
-              final staff = staffList[index];
+              //final person = widget.isStaffMessaging ? staffList[index] : parentList[index];
+              final person = _filteredList[index];
               return InkWell(
                 onTap: (){
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffMessagingThread(staffInfo: staff)));
+                  widget.isStaffMessaging ?
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffMessagingThread(staffInfo: person))) :
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => ParentMessagingThread(parentInfo: person)));
                 },
                 child: Container(
                   decoration: BoxDecoration(
@@ -330,8 +639,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                     leading: Stack(
                       children: [
                         DocumentImageWidget(
-                          fileUuid: staff['avatar'],
-                          name: staff['name'],
+                          fileUuid: person['avatar'],
+                          name: person['name'],
                           size: 45,
                         ),
                         Positioned(
@@ -341,12 +650,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                             width: 12,
                             height: 12,
                             decoration: BoxDecoration(
-                              color:  staff['isSigned']
+                              color:  person['isSigned']
                                   ? const Color.fromRGBO(0, 177, 21, 1)
                                   : Colors.transparent,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: staff['isSigned'] ? Colors.white : Colors.transparent,
+                                color: person['isSigned'] ? Colors.white : Colors.transparent,
                                 width: 2,
                               ),
                             ),
@@ -357,12 +666,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                       ],
                     ),
                     title: CustomTextWidget(
-                      text: staff['name'],
+                      text: person['name'],
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
                     subtitle: Text(
-                      staff['message'],
+                      person['message'],
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: Color(0x8041414E)),
@@ -380,8 +689,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                             ),
                             const SizedBox(width: 4,),
                             Text(
-                              staff['dateTime'] != null
-                                  ? _formatMessageTime(staff['dateTime'] as DateTime)
+                              person['dateTime'] != null
+                                  ? _formatMessageTime(person['dateTime'] as DateTime)
                                   : '—',
                               style: TextStyle(
                                   fontSize: 12,
@@ -392,7 +701,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        if (staff['unreadCount'] != null && staff['unreadCount'] > 0)
+                        if (person['unreadCount'] != null && person['unreadCount'] > 0)
                           Container(
                             width: 20,
                             height: 20,
@@ -402,7 +711,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                               shape: BoxShape.circle,
                             ),
                             child: Text(
-                              staff['unreadCount'].toString(),
+                              person['unreadCount'].toString(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -416,7 +725,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                 ),
               );
             },
-            childCount: staffList.length,
+            //childCount: widget.isStaffMessaging ? staffList.length : parentList.length,
+            childCount: _filteredList.length,
           ),
         ),
       ],

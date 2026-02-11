@@ -2,13 +2,19 @@ import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../models/staff_models.dart';
+import '../models/staff_count_models.dart';
 import '../models/staff_document_models.dart';
 import '../models/staff_important_dates_models.dart';
 import '../models/school_user_models.dart';
 
 abstract class StaffRemoteDataSource {
+  Future<StaffCountModel> getStaffCount({
+    required String schoolCode,
+  });
+
   Future<StaffPageModel> getStaffPage({
     required String schoolCode,
+    String? code,
     int page = 0,
     int size = 10,
     String? status,
@@ -19,6 +25,15 @@ abstract class StaffRemoteDataSource {
   Future<StaffDocumentResponseModel> addStaffDocument({
     required String staffCode,
     required StaffDocumentRequestModel request,
+  });
+
+  Future<StaffDocumentResponseModel> updateStaffDocument({
+    required String documentUuid,
+    required StaffDocumentRequestModel request,
+  });
+
+  Future<StaffDocumentResponseModel> deleteStaffDocument({
+    required String documentUuid,
   });
 
   Future<StaffDocumentsPageModel> getStaffDocuments({
@@ -65,6 +80,18 @@ abstract class StaffRemoteDataSource {
   Future<String> updateStaffAddress({
     required String staffCode,
     required Map<String, dynamic> body,
+  });
+
+  /// Fetches staff important dates via `GET /api/v1/staff-dates/{staffCode}`.
+  ///
+  /// Returns a list of [ImportantDateRequestModel]-shaped items:
+  /// {
+  ///   "importantDateType": "HIRE_DATE",
+  ///   "dueDate": "2026-02-06",
+  ///   "completedDate": "2026-02-06"
+  /// }
+  Future<List<ImportantDateRequestModel>> getImportantDates({
+    required String staffCode,
   });
 
   Future<ImportantDatesResponseModel> updateImportantDates({
@@ -130,8 +157,30 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   final Dio _client;
 
   @override
+  Future<StaffCountModel> getStaffCount({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffCount,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff count API response format');
+    }
+
+    return StaffCountModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
   Future<StaffPageModel> getStaffPage({
     required String schoolCode,
+    String? code,
     int page = 0,
     int size = 10,
     String? status,
@@ -140,11 +189,21 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }) async {
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
+      // Backward-compatible pagination params (older backend)
       'page': page,
       'size': size,
       'sort': 'desc',
+      // Newer backend contract (Swagger shows pageable as required)
+      // Send as flattened keys to ensure typical Spring-style binding.
+      'pageable.page': page,
+      'pageable.size': size,
+      // Dio encodes lists as repeated query params.
+      'pageable.sort': <String>['desc'],
     };
 
+    if (code != null && code.isNotEmpty) {
+      queryParameters['code'] = code;
+    }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
     }
@@ -178,7 +237,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required StaffDocumentRequestModel request,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffDocumentAdd}/$staffCode/documents',
+      '${ApiPaths.staffDocumentAdd}/$staffCode',
       ApiConstants.staffBaseUrl,
     );
 
@@ -189,6 +248,61 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff document API response format');
+    }
+
+    return StaffDocumentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffDocumentResponseModel> updateStaffDocument({
+    required String documentUuid,
+    required StaffDocumentRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDocumentUpdate}/$documentUuid',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff document update API response format');
+    }
+
+    return StaffDocumentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffDocumentResponseModel> deleteStaffDocument({
+    required String documentUuid,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDocuments}/$documentUuid',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    // DELETE requests might return null data or empty response
+    if (response.data == null) {
+      // Return a success response if DELETE returns null (common for DELETE endpoints)
+      return const StaffDocumentResponseModel(
+        success: true,
+        message: 'Document deleted successfully',
+        data: null,
+        timestamp: '',
+      );
+    }
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff document delete API response format');
     }
 
     return StaffDocumentResponseModel.fromJson(
@@ -298,6 +412,39 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Address updated successfully';
+  }
+
+  @override
+  Future<List<ImportantDateRequestModel>> getImportantDates({
+    required String staffCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffDates}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected important dates API response format');
+    }
+
+    final data = (response.data! as Map<String, dynamic>)['data'];
+    if (data is! List) {
+      // Backend can return null/empty; normalize to empty list.
+      return const <ImportantDateRequestModel>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (json) => ImportantDateRequestModel(
+            importantDateType: (json['importantDateType'] ?? '').toString(),
+            dueDate: (json['dueDate'] ?? '').toString(),
+            completedDate: json['completedDate']?.toString(),
+          ),
+        )
+        .toList();
   }
 
   @override

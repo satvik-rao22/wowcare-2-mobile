@@ -4,16 +4,20 @@ import 'package:equatable/equatable.dart';
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
+import '../../../../domain/features/staff/usecases/delete_staff_document_usecase.dart';
 
 class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   StaffDocumentsListCubit({
     required GetStaffDocumentsUseCase getStaffDocumentsUseCase,
+    required DeleteStaffDocumentUseCase deleteStaffDocumentUseCase,
     required StaffRepository repository,
   })  : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
+        _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
         _repository = repository,
         super(const StaffDocumentsListState.initial());
 
   final GetStaffDocumentsUseCase _getStaffDocumentsUseCase;
+  final DeleteStaffDocumentUseCase _deleteStaffDocumentUseCase;
   final StaffRepository _repository;
 
   static const int _pageSize = 10;
@@ -121,6 +125,30 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
           errorMessage: e.toString(),
         ),
       );
+    }
+  }
+
+  Future<String?> deleteDocument(String staffCode, String documentUuid) async {
+    try {
+      final result = await _deleteStaffDocumentUseCase.call(
+        documentUuid: documentUuid,
+        staffCode: staffCode,
+      );
+
+      return result.fold(
+        (failure) {
+          // Return error message
+          return failure.message ?? 'Failed to delete document';
+        },
+        (message) {
+          // Refresh the list after successful delete
+          refresh(staffCode, expired: null);
+          // Return null on success (caller will show success message)
+          return null;
+        },
+      );
+    } catch (e) {
+      return e.toString();
     }
   }
 }

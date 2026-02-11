@@ -71,29 +71,32 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthError(message));
       },
       (response) async {
-        // Prepare organization codes from roles
+        // Persist latest login response (tokens, user, roles) for future app launches.
+        try {
+          await _localDataSource.cacheLoginResponse(response);
+        } catch (_) {
+          // Non-fatal: if caching fails, login can still proceed.
+        }
+
+        // Immediately fetch login-context with this token so backend can tell
+        // us which org/school should be active for this user.
+        try {
+          final contextData = await _remoteDataSource.getLoginContext(
+            accessToken: response.accessToken,
+          );
+          await _localDataSource.saveLoginContext(contextData);
+        } catch (_) {
+          // Do not block login if context API fails; it will also be retried on app start.
+        }
+
+        // Prepare organization codes from roles (used for school prefetch)
         final orgCodes = response.roles
             .map((r) => r.organizationCode)
             .where((c) => c.isNotEmpty)
             .toSet()
             .toList();
 
-        // 1) Preload organization NAMES using the new API so that the
-        //    organization selection screen can show them directly.
-        List<String> orgNames = [];
-        if (orgCodes.isNotEmpty) {
-          try {
-            orgNames = await _remoteDataSource.getOrganizationNames(
-              organizationCodes: orgCodes,
-              accessToken: response.accessToken,
-            );
-          } catch (_) {
-            // If org-names API fails, we silently fall back to showing codes.
-            orgNames = [];
-          }
-        }
-
-        // 2) Prefetch schools for org admin (so next screens feel instant)
+        // Prefetch schools for org admin (so next screens feel instant)
         final isOrgAdmin =
             response.roles.any((role) => role.role == 'ORGANIZATION_ADMIN');
 
@@ -104,7 +107,6 @@ class AuthCubit extends Cubit<AuthState> {
               schoolsByOrg: const {},
               isPrefetchingSchools: false,
               lastErrorMessage: null,
-              orgNames: orgNames,
             ),
           );
           return;
@@ -133,7 +135,6 @@ class AuthCubit extends Cubit<AuthState> {
               schoolsByOrg: map,
               isPrefetchingSchools: false,
               lastErrorMessage: null,
-              orgNames: orgNames,
             ),
           );
         } catch (e) {
@@ -145,7 +146,6 @@ class AuthCubit extends Cubit<AuthState> {
               schoolsByOrg: const {},
               isPrefetchingSchools: false,
               lastErrorMessage: e.toString(),
-              orgNames: orgNames,
             ),
           );
         }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -9,14 +9,17 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 class StaffCard extends StatefulWidget {
   const StaffCard({
     super.key,
+    required this.staffCode,
     required this.name,
     required this.classroom,
     this.avatarUrl,
     required this.allowedClassrooms,
     required this.schedule,
     required this.designation,
+    this.email = '',
     required this.phoneNumber,
     required this.isActive,
+    this.status,
     this.onPrimaryAction,
     this.onEdit,
     this.isSelected = false,
@@ -25,14 +28,17 @@ class StaffCard extends StatefulWidget {
     required this.classroomCodeByName,
   });
 
+  final String staffCode;
   final String name;
   final String classroom;
   final String? avatarUrl;
   final List<String> allowedClassrooms;
   final List<String> schedule;
   final String designation;
+  final String email;
   final String phoneNumber;
   final bool isActive;
+  final String? status;
   final VoidCallback? onPrimaryAction;
   final VoidCallback? onEdit;
   final bool isSelected;
@@ -331,6 +337,37 @@ class _StaffCardState extends State<StaffCard> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Text(
+                                  'Email',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xff573353),
+                                    height: 16 / 13,
+                                  ),
+                                ),
+                                Flexible(
+                                  child: Text(
+                                    widget.email.isNotEmpty ? widget.email : '-',
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xff573353),
+                                      height: 19 / 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
                                   'Phone Number',
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
@@ -438,31 +475,38 @@ class _StaffCardState extends State<StaffCard> {
                                         final initialFirstName = parts.isNotEmpty ? parts.first : '';
                                         final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
+                                        // Map status from API format to UI format
+                                        String? mappedStatus;
+                                        if (widget.status != null) {
+                                          final statusUpper = widget.status!.toUpperCase();
+                                          if (statusUpper == 'ACTIVE') {
+                                            mappedStatus = 'Active';
+                                          } else if (statusUpper == 'INACTIVE') {
+                                            mappedStatus = 'Inactive';
+                                          } else if (statusUpper == 'UPCOMING') {
+                                            mappedStatus = 'Upcoming';
+                                          } else {
+                                            mappedStatus = widget.status;
+                                          }
+                                        }
+
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
-                                            builder: (_) => AddStaffScreen(
-                                              isEdit: true,
+                                            builder: (_) => EditProfileDetailsScreen(
+                                              staffCode: widget.staffCode,
                                               initialFirstName: initialFirstName,
                                               initialLastName: initialLastName,
-                                              initialPhone: widget.phoneNumber,
-                                              initialRole: widget.designation,
-                                              // allowedClassrooms and classroom are display names.
-                                              initialAllowedClassroomCodes:
-                                                  widget.allowedClassrooms,
-                                              initialPrimaryClassroom:
-                                                  widget.classroom,
-                                              initialClassroomNames:
-                                                  widget.availableClassrooms,
-                                              // AddStaffScreen expects name -> code; StaffCard
-                                              // receives code -> name, so invert it here.
+                                              initialStatus: mappedStatus,
+                                              initialDesignation: widget.designation,
+                                              initialAllowedClassrooms: widget.allowedClassrooms,
+                                              initialPrimaryClassroom: widget.classroom,
+                                              initialEmail: widget.email,
+                                              initialPhoneNumber: widget.phoneNumber,
+                                              initialClassroomNames: widget.availableClassrooms,
                                               initialClassroomCodeByName: {
-                                                for (final entry
-                                                    in widget
-                                                        .classroomCodeByName
-                                                        .entries)
+                                                for (final entry in widget.classroomCodeByName.entries)
                                                   entry.value: entry.key,
                                               },
-                                              // initialEmail and initialStatus not available here
                                             ),
                                           ),
                                         );

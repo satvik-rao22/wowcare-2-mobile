@@ -40,7 +40,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
-  bool isExpanded = false;
 
   @override
   void initState() {
@@ -154,318 +153,105 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Widget _buildStudentProfileCard(BuildContext context) {
-    //final String initials = _getInitials(widget.name)
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    return (!isExpanded)
-        ? Card(
-            margin: EdgeInsets.zero,
-            color: Colors.white,
-            elevation: 1,
-            child: InkWell(
-              onTap: () => setState(() {
-                isExpanded = true;
-              }),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
-                ),
-                child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: _pickProfileImage,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              DocumentImageWidget(
-                                fileUuid: widget
-                                    .name, // seed for stable color when no image
-                                name: widget.name,
-                                size: 56,
-                                fontSize: 18,
-                                statusColor: const Color(0xFF00B115),
-                              ),
-                              Positioned(
-                                right: -4,
-                                bottom: -4,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.08),
-                                        blurRadius: 4,
-                                        //offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      gradient:
-                                          AppColors.buildPrimaryGradient(),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt,
-                                      color: Colors.white,
-                                      size: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 30),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _pickProfileImage,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      DocumentImageWidget(
+                        fileUuid: widget.name, // seed for stable color when no image
+                        name: widget.name,
+                        size: 90,
+                        fontSize: 24,
+                        statusColor: const Color(0xFF00B115),
+                      ),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                widget.name,
-                                style: const TextStyle(
-                                  color: const Color(0xFF573353),
-                                  fontSize: 18,
-                                  fontFamily: 'Manrope',
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.03 * 18,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  widget.classroom,
-                                  style: const TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              gradient: AppColors.buildPrimaryGradient(),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
                           ),
                         ),
-                      ],
-                    ),
-                ),
-              ),
-            )
-        : InkWell(
-            onTap: () => setState(() {
-              isExpanded = false;
-            }),
-            child: Card(
-              margin: EdgeInsets.zero,
-              color: Colors.white,
-              elevation: 2,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 30,
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 120,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isTablet ? 24 : 16,
-                            vertical: 10,
-                          ),
-                          alignment: Alignment.center,
-                          child: Row(
-                            children: [
-                              GestureDetector(
-                                onTap: _pickProfileImage,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    DocumentImageWidget(
-                                      fileUuid: widget
-                                          .name, // seed for stable color when no image
-                                      name: widget.name,
-                                      size: 90,
-                                      fontSize: 24,
-                                      statusColor: const Color(0xFF00B115),
-                                    ),
-                                    Positioned(
-                                      right: -2,
-                                      bottom: -2,
-                                      child: Container(
-                                        width: 32,
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.08,
-                                              ),
-                                              blurRadius: 6,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Container(
-                                          margin: const EdgeInsets.all(2),
-                                          decoration: BoxDecoration(
-                                            gradient:
-                                                AppColors.buildPrimaryGradient(),
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.camera_alt,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 28),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.name,
-                                      style: const TextStyle(
-                                        color: const Color(0xFF573353),
-                                        fontFamily: 'Manrope',
-                                        fontSize: 23,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: -0.03 * 23,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue[50],
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        widget.classroom,
-                                        style: const TextStyle(
-                                          color: Colors.blue,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(
-                          height: 1,
-                          thickness: 1,
-                          indent: 16,
-                          endIndent: 16,
-                          color: Color(0xFFE9ECEF),
-                        ),
-                        SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                              ),
-                              child: Tooltip(
-                                message: 'Photo Permission not given by parent',
-                                child: SvgPicture.asset(
-                                  MediaRes.cameraIcon,
-                                  height: 28,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                              ),
-                              child: Tooltip(
-                                message: 'Observe first aid',
-                                child: SvgPicture.asset(
-                                  MediaRes.alertIcon,
-                                  height: 28,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                              ),
-                              child: Tooltip(
-                                message: 'Bring homework',
-                                child: SvgPicture.asset(
-                                  MediaRes.docsIcon,
-                                  height: 28,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                              ),
-                              child: Tooltip(
-                                message: 'Student has health concerns',
-                                child: SvgPicture.asset(
-                                  MediaRes.healthIcon,
-                                  height: 28,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                              ),
-                              child: Tooltip(
-                                message: 'Student is vegetarian',
-                                child: Image.asset(
-                                  MediaRes.foodIcon2,
-                                  height: 28,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-
-                  _buildStudentActionButtons(context, widget.name),
-                ],
-              ),
+                ),
+                const SizedBox(width: 28),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.name,
+                        style: const TextStyle(
+                          color: AppColors.primaryColor,
+                          fontSize: 23,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.6,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.classroom,
+                        style: TextStyle(
+                          color: AppColors.primaryColor.withOpacity(0.7),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          widget.classroom,
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          );
+          ),
+          _buildStudentActionButtons(context, widget.name),
+        ],
+      ),
+    );
   }
 
   Widget _buildStudentActionButtons(BuildContext context, studentName) {

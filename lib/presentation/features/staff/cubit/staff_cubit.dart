@@ -5,6 +5,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
+import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 
 part 'staff_state.dart';
@@ -12,29 +13,32 @@ part 'staff_state.dart';
 class StaffCubit extends Cubit<StaffState> {
   StaffCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
+    required GetStaffCountUseCase getStaffCountUseCase,
     required StaffRepository repository,
     required StorageService storageService,
   })  : _getStaffPageUseCase = getStaffPageUseCase,
+        _getStaffCountUseCase = getStaffCountUseCase,
         _repository = repository,
-        _storageService = storageService,
         super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
+  final GetStaffCountUseCase _getStaffCountUseCase;
   final StaffRepository _repository;
-  final StorageService _storageService;
   String? _schoolCode;
 
   // How many staff records to load per page from the API
   static const int _pageSize = 15;
 
+  String? _effectiveStatusFilter() {
+    final raw = state.statusFilter;
+    if (raw == null || raw.isEmpty) return 'ACTIVE';
+    return raw;
+  }
+
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
-
-    final stored =
-        await _storageService.getString(StorageKeys.schoolCode);
-    _schoolCode = stored?.isNotEmpty == true
-        ? stored!
-        : StorageKeys.defaultSchoolCode;
+    // TEMP: Always use default school code from StorageKeys (ignore stored prefs).
+    _schoolCode = StorageKeys.defaultSchoolCode;
     return _schoolCode!;
   }
 
@@ -45,7 +49,12 @@ class StaffCubit extends Cubit<StaffState> {
     final cached =
         await (_repository is StaffRepositoryWithCache
             ? (_repository as StaffRepositoryWithCache)
-                .loadCachedStaffPage(schoolCode)
+                .loadCachedStaffPage(
+                  schoolCode,
+                  status: _effectiveStatusFilter(),
+                  designation: state.designationFilter,
+                  search: state.searchQuery,
+                )
             : Future.value(null));
     if (cached != null && !isClosed) {
       emit(
@@ -58,7 +67,8 @@ class StaffCubit extends Cubit<StaffState> {
           isFromCache: true,
         ),
       );
-      // If we have a fresh enough cache, don't auto-hit the API.
+      // Still load staff count so stat cards are accurate.
+      await _refreshStaffCountOnly();
       return;
     }
 
@@ -66,8 +76,25 @@ class StaffCubit extends Cubit<StaffState> {
     await refresh();
   }
 
-  Future<void> refresh() async {
-    if (state.isRefreshing) return;
+  Future<void> _refreshStaffCountOnly() async {
+    try {
+      final schoolCode = await _resolveSchoolCode();
+      final staffCount = await _getStaffCountUseCase(schoolCode: schoolCode);
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          staffCountTotal: staffCount.total,
+          staffCountActive: staffCount.active,
+          staffCountUpcoming: staffCount.upcoming,
+        ),
+      );
+    } catch (_) {
+      // Non-fatal: staff list can still work even if count endpoint fails.
+    }
+  }
+
+  Future<void> refresh({bool ignoreRefreshingGuard = false}) async {
+    if (state.isRefreshing && !ignoreRefreshingGuard) return;
 
     final schoolCode = await _resolveSchoolCode();
 
@@ -80,17 +107,21 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     try {
-      // First page
-      final firstPage = await _getStaffPageUseCase(
+      // Start both requests in parallel.
+      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final firstPageFuture = _getStaffPageUseCase(
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: state.statusFilter,
+        status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
       );
 
       if (isClosed) return;
+
+      final staffCount = await staffCountFuture;
+      final firstPage = await firstPageFuture;
 
       var items = List<StaffMember>.from(firstPage.items);
       var currentPage = firstPage.page;
@@ -102,7 +133,7 @@ class StaffCubit extends Cubit<StaffState> {
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: state.statusFilter,
+          status: _effectiveStatusFilter(),
           designation: state.designationFilter,
           search: state.searchQuery,
         );
@@ -117,6 +148,9 @@ class StaffCubit extends Cubit<StaffState> {
           items: items,
           currentPage: currentPage,
           hasMore: hasMore,
+          staffCountTotal: staffCount.total,
+          staffCountActive: staffCount.active,
+          staffCountUpcoming: staffCount.upcoming,
           isLoading: false,
           isRefreshing: false,
           isFromCache: false,
@@ -147,7 +181,7 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
         page: nextPageIndex,
         size: _pageSize,
-        status: state.statusFilter,
+        status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
       );
@@ -220,6 +254,60 @@ class StaffCubit extends Cubit<StaffState> {
     return message;
   }
 
+  /// Performs a lightweight search that only calls the staff list API (no count
+  /// refresh or automatic second-page preloading). Intended for rapid typing.
+  Future<void> searchStaff(String query) async {
+    final schoolCode = await _resolveSchoolCode();
+
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        searchQuery: query,
+      ),
+    );
+
+    try {
+      final firstPage = await _getStaffPageUseCase(
+        schoolCode: schoolCode,
+        page: 0,
+        size: _pageSize,
+        status: _effectiveStatusFilter(),
+        designation: state.designationFilter,
+        search: query,
+      );
+
+      if (isClosed) return;
+
+      // If the search query has changed while this request was in-flight
+      // (e.g. user cleared the field), drop these stale results.
+      if (state.searchQuery != query) {
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          items: List<StaffMember>.from(firstPage.items),
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isLoading: false,
+          isRefreshing: false,
+          isFromCache: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
+
   void updateSearch(String query) {
     emit(
       state.copyWith(
@@ -232,12 +320,96 @@ class StaffCubit extends Cubit<StaffState> {
     String? status,
     String? designation,
   }) {
+    // Normalize empty / null to empty-string so that copyWith can
+    // clear filters instead of keeping the previous non-null value.
+    final normalizedStatus = (status ?? '').trim();
+    final normalizedDesignation = (designation ?? '').trim();
+
     emit(
       state.copyWith(
-        statusFilter: status,
-        designationFilter: designation,
+        statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
+        designationFilter:
+            normalizedDesignation.isEmpty ? '' : normalizedDesignation,
       ),
     );
+  }
+
+  /// Clears all filters (search, status, designation) and refreshes the list.
+  Future<void> clearAllFiltersAndRefresh() async {
+    // Update state first to clear filters
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        // Reset to defaults used by the API (ACTIVE, no designation)
+        statusFilter: 'ACTIVE',
+        designationFilter: '',
+        isRefreshing: true,
+        errorMessage: null,
+      ),
+    );
+
+    final schoolCode = await _resolveSchoolCode();
+
+    try {
+      // Start both requests in parallel with cleared filters
+      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final firstPageFuture = _getStaffPageUseCase(
+        schoolCode: schoolCode,
+        page: 0,
+        size: _pageSize,
+        status: 'ACTIVE', // Default to ACTIVE when filters are cleared
+        designation: null, // Explicitly null
+        search: '', // Explicitly empty
+      );
+
+      if (isClosed) return;
+
+      final staffCount = await staffCountFuture;
+      final firstPage = await firstPageFuture;
+
+      var items = List<StaffMember>.from(firstPage.items);
+      var currentPage = firstPage.page;
+      var hasMore = firstPage.hasMore;
+
+      // Auto-load next page so that page 0 and 1 are both visible initially
+      if (hasMore) {
+        final secondPage = await _getStaffPageUseCase(
+          schoolCode: schoolCode,
+          page: 1,
+          size: _pageSize,
+          status: 'ACTIVE', // Default to ACTIVE when filters are cleared
+          designation: null, // Explicitly null
+          search: '', // Explicitly empty
+        );
+
+        items.addAll(secondPage.items);
+        currentPage = secondPage.page;
+        hasMore = secondPage.hasMore;
+      }
+
+      emit(
+        state.copyWith(
+          items: items,
+          currentPage: currentPage,
+          hasMore: hasMore,
+          staffCountTotal: staffCount.total,
+          staffCountActive: staffCount.active,
+          staffCountUpcoming: staffCount.upcoming,
+          isLoading: false,
+          isRefreshing: false,
+          isFromCache: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
   }
 
   // To be called by add/edit/delete flows to keep cache + UI in sync

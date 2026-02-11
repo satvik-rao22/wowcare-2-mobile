@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/domain/features/onboarding/entities/page_content.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 
 import '../../../../app/theme/colors.dart';
 
@@ -173,21 +173,19 @@ class OnboardingBody extends StatelessWidget {
                   vertical: 14,
                 ),
               ),
-              onPressed: () {
+              onPressed: () async {
                 if (isLastPage) {
+                  // Ensure we start fresh after onboarding so user always sees Login next.
+                  // This avoids jumping straight to Dashboard due to stale token/flags.
+                  await serviceLocator<AuthLocalDataSource>().clearCache();
+
                   // Mark onboarding as seen (only show once)
                   serviceLocator<StorageService>()
                       .saveBool(StorageKeys.onboardingSeen, true);
-                  // TEMPORARY: Bypass login - navigate directly to dashboard
                   Navigator.pushReplacementNamed(
                     context,
-                    DashboardScreen.routeName,
+                    SignInScreen.routeName,
                   );
-                  // Original navigation (commented out for now):
-                  // Navigator.pushReplacementNamed(
-                  //   context,
-                  //   SignInScreen.routeName,
-                  // );
                 } else {
                   onNextPressed?.call();
                 }

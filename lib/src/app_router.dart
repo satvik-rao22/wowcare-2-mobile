@@ -12,9 +12,12 @@ import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.d
 import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
+import '../presentation/features/students/view/student_screen.dart';
 import '../app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../presentation/features/staff/cubit/staff_cubit.dart';
+import '../presentation/features/classroom/cubit/classroom_cubit.dart';
+import '../presentation/features/student/cubit/student_cubit.dart';
 
 class AppRoutes {
   static const String firstScreen = '/first-screen';
@@ -36,8 +39,15 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
     case StaffScreen.routeName:
       return MaterialPageRoute(
-        builder: (_) => BlocProvider<StaffCubit>(
-          create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StaffCubit>(
+              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+            ),
+          ],
           child: const StaffScreen(),
         ),
         settings: settings,
@@ -75,6 +85,22 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case ActivityFeedScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const ActivityFeedScreen(),
+        settings: settings,
+      );
+    case StudentScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StudentCubit>(
+              create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) =>
+                  serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+            ),
+          ],
+          child: const StudentScreen(),
+        ),
         settings: settings,
       );
     case SignInScreen.routeName:

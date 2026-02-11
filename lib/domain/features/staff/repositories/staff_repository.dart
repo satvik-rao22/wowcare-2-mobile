@@ -3,10 +3,16 @@ import '../entities/staff_document.dart';
 import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
+import '../entities/staff_count.dart';
 
 abstract class StaffRepository {
+  Future<StaffCount> getStaffCount({
+    required String schoolCode,
+  });
+
   Future<StaffPage> getStaffPage({
     required String schoolCode,
+    String? code,
     int page,
     int size,
     String? status,
@@ -17,6 +23,17 @@ abstract class StaffRepository {
   Future<String> addStaffDocument({
     required String staffCode,
     required StaffDocument document,
+  });
+
+  Future<String> updateStaffDocument({
+    required String documentUuid,
+    required StaffDocument document,
+    required String staffCode, // Required for cache invalidation
+  });
+
+  Future<String> deleteStaffDocument({
+    required String documentUuid,
+    required String staffCode, // Required for cache invalidation
   });
 
   Future<StaffDocumentsPage> getStaffDocuments({
@@ -45,6 +62,18 @@ abstract class StaffRepository {
   Future<String> updateStaffAddress({
     required String staffCode,
     required Map<String, dynamic> fields,
+  });
+
+  /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
+  ///
+  /// Returns a list of map entries shaped as:
+  /// {
+  ///   "importantDateType": "HIRE_DATE",
+  ///   "dueDate": "2026-02-06",
+  ///   "completedDate": "2026-02-06"
+  /// }
+  Future<List<Map<String, String>>> getImportantDates({
+    required String staffCode,
   });
 
   Future<String> updateImportantDates({
@@ -108,9 +137,15 @@ abstract class StaffRepository {
 
 /// Optional mixin-style interface for repositories that expose cached data.
 abstract class StaffRepositoryWithCache {
-  Future<StaffPage?> loadCachedStaffPage(String schoolCode);
+  Future<StaffPage?> loadCachedStaffPage(
+    String schoolCode, {
+    String? status,
+    String? designation,
+    String? search,
+  });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode);
+  Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
 }
 
 

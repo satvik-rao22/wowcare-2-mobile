@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
@@ -159,10 +160,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                       const SizedBox(width: 12),
                       Text(
                         '$name ($relation)',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
+                        style: AppTextStyles.value.copyWith(
                           fontSize: 16,
-                          color: Color(0xff573353),
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.03 * 16,
                         ),
@@ -532,24 +531,21 @@ class _Field extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 15,
-            letterSpacing: -0.03 * 15,
+          style: AppTextStyles.value.copyWith(
+            fontSize: 14,
+            letterSpacing: -0.03 * 14,
             fontWeight: FontWeight.w400,
-            color: Color(0xFF6C6377),
+            color: AppColors.primaryColor.withOpacity(0.6),
           ),
         ),
         const SizedBox(height: 6),
         if (trailing == null)
           Text(
             value ?? '- -',
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 16,
-              color: Color(0xff573353),
+            style: AppTextStyles.value.copyWith(
+              fontSize: 15,
               fontWeight: FontWeight.w600,
-              letterSpacing: -0.03 * 16,
+              letterSpacing: -0.03 * 15,
             ),
           )
         else
@@ -581,11 +577,8 @@ class _tags extends StatelessWidget {
             ),
             child: Text(
               tagList[0],
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Color(0xFF4B5B7A),
+              style: AppTextStyles.sectionHeader.copyWith(
+                color: AppColors.secondaryColor.withOpacity(0.7),
               ),
             ),
           ),
@@ -598,11 +591,8 @@ class _tags extends StatelessWidget {
             ),
             child: Text(
               tagList[1],
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Color(0xFF4B5B7A),
+              style: AppTextStyles.sectionHeader.copyWith(
+                color: AppColors.secondaryColor.withOpacity(0.7),
               ),
             ),
           ),
@@ -615,11 +605,8 @@ class _tags extends StatelessWidget {
             ),
             child: Text(
               tagList[1],
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Color(0xFF1B237E),
+              style: AppTextStyles.sectionHeader.copyWith(
+                color: AppColors.secondaryColor,
               ),
             ),
           ),
@@ -682,8 +669,7 @@ class _ScheduleChip extends StatelessWidget {
             //fit: isTimeChip ? BoxFit.contain : BoxFit.scaleDown, // scales down if too big, never overflows
             child: Text(
               label,
-              style: TextStyle(
-                fontFamily: 'Manrope',
+              style: AppTextStyles.value.copyWith(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
                 color: labelColor,
@@ -726,8 +712,7 @@ class _Chip extends StatelessWidget {
           if (icon != null) ...[icon!, const SizedBox(width: 6)],
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Manrope',
+            style: AppTextStyles.value.copyWith(
               fontWeight: FontWeight.w600,
               fontSize: 15,
               color: labelColor,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 
 class StudentDatesTabCard extends StatefulWidget {
@@ -32,13 +33,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     return SingleChildScrollView(
       controller: widget.scrollController,
       child: Column(
-        children: [
+        children: const [
           _PhysicalExamCard(status: "Completed", checkupDate: 'Nov 09 ,2025'),
-          SizedBox(height: 20,),
-          _PhysicalExamCard(status: "Due", checkupDate: 'Nov 09 ,2026')
+          SizedBox(height: 20),
+          _PhysicalExamCard(status: "Due", checkupDate: 'Nov 09 ,2026'),
         ],
       ),
-
     );
   }
 
@@ -51,14 +51,13 @@ class _PhysicalExamCard extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          // Match staff card styling: radius 12, 1px border.
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
@@ -84,24 +83,18 @@ class _PhysicalExamCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Checkup Date',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
                         ),
                       ),
                       Text(
                         checkupDate,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -146,8 +139,7 @@ class _Chip extends StatelessWidget {
           ],
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Manrope',
+            style: AppTextStyles.value.copyWith(
               fontWeight: FontWeight.w600,
               fontSize: 15,
               color: labelColor,
