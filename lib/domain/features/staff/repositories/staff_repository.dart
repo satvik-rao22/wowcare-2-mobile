@@ -137,7 +137,12 @@ abstract class StaffRepository {
 
 /// Optional mixin-style interface for repositories that expose cached data.
 abstract class StaffRepositoryWithCache {
-  Future<StaffPage?> loadCachedStaffPage(String schoolCode);
+  Future<StaffPage?> loadCachedStaffPage(
+    String schoolCode, {
+    String? status,
+    String? designation,
+    String? search,
+  });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode);
   Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);

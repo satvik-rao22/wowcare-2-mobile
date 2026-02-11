@@ -28,6 +28,17 @@ class _CustomToggleState extends State<CustomToggle> {
     _internalToggle = widget.isToggled;
   }
 
+  @override
+  void didUpdateWidget(covariant CustomToggle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Keep internal state in sync when parent updates `isToggled`
+    // (e.g. when filters are applied / cleared, or toggle is driven externally).
+    if (oldWidget.isToggled != widget.isToggled &&
+        _internalToggle != widget.isToggled) {
+      _internalToggle = widget.isToggled;
+    }
+  }
+
   void _handleToggle() {
     setState(() {
       _internalToggle = !_internalToggle;

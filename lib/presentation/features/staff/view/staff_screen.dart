@@ -89,6 +89,7 @@ class _StaffScreenState extends State<StaffScreen> {
         final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
 
     final staffCubit = context.read<StaffCubit>();
+    final staffState = context.watch<StaffCubit>().state;
 
     final bool anySelected = _selectedStaffCodes.isNotEmpty;
     final int selectedCount = _selectedStaffCodes.length;
@@ -303,12 +304,42 @@ class _StaffScreenState extends State<StaffScreen> {
                           child: InkWell(
                             onTap: () async {
                               final classroomCubit = context.read<ClassroomCubit>();
+                              // Build initial filters from current staff state so the
+                              // filter screen reflects the active status/designation.
+                              final rawStatus =
+                                  (staffState.statusFilter ?? '').trim().toUpperCase();
+                              String? initialStatus;
+                              if (rawStatus == 'UPCOMING') {
+                                initialStatus = 'UPCOMING';
+                              } else {
+                                // For no explicit status filter or statuses not exposed in
+                                // the filter (e.g. INACTIVE/ARCHIVE), show nothing selected.
+                                initialStatus = null;
+                              }
+
+                              final String? initialDesignation =
+                                  (staffState.designationFilter ?? '').trim().isEmpty
+                                      ? null
+                                      : staffState.designationFilter;
+
                               final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => BlocProvider<ClassroomCubit>.value(
                                     value: classroomCubit,
-                                    child: const StaffFilterScreen(),
+                                    child: StaffFilterScreen(
+                                      initialFilters: FilterData(
+                                        classroomIds: const [],
+                                        classrooms: const [],
+                                        statuses: initialStatus != null
+                                            ? <String>[initialStatus]
+                                            : const <String>[],
+                                        tags: initialDesignation != null
+                                            ? <String>[initialDesignation]
+                                            : const <String>[],
+                                        attendanceStatuses: const <String>[],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               );
@@ -321,13 +352,67 @@ class _StaffScreenState extends State<StaffScreen> {
                                   status: status,
                                   designation: designation,
                                 );
+                                setState(() {
+                                  _showInactive =
+                                      (status ?? '').toUpperCase() == 'INACTIVE';
+                                });
                                 await staffCubit.refresh();
                               }
                             },
                             borderRadius: BorderRadius.circular(100),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: SvgPicture.asset(MediaRes.filterIcon, height: 20),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: SvgPicture.asset(
+                                    MediaRes.filterIcon,
+                                    height: 20,
+                                  ),
+                                ),
+                                Builder(
+                                  builder: (context) {
+                                    // Show a badge when any non-default filters are applied.
+                                    final status = (staffState.statusFilter ?? '').trim();
+                                    final designation =
+                                        (staffState.designationFilter ?? '').trim();
+
+                                    final bool hasNonDefaultStatus =
+                                        status.isNotEmpty &&
+                                            status.toUpperCase() != 'ACTIVE';
+                                    final bool hasDesignation = designation.isNotEmpty;
+
+                                    final int badgeCount =
+                                        (hasNonDefaultStatus ? 1 : 0) +
+                                            (hasDesignation ? 1 : 0);
+
+                                    if (badgeCount == 0) return const SizedBox.shrink();
+
+                                    return Positioned(
+                                      right: 2,
+                                      top: 2,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 5,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color.fromRGBO(179, 38, 30, 1),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          badgeCount > 99 ? '99+' : '$badgeCount',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -343,14 +428,21 @@ class _StaffScreenState extends State<StaffScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const CustomChip(
-                              label: 'Active',
-                              labelStyle: TextStyle(
+                            CustomChip(
+                              label: (() {
+                                final raw = (staffState.statusFilter ?? '').trim();
+                                final normalized =
+                                    raw.isEmpty ? 'ACTIVE' : raw.toUpperCase();
+                                // Keep display friendly: "Active", "Upcoming", "Inactive", etc.
+                                return normalized.substring(0, 1) +
+                                    normalized.substring(1).toLowerCase();
+                              })(),
+                              labelStyle: const TextStyle(
                                 color: AppColors.secondaryColor,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
-                              color: Color.fromRGBO(177, 175, 233, 0.3),
+                              color: const Color.fromRGBO(177, 175, 233, 0.3),
                             ),
                             const SizedBox(width: 8),
                             CustomClearAllChip(
@@ -359,6 +451,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                 _searchController.clear();
                                 // Clear all filters and refresh atomically (updates cache)
                                 await staffCubit.clearAllFiltersAndRefresh();
+                                if (!mounted) return;
+                                setState(() => _showInactive = false);
                               },
                             ),
                           ],
@@ -368,7 +462,7 @@ class _StaffScreenState extends State<StaffScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             const Text(
-                              'Show present',
+                              'Show inactive',
                               style: TextStyle(
                                 fontFamily: 'Manrope',
                                 fontSize: 13,
@@ -380,7 +474,34 @@ class _StaffScreenState extends State<StaffScreen> {
                             CustomToggle(
                               label: '',
                               isToggled: _showInactive,
-                              onToggle: (v) => setState(() => _showInactive = v),
+                              onToggle: (v) async {
+                                setState(() => _showInactive = v);
+
+                                // Implement API: staff list supports `status` query param.
+                                staffCubit.updateFilters(
+                                  status: v ? 'INACTIVE' : 'ACTIVE',
+                                  designation: staffState.designationFilter,
+                                );
+                                await staffCubit.refresh();
+
+                                if (!mounted) return;
+                                final err = staffCubit.state.errorMessage;
+                                if (err != null && err.isNotEmpty) {
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: err,
+                                    isError: true,
+                                  );
+                                } else {
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: v
+                                        ? 'Showing inactive staff'
+                                        : 'Showing active staff',
+                                    isSuccess: true,
+                                  );
+                                }
+                              },
                             ),
                           ],
                         ),

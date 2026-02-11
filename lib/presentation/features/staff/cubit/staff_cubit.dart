@@ -49,7 +49,12 @@ class StaffCubit extends Cubit<StaffState> {
     final cached =
         await (_repository is StaffRepositoryWithCache
             ? (_repository as StaffRepositoryWithCache)
-                .loadCachedStaffPage(schoolCode)
+                .loadCachedStaffPage(
+                  schoolCode,
+                  status: _effectiveStatusFilter(),
+                  designation: state.designationFilter,
+                  search: state.searchQuery,
+                )
             : Future.value(null));
     if (cached != null && !isClosed) {
       emit(
@@ -315,10 +320,16 @@ class StaffCubit extends Cubit<StaffState> {
     String? status,
     String? designation,
   }) {
+    // Normalize empty / null to empty-string so that copyWith can
+    // clear filters instead of keeping the previous non-null value.
+    final normalizedStatus = (status ?? '').trim();
+    final normalizedDesignation = (designation ?? '').trim();
+
     emit(
       state.copyWith(
-        statusFilter: status,
-        designationFilter: designation,
+        statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
+        designationFilter:
+            normalizedDesignation.isEmpty ? '' : normalizedDesignation,
       ),
     );
   }
@@ -329,8 +340,9 @@ class StaffCubit extends Cubit<StaffState> {
     emit(
       state.copyWith(
         searchQuery: '',
-        statusFilter: null,
-        designationFilter: null,
+        // Reset to defaults used by the API (ACTIVE, no designation)
+        statusFilter: 'ACTIVE',
+        designationFilter: '',
         isRefreshing: true,
         errorMessage: null,
       ),

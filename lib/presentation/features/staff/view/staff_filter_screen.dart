@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -115,9 +116,19 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     context.read<ClassroomCubit>().loadActiveClassrooms();
     
     setState(() {
-      // Status options: ACTIVE, INACTIVE, ARCHIVE, UPCOMING
-      _statusList = ['ACTIVE', 'INACTIVE', 'ARCHIVE', 'UPCOMING'];
-      
+      // Status options: ACTIVE, UPCOMING
+      _statusList = ['ACTIVE', 'UPCOMING'];
+
+      // If initial filters had other statuses (e.g. INACTIVE/ARCHIVE),
+      // drop them so UI + applied filters stay consistent.
+      _selectedStatusList.removeWhere((s) => !_statusList.contains(s));
+
+      // If nothing is selected for status, default to ACTIVE so the user
+      // always sees some status filter applied when coming from this screen.
+      if (_selectedStatusList.isEmpty && _statusList.contains('ACTIVE')) {
+        _selectedStatusList.add('ACTIVE');
+      }
+
       // Designation options from the API
       _designationList = [
         'OWNER',
@@ -132,11 +143,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       ];
       
       _attendanceStatusList = ['Expected', 'Present', 'Absent'];
-      
-      // Set default ACTIVE status if no status is pre-selected
-      if (_selectedStatusList.isEmpty && _statusList.contains('ACTIVE')) {
-        _selectedStatusList.add('ACTIVE');
-      }
     });
   }
 
@@ -145,8 +151,11 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     _syncAllowedClassroomIds();
     
     // Return Map format expected by staff_screen.dart
-    final String? status = _selectedStatusList.isNotEmpty ? _selectedStatusList.first : null;
-    final String? designation = _selectedDesignationList.isNotEmpty ? _selectedDesignationList.first : null;
+    final String? status =
+        _selectedStatusList.isNotEmpty ? _selectedStatusList.first : null;
+    final String? designation = _selectedDesignationList.isNotEmpty
+        ? _selectedDesignationList.first
+        : null;
     
     Navigator.pop(context, {
       'status': status,
@@ -169,39 +178,17 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
-      padding: EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 8,
+        bottom: safeAreaBottom,
       ),
-      child: Container(
-        height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-        ),
-        child: TextButton(
-          onPressed: _applyFilters,
-          child: Text(
-            'Apply Filters',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.buttonFontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
+      child: CustomButtonLayout(
+        confirmButtonLabel: 'Apply Filters',
+        onPressedConfirm: _applyFilters,
+        showCancelButton: false,
+        isForm: false,
       ),
     );
   }
