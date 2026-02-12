@@ -1,6 +1,8 @@
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
+import '../../../../domain/features/student/entities/student_document.dart';
+import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../models/student_models.dart';
@@ -139,5 +141,45 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       movementDate: model.movementDate,
     );
   }
+
+  @override
+  Future<StudentDocumentsPage> getStudentDocuments({
+    required String studentCode,
+    int page = 0,
+    int size = 10,
+    String sort = 'name,asc',
+    String? name,
+    String? type,
+  }) async {
+    final model = await _remoteDataSource.getStudentDocuments(
+      ownerId: studentCode,
+      page: page,
+      size: size,
+      sort: sort,
+      name: name,
+      type: type,
+    );
+
+    return StudentDocumentsPage(
+      items: model.items.map((m) => StudentDocument(
+        name: m.name,
+        type: m.type,
+        storagePath: m.storagePath,
+        mimeType: m.mimeType,
+        size: m.size,
+        expiryDate: m.expiryDate,
+        ownerType: m.ownerType,
+        ownerId: m.ownerId,
+      )).toList(),
+      page: model.page,
+      size: model.size,
+      totalPages: model.totalPages,
+      totalElements: model.totalElements,
+      hasMore: model.hasMore,
+    );
+  }
+
+
+
 }
 
