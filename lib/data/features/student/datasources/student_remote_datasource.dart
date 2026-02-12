@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import '../models/student_document_models.dart';
 import '../models/student_models.dart';
 
 abstract class StudentRemoteDataSource {
@@ -16,16 +15,6 @@ abstract class StudentRemoteDataSource {
     int page = 0,
     int size = 10,
   });
-
-  Future<StudentDocumentPageModel> getStudentDocuments({
-    required String ownerId,
-    required int page,
-    required int size,
-    required String sort,
-    String? name,
-    String? type,
-  });
-
 
   Future<String> deactivateStudent(String code);
 
@@ -103,61 +92,6 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     return StudentPageModel.fromJson(response.data! as Map<String, dynamic>);
   }
-
-  @override
-  Future<StudentDocumentPageModel> getStudentDocuments({
-    required String ownerId,
-    int page = 0,
-    int size = 10,
-    String sort = 'name,asc',
-    String? name,
-    String? type,
-    bool? expired,
-  }) async {
-    final queryParameters = <String, dynamic>{
-      'ownerType': 'STUDENT',
-      'ownerId': ownerId,
-      'page': page,
-      'size': size,
-      'sort': sort,
-    };
-
-    if (name != null) {
-      queryParameters['name'] = name;
-    }
-
-    if (type != null) {
-      queryParameters['type'] = type;
-    }
-
-    if (expired != null) {
-      queryParameters['expired'] = expired;
-    }
-
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentDocuments,
-      ApiConstants.studentBaseUrl,
-    );
-
-    final response = await _client.get<dynamic>(
-      endpoint,
-      queryParameters: queryParameters,
-    );
-
-    if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student documents API response format');
-    }
-
-    final data = response.data! as Map<String, dynamic>;
-    final dataPayload = data['data'] as Map<String, dynamic>?;
-
-    if (dataPayload == null) {
-      throw Exception('Missing data field in student documents response');
-    }
-
-    return StudentDocumentPageModel.fromJson(dataPayload);
-  }
-
 
   @override
   Future<String> deactivateStudent(String code) async {

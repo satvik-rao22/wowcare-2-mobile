@@ -1,6 +1,4 @@
 import '../entities/student.dart';
-import '../entities/student_document.dart';
-import '../entities/student_documents_page.dart';
 
 abstract class StudentRepository {
   Future<StudentPage> getStudentPage({
@@ -34,32 +32,6 @@ abstract class StudentRepository {
     DateTime? dob,
     DateTime? schoolStartDate,
   });
-
-  Future<StudentDocumentsPage> getStudentDocuments({
-    required String studentCode,
-    int page,
-    int size,
-    String sort,
-    String? name,
-    String? type,
-  });
-
-  // Future<String> addStudentDocument({
-  //   required String studentCode,
-  //   required StudentDocument document,
-  // });
-  //
-  // Future<String> updateStudentDocument({
-  //   required String documentUuid,
-  //   required StudentDocument document,
-  //   required String studentCode,
-  // });
-  //
-  // Future<String> deleteStudentDocument({
-  //   required String documentUuid,
-  //   required String studentCode,
-  // });
-
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
