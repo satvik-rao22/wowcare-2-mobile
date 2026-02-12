@@ -29,15 +29,15 @@ class _CustomToggleState extends State<CustomToggle> {
     super.initState();
     _internalToggle = widget.isToggled;
   }
-  @override
-  void didUpdateWidget(covariant CustomToggle oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isToggled != widget.isToggled) {
-      setState(() {
-        _internalToggle = widget.isToggled;
-      });
-    }
-  }
+  // @override
+  // void didUpdateWidget(covariant CustomToggle oldWidget) {
+  //   super.didUpdateWidget(oldWidget);
+  //   if (oldWidget.isToggled != widget.isToggled) {
+  //     setState(() {
+  //       _internalToggle = widget.isToggled;
+  //     });
+  //   }
+  // }
 
   @override
   void didUpdateWidget(covariant CustomToggle oldWidget) {
