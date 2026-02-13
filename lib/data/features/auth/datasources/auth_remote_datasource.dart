@@ -16,6 +16,13 @@ abstract class AuthRemoteDataSource {
   Future<Map<String, dynamic>> getLoginContext({
     required String accessToken,
   });
+  Future<void> patchLoginContext({
+    required String accessToken,
+    required String lastLoginOrganizationCode,
+    required String lastLoginSchoolCode,
+    String? lastLoginApp,
+    DateTime? lastLoginAt,
+  });
   Future<SchoolNamesResponseModel> getSchoolNamesByOrg({
     required String organizationCode,
     required List<String> schoolCodes,
@@ -275,6 +282,90 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       ApiLogger.logUnexpectedError(
         url: url,
         method: 'GET',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: url),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
+  Future<void> patchLoginContext({
+    required String accessToken,
+    required String lastLoginOrganizationCode,
+    required String lastLoginSchoolCode,
+    String? lastLoginApp,
+    DateTime? lastLoginAt,
+  }) async {
+    final url = ApiPaths.url(ApiPaths.authLoginContext);
+    final body = <String, dynamic>{
+      'lastLoginApp': lastLoginApp ?? 'wowcare',
+      'lastLoginOrganizationCode': lastLoginOrganizationCode,
+      'lastLoginSchoolCode': lastLoginSchoolCode,
+      'lastLoginAt': (lastLoginAt ?? DateTime.now().toUtc()).toIso8601String(),
+    };
+    final requestBody = jsonEncode(body);
+
+    try {
+      final headers = ApiHeaders.authorizedJson(accessToken);
+      ApiLogger.logRequest(
+        url: url,
+        method: 'PATCH',
+        headers: headers,
+        body: requestBody,
+      );
+
+      final response = await _dio.patch<Map<String, dynamic>>(
+        url,
+        data: requestBody,
+        options: Options(headers: headers),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'PATCH',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode != 200) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Failed to update login context: Invalid response',
+        );
+      }
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: url,
+        method: 'PATCH',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      if (e.response != null) {
+        final statusCode = e.response?.statusCode;
+        final errorMessage = e.response?.data?['message'] ??
+            e.response?.data?['error'] ??
+            'Failed to update login context';
+        throw DioException(
+          requestOptions: e.requestOptions,
+          response: e.response,
+          type: DioExceptionType.badResponse,
+          error: 'Status: $statusCode - $errorMessage',
+        );
+      }
+      rethrow;
+    } catch (e, stackTrace) {
+      ApiLogger.logUnexpectedError(
+        url: url,
+        method: 'PATCH',
         error: e,
         stackTrace: stackTrace,
       );

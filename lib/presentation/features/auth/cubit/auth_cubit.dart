@@ -53,6 +53,32 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
+  /// Updates backend login-context (last org/school) via PATCH. Call when user
+  /// selects org (school can be empty) or school. Non-blocking: failures are
+  /// ignored so navigation is not blocked.
+  Future<void> updateLoginContext({
+    required String lastLoginOrganizationCode,
+    required String lastLoginSchoolCode,
+  }) async {
+    String? accessToken;
+    if (state is AuthLoaded) {
+      accessToken = (state as AuthLoaded).loginResponse.accessToken;
+    } else {
+      final cached = await _localDataSource.getCachedLoginResponse();
+      accessToken = cached?.accessToken;
+    }
+    if (accessToken == null || accessToken.isEmpty) return;
+    try {
+      await _remoteDataSource.patchLoginContext(
+        accessToken: accessToken,
+        lastLoginOrganizationCode: lastLoginOrganizationCode,
+        lastLoginSchoolCode: lastLoginSchoolCode,
+      );
+    } catch (_) {
+      // Non-blocking: do not block navigation if PATCH fails.
+    }
+  }
+
   // Preload cached data on initialization
   Future<void> initialize() async {
     try {
@@ -96,6 +122,7 @@ class AuthCubit extends Cubit<AuthState> {
         // Immediately fetch login-context with this token so backend can tell
         // us which org/school (last school) should be active for this user.
         bool hasLastSchoolFromContext = false;
+        String? redirectUrl;
         try {
           final contextData = await _remoteDataSource.getLoginContext(
             accessToken: response.accessToken,
@@ -103,6 +130,22 @@ class AuthCubit extends Cubit<AuthState> {
           await _localDataSource.saveLoginContext(contextData);
           hasLastSchoolFromContext =
               await _localDataSource.saveOrgAndSchoolFromContext(contextData);
+          
+          // When orgCode or schoolCode is null (or both), use redirectUrl to decide where to open.
+          final String orgCode = ((contextData['LastLoginOrganizationCode'] as String?)?.trim ?? '').toString();
+          final String schoolCode = ((contextData['LastLoginSchoolCode'] as String?)?.trim ?? '').toString();
+          if (orgCode.isEmpty || schoolCode.isEmpty) {
+            final rawRedirect = contextData['redirectUrl'];
+            redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
+            // Save orgCode only if present (needed when redirect is select-school)
+            if (orgCode.isNotEmpty) {
+              await _localDataSource.setSelectedOrgAndSchool(
+                organizationCode: orgCode,
+                schoolCode: schoolCode,
+                schoolName: '',
+              );
+            }
+          }
         } catch (_) {
           // Do not block login if context API fails; it will also be retried on app start.
         }
@@ -115,6 +158,7 @@ class AuthCubit extends Cubit<AuthState> {
             isPrefetchingSchools: false,
             lastErrorMessage: null,
             hasLastSchoolFromContext: hasLastSchoolFromContext,
+            redirectUrl: redirectUrl,
           ),
         );
       },

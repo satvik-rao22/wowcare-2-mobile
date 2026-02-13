@@ -23,6 +23,7 @@ class AuthLoaded extends AuthState {
     this.lastErrorMessage,
     this.orgNames = const [],
     this.hasLastSchoolFromContext = false,
+    this.redirectUrl,
   });
 
   final LoginResponseModel loginResponse;
@@ -35,6 +36,9 @@ class AuthLoaded extends AuthState {
   /// True when login-context API returned last school and we saved it.
   /// UI can skip role/school selection and go straight to Dashboard.
   final bool hasLastSchoolFromContext;
+  /// Redirect URL from login-context API (when schoolCode is null).
+  /// Used to determine which screen to navigate to.
+  final String? redirectUrl;
 
   @override
   List<Object?> get props => [
@@ -44,6 +48,7 @@ class AuthLoaded extends AuthState {
         lastErrorMessage,
         orgNames,
         hasLastSchoolFromContext,
+        redirectUrl,
       ];
 }
 

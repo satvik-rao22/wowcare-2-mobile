@@ -310,8 +310,14 @@ class _OrganizationSelectionScreenState
                         height: screenHeight * 0.06,
                         child: InkWell(
                           onTap: isNextEnabled
-                              ? () {
+                              ? () async {
                                   if (_selectedOrgCode == null) return;
+                                  final authCubit = context.read<AuthCubit>();
+                                  await authCubit.updateLoginContext(
+                                    lastLoginOrganizationCode: _selectedOrgCode!,
+                                    lastLoginSchoolCode: '',
+                                  );
+                                  if (!context.mounted) return;
                                   final schoolsForOrg = widget.isSwitchFlow
                                       ? _orgSchoolList
                                           .where((e) =>

@@ -326,11 +326,16 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                               ? () async {
                                   if (_selectedSchool == null) return;
                                   final authCubit = context.read<AuthCubit>();
+                                  final schoolCode = _selectedSchoolCode ??
+                                      _selectedSchool!;
+                                  await authCubit.updateLoginContext(
+                                    lastLoginOrganizationCode: widget.selectedOrg,
+                                    lastLoginSchoolCode: schoolCode,
+                                  );
                                   if (widget.isSwitchFlow) {
                                     await authCubit.setSelectedOrgAndSchool(
                                       organizationCode: widget.selectedOrg,
-                                      schoolCode: _selectedSchoolCode ??
-                                          _selectedSchool!,
+                                      schoolCode: schoolCode,
                                       schoolName: _selectedSchool,
                                     );
                                   } else {
