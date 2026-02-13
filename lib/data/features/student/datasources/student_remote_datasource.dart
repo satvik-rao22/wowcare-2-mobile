@@ -139,10 +139,18 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       ApiConstants.studentBaseUrl,
     );
 
+    print('🔵 [REMOTE] Calling Student Documents API');
+    print('Endpoint: $endpoint');
+    print('Query Params: $queryParameters');
+
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
     );
+
+    print('🔵 [REMOTE] Status Code: ${response.statusCode}');
+    print('🔵 [REMOTE] Raw Response: ${response.data}');
+
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected student documents API response format');
@@ -155,7 +163,16 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       throw Exception('Missing data field in student documents response');
     }
 
-    return StudentDocumentPageModel.fromJson(dataPayload);
+    final model = StudentDocumentPageModel.fromJson(dataPayload);
+
+    print('🔵 [REMOTE] Parsed items count: ${model.items.length}');
+    print('🔵 [REMOTE] Page: ${model.page}');
+    print('🔵 [REMOTE] HasMore: ${model.hasMore}');
+
+    return model;
+
+
+    //return StudentDocumentPageModel.fromJson(dataPayload);
   }
 
 

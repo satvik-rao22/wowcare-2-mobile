@@ -5,6 +5,7 @@ import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
+import '../models/student_document_models.dart';
 import '../models/student_models.dart';
 
 class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithCache {
@@ -21,6 +22,14 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         resource: 'list',
         identifier: schoolCode,
       );
+
+  static String _studentDocumentsCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'documents',
+        identifier: studentCode,
+      );
+
 
   @override
   Future<StudentPage> getStudentPage({
@@ -44,7 +53,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       size: size,
     );
 
-    // Cache only the first page for simplicity
+
     if (page == 0) {
       await _cacheManager.saveCache(
         _studentListCacheKey(schoolCode),
@@ -151,6 +160,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     String? name,
     String? type,
   }) async {
+
     final model = await _remoteDataSource.getStudentDocuments(
       ownerId: studentCode,
       page: page,
@@ -159,6 +169,14 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       name: name,
       type: type,
     );
+
+
+    if (page == 0) {
+      await _cacheManager.saveCache(
+        _studentDocumentsCacheKey(studentCode),
+        model.toJson(),
+      );
+    }
 
     return StudentDocumentsPage(
       items: model.items.map((m) => StudentDocument(
@@ -178,6 +196,75 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       hasMore: model.hasMore,
     );
   }
+
+  @override
+  Future<StudentDocumentsPage?> loadCachedStudentDocuments(
+      String studentCode) async {
+
+    final payload =
+    await _cacheManager.loadCache(_studentDocumentsCacheKey(studentCode));
+
+    if (payload == null) return null;
+
+    final model = StudentDocumentPageModel.fromCacheJson(payload);
+
+    return StudentDocumentsPage(
+      items: model.items.map((m) => StudentDocument(
+        name: m.name,
+        type: m.type,
+        storagePath: m.storagePath,
+        mimeType: m.mimeType,
+        size: m.size,
+        expiryDate: m.expiryDate,
+        ownerType: m.ownerType,
+        ownerId: m.ownerId,
+      )).toList(),
+      page: model.page,
+      size: model.size,
+      totalPages: model.totalPages,
+      totalElements: model.totalElements,
+      hasMore: model.hasMore,
+    );
+  }
+
+
+
+// @override
+  // Future<StudentDocumentsPage> getStudentDocuments({
+  //   required String studentCode,
+  //   int page = 0,
+  //   int size = 10,
+  //   String sort = 'name,asc',
+  //   String? name,
+  //   String? type,
+  // }) async {
+  //   final model = await _remoteDataSource.getStudentDocuments(
+  //     ownerId: studentCode,
+  //     page: page,
+  //     size: size,
+  //     sort: sort,
+  //     name: name,
+  //     type: type,
+  //   );
+  //
+  //   return StudentDocumentsPage(
+  //     items: model.items.map((m) => StudentDocument(
+  //       name: m.name,
+  //       type: m.type,
+  //       storagePath: m.storagePath,
+  //       mimeType: m.mimeType,
+  //       size: m.size,
+  //       expiryDate: m.expiryDate,
+  //       ownerType: m.ownerType,
+  //       ownerId: m.ownerId,
+  //     )).toList(),
+  //     page: model.page,
+  //     size: model.size,
+  //     totalPages: model.totalPages,
+  //     totalElements: model.totalElements,
+  //     hasMore: model.hasMore,
+  //   );
+  // }
 
 
 

@@ -65,5 +65,7 @@ abstract class StudentRepository {
 /// Optional mixin-style interface for repositories that expose cached data.
 abstract class StudentRepositoryWithCache {
   Future<StudentPage?> loadCachedStudentPage(String schoolCode);
+  Future<StudentDocumentsPage?> loadCachedStudentDocuments(
+      String studentCode);
 }
 

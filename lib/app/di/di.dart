@@ -37,6 +37,7 @@ import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
+import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -47,6 +48,7 @@ import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
+import '../../presentation/features/student/cubit/student_document_list_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -175,6 +177,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
+        () => GetStudentDocumentsUseCase(serviceLocator()),
+  );
+
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -234,6 +240,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+  serviceLocator.registerFactory<StudentDocumentsListCubit>(
+        () => StudentDocumentsListCubit(
+      getStudentDocumentsUseCase: serviceLocator(),
+      repository: serviceLocator(),
+    ),
+  );
+
 }
 
 

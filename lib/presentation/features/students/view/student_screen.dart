@@ -192,6 +192,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => StudentProfileScreen(
+                                studentCode: studentMap['code'] as String ?? 'Unknown Student Code',
                                 name: studentMap['name'] as String? ?? "Unknown Student",
                                 sibling: studentMap['sibling'] as Map<String, dynamic>,
                                 schedule : (studentMap['schedule'] as List<dynamic>?)

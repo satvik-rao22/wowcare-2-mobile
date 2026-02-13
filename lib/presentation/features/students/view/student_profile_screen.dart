@@ -19,7 +19,7 @@ class StudentProfileScreen extends StatefulWidget {
     required this.classroom,
     required this.tags,
     required this.schedule,
-    required this.sibling,
+    required this.sibling, this.studentCode,
   });
 
   final String name;
@@ -27,6 +27,7 @@ class StudentProfileScreen extends StatefulWidget {
   final List<String> tags;
   final List<String> schedule;
   final Map<String, dynamic> sibling;
+  final String? studentCode;
 
   @override
   State<StudentProfileScreen> createState() => _StudentProfileScreenState();
@@ -141,7 +142,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 StudentDocumentsTab(
                     scrollController: _documentsScrollController,
                     name: widget.name,
-                    classroom: widget.classroom
+                    classroom: widget.classroom,
+                    studentCode: widget.studentCode,
                 )
 
               ],
