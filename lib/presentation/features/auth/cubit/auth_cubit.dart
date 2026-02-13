@@ -27,14 +27,29 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> completeLogin({
     required String selectedOrgCode,
     required String selectedSchoolName,
+    String? selectedSchoolCode,
   }) async {
-    if (state is! AuthLoaded) return;
-    final loaded = state as AuthLoaded;
-
-    await _localDataSource.cacheLoginResponse(loaded.loginResponse);
+    if (state is AuthLoaded) {
+      final loaded = state as AuthLoaded;
+      await _localDataSource.cacheLoginResponse(loaded.loginResponse);
+    }
     await _localDataSource.saveOrgAndSchoolSelection(
       orgCode: selectedOrgCode,
       schoolName: selectedSchoolName,
+      schoolCode: selectedSchoolCode,
+    );
+  }
+
+  /// Set selected org/school (e.g. when switching organisation from Dashboard).
+  Future<void> setSelectedOrgAndSchool({
+    required String organizationCode,
+    required String schoolCode,
+    String? schoolName,
+  }) async {
+    await _localDataSource.setSelectedOrgAndSchool(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      schoolName: schoolName,
     );
   }
 
@@ -79,76 +94,29 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         // Immediately fetch login-context with this token so backend can tell
-        // us which org/school should be active for this user.
+        // us which org/school (last school) should be active for this user.
+        bool hasLastSchoolFromContext = false;
         try {
           final contextData = await _remoteDataSource.getLoginContext(
             accessToken: response.accessToken,
           );
           await _localDataSource.saveLoginContext(contextData);
+          hasLastSchoolFromContext =
+              await _localDataSource.saveOrgAndSchoolFromContext(contextData);
         } catch (_) {
           // Do not block login if context API fails; it will also be retried on app start.
         }
 
-        // Prepare organization codes from roles (used for school prefetch)
-        final orgCodes = response.roles
-            .map((r) => r.organizationCode)
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList();
-
-        // Prefetch schools for org admin (so next screens feel instant)
-        final isOrgAdmin =
-            response.roles.any((role) => role.role == 'ORGANIZATION_ADMIN');
-
-        if (!isOrgAdmin || orgCodes.isEmpty) {
-          emit(
-            AuthLoaded(
-              loginResponse: response,
-              schoolsByOrg: const {},
-              isPrefetchingSchools: false,
-              lastErrorMessage: null,
-            ),
-          );
-          return;
-        }
-
-        try {
-          final results = await Future.wait(
-            orgCodes.map(
-              (orgCode) => _remoteDataSource.getSchoolNamesByOrg(
-                organizationCode: orgCode,
-                schoolCodes: const [], // empty list as per requirement
-                isAdmin: true,
-                accessToken: response.accessToken,
-              ),
-            ),
-          );
-
-          final map = <String, List<String>>{};
-          for (var i = 0; i < orgCodes.length; i++) {
-            map[orgCodes[i]] = results[i].data;
-          }
-
-          emit(
-            AuthLoaded(
-              loginResponse: response,
-              schoolsByOrg: map,
-              isPrefetchingSchools: false,
-              lastErrorMessage: null,
-            ),
-          );
-        } catch (e) {
-          // Don’t block login flow; API logger already prints details.
-          // Always surface the raw message coming from the API / Dio.
-          emit(
-            AuthLoaded(
-              loginResponse: response,
-              schoolsByOrg: const {},
-              isPrefetchingSchools: false,
-              lastErrorMessage: e.toString(),
-            ),
-          );
-        }
+        // Only login + login-context during login flow. No school prefetch.
+        emit(
+          AuthLoaded(
+            loginResponse: response,
+            schoolsByOrg: const {},
+            isPrefetchingSchools: false,
+            lastErrorMessage: null,
+            hasLastSchoolFromContext: hasLastSchoolFromContext,
+          ),
+        );
       },
     );
   }

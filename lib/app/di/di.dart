@@ -225,6 +225,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ClassroomCubit>(
     () => ClassroomCubit(
       getActiveClassroomsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentCubit>(

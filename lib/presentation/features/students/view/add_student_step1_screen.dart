@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
@@ -388,7 +389,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
       final DateTime? schoolStartDate = step1Data['schoolStartDate'] as DateTime?;
 
-      final schoolCode = StorageKeys.defaultSchoolCode;
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
 
       final repo = serviceLocator<StudentRepository>();
 

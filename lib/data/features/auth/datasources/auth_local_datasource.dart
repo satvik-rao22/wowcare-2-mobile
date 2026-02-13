@@ -16,6 +16,23 @@ abstract class AuthLocalDataSource {
   Future<void> saveOrgAndSchoolSelection({
     required String orgCode,
     required String schoolName,
+    String? schoolCode,
+  });
+  /// Saves org/school from login-context API (last school) and marks login completed.
+  /// Returns true if context had valid org/school, false otherwise.
+  Future<bool> saveOrgAndSchoolFromContext(Map<String, dynamic> context);
+
+  /// Returns list of {organizationCode, schoolCode, schoolName} the user has access to.
+  Future<List<Map<String, String>>> getOrganizationsAndSchools();
+
+  /// Saves list of org+school combos. Use when user has multiple.
+  Future<void> saveOrganizationsAndSchools(List<Map<String, String>> list);
+
+  /// Sets currently selected org/school for API calls.
+  Future<void> setSelectedOrgAndSchool({
+    required String organizationCode,
+    required String schoolCode,
+    String? schoolName,
   });
 }
 
@@ -48,11 +65,21 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       jsonEncode(response.roles.map((r) => r.toJson()).toList()),
     );
 
-    // Save organization code from first role (if available)
-    if (response.roles.isNotEmpty && response.roles.first.organizationCode.isNotEmpty) {
+    // Save org+school list from roles (user may have multiple)
+    final orgSchoolList = <Map<String, String>>[];
+    for (final r in response.roles) {
+      if (r.organizationCode.isNotEmpty && r.schoolCode.isNotEmpty) {
+        orgSchoolList.add({
+          'organizationCode': r.organizationCode,
+          'schoolCode': r.schoolCode,
+          'schoolName': r.schoolCode,
+        });
+      }
+    }
+    if (orgSchoolList.isNotEmpty) {
       await _storage.saveString(
-        StorageKeys.organizationCode,
-        response.roles.first.organizationCode,
+        StorageKeys.organizationsAndSchools,
+        jsonEncode(orgSchoolList),
       );
     }
   }
@@ -96,7 +123,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.remove(StorageKeys.firstLogin);
     await _storage.remove(StorageKeys.roles);
     await _storage.remove(StorageKeys.organizationCode);
+    await _storage.remove(StorageKeys.schoolCode);
     await _storage.remove(StorageKeys.selectedSchoolName);
+    await _storage.remove(StorageKeys.organizationsAndSchools);
     await _storage.remove(StorageKeys.loginCompleted);
     await _storage.remove(StorageKeys.loginContext);
   }
@@ -105,10 +134,119 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   Future<void> saveOrgAndSchoolSelection({
     required String orgCode,
     required String schoolName,
+    String? schoolCode,
   }) async {
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
+    if (schoolCode != null && schoolCode.isNotEmpty) {
+      await _storage.saveString(StorageKeys.schoolCode, schoolCode);
+    }
     await _storage.saveBool(StorageKeys.loginCompleted, true);
+  }
+
+  @override
+  Future<bool> saveOrgAndSchoolFromContext(Map<String, dynamic> context) async {
+    String _str(dynamic v) => (v?.toString().trim() ?? '');
+    // Login-context API returns: LastLoginOrganizationCode, LastLoginSchoolCode
+    // May also have arrays: OrganizationCodes[], SchoolCodes[] for multiple
+    final orgCode = _str(context['LastLoginOrganizationCode']);
+    final schoolCode = _str(context['LastLoginSchoolCode']);
+    final schoolName = _str(context['schoolName']);
+    final displayName =
+        schoolName.isNotEmpty ? schoolName : schoolCode;
+
+    if (orgCode.isEmpty || schoolCode.isEmpty) {
+      return false;
+    }
+
+    // Save selected
+    await _storage.saveString(StorageKeys.organizationCode, orgCode);
+    await _storage.saveString(StorageKeys.schoolCode, schoolCode);
+    await _storage.saveString(
+      StorageKeys.selectedSchoolName,
+      displayName,
+    );
+
+    // Merge into organizationsAndSchools list (dedupe by org+school)
+    final list = await _getOrganizationsAndSchoolsRaw();
+    final entry = <String, String>{
+      'organizationCode': orgCode,
+      'schoolCode': schoolCode,
+      'schoolName': displayName,
+    };
+    list.removeWhere((e) =>
+        e['organizationCode'] == orgCode && e['schoolCode'] == schoolCode);
+    list.insert(0, entry); // put current first
+    await _storage.saveString(
+      StorageKeys.organizationsAndSchools,
+      jsonEncode(list),
+    );
+
+    await _storage.saveBool(StorageKeys.loginCompleted, true);
+    return true;
+  }
+
+  List<Map<String, String>> _parseOrgSchoolList(dynamic raw) {
+    if (raw == null) return [];
+    if (raw is List) {
+      return raw
+          .map((e) => (e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}))
+          .map((m) => {
+                'organizationCode': (m['organizationCode'] ?? '').toString(),
+                'schoolCode': (m['schoolCode'] ?? '').toString(),
+                'schoolName': (m['schoolName'] ?? m['schoolCode'] ?? '').toString(),
+              })
+          .where((m) =>
+              m['organizationCode']!.isNotEmpty && m['schoolCode']!.isNotEmpty)
+          .toList();
+    }
+    if (raw is String) {
+      try {
+        final decoded = jsonDecode(raw);
+        return _parseOrgSchoolList(decoded);
+      } catch (_) {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  Future<List<Map<String, String>>> _getOrganizationsAndSchoolsRaw() async {
+    final raw = await _storage.getString(StorageKeys.organizationsAndSchools);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      return _parseOrgSchoolList(jsonDecode(raw));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Map<String, String>>> getOrganizationsAndSchools() async {
+    return _getOrganizationsAndSchoolsRaw();
+  }
+
+  @override
+  Future<void> saveOrganizationsAndSchools(
+      List<Map<String, String>> list) async {
+    await _storage.saveString(
+      StorageKeys.organizationsAndSchools,
+      jsonEncode(list),
+    );
+  }
+
+  @override
+  Future<void> setSelectedOrgAndSchool({
+    required String organizationCode,
+    required String schoolCode,
+    String? schoolName,
+  }) async {
+    await _storage.saveString(StorageKeys.organizationCode, organizationCode);
+    await _storage.saveString(StorageKeys.schoolCode, schoolCode);
+    await _storage.saveString(
+      StorageKeys.selectedSchoolName,
+      schoolName ?? schoolCode,
+    );
   }
 
   @override

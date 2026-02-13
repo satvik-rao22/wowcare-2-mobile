@@ -14,9 +14,14 @@ class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({
     super.key,
     required this.selectedOrg,
+    this.isSwitchFlow = false,
+    this.schoolsForOrg,
   });
 
   final String selectedOrg;
+  final bool isSwitchFlow;
+  /// When switching org from Dashboard: list of {schoolCode, schoolName} for selected org.
+  final List<Map<String, String>>? schoolsForOrg;
 
   @override
   State<SchoolSelectionScreen> createState() => _SchoolSelectionScreenState();
@@ -24,6 +29,7 @@ class SchoolSelectionScreen extends StatefulWidget {
 
 class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
   String? _selectedSchool;
+  String? _selectedSchoolCode;
 
   @override
   Widget build(BuildContext context) {
@@ -32,39 +38,42 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
     final screenHeight = size.height - padding.top - padding.bottom;
     final screenWidth = size.width;
 
-    void logoutAndGoToSignIn() {
-      // If org/school selection isn't completed, user must login again.
-      context.read<AuthCubit>().logout();
-      Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+    void onBack() {
+      if (widget.isSwitchFlow) {
+        Navigator.of(context).pop();
+      } else {
+        context.read<AuthCubit>().logout();
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      }
     }
 
     return PopScope(
-      canPop: false,
+      canPop: widget.isSwitchFlow,
       onPopInvoked: (_) {
-        logoutAndGoToSignIn();
+        if (!widget.isSwitchFlow) onBack();
       },
       child: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
-          if (state is! AuthLoaded) {
+          if (state is! AuthLoaded && !widget.isSwitchFlow) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
           }
 
-          final login = state.loginResponse;
-          final userName = login.displayName.isNotEmpty
-              ? login.displayName
-              : login.email;
+          final login = state is AuthLoaded ? state.loginResponse : null;
+          final userName = login?.displayName.isNotEmpty == true
+              ? login!.displayName
+              : (login?.email ?? '');
           final userRole =
-              login.roles.isNotEmpty ? login.roles.first.role : '';
+              login?.roles.isNotEmpty == true ? login!.roles.first.role : '';
 
           // Get organization codes and names to find the display name
-          final orgCodes = login.roles
+          final orgCodes = (login?.roles ?? [])
               .map((r) => r.organizationCode)
               .where((c) => c.isNotEmpty)
               .toSet()
               .toList();
-          final orgNames = state.orgNames;
+          final orgNames = state is AuthLoaded ? state.orgNames : <String>[];
           
           // Find the organization name for the selected org code
           String orgDisplayName = widget.selectedOrg; // fallback to code
@@ -76,20 +85,31 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
             orgDisplayName = orgNames[orgIndex];
           }
 
-          final schools = state.schoolsByOrg[widget.selectedOrg] ?? const <String>[];
-          final isLoading = state.isPrefetchingSchools && schools.isEmpty;
+          final schools = widget.schoolsForOrg != null
+              ? widget.schoolsForOrg!
+                  .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
+                  .where((s) => s.isNotEmpty)
+                  .toList()
+              : (state is AuthLoaded
+                  ? (state.schoolsByOrg[widget.selectedOrg] ?? const <String>[])
+                  : const <String>[]);
+          final isLoading = state is AuthLoaded &&
+              state.isPrefetchingSchools &&
+              schools.isEmpty;
 
           // If school API failed (e.g. 404) we keep the flow but
           // surface the error once using the shared top banner.
           if (!isLoading &&
               schools.isEmpty &&
+              state is AuthLoaded &&
               (state.lastErrorMessage != null &&
                   state.lastErrorMessage!.isNotEmpty)) {
+            final errMsg = state.lastErrorMessage!;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: state.lastErrorMessage!,
+                message: errMsg,
                 isError: true,
               );
             });
@@ -114,7 +134,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                             color: const Color(0xFF333333),
                             size: screenHeight * 0.03,
                           ),
-                          onPressed: logoutAndGoToSignIn,
+                          onPressed: onBack,
                         ),
                       ),
                     ),
@@ -154,7 +174,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   DocumentImageWidget(
-                                    fileUuid: login.userCode,
+                                    fileUuid: login?.userCode ?? '',
                                     name: userName,
                                     size: screenHeight * 0.07,
                                     fontSize: screenHeight * 0.024,
@@ -277,6 +297,16 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 onSelect: (value) {
                                   setState(() {
                                     _selectedSchool = value;
+                                    if (widget.schoolsForOrg != null && value != null) {
+                                      final entry = widget.schoolsForOrg!.firstWhere(
+                                        (e) =>
+                                            (e['schoolName'] ?? e['schoolCode']) ==
+                                            value,
+                                        orElse: () => <String, String>{},
+                                      );
+                                      _selectedSchoolCode =
+                                          entry['schoolCode'] ?? entry['schoolName'];
+                                    }
                                   });
                                 },
                               ),
@@ -293,13 +323,24 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                         height: screenHeight * 0.06,
                         child: InkWell(
                           onTap: isNextEnabled
-                              ? () {
+                              ? () async {
                                   if (_selectedSchool == null) return;
-                                  // Mark login completed only after org + school selection
-                                  context.read<AuthCubit>().completeLogin(
-                                        selectedOrgCode: widget.selectedOrg,
-                                        selectedSchoolName: _selectedSchool!,
-                                      );
+                                  final authCubit = context.read<AuthCubit>();
+                                  if (widget.isSwitchFlow) {
+                                    await authCubit.setSelectedOrgAndSchool(
+                                      organizationCode: widget.selectedOrg,
+                                      schoolCode: _selectedSchoolCode ??
+                                          _selectedSchool!,
+                                      schoolName: _selectedSchool,
+                                    );
+                                  } else {
+                                    await authCubit.completeLogin(
+                                      selectedOrgCode: widget.selectedOrg,
+                                      selectedSchoolName: _selectedSchool!,
+                                      selectedSchoolCode: _selectedSchoolCode,
+                                    );
+                                  }
+                                  if (!context.mounted) return;
                                   Navigator.of(context).pushReplacement(
                                     MaterialPageRoute(
                                       builder: (_) => const DashboardScreen(),

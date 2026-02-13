@@ -221,12 +221,21 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200 && response.data != null) {
+        final raw = response.data!;
         final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
-          response.data!,
+          raw,
           (dataJson) =>
               (dataJson as Map<String, dynamic>? ?? <String, dynamic>{}),
         );
-        return apiResponse.data ?? <String, dynamic>{};
+        // Login-context may return payload at top level (no "data" wrapper).
+        // If apiResponse.data is null/empty, use raw response as context.
+        final context = apiResponse.data;
+        if (context != null &&
+            (context['LastLoginOrganizationCode'] != null ||
+                context['LastLoginSchoolCode'] != null)) {
+          return context;
+        }
+        return raw;
       } else {
         throw DioException(
           requestOptions: response.requestOptions,

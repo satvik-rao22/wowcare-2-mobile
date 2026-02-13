@@ -13,9 +13,11 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
     required CreateSchoolUserUseCase createSchoolUserUseCase,
     required StorageService storageService,
   })  : _createSchoolUserUseCase = createSchoolUserUseCase,
+        _storageService = storageService,
         super(const CreateSchoolUserState.initial());
 
   final CreateSchoolUserUseCase _createSchoolUserUseCase;
+  final StorageService _storageService;
 
   Future<void> create({
     required bool isAdmin,
@@ -33,9 +35,11 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
   }) async {
     emit(const CreateSchoolUserState.loading());
 
-    // TEMP: Always use default org + school constants for all staff creation.
-    final resolvedOrganizationCode = StorageKeys.defaultOrganizationCode;
-    final resolvedSchoolCode = StorageKeys.defaultSchoolCode;
+    // Take org/school from login-context API (saved in storage) only.
+    final resolvedOrganizationCode =
+        await _storageService.getString(StorageKeys.organizationCode) ?? '';
+    final resolvedSchoolCode =
+        await _storageService.getString(StorageKeys.schoolCode) ?? '';
 
     final result = await _createSchoolUserUseCase(
       isAdmin: isAdmin,

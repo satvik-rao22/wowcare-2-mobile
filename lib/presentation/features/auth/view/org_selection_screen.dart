@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
@@ -10,7 +12,9 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class OrganizationSelectionScreen extends StatefulWidget {
-  const OrganizationSelectionScreen({super.key});
+  const OrganizationSelectionScreen({super.key, this.isSwitchFlow = false});
+
+  final bool isSwitchFlow;
 
   @override
   State<OrganizationSelectionScreen> createState() =>
@@ -20,6 +24,31 @@ class OrganizationSelectionScreen extends StatefulWidget {
 class _OrganizationSelectionScreenState
     extends State<OrganizationSelectionScreen> {
   String? _selectedOrgCode;
+  List<Map<String, String>> _orgSchoolList = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isSwitchFlow) {
+      _loadData();
+    }
+  }
+
+  Future<void> _loadData() async {
+    final authCubit = context.read<AuthCubit>();
+    if (authCubit.state is! AuthLoaded) {
+      await authCubit.loadCachedData();
+    }
+    final local = serviceLocator<AuthLocalDataSource>();
+    final list = await local.getOrganizationsAndSchools();
+    if (mounted) {
+      setState(() {
+        _orgSchoolList = list;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,43 +57,65 @@ class _OrganizationSelectionScreenState
     final screenHeight = size.height - padding.top - padding.bottom;
     final screenWidth = size.width;
 
-    void logoutAndGoToSignIn() {
-      // If org/school selection isn't completed, user must login again.
-      context.read<AuthCubit>().logout();
-      Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+    void onBack() {
+      if (widget.isSwitchFlow) {
+        Navigator.of(context).pop();
+      } else {
+        context.read<AuthCubit>().logout();
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      }
     }
 
     return PopScope(
-      canPop: false,
+      canPop: widget.isSwitchFlow,
       onPopInvoked: (_) {
-        logoutAndGoToSignIn();
+        if (!widget.isSwitchFlow) onBack();
       },
       child: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
-          if (state is! AuthLoaded) {
+          if (widget.isSwitchFlow && _loading) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
           }
 
-          final login = state.loginResponse;
-          final userName = login.displayName.isNotEmpty
-              ? login.displayName
-              : login.email;
+          if (state is! AuthLoaded && !widget.isSwitchFlow) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final login = state is AuthLoaded ? state.loginResponse : null;
+          final userName = login?.displayName.isNotEmpty == true
+              ? login!.displayName
+              : (login?.email ?? '');
           final userRole =
-              login.roles.isNotEmpty ? login.roles.first.role : '';
+              login?.roles.isNotEmpty == true ? login!.roles.first.role : '';
 
-          final orgCodes = login.roles
-              .map((r) => r.organizationCode)
-              .where((c) => c.isNotEmpty)
-              .toSet()
-              .toList();
-
-          // Use API-provided organization NAMES when available, otherwise fall back to codes.
-          final orgNames = state.orgNames;
-          final List<String> orgDisplayItems = (orgNames.length == orgCodes.length && orgNames.isNotEmpty)
-              ? orgNames
-              : orgCodes;
+          List<String> orgCodes;
+          List<String> orgDisplayItems;
+          if (widget.isSwitchFlow && _orgSchoolList.isNotEmpty) {
+            orgCodes = _orgSchoolList
+                .map((e) => e['organizationCode'] ?? '')
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList();
+            orgDisplayItems = orgCodes;
+          } else if (state is AuthLoaded) {
+            orgCodes = state.loginResponse.roles
+                .map((r) => r.organizationCode)
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList();
+            final orgNames = state.orgNames;
+            orgDisplayItems = (orgNames.length == orgCodes.length &&
+                    orgNames.isNotEmpty)
+                ? orgNames
+                : orgCodes;
+          } else {
+            orgCodes = [];
+            orgDisplayItems = [];
+          }
 
           final isNextEnabled = _selectedOrgCode != null && orgCodes.isNotEmpty;
 
@@ -85,7 +136,7 @@ class _OrganizationSelectionScreenState
                             color: const Color(0xFF333333),
                             size: screenHeight * 0.03,
                           ),
-                          onPressed: logoutAndGoToSignIn,
+                          onPressed: onBack,
                         ),
                       ),
                     ),
@@ -125,7 +176,7 @@ class _OrganizationSelectionScreenState
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   DocumentImageWidget(
-                                    fileUuid: login.userCode,
+                                    fileUuid: login?.userCode ?? '',
                                     name: userName,
                                     size: screenHeight * 0.07,
                                     fontSize: screenHeight * 0.024,
@@ -261,10 +312,19 @@ class _OrganizationSelectionScreenState
                           onTap: isNextEnabled
                               ? () {
                                   if (_selectedOrgCode == null) return;
+                                  final schoolsForOrg = widget.isSwitchFlow
+                                      ? _orgSchoolList
+                                          .where((e) =>
+                                              e['organizationCode'] ==
+                                              _selectedOrgCode)
+                                          .toList()
+                                      : null;
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => SchoolSelectionScreen(
                                         selectedOrg: _selectedOrgCode!,
+                                        isSwitchFlow: widget.isSwitchFlow,
+                                        schoolsForOrg: schoolsForOrg,
                                       ),
                                     ),
                                   );

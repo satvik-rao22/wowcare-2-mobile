@@ -10,6 +10,7 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -95,9 +96,14 @@ class _SignInScreenState extends State<SignInScreen>
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
-      
-      // Flow: Login -> Role selection -> Dashboard
-      Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
+
+      // Login-context returned last school: go straight to Dashboard.
+      // Otherwise: Role selection -> Dashboard.
+      if (state.hasLastSchoolFromContext) {
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      } else {
+        Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
+      }
     } else if (state is AuthError) {
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(

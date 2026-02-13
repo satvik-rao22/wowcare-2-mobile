@@ -232,24 +232,9 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
               );
               await authLocal.saveLoginContext(contextData);
 
-              // Best-effort: if the context payload exposes org/school codes,
-              // sync them into the generic storage keys so all APIs use them.
-              final orgCode =
-                  (contextData['organizationCode'] as String?) ?? '';
-              if (orgCode.isNotEmpty) {
-                await storage.saveString(
-                  StorageKeys.organizationCode,
-                  orgCode,
-                );
-              }
-              final schoolCode =
-                  (contextData['schoolCode'] as String?) ?? '';
-              if (schoolCode.isNotEmpty) {
-                await storage.saveString(
-                  StorageKeys.schoolCode,
-                  schoolCode,
-                );
-              }
+              // Sync org/school from login-context (LastLoginOrganizationCode,
+              // LastLoginSchoolCode) into storage so all APIs use them.
+              await authLocal.saveOrgAndSchoolFromContext(contextData);
             }
           } catch (_) {
             // Non-fatal: if context fetch fails, we still navigate to dashboard.
