@@ -1,3 +1,5 @@
+/// Auth header helper for API requests.
+/// Use [authorizedJson] to build headers with Bearer token for authenticated APIs.
 class ApiHeaders {
   ApiHeaders._();
 
@@ -7,7 +9,8 @@ class ApiHeaders {
     'accept': 'application/json',
   };
 
-  /// JSON headers with Authorization bearer token.
+  /// JSON headers with Authorization Bearer token.
+  /// Returns Content-Type, accept, and Authorization: Bearer {token} when token is non-empty.
   static Map<String, String> authorizedJson(String accessToken) {
     return {
       ...json,

@@ -91,7 +91,10 @@ class _SignInScreenState extends State<SignInScreen>
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => SchoolSelectionScreen(selectedOrg: orgCode),
+          builder: (_) => SchoolSelectionScreen(
+            selectedOrg: orgCode,
+            orgFromLoginContext: true,
+          ),
         ),
       );
     } else {

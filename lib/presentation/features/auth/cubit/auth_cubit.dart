@@ -54,11 +54,11 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Updates backend login-context (last org/school) via PATCH. Call when user
-  /// selects org (school can be empty) or school. Non-blocking: failures are
-  /// ignored so navigation is not blocked.
+  /// selects org (schoolCode null) or school. Sends null for empty values.
+  /// Non-blocking: failures are ignored so navigation is not blocked.
   Future<void> updateLoginContext({
-    required String lastLoginOrganizationCode,
-    required String lastLoginSchoolCode,
+    required String? lastLoginOrganizationCode,
+    required String? lastLoginSchoolCode,
   }) async {
     String? accessToken;
     if (state is AuthLoaded) {
@@ -132,8 +132,8 @@ class AuthCubit extends Cubit<AuthState> {
               await _localDataSource.saveOrgAndSchoolFromContext(contextData);
           
           // When orgCode or schoolCode is null (or both), use redirectUrl to decide where to open.
-          final String orgCode = ((contextData['LastLoginOrganizationCode'] as String?)?.trim ?? '').toString();
-          final String schoolCode = ((contextData['LastLoginSchoolCode'] as String?)?.trim ?? '').toString();
+          final String orgCode = (contextData['LastLoginOrganizationCode'] as String?)?.trim() ?? '';
+          final String schoolCode = (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
           if (orgCode.isEmpty || schoolCode.isEmpty) {
             final rawRedirect = contextData['redirectUrl'];
             redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
@@ -154,7 +154,7 @@ class AuthCubit extends Cubit<AuthState> {
         emit(
           AuthLoaded(
             loginResponse: response,
-            schoolsByOrg: const {},
+            schoolsByOrg: const <String, List<Map<String, String>>>{},
             isPrefetchingSchools: false,
             lastErrorMessage: null,
             hasLastSchoolFromContext: hasLastSchoolFromContext,
@@ -173,6 +173,88 @@ class AuthCubit extends Cubit<AuthState> {
       }
     } catch (e) {
       emit(AuthError('Failed to load cached data: $e'));
+    }
+  }
+
+  /// Fetches school names for an org using role mapping: ORGANIZATION_ADMIN
+  /// → isAdmin true (all schools); SCHOOL_ADMIN → isAdmin false with school
+  /// codes from roles.
+  Future<void> loadSchoolsForOrg(String organizationCode) async {
+    LoginResponseModel? login;
+    if (state is AuthLoaded) {
+      login = (state as AuthLoaded).loginResponse;
+    } else {
+      login = await _localDataSource.getCachedLoginResponse();
+    }
+    if (login == null) return;
+
+    final rolesForOrg = login.roles
+        .where((r) => r.organizationCode == organizationCode)
+        .toList();
+    const orgAdminRole = 'ORGANIZATION_ADMIN';
+    final isOrgAdmin = rolesForOrg
+        .any((r) => r.role.toUpperCase() == orgAdminRole.toUpperCase());
+    final schoolCodes = rolesForOrg
+        .map((r) => r.schoolCode)
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final bool isAdmin;
+    final List<String> codes;
+    if (isOrgAdmin) {
+      isAdmin = true;
+      codes = [];
+    } else {
+      isAdmin = false;
+      codes = schoolCodes;
+    }
+
+    final prev = state is AuthLoaded ? state as AuthLoaded : null;
+    emit(AuthLoaded(
+      loginResponse: login,
+      schoolsByOrg: prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
+      isPrefetchingSchools: true,
+      lastErrorMessage: null,
+      orgNames: prev?.orgNames ?? const [],
+      hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+      redirectUrl: prev?.redirectUrl,
+    ));
+
+    try {
+      final result = await _remoteDataSource.getSchoolNamesByOrg(
+        organizationCode: organizationCode,
+        schoolCodes: codes,
+        isAdmin: isAdmin,
+        accessToken: login.accessToken,
+      );
+      final schoolList = result.dataWithCodes.isNotEmpty
+          ? result.dataWithCodes
+          : result.data
+              .map((n) => {'schoolCode': n, 'schoolName': n})
+              .toList();
+      final updated =
+          Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
+      updated[organizationCode] = schoolList;
+      emit(AuthLoaded(
+        loginResponse: login,
+        schoolsByOrg: updated,
+        isPrefetchingSchools: false,
+        lastErrorMessage: null,
+        orgNames: prev?.orgNames ?? const [],
+        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+        redirectUrl: prev?.redirectUrl,
+      ));
+    } catch (e) {
+      emit(AuthLoaded(
+        loginResponse: login,
+        schoolsByOrg: prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
+        isPrefetchingSchools: false,
+        lastErrorMessage: e.toString(),
+        orgNames: prev?.orgNames ?? const [],
+        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+        redirectUrl: prev?.redirectUrl,
+      ));
     }
   }
 
@@ -217,6 +299,38 @@ class AuthCubit extends Cubit<AuthState> {
       emit(const AuthInitial());
     } catch (e) {
       emit(AuthError('Failed to clear cache: $e'));
+    }
+  }
+
+  /// Fetches organization display names for given org codes.
+  /// Updates AuthLoaded.orgNames (same order as [organizationCodes]).
+  Future<void> loadOrganizationNames(List<String> organizationCodes) async {
+    if (organizationCodes.isEmpty) return;
+    LoginResponseModel? login;
+    if (state is AuthLoaded) {
+      login = (state as AuthLoaded).loginResponse;
+    } else {
+      login = await _localDataSource.getCachedLoginResponse();
+    }
+    if (login == null) return;
+
+    final prev = state is AuthLoaded ? state as AuthLoaded : null;
+    try {
+      final names = await _remoteDataSource.getOrganizationNames(
+        organizationCodes: organizationCodes,
+        accessToken: login.accessToken,
+      );
+      emit(AuthLoaded(
+        loginResponse: login,
+        schoolsByOrg: prev?.schoolsByOrg ?? const {},
+        isPrefetchingSchools: prev?.isPrefetchingSchools ?? false,
+        lastErrorMessage: prev?.lastErrorMessage,
+        orgNames: names,
+        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+        redirectUrl: prev?.redirectUrl,
+      ));
+    } catch (_) {
+      // Non-fatal: keep previous state, org names will fall back to codes
     }
   }
 }

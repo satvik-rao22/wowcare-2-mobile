@@ -18,8 +18,8 @@ abstract class AuthRemoteDataSource {
   });
   Future<void> patchLoginContext({
     required String accessToken,
-    required String lastLoginOrganizationCode,
-    required String lastLoginSchoolCode,
+    required String? lastLoginOrganizationCode,
+    required String? lastLoginSchoolCode,
     String? lastLoginApp,
     DateTime? lastLoginAt,
   });
@@ -296,16 +296,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> patchLoginContext({
     required String accessToken,
-    required String lastLoginOrganizationCode,
-    required String lastLoginSchoolCode,
+    required String? lastLoginOrganizationCode,
+    required String? lastLoginSchoolCode,
     String? lastLoginApp,
     DateTime? lastLoginAt,
   }) async {
     final url = ApiPaths.url(ApiPaths.authLoginContext);
+    final org = lastLoginOrganizationCode?.trim();
+    final school = lastLoginSchoolCode?.trim();
     final body = <String, dynamic>{
       'lastLoginApp': lastLoginApp ?? 'wowcare',
-      'lastLoginOrganizationCode': lastLoginOrganizationCode,
-      'lastLoginSchoolCode': lastLoginSchoolCode,
+      'lastLoginOrganizationCode': (org == null || org.isEmpty) ? null : org,
+      'lastLoginSchoolCode': (school == null || school.isEmpty) ? null : school,
       'lastLoginAt': (lastLoginAt ?? DateTime.now().toUtc()).toIso8601String(),
     };
     final requestBody = jsonEncode(body);
@@ -385,18 +387,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String accessToken,
   }) async {
     try {
-      // Use Sairam base URL for school-ms API
-      final url = ApiPaths.urlWithBase(
-        ApiPaths.schoolNamesByOrg,
-        ApiConstants.Sairam,
-      );
-      
-      // Build query parameters
+      // GET /api/v1/schools/names-by-org/{organizationCode}?isAdmin=true|false
+      final path = ApiPaths.schoolNamesByOrgPath(organizationCode);
+      final url = ApiPaths.urlWithBase(path, ApiConstants.schoolMs);
+
       final queryParams = <String, dynamic>{
-        'organizationCode': organizationCode,
         'isAdmin': isAdmin,
-        'schoolCodes': schoolCodes, // Include even if empty array
       };
+      if (schoolCodes.isNotEmpty) {
+        queryParams['schoolCodes'] = schoolCodes;
+      }
 
       final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
@@ -435,8 +435,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       final errorUrl = ApiPaths.urlWithBase(
-        ApiPaths.schoolNamesByOrg,
-        ApiConstants.Sairam,
+        ApiPaths.schoolNamesByOrgPath(organizationCode),
+        ApiConstants.schoolMs,
       );
       ApiLogger.logError(
         url: errorUrl,
@@ -466,8 +466,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } catch (e, stackTrace) {
       final errorUrl = ApiPaths.urlWithBase(
-        ApiPaths.schoolNamesByOrg,
-        ApiConstants.Sairam,
+        ApiPaths.schoolNamesByOrgPath(organizationCode),
+        ApiConstants.schoolMs,
       );
       ApiLogger.logUnexpectedError(
         url: errorUrl,
@@ -492,7 +492,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       // Use Sairam base URL for organization names (same as school-ms)
       final url = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
-        ApiConstants.Sairam,
+        ApiConstants.baseUrl,
       );
 
       final queryParams = <String, dynamic>{
@@ -528,10 +528,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         final apiResponse = ApiResponse<List<String>>.fromJson(
           response.data!,
           (dataJson) {
-            if (dataJson is List) {
-              return dataJson.map((e) => e.toString()).toList();
+            if (dataJson is! List) return <String>[];
+            final codeToName = <String, String>{};
+            for (final e in dataJson) {
+              if (e is Map && e['code'] != null && e['name'] != null) {
+                codeToName[e['code'].toString()] = e['name'].toString();
+              }
             }
-            return <String>[];
+            return organizationCodes
+                .map((c) => codeToName[c] ?? c)
+                .toList();
           },
         );
         return apiResponse.data ?? <String>[];
@@ -546,7 +552,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } on DioException catch (e) {
       final errorUrl = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
-        ApiConstants.Sairam,
+        ApiConstants.baseUrl,
       );
       ApiLogger.logError(
         url: errorUrl,
@@ -577,7 +583,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e, stackTrace) {
       final errorUrl = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
-        ApiConstants.Sairam,
+        ApiConstants.baseUrl,
       );
       ApiLogger.logUnexpectedError(
         url: errorUrl,

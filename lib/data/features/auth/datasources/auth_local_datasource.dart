@@ -65,14 +65,26 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       jsonEncode(response.roles.map((r) => r.toJson()).toList()),
     );
 
-    // Save org+school list from roles (user may have multiple)
+    // Save org+school list from roles (user may have multiple).
+    // Include ORGANIZATION_ADMIN (schoolCode null) so org appears; schools
+    // will be fetched via API when user selects that org.
     final orgSchoolList = <Map<String, String>>[];
     for (final r in response.roles) {
-      if (r.organizationCode.isNotEmpty && r.schoolCode.isNotEmpty) {
+      if (r.organizationCode.isEmpty) continue;
+      final schoolCode = r.schoolCode.trim();
+      final isOrgAdmin =
+          r.role.toUpperCase() == 'ORGANIZATION_ADMIN';
+      if (isOrgAdmin) {
         orgSchoolList.add({
           'organizationCode': r.organizationCode,
-          'schoolCode': r.schoolCode,
-          'schoolName': r.schoolCode,
+          'schoolCode': '',
+          'schoolName': '',
+        });
+      } else if (schoolCode.isNotEmpty) {
+        orgSchoolList.add({
+          'organizationCode': r.organizationCode,
+          'schoolCode': schoolCode,
+          'schoolName': schoolCode,
         });
       }
     }
@@ -196,8 +208,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
                 'schoolCode': (m['schoolCode'] ?? '').toString(),
                 'schoolName': (m['schoolName'] ?? m['schoolCode'] ?? '').toString(),
               })
-          .where((m) =>
-              m['organizationCode']!.isNotEmpty && m['schoolCode']!.isNotEmpty)
+          .where((m) => m['organizationCode']!.isNotEmpty)
           .toList();
     }
     if (raw is String) {

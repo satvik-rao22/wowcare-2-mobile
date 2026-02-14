@@ -11,6 +11,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
@@ -222,6 +224,7 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         // - Always call login-context on app start if we already have a login,
         //   so backend can tell us which org/school should be active.
         if (loginCompleted) {
+          String? redirectUrl;
           try {
             final authLocal = serviceLocator<AuthLocalDataSource>();
             final cachedLogin = await authLocal.getCachedLoginResponse();
@@ -235,9 +238,75 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
               // Sync org/school from login-context (LastLoginOrganizationCode,
               // LastLoginSchoolCode) into storage so all APIs use them.
               await authLocal.saveOrgAndSchoolFromContext(contextData);
+
+              // When school is null, backend may return redirectUrl to tell us
+              // where to go (select-school, select-organization, select-app).
+              final String orgCode =
+                  (contextData['LastLoginOrganizationCode'] as String?)?.trim() ?? '';
+              final String schoolCode =
+                  (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
+              if (orgCode.isEmpty || schoolCode.isEmpty) {
+                final rawRedirect = contextData['redirectUrl'];
+                redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
+                if (redirectUrl != null && redirectUrl.isNotEmpty) {
+                  // Save org if present (needed for SchoolSelectionScreen)
+                  if (orgCode.isNotEmpty) {
+                    await authLocal.setSelectedOrgAndSchool(
+                      organizationCode: orgCode,
+                      schoolCode: schoolCode,
+                      schoolName: '',
+                    );
+                  }
+                }
+              }
             }
           } catch (_) {
             // Non-fatal: if context fetch fails, we still navigate to dashboard.
+          }
+
+          if (redirectUrl != null && redirectUrl.isNotEmpty) {
+            final url = redirectUrl.toLowerCase();
+            if (url.contains('select-school')) {
+              final orgCode = await storage.getString(StorageKeys.organizationCode);
+              if (orgCode != null && orgCode.isNotEmpty) {
+                if (!mounted) return;
+                await context.read<AuthCubit>().loadCachedData();
+                if (!mounted) return;
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SchoolSelectionScreen(
+                      selectedOrg: orgCode,
+                      orgFromLoginContext: true,
+                    ),
+                  ),
+                );
+                return;
+              }
+              // Fallback: org not in storage, go to org selection first
+              if (!mounted) return;
+              await context.read<AuthCubit>().loadCachedData();
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const OrganizationSelectionScreen(),
+                ),
+              );
+              return;
+            }
+            if (url.contains('select-organization')) {
+              if (!mounted) return;
+              await context.read<AuthCubit>().loadCachedData();
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const OrganizationSelectionScreen(),
+                ),
+              );
+              return;
+            }
           }
 
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);

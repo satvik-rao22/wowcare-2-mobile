@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/util/api_constants.dart';
@@ -67,7 +68,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   serviceLocator.registerLazySingleton<ApiClient>(() => ApiClient(
         baseUrl: apiBaseUrl,
-        interceptors: <Interceptor>[],
+        interceptors: <Interceptor>[
+          AuthInterceptor(serviceLocator<StorageService>()),
+        ],
       ));
 
   // Auth Data Sources

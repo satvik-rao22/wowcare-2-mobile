@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -24,30 +23,25 @@ class OrganizationSelectionScreen extends StatefulWidget {
 class _OrganizationSelectionScreenState
     extends State<OrganizationSelectionScreen> {
   String? _selectedOrgCode;
-  List<Map<String, String>> _orgSchoolList = [];
-  bool _loading = true;
+  bool _hasTriggeredOrgNamesLoad = false;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.isSwitchFlow) {
-      _loadData();
-    }
-  }
-
-  Future<void> _loadData() async {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Always fetch fresh org names from API (no cache)
+    if (_hasTriggeredOrgNamesLoad) return;
     final authCubit = context.read<AuthCubit>();
-    if (authCubit.state is! AuthLoaded) {
-      await authCubit.loadCachedData();
-    }
-    final local = serviceLocator<AuthLocalDataSource>();
-    final list = await local.getOrganizationsAndSchools();
-    if (mounted) {
-      setState(() {
-        _orgSchoolList = list;
-        _loading = false;
-      });
-    }
+    if (authCubit.state is! AuthLoaded) return;
+    final orgCodes = (authCubit.state as AuthLoaded)
+        .loginResponse
+        .roles
+        .map((r) => r.organizationCode)
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+    if (orgCodes.isEmpty) return;
+    _hasTriggeredOrgNamesLoad = true;
+    authCubit.loadOrganizationNames(orgCodes);
   }
 
   @override
@@ -73,49 +67,30 @@ class _OrganizationSelectionScreenState
       },
       child: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
-          if (widget.isSwitchFlow && _loading) {
+          if (state is! AuthLoaded) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
           }
 
-          if (state is! AuthLoaded && !widget.isSwitchFlow) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          final login = state is AuthLoaded ? state.loginResponse : null;
-          final userName = login?.displayName.isNotEmpty == true
-              ? login!.displayName
-              : (login?.email ?? '');
+          final login = state.loginResponse;
+          final userName = login.displayName.isNotEmpty
+              ? login.displayName
+              : login.email;
           final userRole =
-              login?.roles.isNotEmpty == true ? login!.roles.first.role : '';
+              login.roles.isNotEmpty ? login.roles.first.role : '';
 
-          List<String> orgCodes;
-          List<String> orgDisplayItems;
-          if (widget.isSwitchFlow && _orgSchoolList.isNotEmpty) {
-            orgCodes = _orgSchoolList
-                .map((e) => e['organizationCode'] ?? '')
-                .where((c) => c.isNotEmpty)
-                .toSet()
-                .toList();
-            orgDisplayItems = orgCodes;
-          } else if (state is AuthLoaded) {
-            orgCodes = state.loginResponse.roles
-                .map((r) => r.organizationCode)
-                .where((c) => c.isNotEmpty)
-                .toSet()
-                .toList();
-            final orgNames = state.orgNames;
-            orgDisplayItems = (orgNames.length == orgCodes.length &&
-                    orgNames.isNotEmpty)
-                ? orgNames
-                : orgCodes;
-          } else {
-            orgCodes = [];
-            orgDisplayItems = [];
-          }
+          // Always use roles for org codes; org names from API (no cache)
+          final orgCodes = state.loginResponse.roles
+              .map((r) => r.organizationCode)
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList();
+          final orgNames = state.orgNames;
+          final orgDisplayItems = (orgNames.length == orgCodes.length &&
+                  orgNames.isNotEmpty)
+              ? orgNames
+              : orgCodes;
 
           final isNextEnabled = _selectedOrgCode != null && orgCodes.isNotEmpty;
 
@@ -176,7 +151,7 @@ class _OrganizationSelectionScreenState
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   DocumentImageWidget(
-                                    fileUuid: login?.userCode ?? '',
+                                    fileUuid: login.userCode,
                                     name: userName,
                                     size: screenHeight * 0.07,
                                     fontSize: screenHeight * 0.024,
@@ -305,62 +280,32 @@ class _OrganizationSelectionScreenState
                     ),
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: screenHeight * 0.06,
-                        child: InkWell(
-                          onTap: isNextEnabled
-                              ? () async {
-                                  if (_selectedOrgCode == null) return;
-                                  final authCubit = context.read<AuthCubit>();
-                                  await authCubit.updateLoginContext(
-                                    lastLoginOrganizationCode: _selectedOrgCode!,
-                                    lastLoginSchoolCode: '',
-                                  );
-                                  if (!context.mounted) return;
-                                  final schoolsForOrg = widget.isSwitchFlow
-                                      ? _orgSchoolList
-                                          .where((e) =>
-                                              e['organizationCode'] ==
-                                              _selectedOrgCode)
-                                          .toList()
-                                      : null;
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => SchoolSelectionScreen(
-                                        selectedOrg: _selectedOrgCode!,
-                                        isSwitchFlow: widget.isSwitchFlow,
-                                        schoolsForOrg: schoolsForOrg,
-                                      ),
+                      child: CustomButtonLayout(
+                        confirmButtonLabel: 'Continue',
+                        showCancelButton: false,
+                        isForm: false,
+                        onPressedConfirm: isNextEnabled
+                            ? () async {
+                                if (_selectedOrgCode == null) return;
+                                final authCubit = context.read<AuthCubit>();
+                                await authCubit.updateLoginContext(
+                                  lastLoginOrganizationCode: _selectedOrgCode!,
+                                  lastLoginSchoolCode: null,
+                                );
+                                if (!context.mounted) return;
+                                // Always pass null so school selection fetches fresh from API
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => SchoolSelectionScreen(
+                                      selectedOrg: _selectedOrgCode!,
+                                      isSwitchFlow: widget.isSwitchFlow,
+                                      schoolsForOrg: null,
+                                      orgFromLoginContext: !widget.isSwitchFlow,
                                     ),
-                                  );
-                                }
-                              : null,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              gradient: isNextEnabled
-                                  ? AppColors.buildPrimaryGradient()
-                                  : LinearGradient(
-                                      colors: [
-                                        Colors.grey.shade400,
-                                        Colors.grey.shade500,
-                                      ],
-                                    ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Continue',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Manrope',
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                                  ),
+                                );
+                              }
+                            : null,
                       ),
                     ),
                   ],

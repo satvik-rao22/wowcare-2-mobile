@@ -18,7 +18,7 @@ class AuthLoading extends AuthState {
 class AuthLoaded extends AuthState {
   const AuthLoaded({
     required this.loginResponse,
-    this.schoolsByOrg = const {},
+    this.schoolsByOrg = const <String, List<Map<String, String>>>{},
     this.isPrefetchingSchools = false,
     this.lastErrorMessage,
     this.orgNames = const [],
@@ -27,7 +27,8 @@ class AuthLoaded extends AuthState {
   });
 
   final LoginResponseModel loginResponse;
-  final Map<String, List<String>> schoolsByOrg;
+  /// Org code -> list of {schoolCode, schoolName} for school selection.
+  final Map<String, List<Map<String, String>>> schoolsByOrg;
   final bool isPrefetchingSchools;
   final String? lastErrorMessage;
   /// Organization display names, in the same order as the codes

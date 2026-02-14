@@ -6,7 +6,9 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -16,12 +18,16 @@ class SchoolSelectionScreen extends StatefulWidget {
     required this.selectedOrg,
     this.isSwitchFlow = false,
     this.schoolsForOrg,
+    /// True when org comes from login-context (redirect select-school).
+    /// Only then do we call names-by-org API for that org.
+    this.orgFromLoginContext = false,
   });
 
   final String selectedOrg;
   final bool isSwitchFlow;
   /// When switching org from Dashboard: list of {schoolCode, schoolName} for selected org.
   final List<Map<String, String>>? schoolsForOrg;
+  final bool orgFromLoginContext;
 
   @override
   State<SchoolSelectionScreen> createState() => _SchoolSelectionScreenState();
@@ -30,6 +36,17 @@ class SchoolSelectionScreen extends StatefulWidget {
 class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
   String? _selectedSchool;
   String? _selectedSchoolCode;
+  bool _hasTriggeredLoad = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Always fetch fresh school names from API (no cache)
+    if (!_hasTriggeredLoad) {
+      _hasTriggeredLoad = true;
+      context.read<AuthCubit>().loadSchoolsForOrg(widget.selectedOrg);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,19 +55,36 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
     final screenHeight = size.height - padding.top - padding.bottom;
     final screenWidth = size.width;
 
-    void onBack() {
+    Future<void> onBack() async {
       if (widget.isSwitchFlow) {
         Navigator.of(context).pop();
-      } else {
-        context.read<AuthCubit>().logout();
-        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+        return;
       }
+      if (widget.orgFromLoginContext) {
+        // Redirect flow: PATCH login-context with org and school both null,
+        // then go to org selection so user can select org -> school again
+        final authCubit = context.read<AuthCubit>();
+        await authCubit.updateLoginContext(
+          lastLoginOrganizationCode: null,
+          lastLoginSchoolCode: null,
+        );
+        if (!context.mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const OrganizationSelectionScreen(isSwitchFlow: true),
+          ),
+        );
+        return;
+      }
+      context.read<AuthCubit>().logout();
+      Navigator.pushReplacementNamed(context, SignInScreen.routeName);
     }
 
     return PopScope(
-      canPop: widget.isSwitchFlow,
-      onPopInvoked: (_) {
-        if (!widget.isSwitchFlow) onBack();
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await onBack();
       },
       child: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
@@ -85,14 +119,16 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
             orgDisplayName = orgNames[orgIndex];
           }
 
-          final schools = widget.schoolsForOrg != null
-              ? widget.schoolsForOrg!
-                  .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
-                  .where((s) => s.isNotEmpty)
-                  .toList()
-              : (state is AuthLoaded
-                  ? (state.schoolsByOrg[widget.selectedOrg] ?? const <String>[])
-                  : const <String>[]);
+          final List<Map<String, String>> schoolEntries =
+              widget.schoolsForOrg != null
+                  ? widget.schoolsForOrg!
+                  : (state is AuthLoaded
+                      ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
+                      : const <Map<String, String>>[]);
+          final schools = schoolEntries
+              .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
+              .where((s) => s.isNotEmpty)
+              .toList();
           final isLoading = state is AuthLoaded &&
               state.isPrefetchingSchools &&
               schools.isEmpty;
@@ -297,8 +333,8 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 onSelect: (value) {
                                   setState(() {
                                     _selectedSchool = value;
-                                    if (widget.schoolsForOrg != null && value != null) {
-                                      final entry = widget.schoolsForOrg!.firstWhere(
+                                    if (value != null && schoolEntries.isNotEmpty) {
+                                      final entry = schoolEntries.firstWhere(
                                         (e) =>
                                             (e['schoolName'] ?? e['schoolCode']) ==
                                             value,
@@ -318,66 +354,41 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                     ),
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: screenHeight * 0.06,
-                        child: InkWell(
-                          onTap: isNextEnabled
-                              ? () async {
-                                  if (_selectedSchool == null) return;
-                                  final authCubit = context.read<AuthCubit>();
-                                  final schoolCode = _selectedSchoolCode ??
-                                      _selectedSchool!;
-                                  await authCubit.updateLoginContext(
-                                    lastLoginOrganizationCode: widget.selectedOrg,
-                                    lastLoginSchoolCode: schoolCode,
+                      child: CustomButtonLayout(
+                        confirmButtonLabel: 'Continue',
+                        showCancelButton: false,
+                        isForm: false,
+                        onPressedConfirm: isNextEnabled
+                            ? () async {
+                                if (_selectedSchool == null) return;
+                                final authCubit = context.read<AuthCubit>();
+                                final schoolCode = _selectedSchoolCode ??
+                                    _selectedSchool!;
+                                await authCubit.updateLoginContext(
+                                  lastLoginOrganizationCode: widget.selectedOrg,
+                                  lastLoginSchoolCode: schoolCode,
+                                );
+                                if (widget.isSwitchFlow) {
+                                  await authCubit.setSelectedOrgAndSchool(
+                                    organizationCode: widget.selectedOrg,
+                                    schoolCode: schoolCode,
+                                    schoolName: _selectedSchool,
                                   );
-                                  if (widget.isSwitchFlow) {
-                                    await authCubit.setSelectedOrgAndSchool(
-                                      organizationCode: widget.selectedOrg,
-                                      schoolCode: schoolCode,
-                                      schoolName: _selectedSchool,
-                                    );
-                                  } else {
-                                    await authCubit.completeLogin(
-                                      selectedOrgCode: widget.selectedOrg,
-                                      selectedSchoolName: _selectedSchool!,
-                                      selectedSchoolCode: _selectedSchoolCode,
-                                    );
-                                  }
-                                  if (!context.mounted) return;
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => const DashboardScreen(),
-                                    ),
+                                } else {
+                                  await authCubit.completeLogin(
+                                    selectedOrgCode: widget.selectedOrg,
+                                    selectedSchoolName: _selectedSchool!,
+                                    selectedSchoolCode: _selectedSchoolCode,
                                   );
                                 }
-                              : null,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              gradient: isNextEnabled
-                                  ? AppColors.buildPrimaryGradient()
-                                  : LinearGradient(
-                                      colors: [
-                                        Colors.grey.shade400,
-                                        Colors.grey.shade500,
-                                      ],
-                                    ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Continue',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Manrope',
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                                if (!context.mounted) return;
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (_) => const DashboardScreen(),
+                                  ),
+                                );
+                              }
+                            : null,
                       ),
                     ),
                   ],
