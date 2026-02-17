@@ -16,6 +16,8 @@ abstract class StudentRemoteDataSource {
     int size = 10,
   });
 
+  Future<StudentProfileModel> getStudentProfile(String code);
+
   Future<String> deactivateStudent(String code);
 
   Future<String> reactivateStudent(String code);
@@ -91,6 +93,24 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     return StudentPageModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<StudentProfileModel> getStudentProfile(String code) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentProfile(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student profile API response format');
+    }
+
+    return StudentProfileModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
   }
 
   @override

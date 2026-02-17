@@ -101,6 +101,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                   ),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
+                      final responsive = ResponsiveHelper(context);
                       filteredTags = widget.availableOptions
                           .where((tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()))
                           .toList();
@@ -152,7 +153,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                                     widget.clearSelectionText,
                                                     style: TextStyle(
                                                       fontFamily: "Manrope",
-                                                      fontSize: 14,
+                                                      fontSize: responsive.inputFontSize,
                                                       fontWeight: FontWeight.w500,
                                                       color: hasSelections
                                                           ? Color(0xff573353)
@@ -194,11 +195,11 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                         Expanded(
                                           child: Text(
                                             tag,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontFamily: "Manrope",
-                                              fontSize: 14,
+                                              fontSize: responsive.inputFontSize,
                                               fontWeight: FontWeight.w500,
-                                              color: Color(0xff573353),
+                                              color: const Color(0xff573353),
                                             ),
                                           ),
                                         ),
@@ -251,7 +252,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
             text: TextSpan(
               style: TextStyle(
                 fontSize: responsive.labelFontSize,
-                fontFamily: "Manpore",
+                fontFamily: "Manrope",
                 fontWeight: FontWeight.w400,
                 color: const Color(0xff573353),
               ),
@@ -261,7 +262,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
       
           // Main field with chips
           GestureDetector(
@@ -292,7 +293,12 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         widget.hintText,
-                        style: const TextStyle(color: Color(0xff573353), fontSize: 14),
+                        style: TextStyle(
+                          color: const Color(0xff573353),
+                          fontSize: responsive.inputFontSize,
+                          fontFamily: 'Manrope',
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     )
                   else
@@ -315,7 +321,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                   style: TextStyle(
                                     color: _getTagTextColor(tag),
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 14,
+                                    fontSize: responsive.inputFontSize,
                                     fontFamily: 'Manrope',
                                   ),
                                   overflow: TextOverflow.ellipsis,

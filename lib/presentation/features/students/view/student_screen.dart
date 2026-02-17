@@ -203,6 +203,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                     ?.map((e) => e.toString())
                                     .toList() ??
                                     [],
+                                studentCode: studentMap['code'] as String?,
                               )
                             )
                           );

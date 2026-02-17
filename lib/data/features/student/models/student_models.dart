@@ -128,3 +128,157 @@ class StudentPageModel extends Equatable {
   }
 }
 
+class StudentImportantDatesModel extends Equatable {
+  const StudentImportantDatesModel({
+    this.enrollDate,
+    this.schoolStartDate,
+    this.currentClassroomStartDate,
+    this.upcomingMoveDate,
+    this.schoolLeavingDate,
+  });
+
+  final String? enrollDate;
+  final String? schoolStartDate;
+  final String? currentClassroomStartDate;
+  final String? upcomingMoveDate;
+  final String? schoolLeavingDate;
+
+  factory StudentImportantDatesModel.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const StudentImportantDatesModel();
+    }
+    return StudentImportantDatesModel(
+      enrollDate: json['enrollDate'] as String?,
+      schoolStartDate: json['schoolStartDate'] as String?,
+      currentClassroomStartDate: json['currentClassroomStartDate'] as String?,
+      upcomingMoveDate: json['upcomingMoveDate'] as String?,
+      schoolLeavingDate: json['schoolLeavingDate'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (enrollDate != null) 'enrollDate': enrollDate,
+      if (schoolStartDate != null) 'schoolStartDate': schoolStartDate,
+      if (currentClassroomStartDate != null)
+        'currentClassroomStartDate': currentClassroomStartDate,
+      if (upcomingMoveDate != null) 'upcomingMoveDate': upcomingMoveDate,
+      if (schoolLeavingDate != null) 'schoolLeavingDate': schoolLeavingDate,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        enrollDate,
+        schoolStartDate,
+        currentClassroomStartDate,
+        upcomingMoveDate,
+        schoolLeavingDate,
+      ];
+}
+
+class StudentProfileModel extends Equatable {
+  const StudentProfileModel({
+    required this.code,
+    required this.schoolCode,
+    required this.firstName,
+    required this.lastName,
+    required this.status,
+    this.classroom,
+    this.dob,
+    this.notes,
+    this.profilePhotoUrl,
+    this.fte,
+    this.legalCustodians = const [],
+    this.subsidy = false,
+    this.address,
+    this.siblings,
+    this.importantDates,
+    this.regularSchedules = const [],
+  });
+
+  final String code;
+  final String schoolCode;
+  final String firstName;
+  final String lastName;
+  final String status;
+  final String? classroom;
+  final String? dob;
+  final String? notes;
+  final String? profilePhotoUrl;
+  final String? fte;
+  final List<dynamic> legalCustodians;
+  final bool subsidy;
+  final Map<String, dynamic>? address;
+  final Map<String, dynamic>? siblings;
+  final StudentImportantDatesModel? importantDates;
+  final List<dynamic> regularSchedules;
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory StudentProfileModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    final importantDatesJson = data['importantDates'] as Map<String, dynamic>?;
+
+    return StudentProfileModel(
+      code: data['code'] as String? ?? '',
+      schoolCode: data['schoolCode'] as String? ?? '',
+      firstName: data['firstName'] as String? ?? '',
+      lastName: data['lastName'] as String? ?? '',
+      status: data['status'] as String? ?? '',
+      classroom: data['classroom'] as String?,
+      dob: data['dob'] as String?,
+      notes: data['notes'] as String?,
+      profilePhotoUrl: data['profilePhotoUrl'] as String?,
+      fte: data['fte'] as String?,
+      legalCustodians: data['legalCustodians'] as List<dynamic>? ?? const [],
+      subsidy: data['subsidy'] as bool? ?? false,
+      address: data['address'] as Map<String, dynamic>?,
+      siblings: data['siblings'] as Map<String, dynamic>?,
+      importantDates: StudentImportantDatesModel.fromJson(importantDatesJson),
+      regularSchedules: data['regularSchedules'] as List<dynamic>? ?? const [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      'schoolCode': schoolCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'status': status,
+      if (classroom != null) 'classroom': classroom,
+      if (dob != null) 'dob': dob,
+      if (notes != null) 'notes': notes,
+      if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
+      if (fte != null) 'fte': fte,
+      'legalCustodians': legalCustodians,
+      'subsidy': subsidy,
+      if (address != null) 'address': address,
+      if (siblings != null) 'siblings': siblings,
+      if (importantDates != null) 'importantDates': importantDates!.toJson(),
+      'regularSchedules': regularSchedules,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        code,
+        schoolCode,
+        firstName,
+        lastName,
+        status,
+        classroom,
+        dob,
+        notes,
+        profilePhotoUrl,
+        fte,
+        legalCustodians,
+        subsidy,
+        address,
+        siblings,
+        importantDates,
+        regularSchedules,
+      ];
+}
+
