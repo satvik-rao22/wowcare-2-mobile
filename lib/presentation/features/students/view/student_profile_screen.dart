@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
@@ -8,6 +9,8 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_profile_tab.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
 
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -47,6 +50,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+
+    // Cache-first classroom load (won't refetch if already loaded).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        context.read<ClassroomCubit>().loadActiveClassrooms();
+      } catch (_) {
+        // If no ClassroomCubit is provided above, build() will wrap with one.
+      }
+    });
   }
 
   @override
@@ -76,6 +89,31 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Ensure classroom list is available for any downstream screens (edit dropdown etc.)
+    // - If a ClassroomCubit is already provided (e.g. from StudentScreen), reuse it.
+    // - Otherwise, create it here and load once.
+    final hasClassroomCubit = (() {
+      try {
+        context.read<ClassroomCubit>();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    if (!hasClassroomCubit) {
+      return BlocProvider<ClassroomCubit>(
+        create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+        child: Builder(
+          builder: (context) => _buildScreen(context),
+        ),
+      );
+    }
+
+    return _buildScreen(context);
+  }
+
+  Widget _buildScreen(BuildContext context) {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,

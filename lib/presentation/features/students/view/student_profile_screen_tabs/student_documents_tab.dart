@@ -32,6 +32,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   bool _isLoading = false;
   bool _isLoadingMore = false;
 
+  Future<void> _refreshDocuments() async {
+    // TODO: Replace with real API integration (student documents endpoint)
+    // For now, trigger a rebuild so pull-to-refresh feels functional.
+    setState(() {});
+  }
+
   // Sample data - replace with actual data source
   // Using date format that matches staff version (yyyy-MM-dd for parsing)
   final List<Map<String, String>> _documents = [
@@ -62,10 +68,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
     return Scaffold(
       body: CustomRefreshIndicator(
-        onRefresh: () async {
-          // TODO: Add refresh logic to reload documents
-          await Future.delayed(const Duration(milliseconds: 500));
-        },
+        onRefresh: _refreshDocuments,
         child: NotificationListener<ScrollNotification>(
           onNotification: (notification) {
             // Only trigger on actual scroll updates, not on initial layout

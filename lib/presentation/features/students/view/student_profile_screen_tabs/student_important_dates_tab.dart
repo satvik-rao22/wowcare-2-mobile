@@ -21,6 +21,11 @@ class StudentImportantDatesTab extends StatefulWidget {
 }
 
 class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
+  Future<void> _refreshDates() async {
+    // TODO: Replace with real API integration for student important dates
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
@@ -42,10 +47,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
       removeLeft: true,
       removeRight: true,
       child: CustomRefreshIndicator(
-        onRefresh: () async {
-          // TODO: Add refresh logic to reload important dates
-          await Future.delayed(const Duration(milliseconds: 500));
-        },
+        onRefresh: _refreshDates,
         child: SingleChildScrollView(
           controller: widget.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),

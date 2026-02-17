@@ -191,20 +191,23 @@ class _StudentScreenState extends State<StudentScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => StudentProfileScreen(
-                                name: studentMap['name'] as String? ?? "Unknown Student",
-                                sibling: studentMap['sibling'] as Map<String, dynamic>,
-                                schedule : (studentMap['schedule'] as List<dynamic>?)
-                                    ?.map((e) => e.toString())
-                                    .toList() ??
-                                    ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-                                classroom: studentMap['Classroom'] as String? ?? "Unknown Class",
-                                tags: (studentMap['Tags'] as List<dynamic>?)
-                                    ?.map((e) => e.toString())
-                                    .toList() ??
-                                    [],
-                                studentCode: studentMap['code'] as String?,
-                              )
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<ClassroomCubit>(),
+                                child: StudentProfileScreen(
+                                  name: studentMap['name'] as String? ?? "Unknown Student",
+                                  sibling: studentMap['sibling'] as Map<String, dynamic>,
+                                  schedule : (studentMap['schedule'] as List<dynamic>?)
+                                      ?.map((e) => e.toString())
+                                      .toList() ??
+                                      ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                                  classroom: studentMap['Classroom'] as String? ?? "Unknown Class",
+                                  tags: (studentMap['Tags'] as List<dynamic>?)
+                                      ?.map((e) => e.toString())
+                                      .toList() ??
+                                      [],
+                                  studentCode: studentMap['code'] as String?,
+                                ),
+                              ),
                             )
                           );
                         }
@@ -615,6 +618,7 @@ class _StudentScreenState extends State<StudentScreen> {
                         return Column(
                           children: [
                             StudentCard(
+                              studentCode: studentMap['code'] as String,
                               name: studentMap['name'] as String,
                               classroom: studentMap['Classroom'] as String,
                               tags: studentMap['Tags'] as List<String>,
@@ -625,6 +629,7 @@ class _StudentScreenState extends State<StudentScreen> {
                               movementDate:
                                   studentMap['movementDate'] as String,
                               status: studentMap['Status'] as String,
+                              isActive: isActive,
                               isSelected: index < _selectedDemo.length
                                   ? _selectedDemo[index]
                                   : false,
@@ -639,7 +644,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 _selectAll = _selectedDemo.every((e) => e);
                               }),
                               onEdit: () {},
-                              onDeactivate: () async {
+                              onPrimaryAction: () async {
                                 try {
                                   final message = isActive
                                       ? await studentCubit

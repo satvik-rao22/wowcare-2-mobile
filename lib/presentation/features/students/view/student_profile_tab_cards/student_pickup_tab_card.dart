@@ -1,20 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/data/features/student/models/student_pickup_models.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
-
 
 class StudentPickupTabCard extends StatefulWidget {
   const StudentPickupTabCard({
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.studentCode,
+    this.onRefresh,
     super.key,
   });
 
   final ScrollController scrollController;
   final String name;
   final String classroom;
+  final String? studentCode;
+  final Future<void> Function()? onRefresh;
 
 
   @override
@@ -23,34 +34,189 @@ class StudentPickupTabCard extends StatefulWidget {
 }
 
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
+  late Future<List<StudentPickupModel>> _pickupsFuture;
 
   @override
   void initState() {
     super.initState();
+    _pickupsFuture = _buildPickupsFuture();
+  }
+
+  Future<List<StudentPickupModel>> _buildPickupsFuture() {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) {
+      return Future.value(const <StudentPickupModel>[]);
+    }
+    return serviceLocator<StudentRemoteDataSource>()
+        .getStudentPickups(studentCode: code);
+  }
+
+  Future<void> _handleRefresh() async {
+    setState(() {
+      _pickupsFuture = _buildPickupsFuture();
+    });
+    await widget.onRefresh?.call();
+    try {
+      await _pickupsFuture;
+    } catch (_) {
+      // swallow; UI handles errors
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      child: Column(
-        children: [
-          _PickupCard(name: "Pickup name", relation: 'Father', email: "father@mail.com", firstChild: true,),
-          SizedBox(height: 20,),
-          _PickupCard(name: "Back up pickup", relation: 'Family friend', email: "friend@mail.com", firstChild: false,)
-        ],
-      ),
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
 
+    return Stack(
+      children: [
+        CustomRefreshIndicator(
+          onRefresh: _handleRefresh,
+          child: SingleChildScrollView(
+            controller: widget.scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: FutureBuilder<List<StudentPickupModel>>(
+              future: _pickupsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 24),
+                    child: Center(child: PrimaryCircularLoader()),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: Colors.red, size: 40),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Failed to load pickups',
+                            style: AppTextStyles.value.copyWith(fontSize: 16),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            snapshot.error.toString(),
+                            style: AppTextStyles.label.copyWith(
+                              color: AppColors.primaryColor.withOpacity(0.6),
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: _handleRefresh,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                final pickups = snapshot.data ?? const <StudentPickupModel>[];
+                if (pickups.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Text(
+                        'No pickups found',
+                        style: AppTextStyles.value.copyWith(fontSize: 16),
+                      ),
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    for (int i = 0; i < pickups.length; i++) ...[
+                      _PickupCard(
+                        name: pickups[i].fullName.isNotEmpty
+                            ? pickups[i].fullName
+                            : '-',
+                        relation: _formatRelation(pickups[i].relation),
+                        email: _valueOrDash(pickups[i].email),
+                        phoneNumber: _valueOrDash(pickups[i].phoneNumber),
+                        firstChild: i == 0,
+                      ),
+                      if (i != pickups.length - 1) const SizedBox(height: 20),
+                    ],
+                    // extra space so the + button doesn't cover content
+                    SizedBox(height: 76 + bottomSafe),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16 + bottomSafe,
+          child: GradientAddButton(
+            onTap: () async {
+              final code = widget.studentCode ?? '';
+              if (code.isEmpty) return;
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AddPickupScreen(studentCode: code),
+                ),
+              );
+              if (result == true && mounted) {
+                await _handleRefresh();
+              }
+            },
+            size: 50.0,
+            iconSize: 28.0,
+            borderRadius: 12.0,
+          ),
+        ),
+      ],
     );
   }
 
 }
 
+String _valueOrDash(String? v) {
+  if (v == null) return '-';
+  final t = v.trim();
+  return t.isEmpty ? '-' : t;
+}
+
+String _formatRelation(String relation) {
+  final r = relation.trim();
+  if (r.isEmpty) return '-';
+  final upper = r.toUpperCase();
+  switch (upper) {
+    case 'FATHER':
+      return 'Father';
+    case 'MOTHER':
+      return 'Mother';
+    case 'GUARDIAN':
+      return 'Guardian';
+    default:
+      // Title-case fallback
+      return upper.substring(0, 1) + upper.substring(1).toLowerCase();
+  }
+}
+
 class _PickupCard extends StatelessWidget{
-  const _PickupCard({required this.name, required this.firstChild, this.relation, this.email});
+  const _PickupCard({
+    required this.name,
+    required this.firstChild,
+    this.relation,
+    this.email,
+    this.phoneNumber,
+  });
   final String name;
   final String? relation;
   final String? email;
+  final String? phoneNumber;
   final bool firstChild;// so that first card can have different top right corner radius
   @override
   Widget build(BuildContext context) {
@@ -127,7 +293,7 @@ class _PickupCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        relation!,
+                        relation ?? '-',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 15,
                         ),
@@ -148,7 +314,7 @@ class _PickupCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        email!,
+                        email ?? '-',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 15,
                         ),
@@ -169,7 +335,7 @@ class _PickupCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        "(986) 027-1627",
+                        phoneNumber ?? '-',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 15,
                         ),
@@ -177,57 +343,19 @@ class _PickupCard extends StatelessWidget{
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 40,
-                          child: OutlinedButton(
-                            onPressed: () {},
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(0xFF6C7FD8),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  8,
-                                ),
-                              ),
-                              padding: EdgeInsets.zero,
-                            ),
-                            child: Text(
-                              'Delete',
-                              style: AppTextStyles.button(color: const Color(0xFF6C7FD8)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            gradient:
-                            AppColors.buildPrimaryGradient(),
-                          ),
-                          child: TextButton(
-                            onPressed: () {
-
-                            },
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                            ),
-                            child: Text(
-                              'Edit',
-                              style: AppTextStyles.button(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 20),
+                  CustomButtonLayout(
+                    confirmButtonLabel: 'Edit',
+                    cancelButtonLabel: 'Delete',
+                    onPressedConfirm: () {
+                      // TODO: Implement Edit Pickup handler
+                    },
+                    onPressedCancel: () {
+                      // TODO: Implement Delete Pickup handler
+                    },
+                    isForm: false,
+                  ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),

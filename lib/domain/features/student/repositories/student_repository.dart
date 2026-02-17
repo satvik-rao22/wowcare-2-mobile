@@ -32,6 +32,14 @@ abstract class StudentRepository {
     DateTime? dob,
     DateTime? schoolStartDate,
   });
+
+  /// Updates student profile core details via `/api/v1/student/{code}/profile`.
+  ///
+  /// [fields] should follow the backend PATCH contract for `/api/v1/student/{code}/profile`.
+  Future<String> updateStudentProfile({
+    required String code,
+    required Map<String, dynamic> fields,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

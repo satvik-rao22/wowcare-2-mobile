@@ -49,6 +49,7 @@ class ProfileInfoCard extends StatelessWidget {
 
     return SingleChildScrollView(
       controller: scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       //padding: outerPadding,
       child: Container(
         width: double.infinity,

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -19,6 +23,7 @@ class StudentAboutTabCard extends StatefulWidget {
     required this.tags,
     required this.schedule,
     required this.sibling,
+    this.onRefresh,
     this.studentProfile,
     super.key,
   });
@@ -29,6 +34,7 @@ class StudentAboutTabCard extends StatefulWidget {
   final List<String> tags;
   final List<String> schedule;
   final Map<String, dynamic> sibling;
+  final Future<void> Function()? onRefresh;
   final StudentProfileModel? studentProfile;
 
   @override
@@ -130,29 +136,121 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    return ProfileInfoCard(
-      cardType: 'student',
-      title: 'Profile Information',
-      scrollController: widget.scrollController,
-      studentFirstField: ProfileField(label: 'Name', value: widget.name, isStudentStyle: true),
-      onEdit: () {
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        await widget.onRefresh?.call();
+      },
+      child: ProfileInfoCard(
+        cardType: 'student',
+        title: 'Profile Information',
+        scrollController: widget.scrollController,
+        studentFirstField:
+            ProfileField(label: 'Name', value: widget.name, isStudentStyle: true),
+        onEdit: () {
+        if (widget.studentProfile == null) return;
+        
+        final profile = widget.studentProfile!;
+        
+        // Map status from API format (ACTIVE) to display format (Active)
+        String statusDisplay = 'Active';
+        final upperStatus = profile.status.toUpperCase();
+        if (upperStatus == 'ACTIVE' || profile.status == 'A') {
+          statusDisplay = 'Active';
+        } else if (upperStatus == 'INACTIVE' || profile.status == 'I') {
+          statusDisplay = 'Inactive';
+        } else if (profile.status == 'Upcoming') {
+          statusDisplay = 'Upcoming';
+        } else if (upperStatus == 'WAITLIST') {
+          statusDisplay = 'Waitlist';
+        } else if (upperStatus == 'GRADUATED') {
+          statusDisplay = 'Graduated';
+        }
+        
+        // Parse birth date
+        DateTime? birthDate;
+        if (profile.dob != null && profile.dob!.isNotEmpty) {
+          try {
+            birthDate = DateTime.parse(profile.dob!);
+          } catch (e) {
+            birthDate = null;
+          }
+        }
+        
+        // Extract address fields
+        final address = profile.address;
+        final street = address?['street']?.toString() ?? '';
+        final city = address?['city']?.toString() ?? '';
+        final state = address?['state']?.toString() ?? '';
+        final country = address?['country']?.toString() ?? '';
+        final zipCode = address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
+        
+        // Extract tags (from widget tags for now)
+        final tags = widget.tags.isNotEmpty
+            ? List<String>.from(widget.tags)
+            : const <String>[];
+        
+        // Extract siblings (from siblings map if available)
+        final siblings = <String>[];
+        if (profile.siblings != null) {
+          // Assuming siblings is a map, extract names or codes
+          // Adjust based on actual structure
+          siblings.addAll([]); // TODO: Extract from siblings map structure
+        }
+        
+        // Extract legal custodians
+        final legalCustodians = <String>[];
+        if (profile.legalCustodians.isNotEmpty) {
+          for (final custodian in profile.legalCustodians) {
+            if (custodian is String) {
+              legalCustodians.add(custodian);
+            } else if (custodian is Map) {
+              // Extract name or code from map
+              final name = custodian['name']?.toString() ?? custodian['code']?.toString() ?? '';
+              if (name.isNotEmpty) legalCustodians.add(name);
+            }
+          }
+        }
+        
+        ClassroomCubit? classroomCubit;
+        try {
+          classroomCubit = context.read<ClassroomCubit>();
+        } catch (_) {
+          classroomCubit = null;
+        }
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const EditStudentProfileDetailsScreen(
-              initialFirstName: 'Jessica',
-              initialLastName: 'Rhodes',
-              initialStatus: 'Active',
-              initialClassroom: '1-Blue D X',
-              initialBirthDate: null,
-              initialNotes: '',
-              initialFTE: '80',
-              initialStreet: '',
-              initialCity: '',
-              initialState: 'New Hampshire',
-              initialCountry: 'United States',
-              initialZipCode: '',
-            ),
+            builder: (context) {
+              final screen = EditStudentProfileDetailsScreen(
+                studentCode: profile.code,
+                initialFirstName: profile.firstName,
+                initialLastName: profile.lastName,
+                initialStatus: statusDisplay,
+                initialClassroom: profile.classroom ?? '',
+                initialBirthDate: birthDate,
+                initialNotes: profile.notes ?? '',
+                initialFTE: profile.fte ?? '',
+                initialStreet: street,
+                initialCity: city,
+                initialState: state,
+                initialCountry: country,
+                initialZipCode: zipCode,
+                initialTags: tags,
+                initialSiblings: siblings,
+                initialLegalCustodians: legalCustodians,
+                initialSubsidy: profile.subsidy,
+              );
+
+              // Preserve already-loaded classrooms when available; otherwise load fresh.
+              if (classroomCubit != null) {
+                return BlocProvider.value(value: classroomCubit, child: screen);
+              }
+              return BlocProvider(
+                create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+                child: screen,
+              );
+            },
           ),
         );
       },
@@ -361,6 +459,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         _buildUpcomingMove(),
       ],
+      ),
     );
     // this was before using the reusable widget
     // return SingleChildScrollView(

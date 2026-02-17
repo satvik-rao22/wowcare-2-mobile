@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
 
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../view/edit_student_profile_details_screen.dart';
@@ -9,6 +12,7 @@ import '../view/edit_student_profile_details_screen.dart';
 class StudentCard extends StatefulWidget {
   const StudentCard({
     super.key,
+    required this.studentCode,
     required this.name,
     required this.classroom,
     this.avatarUrl,
@@ -18,12 +22,14 @@ class StudentCard extends StatefulWidget {
     required this.birthDate,
     required this.movementDate,
     required this.status,
-    this.onDeactivate,
+    required this.isActive,
+    this.onPrimaryAction,
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
   });
 
+  final String studentCode;
   final String name;
   final String classroom;
   final String? avatarUrl;
@@ -33,7 +39,8 @@ class StudentCard extends StatefulWidget {
   final String birthDate;
   final String movementDate;
   final String status;
-  final VoidCallback? onDeactivate;
+  final bool isActive;
+  final VoidCallback? onPrimaryAction;
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
@@ -428,10 +435,13 @@ class _StudentCardState extends State<StudentCard> {
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
-                                              type: 'student',
+                                              type: widget.isActive
+                                                  ? 'student_deactivate'
+                                                  : 'student_reactivate',
                                               onDelete: () {
-                                                Navigator.of(ctx).pop();
-                                                //widget.onDelete?.call();
+                                                // Let the confirmation sheet show its loader
+                                                // while the actual API logic runs.
+                                                widget.onPrimaryAction?.call();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -451,9 +461,11 @@ class _StudentCardState extends State<StudentCard> {
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
-                                        'Deactivate',
-                                        style: TextStyle(
+                                      child: Text(
+                                        widget.isActive
+                                            ? 'Deactivate'
+                                            : 'Reactivate',
+                                        style: const TextStyle(
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
@@ -483,23 +495,55 @@ class _StudentCardState extends State<StudentCard> {
                                         final initialFirstName = parts.isNotEmpty ? parts.first : '';
                                         final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
+                                        // Map status from API format (ACTIVE) to display format (Active)
+                                        String statusDisplay = 'Active';
+                                        final upperStatus = widget.status.toUpperCase();
+                                        if (upperStatus == 'ACTIVE' || widget.status == 'A') {
+                                          statusDisplay = 'Active';
+                                        } else if (upperStatus == 'INACTIVE' || widget.status == 'I') {
+                                          statusDisplay = 'Inactive';
+                                        } else if (upperStatus == 'UPCOMING' || widget.status == 'Upcoming') {
+                                          statusDisplay = 'Upcoming';
+                                        } else if (upperStatus == 'WAITLIST') {
+                                          statusDisplay = 'Waitlist';
+                                        } else if (upperStatus == 'GRADUATED') {
+                                          statusDisplay = 'Graduated';
+                                        }
+
+                                        ClassroomCubit? classroomCubit;
+                                        try {
+                                          classroomCubit =
+                                              context.read<ClassroomCubit>();
+                                        } catch (_) {
+                                          classroomCubit = null;
+                                        }
+
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) => EditStudentProfileDetailsScreen(
-                                              initialFirstName: initialFirstName,
-                                              initialLastName: initialLastName,
-                                              initialStatus: 'Active',
-                                              initialClassroom: '1-Blue D X',
-                                              initialBirthDate: null,
-                                              initialNotes: '',
-                                              initialFTE: '80',
-                                              initialStreet: '',
-                                              initialCity: '',
-                                              initialState: 'New Hampshire',
-                                              initialCountry: 'United States',
-                                              initialZipCode: '',
-                                            ),
+                                            builder: (context) {
+                                              final screen = EditStudentProfileDetailsScreen(
+                                                studentCode: widget.studentCode,
+                                                initialFirstName: initialFirstName,
+                                                initialLastName: initialLastName,
+                                                initialStatus: statusDisplay,
+                                                initialClassroom: widget.classroom,
+                                              );
+
+                                              // Preserve already-loaded classrooms when available; otherwise load fresh.
+                                              if (classroomCubit != null) {
+                                                return BlocProvider.value(
+                                                  value: classroomCubit,
+                                                  child: screen,
+                                                );
+                                              }
+                                              return BlocProvider(
+                                                create: (_) =>
+                                                    serviceLocator<ClassroomCubit>()
+                                                      ..loadActiveClassrooms(),
+                                                child: screen,
+                                              );
+                                            },
                                           ),
                                         );
 

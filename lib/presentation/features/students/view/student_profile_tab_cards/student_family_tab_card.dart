@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
 
@@ -9,12 +11,14 @@ class StudentFamilyTabCard extends StatefulWidget {
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.onRefresh,
     super.key,
   });
 
   final ScrollController scrollController;
   final String name;
   final String classroom;
+  final Future<void> Function()? onRefresh;
 
 
   @override
@@ -31,16 +35,29 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      child: Column(
-        children: [
-          _FamilyCard(name: "Parent name", relation: 'Father', email: "father@mail.com",),
-          SizedBox(height: 20,),
-          _FamilyCard(name: "Parent name", relation: 'Mother', email: "mother@mail.com",)
-        ],
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        await widget.onRefresh?.call();
+      },
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            _FamilyCard(
+              name: "Parent name",
+              relation: 'Father',
+              email: "father@mail.com",
+            ),
+            SizedBox(height: 20,),
+            _FamilyCard(
+              name: "Parent name",
+              relation: 'Mother',
+              email: "mother@mail.com",
+            )
+          ],
+        ),
       ),
-
     );
   }
 
@@ -192,57 +209,18 @@ class _FamilyCard extends StatelessWidget{
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 40,
-                          child: OutlinedButton(
-                            onPressed: () {},
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(0xFF6C7FD8),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  8,
-                                ),
-                              ),
-                              padding: EdgeInsets.zero,
-                            ),
-                            child: Text(
-                              'Delete',
-                              style: AppTextStyles.button(color: const Color(0xFF6C7FD8)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            gradient:
-                            AppColors.buildPrimaryGradient(),
-                          ),
-                          child: TextButton(
-                            onPressed: () {
-
-                            },
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                            ),
-                            child: Text(
-                              'Edit',
-                              style: AppTextStyles.button(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  CustomButtonLayout(
+                    confirmButtonLabel: 'Edit',
+                    cancelButtonLabel: 'Delete',
+                    onPressedConfirm: () {
+                      // TODO: Implement Edit Family handler
+                    },
+                    onPressedCancel: () {
+                      // TODO: Implement Delete Family handler
+                    },
+                    isForm: false,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),

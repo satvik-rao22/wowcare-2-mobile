@@ -6,16 +6,23 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/multi_selection_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:intl/intl.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
     super.key,
+    required this.studentCode,
     this.initialFirstName,
     this.initialLastName,
     this.initialStatus,
@@ -28,9 +35,14 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialState,
     this.initialCountry,
     this.initialZipCode,
+    this.initialTags = const [],
+    this.initialSiblings = const [],
+    this.initialLegalCustodians = const [],
+    this.initialSubsidy = false,
   });
   static const String routeName = '/edit-student-profile-details-screen';
 
+  final String studentCode;
   final String? initialFirstName;
   final String? initialLastName;
   final String? initialStatus;
@@ -43,6 +55,10 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final String? initialState;
   final String? initialCountry;
   final String? initialZipCode;
+  final List<String> initialTags;
+  final List<String> initialSiblings;
+  final List<String> initialLegalCustodians;
+  final bool initialSubsidy;
 
   @override
   _EditStudentProfileDetailsScreenState createState() => _EditStudentProfileDetailsScreenState();
@@ -69,6 +85,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
+  DateTime? _selectedUpcomingMoveDate;
 
   final List<String> _allTags = [
     '5 Days',
@@ -89,7 +106,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   ];
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
-  final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<String> _childCustodyOptions = ['Mother', 'Father', 'Both Mother and Father'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
@@ -109,9 +125,12 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     _notesController.text = widget.initialNotes ?? '';
     _FTEController.text = widget.initialFTE ?? '';
     _selectedStatus = widget.initialStatus;
-    _selectedStateSubsidyOption = null;
+    _selectedStateSubsidyOption = widget.initialSubsidy ? 'Yes' : 'No';
     _selectedClassroom = widget.initialClassroom;
     _selectedBirthDate = widget.initialBirthDate;
+    _selectedTags = List<String>.from(widget.initialTags);
+    _selectedSiblings = List<String>.from(widget.initialSiblings);
+    _selectedChildCustody = List<String>.from(widget.initialLegalCustodians);
     _streetController.text = widget.initialStreet ?? '';
     _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
@@ -223,19 +242,134 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       _isSubmitting = true;
     });
 
-    // Mock API call
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      // Map status display name to API value (e.g., "Active" -> "ACTIVE")
+      String statusApi = _selectedStatus ?? '';
+      if (statusApi.isNotEmpty) {
+        final statusMap = {
+          'Active': 'ACTIVE',
+          'Inactive': 'INACTIVE',
+          'Upcoming': 'UPCOMING',
+          'Waitlist': 'WAITLIST',
+          'Graduated': 'GRADUATED',
+        };
+        statusApi = statusMap[statusApi] ?? statusApi.toUpperCase();
+      }
+
+      // Map classroom display name -> classroom code for API (falls back to raw value).
+      ClassroomCubit? classroomCubit;
+      try {
+        classroomCubit = context.read<ClassroomCubit>();
+      } catch (_) {
+        classroomCubit = null;
+      }
+
+      final classrooms = classroomCubit?.state.classrooms ?? const <Classroom>[];
+      final classroomCodeByName = <String, String>{
+        for (final c in classrooms) c.name: c.code,
+      };
+      final selectedClassroomName = _selectedClassroom ?? '';
+      final classroomCode =
+          classroomCodeByName[selectedClassroomName] ?? selectedClassroomName;
+
+      // Map state/country display names back to codes for API
+      String stateCode = '';
+      if (_selectedState != null && _selectedState!.isNotEmpty) {
+        final match = US_STATES.firstWhere(
+          (s) => s.name.toLowerCase() == _selectedState!.toLowerCase(),
+          orElse: () => US_STATES.first,
+        );
+        stateCode = match.abbreviation;
+      }
+
+      String countryCode = '';
+      if (_selectedCountry != null && _selectedCountry!.isNotEmpty) {
+        final match = COUNTRY_LIST.firstWhere(
+          (c) => c.name.toLowerCase() == _selectedCountry!.toLowerCase(),
+          orElse: () => COUNTRY_LIST.first,
+        );
+        countryCode = match.code;
+      }
+
+      // Format dates as yyyy-MM-dd for API
+      final dateFormatter = DateFormat('yyyy-MM-dd');
+      String? dobFormatted;
+      if (_selectedBirthDate != null) {
+        dobFormatted = dateFormatter.format(_selectedBirthDate!);
+      }
+
+      String? upcomingMovesFormatted;
+      if (_selectedUpcomingMoveDate != null) {
+        upcomingMovesFormatted = dateFormatter.format(_selectedUpcomingMoveDate!);
+      }
+
+      // Map subsidy
+      final subsidy = _selectedStateSubsidyOption == 'Yes';
+
+      // Map FTE to number
+      int? fteNumber;
+      if (fte.isNotEmpty) {
+        fteNumber = int.tryParse(fte);
+      }
+
+      // Build payload according to API contract
+      final payload = <String, dynamic>{
+        'firstName': first,
+        'lastName': last,
+        'status': statusApi,
+        'classroom': classroomCode,
+        'tags': _selectedTags,
+        if (dobFormatted != null) 'dob': dobFormatted,
+        'notes': _notesController.text.trim(),
+        'subsidy': subsidy,
+        'legalCustodians': _selectedChildCustody,
+        'siblings': _selectedSiblings,
+        if (fteNumber != null) 'fte': fteNumber,
+        if (upcomingMovesFormatted != null) 'upcomingMoves': upcomingMovesFormatted,
+        // Address fields
+        'line1': _streetController.text.trim(),
+        'line2': _street2Controller.text.trim(),
+        'street': _streetController.text.trim(), // Some APIs use 'street' instead
+        'city': _cityController.text.trim(),
+        'state': stateCode,
+        'country': countryCode,
+        'postalCode': _zipCodeController.text.trim(),
+        // Optional address fields (set to empty if not used)
+        'room': '',
+        'building': '',
+        'apartment': '',
+      };
+
+      final repository = serviceLocator<StudentRepository>();
+
+      final message = await repository.updateStudentProfile(
+        code: widget.studentCode,
+        fields: payload,
+      );
+
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
       });
+
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Student profile updated successfully',
+        message: message,
         isSuccess: true,
       );
       Navigator.pop(context, true);
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
+    }
   }
 
   Future<void> _selectBirthDate() async {
@@ -261,9 +395,53 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
   @override
   Widget build(BuildContext context) {
+    // Ensure classrooms are available for the Classroom dropdown.
+    // If a ClassroomCubit is already provided (e.g. from Students flow), reuse it (no refetch).
+    // Otherwise, create it here and load once.
+    final hasClassroomCubit = (() {
+      try {
+        context.read<ClassroomCubit>();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    if (!hasClassroomCubit) {
+      return BlocProvider<ClassroomCubit>(
+        create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+        child: Builder(
+          builder: (context) => _buildScreen(context),
+        ),
+      );
+    }
+
+    return _buildScreen(context);
+  }
+
+  Widget _buildScreen(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
+
+    ClassroomState classroomState;
+    try {
+      classroomState = context.watch<ClassroomCubit>().state;
+    } catch (_) {
+      classroomState = const ClassroomState.initial();
+    }
+    final classroomOptions =
+        classroomState.classrooms.map((c) => c.name).toList(growable: false);
+
+    // Keep selected classroom as display name in UI, even if initial value is a code.
+    String? selectedClassroomName = _selectedClassroom;
+    if (selectedClassroomName != null && selectedClassroomName.isNotEmpty) {
+      final byCode = <String, String>{
+        for (final c in classroomState.classrooms) c.code: c.name,
+      };
+      selectedClassroomName =
+          byCode[selectedClassroomName] ?? selectedClassroomName;
+    }
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -345,7 +523,16 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Classroom", "Select", _classroomOptions, _selectedClassroom, (v) => setState(() => _selectedClassroom = v), isRequired: true),
+                        _buildCustomDropdown(
+                          "Classroom",
+                          (classroomState.isLoading && classroomOptions.isEmpty)
+                              ? "Loading..."
+                              : "Select",
+                          classroomOptions,
+                          selectedClassroomName,
+                          (v) => setState(() => _selectedClassroom = v),
+                          isRequired: true,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         MultiSelectWidget(
                           availableOptions: _allTags,

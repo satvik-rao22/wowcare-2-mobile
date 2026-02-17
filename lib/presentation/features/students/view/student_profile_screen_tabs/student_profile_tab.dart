@@ -4,6 +4,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../student_profile_tab_cards/student_family_tab_card.dart';
 import '../student_profile_tab_cards/student_pickup_tab_card.dart';
@@ -64,6 +66,20 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       _profileFuture = dataSource.getStudentProfile(widget.studentCode!);
     } else {
       _profileFuture = Future.value(null);
+    }
+  }
+
+  Future<void> _refreshProfile() async {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) return;
+    final dataSource = serviceLocator<StudentRemoteDataSource>();
+    setState(() {
+      _profileFuture = dataSource.getStudentProfile(code);
+    });
+    try {
+      await _profileFuture;
+    } catch (_) {
+      // UI handles errors
     }
   }
 
@@ -178,16 +194,20 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         tags: widget.tags,
                         schedule: widget.schedule,
                         sibling: widget.sibling,
+                        onRefresh: _refreshProfile,
                       ),
                       StudentFamilyTabCard(
                         scrollController: _familyScrollController,
                         name: widget.name,
                         classroom: widget.classroom,
+                        onRefresh: _refreshProfile,
                       ),
                       StudentPickupTabCard(
                         scrollController: _pickupScrollController,
                         name: widget.name,
                         classroom: widget.classroom,
+                        studentCode: widget.studentCode,
+                        onRefresh: _refreshProfile,
                       ),
                     ],
                   );
@@ -195,16 +215,26 @@ class _StudentProfileTabState extends State<StudentProfileTab>
 
                 // Loading state
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
+                  return CustomRefreshIndicator(
+                    onRefresh: _refreshProfile,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                      children: const [
+                        SizedBox(height: 80),
+                        Center(child: PrimaryCircularLoader()),
+                      ],
+                    ),
                   );
                 }
 
                 // Error state
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  return CustomRefreshIndicator(
+                    onRefresh: _refreshProfile,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                       children: [
                         const Icon(
                           Icons.error_outline,
@@ -215,6 +245,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         Text(
                           'Failed to load student profile',
                           style: Theme.of(context).textTheme.titleMedium,
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -224,12 +255,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              final dataSource = serviceLocator<StudentRemoteDataSource>();
-                              _profileFuture = dataSource.getStudentProfile(widget.studentCode!);
-                            });
-                          },
+                          onPressed: _refreshProfile,
                           child: const Text('Retry'),
                         ),
                       ],
@@ -251,16 +277,20 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         tags: widget.tags,
                         schedule: widget.schedule,
                         sibling: widget.sibling,
+                      onRefresh: _refreshProfile,
                       ),
                       StudentFamilyTabCard(
                         scrollController: _familyScrollController,
                         name: widget.name,
                         classroom: widget.classroom,
+                      onRefresh: _refreshProfile,
                       ),
                       StudentPickupTabCard(
                         scrollController: _pickupScrollController,
                         name: widget.name,
                         classroom: widget.classroom,
+                        studentCode: widget.studentCode,
+                      onRefresh: _refreshProfile,
                       ),
                     ],
                   );
@@ -281,6 +311,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                       schedule: widget.schedule,
                       sibling: widget.sibling,
                       studentProfile: profileData,
+                      onRefresh: _refreshProfile,
                     ),
                     StudentFamilyTabCard(
                       scrollController: _familyScrollController,
@@ -288,6 +319,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                           ? profileData.fullName 
                           : widget.name,
                       classroom: profileData.classroom ?? widget.classroom,
+                      onRefresh: _refreshProfile,
                     ),
                     StudentPickupTabCard(
                       scrollController: _pickupScrollController,
@@ -295,6 +327,8 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                           ? profileData.fullName 
                           : widget.name,
                       classroom: profileData.classroom ?? widget.classroom,
+                      studentCode: widget.studentCode,
+                      onRefresh: _refreshProfile,
                     ),
                   ],
                 );

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../models/student_models.dart';
+import '../models/student_pickup_models.dart';
 
 abstract class StudentRemoteDataSource {
   Future<StudentPageModel> getStudentPage({
@@ -22,6 +23,22 @@ abstract class StudentRemoteDataSource {
 
   Future<String> reactivateStudent(String code);
 
+  Future<List<StudentPickupModel>> getStudentPickups({
+    required String studentCode,
+  });
+
+  /// Creates a new authorized pickup for a student via `/api/v1/pickup`.
+  ///
+  /// Returns the backend `message` field.
+  Future<String> addPickup({
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String relation,
+  });
+
   Future<StudentListItemModel> createStudent({
     required String schoolCode,
     required String firstName,
@@ -31,6 +48,34 @@ abstract class StudentRemoteDataSource {
     String? profilePhotoUrl,
     DateTime? dob,
     DateTime? schoolStartDate,
+  });
+
+  /// Updates student profile via `/api/v1/student/{code}/profile`.
+  ///
+  /// The [body] should follow the backend contract, e.g.
+  /// {
+  ///   "firstName": "string",
+  ///   "lastName": "string",
+  ///   "status": "ACTIVE",
+  ///   "classroom": "string",
+  ///   "tags": ["string"],
+  ///   "dob": "2026-02-17",
+  ///   "notes": "string",
+  ///   "subsidy": true,
+  ///   "legalCustodians": ["string"],
+  ///   "siblings": ["string"],
+  ///   "fte": 0,
+  ///   "upcomingMoves": "2026-02-17",
+  ///   "line1": "string",
+  ///   "city": "string",
+  ///   "state": "string",
+  ///   "country": "string",
+  ///   "postalCode": "string",
+  ///   ...
+  /// }
+  Future<String> updateStudentProfile({
+    required String code,
+    required Map<String, dynamic> body,
   });
 }
 
@@ -116,7 +161,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   @override
   Future<String> deactivateStudent(String code) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.studentList}/$code/deactivate',
+      ApiPaths.studentDeactivate(code),
       ApiConstants.studentBaseUrl,
     );
 
@@ -133,7 +178,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   @override
   Future<String> reactivateStudent(String code) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.studentList}/$code/reactivate',
+      ApiPaths.studentReactivate(code),
       ApiConstants.studentBaseUrl,
     );
 
@@ -145,6 +190,72 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Student reactivated successfully';
+  }
+
+  @override
+  Future<List<StudentPickupModel>> getStudentPickups({
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.pickup,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'studentCode': studentCode},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected pickup API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <StudentPickupModel>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StudentPickupModel.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<String> addPickup({
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String relation,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.pickup,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = <String, dynamic>{
+      'studentCode': studentCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'phoneNumber': phoneNumber,
+      'relation': relation,
+    };
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected pickup create API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Pickup added successfully';
   }
 
   @override
@@ -203,6 +314,29 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     return StudentListItemModel.fromJson(mapped);
+  }
+
+  @override
+  Future<String> updateStudentProfile({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentProfileUpdate(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student profile update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student profile updated successfully';
   }
 }
 
