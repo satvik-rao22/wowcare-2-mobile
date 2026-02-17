@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -7,9 +8,13 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -82,7 +87,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return RefreshIndicator(
+    return CustomRefreshIndicator(
       onRefresh: () async {
         _loadAttendanceData(reset: true);
       },
@@ -269,20 +274,8 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final responsive = ResponsiveHelper(context);
     final spacing = responsive.horizontalSpacing / 2;
 
-    return Container(
+    return CustomSectionCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         children: [
           LayoutBuilder(
@@ -395,36 +388,24 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const Icon(Icons.error_outline, color: AppColors.errorColor, size: 48),
             const SizedBox(height: 16),
-            const Text(
+            AppText.title(
               'Error loading attendance data',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                color: Colors.red,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                height: 22 / 18,
-              ),
+              style: TextStyle(color: AppColors.errorColor, fontSize: 18),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            Text(
+            AppText.body(
               _errorMessage.isNotEmpty ? _errorMessage : 'Please try again.',
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.secondaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 19 / 14,
-              ),
+              style: TextStyle(color: AppColors.secondaryColor),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => _loadAttendanceData(reset: true),
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: AppText.body('Retry', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
                 foregroundColor: Colors.white,
@@ -447,27 +428,15 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
             const Icon(Icons.inbox_outlined,
                 color: AppColors.secondaryColor, size: 48),
             const SizedBox(height: 16),
-            const Text(
+            AppText.title(
               'No attendance data found',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.secondaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                height: 22 / 18,
-              ),
+              style: TextStyle(color: AppColors.secondaryColor, fontSize: 18),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
+            AppText.body(
               'Try adjusting your search criteria or date range',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.secondaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 19 / 14,
-              ),
+              style: TextStyle(color: AppColors.secondaryColor),
               textAlign: TextAlign.center,
             ),
           ],
@@ -481,14 +450,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final bool isSelected = selectedTab == index;
     return GestureDetector(
       onTap: () => onTap(index),
-      child: Text(
+      child: AppText.body(
         label,
         style: TextStyle(
-          fontFamily: 'Manrope',
           fontSize: 16,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
           color: isSelected ? const Color(0xFF222B45) : const Color(0xFF8F9BB3),
-          height: 19 / 16,
         ),
       ),
     );
@@ -586,28 +553,23 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
+                  child: AppText.body(
                     studentName,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
-                      height: 19 / 16,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
+                AppText.body(
                   'Attended Days : $daysAttended',
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 15,
                     color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w500,
-                    height: 19 / 15,
                   ),
                 ),
               ],
@@ -618,27 +580,14 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Text(
+                  AppText.small(
                     'Classroom',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      color: AppColors.secondaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 16 / 12,
-                    ),
+                    style: TextStyle(color: AppColors.secondaryColor),
                   ),
                   const Spacer(),
                   Flexible(
-                    child: Text(
+                    child: AppText.value(
                       roomName,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 19 / 14,
-                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.end,
@@ -649,27 +598,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Text(
+                  AppText.small(
                     'Attended Time',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      color: AppColors.secondaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 16 / 12,
-                    ),
+                    style: TextStyle(color: AppColors.secondaryColor),
                   ),
                   const Spacer(),
-                  Text(
-                    totalHours,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 19 / 14,
-                    ),
-                  ),
+                  AppText.value(totalHours),
                 ],
               ),
               SizedBox(height: responsive.verticalSpacing / 1.2),
@@ -708,6 +642,22 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                             await Future.delayed(const Duration(milliseconds: 300));
                             if (!mounted) return;
                             setState(() => _loadingButtons[attendance.id] = false);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => StudentAttendanceProfile(
+                                  studentId: attendance.studentId,
+                                  studentName: attendance.studentName,
+                                  studentPhotoUuid: attendance.studentPhotoUuid,
+                                  roomName: attendance.roomName,
+                                  isSignedIn: attendance.hasSignIn,
+                                  isAbsent: !attendance.hasSignIn && attendance.expectedToday,
+                                  isExpectedToday: attendance.expectedToday,
+                                  isPresentToday: attendance.hasSignIn,
+                                  profileStatus: 'A',
+                                ),
+                              ),
+                            );
                           },
                         ),
                 ),

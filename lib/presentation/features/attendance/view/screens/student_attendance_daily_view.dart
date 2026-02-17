@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
@@ -10,6 +14,7 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
   const StudentAttendanceDailyViewScreen({
@@ -195,7 +200,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
     
-    return RefreshIndicator(
+    return CustomRefreshIndicator(
       onRefresh: () async {
         _loadAttendanceData(context, reset: true);
       },
@@ -296,26 +301,18 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
             SizedBox(height: responsive.verticalSpacing),
             // Error handling
             if (_hasError)
-              Container(
+              CustomSectionCard(
                 margin: EdgeInsets.only(bottom: responsive.verticalSpacing),
                 padding: EdgeInsets.all(responsive.horizontalSpacing),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
+                backgroundColor: AppColors.errorColor.withOpacity(0.1),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red.shade700, size: 24),
+                    Icon(Icons.error_outline, color: AppColors.errorColor, size: 24),
                     SizedBox(width: responsive.horizontalSpacing / 2),
                     Expanded(
-                      child: Text(
+                      child: AppText.body(
                         _errorMessage ?? 'Unable to load attendance. Retry.',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: responsive.labelFontSize,
-                          color: Colors.red.shade700,
-                        ),
+                        style: TextStyle(color: AppColors.errorColor),
                       ),
                     ),
                     SizedBox(width: responsive.horizontalSpacing / 2),
@@ -327,7 +324,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                         });
                         _loadDummyData();
                       },
-                      child: const Text('Retry'),
+                      child: AppText.body('Retry'),
                     ),
                   ],
                 ),
@@ -341,15 +338,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                 Center(
                   child: Padding(
                     padding: EdgeInsets.all(responsive.verticalSpacing),
-                    child: Text(
+                    child: AppText.body(
                       'No absent students found for the selected date',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: responsive.labelFontSize,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey,
-                        height: 19 / responsive.labelFontSize,
-                      ),
+                      style: TextStyle(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -372,7 +363,22 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                       });
                     },
                     onView: () {
-                      // TODO: Navigate to student profile
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => StudentAttendanceProfile(
+                            studentId: student.studentId,
+                            studentName: student.name,
+                            studentPhotoUuid: student.photoUuid,
+                            roomName: student.roomName,
+                            isSignedIn: false,
+                            isAbsent: true,
+                            isExpectedToday: student.expectedToday,
+                            isPresentToday: false,
+                            profileStatus: 'A',
+                          ),
+                        ),
+                      );
                     },
                   );
                 }).toList(),
@@ -384,15 +390,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                 Center(
                   child: Padding(
                     padding: EdgeInsets.all(responsive.verticalSpacing),
-                    child: Text(
+                    child: AppText.body(
                       'No attendance records found for the selected date',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: responsive.labelFontSize,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey,
-                        height: 19 / responsive.labelFontSize,
-                      ),
+                      style: TextStyle(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -421,7 +421,22 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                       // TODO: Show delete confirmation
                     },
                     onView: () {
-                      // TODO: Navigate to student profile
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => StudentAttendanceProfile(
+                            studentId: student.studentId,
+                            studentName: student.studentName,
+                            studentPhotoUuid: student.studentPhotoUuid,
+                            roomName: student.roomName,
+                            isSignedIn: student.hasSignIn,
+                            isAbsent: !student.hasSignIn && student.expectedToday,
+                            isExpectedToday: student.expectedToday,
+                            isPresentToday: student.hasSignIn,
+                            profileStatus: 'A',
+                          ),
+                        ),
+                      );
                     },
                   );
                 }).toList(),
@@ -518,7 +533,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   }
 
   void _navigateToFilterScreen() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => FilterScreen(
@@ -612,13 +627,10 @@ class _CreateAttendanceModalState extends State<_CreateAttendanceModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
+              AppText.title(
                 'Create Attendance',
                 style: TextStyle(
-                  fontFamily: 'Manrope',
                   fontSize: responsive.isTablet ? 22 : 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -735,13 +747,7 @@ class _CreateAttendanceModalState extends State<_CreateAttendanceModal> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: responsive.labelFontSize,
-                        ),
-                      ),
+                      child: AppText.body('Cancel'),
                     ),
                   ),
                   SizedBox(width: responsive.horizontalSpacing / 2),
@@ -765,13 +771,9 @@ class _CreateAttendanceModalState extends State<_CreateAttendanceModal> {
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.symmetric(vertical: responsive.verticalSpacing / 2),
                         ),
-                        child: Text(
+                        child: AppText.body(
                           'Create',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: responsive.labelFontSize,
-                            color: Colors.white,
-                          ),
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                     ),

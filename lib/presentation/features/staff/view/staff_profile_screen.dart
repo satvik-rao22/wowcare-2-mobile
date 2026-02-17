@@ -245,7 +245,17 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const StudentAttendanceProfile(),
+                builder: (_) => StudentAttendanceProfile(
+                  studentId: 0, // Staff profile - using placeholder ID
+                  studentName: widget.name,
+                  studentPhotoUuid: null,
+                  roomName: widget.classroom,
+                  isSignedIn: false,
+                  isAbsent: false,
+                  isExpectedToday: true,
+                  isPresentToday: false,
+                  profileStatus: 'A',
+                ),
               ),
             );
           }),
@@ -253,7 +263,17 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const StudentAttendanceProfile(),
+                builder: (_) => StudentAttendanceProfile(
+                  studentId: 0, // Staff profile - using placeholder ID
+                  studentName: widget.name,
+                  studentPhotoUuid: null,
+                  roomName: widget.classroom,
+                  isSignedIn: false,
+                  isAbsent: false,
+                  isExpectedToday: true,
+                  isPresentToday: false,
+                  profileStatus: 'A',
+                ),
               ),
             );
           }),
