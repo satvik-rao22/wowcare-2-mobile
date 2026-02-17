@@ -258,13 +258,13 @@ class StudentAttendanceFilters extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: hasActiveFilters
-            ? const Color(0xFF6C7FD8).withOpacity(0.15)
-            : Colors.white,
+            ? AppColors.themeColor.withOpacity(0.15)
+            : AppColors.cardColor,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: hasActiveFilters
-              ? const Color(0xFF6C7FD8)
-              : const Color(0xFFE5E9F2),
+              ? AppColors.themeColor
+              : AppColors.cardBorderColor,
           width: 1,
         ),
       ),
@@ -284,8 +284,8 @@ class StudentAttendanceFilters extends StatelessWidget {
                   height: responsive.isTablet ? 26 : 24,
                   colorFilter: ColorFilter.mode(
                     hasActiveFilters
-                        ? const Color(0xFF6C7FD8)
-                        : const Color(0xFF8F9BB3),
+                        ? AppColors.themeColor
+                        : AppColors.secondaryColor.withOpacity(0.6),
                     BlendMode.srcIn,
                   ),
                 ),
@@ -296,8 +296,8 @@ class StudentAttendanceFilters extends StatelessWidget {
                     child: Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF6C7FD8),
+                      decoration: BoxDecoration(
+                        color: AppColors.themeColor,
                         shape: BoxShape.circle,
                       ),
                     ),

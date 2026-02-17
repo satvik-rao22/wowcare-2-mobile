@@ -9,7 +9,7 @@ import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.da
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 
 
 class CustomNavigationBar extends StatefulWidget {
@@ -114,10 +114,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
           break;
         case 1:
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const StudentAttendanceTabbedView()),
-          );
+          // Show attendance popup instead of directly navigating
+          AttendancePopupManager.showAttendancePopup(context);
           break;
         case 2:
           Navigator.push(

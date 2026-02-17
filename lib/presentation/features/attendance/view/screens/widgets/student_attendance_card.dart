@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:intl/intl.dart';
 
@@ -113,8 +115,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
+          border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -146,7 +149,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                           width: responsive.isTablet ? 14 : 12,
                           height: responsive.isTablet ? 14 : 12,
                           decoration: BoxDecoration(
-                            color: const Color.fromRGBO(0, 177, 21, 1),
+                            color: AppColors.successColor,
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: Colors.white,
@@ -169,7 +172,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                           width: responsive.isTablet ? 14 : 12,
                           height: responsive.isTablet ? 14 : 12,
                           decoration: BoxDecoration(
-                            color: const Color.fromRGBO(200, 32, 32, 1),
+                            color: AppColors.errorColor,
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: Colors.white,
@@ -182,14 +185,12 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                 ),
                 SizedBox(width: spacing),
                 Expanded(
-                  child: Text(
+                  child: AppText.body(
                     student.studentName,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: responsive.labelFontSize,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF573353),
-                      height: 19 / responsive.labelFontSize,
+                      color: AppColors.primaryColor,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -197,14 +198,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                 ),
                 SizedBox(width: spacing / 2),
                 Flexible(
-                  child: Text(
+                  child: AppText.body(
                     student.roomName,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: responsive.isTablet ? 16 : 15,
-                      color: const Color(0xFF6C7FD8),
-                      fontWeight: FontWeight.w500,
-                      height: 19 / (responsive.isTablet ? 16 : 15),
+                      color: AppColors.themeColor,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -215,7 +213,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             ),
             if (widget.isExpanded) ...[
               SizedBox(height: responsive.verticalSpacing / 2),
-              const Divider(height: 1, color: Color(0xFFE5E9F2)),
+              Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
               _buildDetailRow(context, responsive, 'Expected Today?', student.expectedToday ? 'Yes' : 'No'),
               SizedBox(height: responsive.isTablet ? 8 : 6),
@@ -243,28 +241,21 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: Text(
+          child: AppText.small(
             label,
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: responsive.isTablet ? 14 : 12,
-              fontWeight: FontWeight.w400,
-              color: const Color(0xFF8F9BB3),
-              height: responsive.isTablet ? 18 / 14 : 16 / 12,
+              color: AppColors.secondaryColor.withOpacity(0.6),
             ),
           ),
         ),
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
-          child: Text(
+          child: AppText.value(
             value,
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: responsive.isTablet ? 16 : 14,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF573353),
-              height: responsive.isTablet ? 21 / 16 : 19 / 14,
             ),
             textAlign: TextAlign.end,
             maxLines: 3,
@@ -281,14 +272,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: Text(
+          child: AppText.small(
             label,
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: responsive.isTablet ? 14 : 12,
-              fontWeight: FontWeight.w400,
-              color: const Color(0xFF8F9BB3),
-              height: responsive.isTablet ? 18 / 14 : 16 / 12,
+              color: AppColors.secondaryColor.withOpacity(0.6),
             ),
           ),
         ),
@@ -300,14 +288,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
+                child: AppText.value(
                   value,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: responsive.isTablet ? 16 : 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF573353),
-                    height: responsive.isTablet ? 21 / 16 : 19 / 14,
                   ),
                   textAlign: TextAlign.end,
                   maxLines: 3,
@@ -387,10 +371,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                       ),
                       backgroundColor: AppColors.cardColor,
                     ),
-                    child: Text(
+                    child: AppText.body(
                       "Delete",
                       style: TextStyle(
-                        fontFamily: 'Manrope',
                         fontSize: buttonFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.themeColor,
@@ -414,10 +397,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                       style: TextButton.styleFrom(
                         backgroundColor: Colors.transparent,
                       ),
-                      child: Text(
+                      child: AppText.body(
                         "Edit",
                         style: TextStyle(
-                          fontFamily: 'Manrope',
                           fontSize: buttonFontSize,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
@@ -441,10 +423,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                       ),
                       backgroundColor: AppColors.cardColor,
                     ),
-                    child: Text(
+                    child: AppText.body(
                       "View",
                       style: TextStyle(
-                        fontFamily: 'Manrope',
                         fontSize: buttonFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.themeColor,
