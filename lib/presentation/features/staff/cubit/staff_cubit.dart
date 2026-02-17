@@ -19,11 +19,13 @@ class StaffCubit extends Cubit<StaffState> {
   })  : _getStaffPageUseCase = getStaffPageUseCase,
         _getStaffCountUseCase = getStaffCountUseCase,
         _repository = repository,
+        _storageService = storageService,
         super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffCountUseCase _getStaffCountUseCase;
   final StaffRepository _repository;
+  final StorageService _storageService;
   String? _schoolCode;
 
   // How many staff records to load per page from the API
@@ -37,8 +39,8 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
-    // TEMP: Always use default school code from StorageKeys (ignore stored prefs).
-    _schoolCode = StorageKeys.defaultSchoolCode;
+    // Take school from login-context API (saved in storage) only.
+    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
     return _schoolCode!;
   }
 

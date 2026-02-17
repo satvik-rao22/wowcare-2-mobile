@@ -16,10 +16,12 @@ class StudentCubit extends Cubit<StudentState> {
     required StorageService storageService,
   })  : _getStudentPageUseCase = getStudentPageUseCase,
         _repository = repository,
+        _storageService = storageService,
         super(const StudentState.initial());
 
   final GetStudentPageUseCase _getStudentPageUseCase;
   final StudentRepository _repository;
+  final StorageService _storageService;
   String? _schoolCode;
 
   // How many student records to load per page from the API
@@ -27,8 +29,8 @@ class StudentCubit extends Cubit<StudentState> {
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
-    // TEMP: Always use default school code from StorageKeys (ignore stored prefs).
-    _schoolCode = StorageKeys.defaultSchoolCode;
+    // Take school from login-context API (saved in storage) only.
+    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
     return _schoolCode!;
   }
 

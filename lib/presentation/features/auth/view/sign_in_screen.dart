@@ -10,6 +10,9 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -79,6 +82,32 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 
+  Future<void> _navigateToSchoolSelection(BuildContext context) async {
+    // Get orgCode from storage (saved when schoolCode was null)
+    final storage = serviceLocator<StorageService>();
+    final orgCode = await storage.getString(StorageKeys.organizationCode);
+    
+    if (orgCode != null && orgCode.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SchoolSelectionScreen(
+            selectedOrg: orgCode,
+            orgFromLoginContext: true,
+          ),
+        ),
+      );
+    } else {
+      // Fallback: go to org selection if orgCode not found
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const OrganizationSelectionScreen(),
+        ),
+      );
+    }
+  }
+
   Future<void> _handleSignIn(BuildContext context) async {
     if (formKey.currentState!.validate()) {
       await _saveCredentials();
@@ -95,9 +124,37 @@ class _SignInScreenState extends State<SignInScreen>
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
-      
-      // Flow: Login -> Role selection -> Dashboard
-      Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
+
+      // Check redirectUrl when schoolCode is null
+      if (state.redirectUrl != null && state.redirectUrl!.isNotEmpty) {
+        final url = state.redirectUrl!.toLowerCase();
+        if (url.contains('select-school')) {
+          // Navigate to school selection - need orgCode from storage
+          _navigateToSchoolSelection(context);
+          return;
+        } else if (url.contains('select-organization')) {
+          // Navigate to org selection
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const OrganizationSelectionScreen(),
+            ),
+          );
+          return;
+        } else if (url.contains('select-app')) {
+          // Navigate to dashboard
+          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          return;
+        }
+      }
+
+      // Login-context returned last school: go straight to Dashboard.
+      // Otherwise: Role selection -> Dashboard.
+      if (state.hasLastSchoolFromContext) {
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      } else {
+        Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
+      }
     } else if (state is AuthError) {
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(

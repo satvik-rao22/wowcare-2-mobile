@@ -1,22 +1,20 @@
 class ApiConstants {
   ApiConstants._();
 
-  // Base URLs
-  static const String baseUrlDev = 'https://242sq05v-8080.inc1.devtunnels.ms';
-  // Named tunnels (for reference)
-  static const String Prathmesh = 'https://qs176zl8-8080.inc1.devtunnels.ms';
-  static const String Sairam = 'https://qs176zl8-8086.inc1.devtunnels.ms/wowcare-school-ms';
-  static const String staffBaseUrl = 'https://qs176zl8-8083.inc1.devtunnels.ms';
-  static const String studentBaseUrl = 'https://qs176zl8-8084.inc1.devtunnels.ms';
-  static const String classroomBaseUrl =
-      'https://qs176zl8-8082.inc1.devtunnels.ms';
-  // static const String baseUrlQA = 'https://qa.childcarewow.app/wowcare-qa';
-  // static const String baseUrlProd = 'https://backend.childcarewow.net';
-  // static const String Prathmesh = 'https://1mtbgd3f-8082.inc1.devtunnels.ms/user-ms';
-  // static const String Sairam = 'https://wnmrl4rn-8081.inc1.devtunnels.ms/wowcare-school-ms';
-  //  static const String Prathmesh = 'https://qs176zl8-8080.inc1.devtunnels.ms/user-ms';
+  /// Single backend base URL - all APIs run on port 9000.
+  static const String _host = 'https://qs176zl8-9000.inc1.devtunnels.ms';
+  static const String baseUrl = _host;
 
-  // Current base URL (can be changed based on environment)
-  static const String baseUrl = Prathmesh;
+  /// All services use the same base on port 9000.
+  static const String staffBaseUrl = _host;
+  static const String studentBaseUrl = _host;
+  static const String classroomBaseUrl = _host;
+  static const String schoolMs = _host;
+
+  // Legacy / alternate (for reference)
+  // static const String baseUrlDev = 'https://242sq05v-8080.inc1.devtunnels.ms';
+  // static const String Prathmesh = 'https://qs176zl8-8080.inc1.devtunnels.ms';
+  // static const String Sairam = 'https://qs176zl8-8086.inc1.devtunnels.ms/wowcare-school-ms';
+  // static const String schoolMsNgrok = 'https://fitten-vallie-forthrightly.ngrok-free.dev';
 }
 
