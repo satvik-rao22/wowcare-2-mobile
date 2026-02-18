@@ -252,7 +252,12 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               );
             },
           ),
-        );
+        ).then((result) async {
+          // If profile was updated, refresh from API (like staff implementation).
+          if (result == true) {
+            await widget.onRefresh?.call();
+          }
+        });
       },
       children: [
 

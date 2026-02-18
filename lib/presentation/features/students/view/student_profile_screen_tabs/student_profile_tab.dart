@@ -45,7 +45,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
   final ScrollController _aboutScrollController = ScrollController();
   final ScrollController _familyScrollController = ScrollController();
   final ScrollController _pickupScrollController = ScrollController();
-  late Future _profileFuture;
+  late Future<StudentProfileModel?> _profileFuture;
 
   @override
   void initState() {
@@ -65,7 +65,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       _profileFuture = dataSource.getStudentProfile(widget.studentCode!);
     } else {
-      _profileFuture = Future.value(null);
+      _profileFuture = Future<StudentProfileModel?>.value(null);
     }
   }
 
@@ -73,13 +73,16 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     final code = widget.studentCode;
     if (code == null || code.isEmpty) return;
     final dataSource = serviceLocator<StudentRemoteDataSource>();
+    // Create new future and update state to force FutureBuilder rebuild
+    final newFuture = dataSource.getStudentProfile(code);
     setState(() {
-      _profileFuture = dataSource.getStudentProfile(code);
+      _profileFuture = newFuture;
     });
     try {
-      await _profileFuture;
+      // Wait for the future to complete to ensure data is loaded
+      await newFuture;
     } catch (_) {
-      // UI handles errors
+      // UI handles errors via FutureBuilder
     }
   }
 
@@ -179,7 +182,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
             ),
           ),
           Expanded(
-            child: FutureBuilder(
+            child: FutureBuilder<StudentProfileModel?>(
               future: _profileFuture,
               builder: (context, snapshot) {
                 // If no studentCode provided, use existing data
@@ -297,7 +300,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                 }
 
                 // Use API data - profile is StudentProfileModel
-                final profileData = profile as StudentProfileModel;
+                final profileData = profile;
                 return TabBarView(
                   controller: _tabController,
                   children: [

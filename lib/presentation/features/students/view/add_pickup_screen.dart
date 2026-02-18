@@ -32,6 +32,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _relationController = TextEditingController();
 
@@ -46,6 +47,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
     _relationController.dispose();
     super.dispose();
@@ -71,6 +73,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final relation = _relationController.text.trim();
 
@@ -120,7 +123,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         studentCode: widget.studentCode,
         firstName: first,
         lastName: last,
-        email: '', // backend allows empty email per contract
+        email: email,
         phoneNumber: phone,
         relation: relation,
       );
@@ -298,6 +301,13 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                          SizedBox(height: responsive.verticalSpacing),
+                          _buildInputField(
+                            label: 'Email',
+                            hint: 'E.g. email@example.com',
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
                           ),
                           SizedBox(height: responsive.verticalSpacing),
                           _buildInputField(

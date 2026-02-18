@@ -143,7 +143,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         relation: _formatRelation(pickups[i].relation),
                         email: _valueOrDash(pickups[i].email),
                         phoneNumber: _valueOrDash(pickups[i].phoneNumber),
-                        firstChild: i == 0,
+                        onRefresh: _handleRefresh,
                       ),
                       if (i != pickups.length - 1) const SizedBox(height: 20),
                     ],
@@ -205,168 +205,212 @@ String _formatRelation(String relation) {
   }
 }
 
-class _PickupCard extends StatelessWidget{
+class _PickupCard extends StatefulWidget {
   const _PickupCard({
     required this.name,
-    required this.firstChild,
     this.relation,
     this.email,
     this.phoneNumber,
+    this.onRefresh,
   });
   final String name;
   final String? relation;
   final String? email;
   final String? phoneNumber;
-  final bool firstChild;// so that first card can have different top right corner radius
+  /// Called after edit or delete so parent can refresh pickups list and profile cache.
+  final Future<void> Function()? onRefresh;
+
+  @override
+  State<_PickupCard> createState() => _PickupCardState();
+}
+
+class _PickupCardState extends State<_PickupCard> {
+  bool isExpanded = false;
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
-    return IntrinsicHeight(
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          // Match staff card styling: radius 12, 1px border.
-          borderRadius: BorderRadius.only(
-            topRight: firstChild ? const Radius.circular(0) : const Radius.circular(12),
-            topLeft: const Radius.circular(12),
-            bottomLeft: const Radius.circular(12),
-            bottomRight: const Radius.circular(12),
-          ),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            Container(
-              // Match staff card header height.
-              height: 60,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 24 : 16,
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return IntrinsicHeight(
+          child: Container(
+            width: constraints.maxWidth,
+            height: isExpanded ? null : 64.0,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.cardBorderColor,
+                width: 1,
               ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    name: name,
-                    size: 45,
-                  ),
-                  SizedBox(width: isTablet ? 16 : 9),
-                  Flexible(
-                    child: Text(
-                      name,
-                      style: AppTextStyles.value.copyWith(
-                        fontSize: isTablet ? 16 : 14,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    isExpanded = !isExpanded;
+                  });
+                },
+                child: Column(
+                  children: [
+                    Container(
+                      height: 60,
+                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          DocumentImageWidget(
+                            fileUuid: '',
+                            name: widget.name,
+                            size: 50,
+                          ),
+                          SizedBox(width: isTablet ? 16 : 9),
+                          Expanded(
+                            child: Text(
+                              widget.name,
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: isTablet ? 16 : 14,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xff573353),
+                                height: 19 / 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                ],
+                    if (isExpanded) ...[
+                      const Divider(
+                        height: 1,
+                        thickness: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: Color(0xFFE9ECEF),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Relation',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xff573353),
+                                    height: 16 / 13,
+                                  ),
+                                ),
+                                Text(
+                                  widget.relation ?? '-',
+                                  style: const TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xff573353),
+                                    height: 19 / 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Email',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xff573353),
+                                    height: 16 / 13,
+                                  ),
+                                ),
+                                Flexible(
+                                  child: Text(
+                                    (widget.email != null && widget.email!.isNotEmpty && widget.email != '-')
+                                        ? widget.email!
+                                        : '-',
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xff573353),
+                                      height: 19 / 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Phone Number',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xff573353),
+                                    height: 16 / 13,
+                                  ),
+                                ),
+                                Text(
+                                  widget.phoneNumber ?? '-',
+                                  style: const TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xff573353),
+                                    height: 19 / 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            CustomButtonLayout(
+                              confirmButtonLabel: 'Edit',
+                              cancelButtonLabel: 'Delete',
+                              onPressedConfirm: () {
+                                // TODO: Implement Edit Pickup handler; after success call widget.onRefresh?.call()
+                              },
+                              onPressedCancel: () {
+                                // TODO: Implement Delete Pickup handler; after success call widget.onRefresh?.call()
+                              },
+                              isForm: false,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            Divider(
-              height: 1,
-              thickness: 1,
-              indent: 16,
-              endIndent: 16,
-              color: AppColors.dividerColor,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Relation',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
-                        ),
-                      ),
-                      Text(
-                        relation ?? '-',
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Email ID',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
-                        ),
-                      ),
-                      Text(
-                        email ?? '-',
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Phone Number',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
-                        ),
-                      ),
-                      Text(
-                        phoneNumber ?? '-',
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const SizedBox(height: 20),
-                  CustomButtonLayout(
-                    confirmButtonLabel: 'Edit',
-                    cancelButtonLabel: 'Delete',
-                    onPressedConfirm: () {
-                      // TODO: Implement Edit Pickup handler
-                    },
-                    onPressedCancel: () {
-                      // TODO: Implement Delete Pickup handler
-                    },
-                    isForm: false,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ],
-
-        ),
-      ),
+          ),
+        );
+      },
     );
-
   }
-
 }
 
 
