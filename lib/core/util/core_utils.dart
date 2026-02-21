@@ -364,6 +364,12 @@ import 'package:image_picker/image_picker.dart';
 class CoreUtils {
   const CoreUtils._();
 
+  /// Log API or application errors (for debugging).
+  static void logApiError(String message) {
+    // ignore: avoid_print
+    print('[API Error] $message');
+  }
+
   static Future<File?> pickImage() async {
     final image = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (image != null) {

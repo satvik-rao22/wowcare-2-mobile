@@ -296,11 +296,35 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
     final primaryClassroomCode = _selectedPrimaryClassroomName == null
         ? ''
-        : (_classroomCodeByName[_selectedPrimaryClassroomName!] ?? '');
-    final allowedClassroomCodes = _selectedAllowedClassroomNames
+        : (_classroomCodeByName[_selectedPrimaryClassroomName!] ?? '').trim();
+    var allowedClassroomCodes = _selectedAllowedClassroomNames
         .map((name) => _classroomCodeByName[name])
         .whereType<String>()
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
         .toList();
+
+    // Block submit if classroom codes could not be resolved (API needs valid codes)
+    if (primaryClassroomCode.isEmpty) {
+      if (!_isAdminSelected) {
+        setState(() => _primaryClassroomError = 'Please select a primary classroom');
+      }
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not resolve classroom code. Please refresh the page and try again.',
+        isError: true,
+      );
+      return;
+    }
+    if (!_isAdminSelected && allowedClassroomCodes.isEmpty && _selectedAllowedClassroomNames.isNotEmpty) {
+      setState(() => _allowedClassroomsError = 'Could not resolve classroom codes');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not resolve classroom codes. Please refresh the page and try again.',
+        isError: true,
+      );
+      return;
+    }
 
     _createSchoolUserCubit.create(
       isAdmin: isAdmin,

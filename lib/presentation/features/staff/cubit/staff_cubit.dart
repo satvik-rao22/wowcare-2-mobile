@@ -29,6 +29,7 @@ class StaffCubit extends Cubit<StaffState> {
   final StaffRepository _repository;
   final StorageService _storageService;
   String? _schoolCode;
+  String? _organizationCode;
 
   // How many staff records to load per page from the API
   static const int _pageSize = 15;
@@ -44,6 +45,13 @@ class StaffCubit extends Cubit<StaffState> {
     // Take school from login-context API (saved in storage) only.
     _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
     return _schoolCode!;
+  }
+
+  Future<String> _resolveOrganizationCode() async {
+    if (_organizationCode != null) return _organizationCode!;
+    _organizationCode =
+        await _storageService.getString(StorageKeys.organizationCode) ?? '';
+    return _organizationCode!;
   }
 
   Future<void> loadInitial() async {
@@ -82,8 +90,12 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> _refreshStaffCountOnly() async {
     try {
+      final organizationCode = await _resolveOrganizationCode();
       final schoolCode = await _resolveSchoolCode();
-      final staffCount = await _getStaffCountUseCase(schoolCode: schoolCode);
+      final staffCount = await _getStaffCountUseCase(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -111,8 +123,12 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     try {
+      final organizationCode = await _resolveOrganizationCode();
       // Start both requests in parallel.
-      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final staffCountFuture = _getStaffCountUseCase(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
       final firstPageFuture = _getStaffPageUseCase(
         schoolCode: schoolCode,
         page: 0,
@@ -361,11 +377,15 @@ class StaffCubit extends Cubit<StaffState> {
       ),
     );
 
+    final organizationCode = await _resolveOrganizationCode();
     final schoolCode = await _resolveSchoolCode();
 
     try {
       // Start both requests in parallel with cleared filters
-      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final staffCountFuture = _getStaffCountUseCase(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
       final firstPageFuture = _getStaffPageUseCase(
         schoolCode: schoolCode,
         page: 0,

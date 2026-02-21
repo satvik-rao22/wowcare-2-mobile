@@ -9,6 +9,7 @@ import '../models/school_user_models.dart';
 
 abstract class StaffRemoteDataSource {
   Future<StaffCountModel> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   });
 
@@ -158,6 +159,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
   @override
   Future<StaffCountModel> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
@@ -167,7 +169,10 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final response = await _client.get<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
     );
 
     if (response.data is! Map<String, dynamic>) {

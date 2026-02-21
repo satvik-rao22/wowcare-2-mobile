@@ -71,9 +71,13 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
   @override
   Future<StaffCount> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   }) async {
-    final model = await _remoteDataSource.getStaffCount(schoolCode: schoolCode);
+    final model = await _remoteDataSource.getStaffCount(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
     return StaffCount(
       total: model.total,
       active: model.active,
