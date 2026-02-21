@@ -15,13 +15,34 @@ class StudentEntity {
   final String fullName;
   final int roomId;
   final String roomName;
+  final String photoUuid;
+  final List<TagEntity> tags;
 
   StudentEntity({
     required this.id,
     required this.fullName,
     required this.roomId,
     required this.roomName,
+    this.photoUuid = '',
+    this.tags = const [],
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StudentEntity &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+// Mock tag entity for UI-only implementation
+class TagEntity {
+  final String name;
+
+  TagEntity({required this.name});
 }
 
 class StudentTransferForm extends StatefulWidget {

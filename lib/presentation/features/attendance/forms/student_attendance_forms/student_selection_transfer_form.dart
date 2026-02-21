@@ -1,13 +1,15 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'student_transfer_form.dart';
 
 class StudentSelectionTransferForm extends StatefulWidget {
@@ -25,8 +27,10 @@ class _StudentSelectionTransferFormState
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
   List<String> _selectedTag = [];
+  List<StudentEntity> _filteredStudents = [];
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
 
   // Mock data for UI-only implementation
   final List<StudentEntity> _allStudents = List.generate(
@@ -36,24 +40,45 @@ class _StudentSelectionTransferFormState
       fullName: 'Student ${index + 1}',
       roomId: (index % 4) + 1,
       roomName: 'Classroom ${String.fromCharCode(65 + (index % 4))}',
+      photoUuid: '',
+      tags: [
+        TagEntity(name: 'Tag ${(index % 3) + 1}'),
+      ],
     ),
   );
 
-  final List<String> _classrooms = ['Classroom A', 'Classroom B', 'Classroom C', 'Classroom D'];
+  final List<String> _classrooms = [
+    'Classroom A',
+    'Classroom B',
+    'Classroom C',
+    'Classroom D'
+  ];
   final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
-
-  List<StudentEntity> _filteredStudents = [];
 
   @override
   void initState() {
     super.initState();
-    _filteredStudents = List.from(_allStudents);
+    _searchController.addListener(_onSearchChanged);
+    // Simulate loading delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _filteredStudents = List.from(_allStudents);
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _filterStudents();
   }
 
   void _filterStudents() {
@@ -73,6 +98,11 @@ class _StudentSelectionTransferFormState
           matchesRoom = _selectedClassroom == student.roomName;
         }
 
+        if (_selectedTag.isNotEmpty) {
+          matchesTag =
+              student.tags.any((tag) => _selectedTag.contains(tag.name));
+        }
+
         return matchesSearch && matchesRoom && matchesTag;
       }).toList();
     });
@@ -83,10 +113,13 @@ class _StudentSelectionTransferFormState
 
     setState(() {
       isSelectAllChecked = value;
+
+      final List<StudentEntity> visibleStudents = _getVisibleStudents();
+
       if (value) {
-        selectedStudents.addAll(_filteredStudents);
+        selectedStudents.addAll(visibleStudents);
       } else {
-        selectedStudents.removeAll(_filteredStudents);
+        selectedStudents.removeAll(visibleStudents);
       }
     });
   }
@@ -101,38 +134,55 @@ class _StudentSelectionTransferFormState
         selectedStudents.remove(student);
       }
 
-      isSelectAllChecked = _filteredStudents.every(
+      final visibleStudents = _getVisibleStudents();
+      isSelectAllChecked = visibleStudents.every(
         (student) => selectedStudents.contains(student),
       );
     });
   }
 
-  void _handleNext() {
-    if (selectedStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one student'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
+  List<StudentEntity> _getVisibleStudents() {
+    return _allStudents.where((student) {
+      bool matchesSearch = true;
+      bool matchesRoom = true;
+      bool matchesTag = true;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StudentTransferForm(
-          students: selectedStudents.toList(),
-        ),
+      if (_searchController.text.isNotEmpty) {
+        matchesSearch = student.fullName
+            .toLowerCase()
+            .contains(_searchController.text.toLowerCase());
+      }
+
+      if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
+        matchesRoom = _selectedClassroom == student.roomName;
+      }
+
+      if (_selectedTag.isNotEmpty) {
+        matchesTag = student.tags.any((tag) => _selectedTag.contains(tag.name));
+      }
+
+      return matchesSearch && matchesRoom && matchesTag;
+    }).toList();
+  }
+
+  Widget _buildShimmerGrid() {
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisExtent: 69,
+      ),
+      itemCount: 8,
+      itemBuilder: (context, index) => const ShimmerLoaderCard(
+        child: SizedBox(),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = ResponsiveSizing.isTablet(context);
-    final mediaQuery = MediaQuery.of(context);
-    final safeAreaBottom = mediaQuery.padding.bottom;
+    final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
       appBar: AppBar(
@@ -143,151 +193,487 @@ class _StudentSelectionTransferFormState
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? 24 : 16,
-              vertical: 16,
+      body: Container(
+        height: screenSize.height * 0.8,
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(5),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Transfer',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppText.title('Transfer'),
-                const SizedBox(height: 20),
-                AppText.sectionHeader('Select Students'),
-                const SizedBox(height: 12),
-                CustomSearchBar(
-                  controller: _searchController,
+            const SizedBox(height: 20),
+            const Text(
+              'Select Students',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF8F7FA),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.grey)),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
                   hintText: 'Search Students',
-                  onChanged: (_) => _filterStudents(),
+                  hintStyle: TextStyle(color: Colors.grey[700]),
+                  border: InputBorder.none,
+                  icon: const Icon(Icons.search, color: Colors.grey),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomDropdown(
-                        hintText: 'Classroom',
-                        items: _classrooms,
-                        selectedItem: _selectedClassroom,
-                        onSelect: (value) {
-                          setState(() {
-                            _selectedClassroom = value;
-                            _filterStudents();
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: CustomMultiSelectDropdown(
-                        hintText: 'Tags',
-                        items: _tags,
-                        selectedItems: _selectedTag,
-                        onChanged: (selectedItems) {
-                          setState(() {
-                            _selectedTag = selectedItems;
-                            _filterStudents();
-                          });
-                        },
-                      ),
-                    ),
-                  ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: CustomDropdown(
+                    selectedItem: _selectedClassroom,
+                    onSelect: (value) {
+                      setState(() {
+                        _selectedClassroom = value;
+                        _filterStudents();
+                      });
+                    },
+                    hintText: 'Classroom',
+                    items: _classrooms,
+                    isField: true,
+                    isEnabled: true,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    CustomCheckbox(
-                      value: isSelectAllChecked,
-                      onChanged: _toggleSelectAll,
-                      borderColor: AppColors.themeColor,
-                    ),
-                    const SizedBox(width: 8),
-                    AppText.body('Select All'),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 4,
+                  child: CustomMultiSelectDropdownAssignStudent(
+                    hintText: 'Tags',
+                    items: _tags,
+                    selectedItems: _selectedTag,
+                    onChanged: (selectedItems) {
+                      setState(() {
+                        _selectedTag = selectedItems;
+                        _filterStudents();
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: _filteredStudents.isEmpty
-                ? const Center(child: Text("No students found"))
-                : GridView.builder(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isTablet ? 24 : 16,
-                    ),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisExtent: isTablet ? 60 : 52,
-                    ),
-                    itemCount: _filteredStudents.length,
-                    itemBuilder: (context, index) {
-                      final student = _filteredStudents[index];
-                      final isSelected = selectedStudents.contains(student);
-
-                      return _buildStudentItem(student, isSelected);
-                    },
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: CustomCheckbox(
+                    borderColor: AppColors.themeColor,
+                    value: isSelectAllChecked,
+                    onChanged: _toggleSelectAll,
                   ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: isTablet ? 24 : 16,
-          right: isTablet ? 24 : 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
+                ),
+                const Text('Select All'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _isLoading
+                  ? _buildShimmerGrid()
+                  : _filteredStudents.isEmpty
+                      ? const Center(child: Text("No students found"))
+                      : GridView.builder(
+                          shrinkWrap: false,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            mainAxisExtent: 52,
+                          ),
+                          itemCount: _filteredStudents.length,
+                          itemBuilder: (context, index) {
+                            final student = _filteredStudents[index];
+                            final isSelected = selectedStudents.contains(student);
+
+                            return StudentListItem(
+                              student: student,
+                              isSelected: isSelected,
+                              onSelectionChanged: (value) {
+                                _toggleStudentSelection(student, value);
+                              },
+                            );
+                          },
+                        ),
             ),
           ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(isTablet ? 40.0 : 24.0),
-          ),
         ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          onPressedConfirm: _handleNext,
-          showCancelButton: false,
+      ),
+      bottomNavigationBar: CustomButtonLayout(
+        confirmButtonLabel: 'Next',
+        onPressedConfirm: () {
+          if (selectedStudents.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please select at least one student'),
+                backgroundColor: AppColors.warningColor,
+              ),
+            );
+            return;
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StudentTransferForm(
+                  students: selectedStudents.toSet().toList(),
+                ),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+}
+
+class StudentListItem extends StatelessWidget {
+  final StudentEntity student;
+  final bool isSelected;
+  final ValueChanged<bool?> onSelectionChanged;
+
+  const StudentListItem({
+    Key? key,
+    required this.student,
+    required this.isSelected,
+    required this.onSelectionChanged,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        onSelectionChanged(!isSelected);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: AppColors.themeColor,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          color: isSelected
+              ? const Color.fromARGB(255, 249, 245, 250)
+              : Colors.white,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: CustomCheckbox(
+                  borderColor: AppColors.themeColor,
+                  value: isSelected,
+                  onChanged: onSelectionChanged,
+                ),
+              ),
+              StudentProfileImage(
+                imageUrl: student.photoUuid,
+                studentId: student.id,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  student.fullName.split(' ').first,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildStudentItem(StudentEntity student, bool isSelected) {
-    return InkWell(
-      onTap: () => _toggleStudentSelection(student, !isSelected),
-      child: CustomSectionCard(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        backgroundColor: isSelected
-            ? AppColors.fieldBackgroundColor
-            : AppColors.cardColor,
-        child: Row(
-          children: [
-            CustomCheckbox(
-              value: isSelected,
-              onChanged: (value) => _toggleStudentSelection(student, value),
-              borderColor: AppColors.themeColor,
+class StudentProfileImage extends StatefulWidget {
+  final String imageUrl;
+  final int studentId;
+  final double radius;
+
+  const StudentProfileImage({
+    Key? key,
+    required this.imageUrl,
+    required this.studentId,
+    this.radius = 16,
+  }) : super(key: key);
+
+  @override
+  State<StudentProfileImage> createState() => _StudentProfileImageState();
+}
+
+class _StudentProfileImageState extends State<StudentProfileImage> {
+  static final Map<String, Uint8List?> _imageCache = {};
+
+  StreamSubscription? _subscription;
+  Uint8List? _currentImage;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(StudentProfileImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl ||
+        oldWidget.studentId != widget.studentId) {
+      _loadImage();
+    }
+  }
+
+  void _loadImage() {
+    // UI-only: skip downloading; always use placeholder/asset
+    if (widget.imageUrl.isEmpty) {
+      setState(() {
+        _currentImage = null;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final String cacheKey = '${widget.studentId}-${widget.imageUrl}';
+
+    if (_imageCache.containsKey(cacheKey)) {
+      setState(() {
+        _currentImage = _imageCache[cacheKey];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _currentImage = null;
+      _isLoading = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Container(
+          width: widget.radius * 2,
+          height: widget.radius * 2,
+          decoration: const BoxDecoration(
+            color: Colors.grey,
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
+    }
+
+    if (_currentImage == null) {
+      return CircleAvatar(
+        radius: widget.radius,
+        backgroundImage: const AssetImage(MediaRes.userImageMale),
+      );
+    }
+
+    return CircleAvatar(
+      radius: widget.radius,
+      backgroundImage: MemoryImage(_currentImage!),
+    );
+  }
+}
+
+class CustomMultiSelectDropdownAssignStudent extends StatefulWidget {
+  final String hintText;
+  final List<String> items;
+  final List<String> selectedItems;
+  final ValueChanged<List<String>> onChanged;
+  final bool isField;
+  final double? width;
+
+  const CustomMultiSelectDropdownAssignStudent({
+    Key? key,
+    required this.hintText,
+    required this.items,
+    required this.selectedItems,
+    required this.onChanged,
+    this.isField = false,
+    this.width,
+  }) : super(key: key);
+
+  @override
+  State<CustomMultiSelectDropdownAssignStudent> createState() =>
+      _CustomMultiSelectDropdownAssignStudentState();
+}
+
+class _CustomMultiSelectDropdownAssignStudentState
+    extends State<CustomMultiSelectDropdownAssignStudent> {
+  late List<String> _localSelectedItems;
+  bool isDropdownOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _localSelectedItems = List.from(widget.selectedItems);
+    _localSelectedItems.removeWhere((item) => !widget.items.contains(item));
+  }
+
+  @override
+  void didUpdateWidget(CustomMultiSelectDropdownAssignStudent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.items, widget.items) ||
+        !listEquals(oldWidget.selectedItems, widget.selectedItems)) {
+      setState(() {
+        _localSelectedItems = List.from(widget.selectedItems);
+        _localSelectedItems.removeWhere((item) => !widget.items.contains(item));
+      });
+    }
+  }
+
+  String get displaySuffix {
+    if (widget.hintText.toLowerCase() == 'status') {
+      return 'status';
+    } else if (widget.hintText.toLowerCase() == 'tags') {
+      return 'tag${_localSelectedItems.length > 1 ? 's' : ''}';
+    }
+    return 'items';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String displayText = _localSelectedItems.isEmpty
+        ? widget.hintText
+        : '${_localSelectedItems.length} $displaySuffix';
+
+    return Container(
+      height: 40,
+      width: widget.width,
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: const Color(0xFFF8F7FA),
+          hintText: widget.hintText,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.transparent),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.transparent),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.transparent),
+          ),
+        ),
+        icon: const Icon(Icons.keyboard_arrow_down),
+        iconSize: 24,
+        elevation: 2,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 16,
+        ),
+        dropdownColor: Colors.white,
+        items: widget.items.map((String item) {
+          return DropdownMenuItem<String>(
+            value: item,
+            enabled: false,
+            child: StatefulBuilder(
+              builder: (BuildContext context, StateSetter setMenuItemState) {
+                final isSelected = _localSelectedItems.contains(item);
+                return InkWell(
+                  onTap: () {
+                    setMenuItemState(() {
+                      if (isSelected) {
+                        _localSelectedItems.remove(item);
+                      } else {
+                        _localSelectedItems.add(item);
+                      }
+                    });
+                    setState(() {});
+                    widget.onChanged(_localSelectedItems);
+                  },
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: Checkbox(
+                          value: isSelected,
+                          onChanged: (bool? checked) {
+                            setMenuItemState(() {
+                              if (checked == true) {
+                                _localSelectedItems.add(item);
+                              } else {
+                                _localSelectedItems.remove(item);
+                              }
+                            });
+                            setState(() {});
+                            widget.onChanged(_localSelectedItems);
+                          },
+                          activeColor: Theme.of(context).primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          item,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppText.value(
-                student.fullName.split(' ').first,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+          );
+        }).toList(),
+        onChanged: (_) {},
+        isExpanded: true,
+        hint: Text(
+          displayText,
+          style: TextStyle(
+            color:
+                _localSelectedItems.isEmpty ? Colors.grey[600] : Colors.black87,
+            fontSize: 15,
+          ),
         ),
       ),
     );

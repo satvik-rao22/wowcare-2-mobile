@@ -1,14 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'student_sign_in_form.dart';
+
+// Mock student entity for UI-only implementation
+class StudentEntity {
+  final int id;
+  final String fullName;
+  final int roomId;
+  final String roomName;
+
+  StudentEntity({
+    required this.id,
+    required this.fullName,
+    required this.roomId,
+    required this.roomName,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StudentEntity &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
 
 class StudentSelectionSignInForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-in-form';
@@ -121,12 +143,17 @@ class _StudentSelectionSignInFormState
       return;
     }
 
+    // Cast to avoid type mismatch due to circular import
+    final studentsList = selectedStudents.toList();
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StudentSignInForm(
-          students: selectedStudents.toList(),
-        ),
+        builder: (context) {
+          // Import StudentSignInForm here to ensure type compatibility
+          return StudentSignInForm(
+            students: studentsList,
+          );
+        },
       ),
     );
   }
@@ -136,6 +163,7 @@ class _StudentSelectionSignInFormState
     final isTablet = ResponsiveSizing.isTablet(context);
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
+    final screenSize = mediaQuery.size;
 
     return Scaffold(
       appBar: AppBar(
@@ -146,96 +174,132 @@ class _StudentSelectionSignInFormState
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? 24 : 16,
-              vertical: 16,
+      body: Center(
+        child: Container(
+          height: screenSize.height * 0.8,
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.all(5),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(16),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppText.title('Sign In'),
-                const SizedBox(height: 20),
-                AppText.sectionHeader('Select Students'),
-                const SizedBox(height: 12),
-                CustomSearchBar(
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Sign In',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Select Students',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F7FA),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: TextField(
                   controller: _searchController,
-                  hintText: 'Search Students',
+                  decoration: InputDecoration(
+                    hintText: 'Search Students',
+                    hintStyle: TextStyle(color: Colors.grey[700]),
+                    border: InputBorder.none,
+                    icon: const Icon(Icons.search, color: Colors.grey),
+                  ),
                   onChanged: (_) => _filterStudents(),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomDropdown(
-                        hintText: 'Classroom',
-                        items: _classrooms,
-                        selectedItem: _selectedClassroom,
-                        onSelect: (value) {
-                          setState(() {
-                            _selectedClassroom = value;
-                            _filterStudents();
-                          });
-                        },
-                      ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomDropdown(
+                      hintText: 'Classroom',
+                      items: _classrooms,
+                      selectedItem: _selectedClassroom,
+                      onSelect: (value) {
+                        setState(() {
+                          _selectedClassroom = value;
+                          _filterStudents();
+                        });
+                      },
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: CustomMultiSelectDropdown(
-                        hintText: 'Tags',
-                        items: _tags,
-                        selectedItems: _selectedTag,
-                        onChanged: (selectedItems) {
-                          setState(() {
-                            _selectedTag = selectedItems;
-                            _filterStudents();
-                          });
-                        },
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CustomMultiSelectDropdown(
+                      hintText: 'Tags',
+                      items: _tags,
+                      selectedItems: _selectedTag,
+                      onChanged: (selectedItems) {
+                        setState(() {
+                          _selectedTag = selectedItems;
+                          _filterStudents();
+                        });
+                      },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    CustomCheckbox(
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: CustomCheckbox(
                       value: isSelectAllChecked,
                       onChanged: _toggleSelectAll,
                       borderColor: AppColors.themeColor,
                     ),
-                    const SizedBox(width: 8),
-                    AppText.body('Select All'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _filteredStudents.isEmpty
-                ? const Center(child: Text("No students found"))
-                : GridView.builder(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isTablet ? 24 : 16,
-                    ),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisExtent: isTablet ? 60 : 52,
-                    ),
-                    itemCount: _filteredStudents.length,
-                    itemBuilder: (context, index) {
-                      final student = _filteredStudents[index];
-                      final isSelected = selectedStudents.contains(student);
-
-                      return _buildStudentItem(student, isSelected);
-                    },
                   ),
+                  const Text('Select All'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _filteredStudents.isEmpty
+                    ? const Center(child: Text("No students found"))
+                    : GridView.builder(
+                        shrinkWrap: false,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        gridDelegate:
+                            SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: isTablet ? 16 : 12,
+                          mainAxisSpacing: isTablet ? 16 : 12,
+                          mainAxisExtent: 52,
+                        ),
+                        itemCount: _filteredStudents.length,
+                        itemBuilder: (context, index) {
+                          final student = _filteredStudents[index];
+                          final isSelected =
+                              selectedStudents.contains(student);
+
+                          return StudentListItem(
+                            student: student,
+                            isSelected: isSelected,
+                            onSelectionChanged: (value) =>
+                                _toggleStudentSelection(student, value),
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       bottomNavigationBar: Container(
         padding: EdgeInsets.only(
@@ -266,31 +330,74 @@ class _StudentSelectionSignInFormState
       ),
     );
   }
+}
 
-  Widget _buildStudentItem(StudentEntity student, bool isSelected) {
+class StudentListItem extends StatelessWidget {
+  final StudentEntity student;
+  final bool isSelected;
+  final ValueChanged<bool?> onSelectionChanged;
+
+  const StudentListItem({
+    super.key,
+    required this.student,
+    required this.isSelected,
+    required this.onSelectionChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => _toggleStudentSelection(student, !isSelected),
-      child: CustomSectionCard(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        backgroundColor: isSelected
-            ? AppColors.fieldBackgroundColor
-            : AppColors.cardColor,
-        child: Row(
-          children: [
-            CustomCheckbox(
-              value: isSelected,
-              onChanged: (value) => _toggleStudentSelection(student, value),
-              borderColor: AppColors.themeColor,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppText.value(
-                student.fullName.split(' ').first,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+      onTap: () => onSelectionChanged(!isSelected),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: AppColors.themeColor,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          color: isSelected
+              ? const Color.fromARGB(255, 249, 245, 250)
+              : Colors.white,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: CustomCheckbox(
+                  borderColor: AppColors.themeColor,
+                  value: isSelected,
+                  onChanged: onSelectionChanged,
+                ),
               ),
-            ),
-          ],
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: AppColors.themeColor.withOpacity(0.1),
+                child: Text(
+                  student.fullName.isNotEmpty
+                      ? student.fullName[0].toUpperCase()
+                      : '',
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  student.fullName.split(' ').first,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

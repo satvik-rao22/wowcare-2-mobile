@@ -66,7 +66,7 @@ class CustomStatBarCard extends StatelessWidget {
               titleText,
               style: TextStyle(
                 color: AppColors.primaryColor.withOpacity(0.8),
-                fontSize: 16,
+                fontSize: 14,
               ),
             ),
             if (valueText.isNotEmpty)
@@ -74,7 +74,7 @@ class CustomStatBarCard extends StatelessWidget {
                 valueText,
                 style: const TextStyle(
                   color: AppColors.themeColor,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -152,8 +152,6 @@ class CustomStatBarCard extends StatelessWidget {
 
     if (fullWidthBar) {
       // Admin billing style: label and value above, bar full width
-      final percentSum =
-          barItems.fold<double>(0, (sum, item) => sum + item.value);
       final percentList = barItems.map((item) => item.value).toList();
       final percentTotal = percentList.fold(0.0, (a, b) => a + b);
       return Container(

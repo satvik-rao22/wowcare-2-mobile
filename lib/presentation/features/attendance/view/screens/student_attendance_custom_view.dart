@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -15,6 +15,14 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
+import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -42,20 +50,32 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
 
-  bool _isLoading = true;
-  bool _hasError = false;
-  String _errorMessage = '';
-
-  final List<_CustomAttendanceRow> _attendanceList = <_CustomAttendanceRow>[];
   List<String> _classrooms = <String>['All'];
 
   // Optional: show a small spinner on "View" action (UI-only)
   final Map<String, bool> _loadingButtons = <String, bool>{};
 
+  late final StudentAttendanceCustomCubit _cubit;
+
   @override
   void initState() {
     super.initState();
     _customSelectedClassroom = 'All';
+    // Resolve cubit from DI with safe fallback (for hot-reload scenarios)
+    if (serviceLocator.isRegistered<StudentAttendanceCustomCubit>()) {
+      _cubit = serviceLocator<StudentAttendanceCustomCubit>();
+    } else {
+      final apiClient = serviceLocator<ApiClient>();
+      final storageService = serviceLocator<StorageService>();
+      final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
+      final repo = AttendanceRepositoryImpl(remote, storageService);
+      _cubit = StudentAttendanceCustomCubit(
+        getStudentAttendanceCustomUseCase:
+            GetStudentAttendanceCustomUseCase(repo),
+        repository: repo,
+      );
+    }
+
     _customSearchController.addListener(_onSearchChanged);
     _initializeClassrooms();
     _initializeDefaultRange();
@@ -67,19 +87,26 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _customSearchController.removeListener(_onSearchChanged);
     _customSearchController.dispose();
     _scrollController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
-      return _buildContent();
+      return BlocProvider.value(
+        value: _cubit,
+        child: _buildContent(),
+      );
     }
 
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
+    return BlocProvider.value(
+      value: _cubit,
+      child: GlobalScaffold(
+        hasBackButton: true,
+        showCustomNavigationBar: true,
+        body: _buildContent(),
+      ),
     );
   }
 
@@ -87,35 +114,65 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return CustomRefreshIndicator(
-      onRefresh: () async {
-        _loadAttendanceData(reset: true);
+    return BlocBuilder<StudentAttendanceCustomCubit,
+        StudentAttendanceCustomState>(
+      builder: (context, state) {
+        return CustomRefreshIndicator(
+          onRefresh: () async {
+            _loadAttendanceData(reset: true);
+          },
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollUpdateNotification) {
+                if (notification.metrics.pixels >=
+                    notification.metrics.maxScrollExtent - 200) {
+                  if (!state.isLoading &&
+                      !state.isLoadingMore &&
+                      state.hasMore) {
+                    _cubit.loadNextPage();
+                  }
+                }
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(
+                horizontal: contentPadding.left,
+                vertical: responsive.verticalSpacing / 2,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: responsive.verticalSpacing),
+                  if (!widget.contentOnly) ...[
+                    _buildHeaderTabsRow(),
+                    const SizedBox(height: 10),
+                    _buildTabIndicator(selectedTab: 1),
+                    SizedBox(height: responsive.verticalSpacing),
+                  ],
+                  _buildFilterSection(),
+                  SizedBox(height: responsive.verticalSpacing),
+                  _buildContentSection(
+                    state,
+                    _getFilteredAttendance(state.items),
+                  ),
+                  if (state.isLoadingMore)
+                    Padding(
+                      padding:
+                          EdgeInsets.all(responsive.verticalSpacing),
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  SizedBox(height: responsive.verticalSpacing),
+                ],
+              ),
+            ),
+          ),
+        );
       },
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.symmetric(
-          horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 2,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: responsive.verticalSpacing),
-            // Tabs row + popup (only meaningful in non-embedded mode, but safe in embedded too)
-            if (!widget.contentOnly) ...[
-              _buildHeaderTabsRow(),
-              const SizedBox(height: 10),
-              _buildTabIndicator(selectedTab: 1),
-              SizedBox(height: responsive.verticalSpacing),
-            ],
-            _buildFilterSection(),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildContentSection(_getFilteredAttendance()),
-            SizedBox(height: responsive.verticalSpacing),
-          ],
-        ),
-      ),
     );
   }
 
@@ -146,79 +203,91 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     setState(() {
       _searchQuery = _customSearchController.text;
     });
+     _loadAttendanceData(reset: true);
   }
 
-  // Method to load attendance data (UI-only, backend removed)
   void _loadAttendanceData({bool reset = false}) {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-      _errorMessage = '';
-      if (reset) {
-        _attendanceList.clear();
-        _customExpandedStudentIndex = null;
-      }
-    });
+    final fromDate = _customRangeStart ?? DateTime.now();
+    final toDate = _customRangeEnd ?? DateTime.now();
 
-    // Simulate loading + populate dummy data
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
+    final classroomCodes = (_customSelectedClassroom != null &&
+            _customSelectedClassroom != 'All')
+        ? <String>[_customSelectedClassroom!]
+        : null;
 
-      // Keep dummy data stable once loaded unless reset requested
-      final next = reset || _attendanceList.isEmpty
-          ? _buildDummyAttendanceData()
-          : _attendanceList;
+    final search = _searchQuery.trim().isNotEmpty ? _searchQuery.trim() : null;
 
-      setState(() {
-        _attendanceList
-          ..clear()
-          ..addAll(next);
-        _isLoading = false;
-      });
-    });
-  }
-
-  List<_CustomAttendanceRow> _buildDummyAttendanceData() {
-    final rooms = _classrooms.where((e) => e != 'All').toList();
-    if (rooms.isEmpty) {
-      rooms.addAll(<String>['Room 1', 'Room 2', 'Room 3']);
-    }
-
-    return List<_CustomAttendanceRow>.generate(18, (i) {
-      final idx = i + 1;
-      final room = rooms[i % rooms.length];
-      final expectedToday = idx % 6 != 0; // some are not expected
-      final signedIn = expectedToday && idx % 4 != 0;
-      final signedOut = signedIn && idx % 5 == 0;
-
-      return _CustomAttendanceRow(
-        id: 'custom_student_$idx',
-        studentId: idx,
-        studentName: 'Student $idx',
-        roomName: room,
-        daysAttended: '${(idx % 22) + 1}',
-        totalHours: '${(idx % 6) + 1} Hrs ${(idx * 7) % 60} Mins',
-        expectedToday: expectedToday,
-        hasSignIn: signedIn,
-        signOutTime: signedOut ? '05:${(10 + idx) % 60} PM' : null,
-        studentPhotoUuid: '',
+    if (reset) {
+      _cubit.refresh(
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: null,
+        search: search,
       );
-    });
+    } else {
+      _cubit.loadInitial(
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: null,
+        search: search,
+      );
+    }
   }
 
-  List<_CustomAttendanceRow> _getFilteredAttendance() {
+  List<_CustomAttendanceRow> _getFilteredAttendance(
+    List<StudentAttendanceCustomItem> items,
+  ) {
     final q = _searchQuery.trim().toLowerCase();
     final selected = (_customSelectedClassroom ?? 'All').trim();
 
-    return _attendanceList.where((row) {
+    final filtered = <_CustomAttendanceRow>[];
+
+    for (final entry in items.asMap().entries) {
+      final index = entry.key;
+      final item = entry.value;
+
       final matchesSearch =
-          q.isEmpty || row.studentName.toLowerCase().contains(q);
+          q.isEmpty || item.studentName.toLowerCase().contains(q);
 
-      final matchesClassroom =
-          selected == 'All' || selected.isEmpty || row.roomName == selected;
+      final matchesClassroom = selected == 'All' ||
+          selected.isEmpty ||
+          item.classroomName == selected;
 
-      return matchesSearch && matchesClassroom;
-    }).toList();
+      if (matchesSearch && matchesClassroom) {
+        filtered.add(
+          _mapEntityToRow(item, index),
+        );
+      }
+    }
+
+    return filtered;
+  }
+
+  _CustomAttendanceRow _mapEntityToRow(
+    StudentAttendanceCustomItem item,
+    int index,
+  ) {
+    final daysAttended = item.attendedDays.toString();
+    final totalHours = item.attendedTime.isNotEmpty
+        ? item.attendedTime
+        : '${item.attendedHours} Hrs ${item.attendedMinutes} Mins';
+
+    return _CustomAttendanceRow(
+      id: item.studentCode.isNotEmpty
+          ? item.studentCode
+          : '${item.studentName}_${item.classroomCode}_$index',
+      studentId: index,
+      studentName: item.studentName,
+      roomName: item.classroomName,
+      daysAttended: daysAttended,
+      totalHours: totalHours,
+      expectedToday: item.isExpectedToday,
+      hasSignIn: item.hasSignIn,
+      signOutTime: item.signedOutTime,
+      studentPhotoUuid: '',
+    );
   }
 
   Widget _buildHeaderTabsRow() {
@@ -297,6 +366,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                         setState(() {
                           _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
                         });
+                        _loadAttendanceData(reset: true);
                       },
                     ),
                   ],
@@ -323,6 +393,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                         setState(() {
                           _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
                         });
+                        _loadAttendanceData(reset: true);
                       },
                     ),
                   ),
@@ -341,6 +412,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                 _customRangeStart = start;
                 _customRangeEnd = end;
               });
+              _loadAttendanceData(reset: true);
             },
           ),
         ],
@@ -348,13 +420,16 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
-  Widget _buildContentSection(List<_CustomAttendanceRow> filtered) {
-    if (_isLoading) {
+  Widget _buildContentSection(
+    StudentAttendanceCustomState state,
+    List<_CustomAttendanceRow> filtered,
+  ) {
+    if (state.isLoading && state.items.isEmpty) {
       return _buildLoadingShimmer();
     }
 
-    if (_hasError) {
-      return _buildErrorWidget();
+    if (state.errorMessage != null) {
+      return _buildErrorWidget(state.errorMessage!);
     }
 
     if (filtered.isEmpty) {
@@ -382,7 +457,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
-  Widget _buildErrorWidget() {
+  Widget _buildErrorWidget(String message) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -397,7 +472,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
             ),
             const SizedBox(height: 8),
             AppText.body(
-              _errorMessage.isNotEmpty ? _errorMessage : 'Please try again.',
+              message.isNotEmpty ? message : 'Please try again.',
               style: TextStyle(color: AppColors.secondaryColor),
               textAlign: TextAlign.center,
             ),

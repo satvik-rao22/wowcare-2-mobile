@@ -35,6 +35,10 @@ class ApiPaths {
   // Student
   static const String studentList = '/api/v1/student';
 
+  // Attendance
+  static const String studentAttendanceDailyView = '/api/v1/student-attendance/view/daily';
+  static const String studentAttendanceCustomView = '/api/v1/student-attendance/view/custom';
+
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';
 

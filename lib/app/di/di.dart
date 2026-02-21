@@ -19,6 +19,8 @@ import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../data/features/student/datasources/student_remote_datasource.dart';
 import '../../data/features/student/repositories/student_repository_impl.dart';
+import '../../data/features/attendance/datasources/attendance_remote_datasource.dart';
+import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -39,6 +41,9 @@ import '../../domain/features/staff/usecases/update_important_dates_usecase.dart
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
+import '../../domain/features/attendance/repositories/attendance_repository.dart';
+import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
@@ -48,6 +53,8 @@ import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
+import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
+import '../../presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -91,6 +98,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
+  // Attendance Data Sources
+  serviceLocator.registerLazySingleton<AttendanceRemoteDataSource>(
+    () => AttendanceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
   // Classroom Data Sources
   serviceLocator.registerLazySingleton<ClassroomRemoteDataSource>(
     () => ClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
@@ -127,6 +139,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StudentRepository>(
     () => StudentRepositoryImpl(
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<AttendanceRepository>(
+    () => AttendanceRepositoryImpl(
       serviceLocator(),
       serviceLocator(),
     ),
@@ -177,6 +195,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAttendanceDailyUseCase>(
+    () => GetStudentAttendanceDailyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAttendanceCustomUseCase>(
+    () => GetStudentAttendanceCustomUseCase(serviceLocator()),
   );
 
   // Cubits (factory - new instance each time for UI)
@@ -236,6 +260,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentPageUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentAttendanceDailyCubit>(
+    () => StudentAttendanceDailyCubit(
+      getStudentAttendanceDailyUseCase: serviceLocator(),
+      repository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentAttendanceCustomCubit>(
+    () => StudentAttendanceCustomCubit(
+      getStudentAttendanceCustomUseCase: serviceLocator(),
+      repository: serviceLocator(),
     ),
   );
 }
