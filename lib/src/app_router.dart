@@ -63,12 +63,35 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         settings: settings,
       );
     case EditProfileDetailsScreen.routeName:
-      // Optional navigation via named route; expects a staffCode in arguments.
+      // Optional navigation via named route; expects staffCode in arguments.
+      // When coming from "add staff" -> "Yes" (additional details), args may include initial* for prefill.
       final args = settings.arguments as Map<String, dynamic>?;
-      final staffCode = args?['staffCode'] as String? ?? '';
+      final staffCode = args?['staffCode'] as String? ?? args?['userCode'] as String? ?? '';
+      List<String>? _listArg(String key) {
+        final raw = args?[key];
+        if (raw == null) return null;
+        if (raw is List) return List<String>.from(raw);
+        return null;
+      }
+      Map<String, String>? _mapArg(String key) {
+        final raw = args?[key];
+        if (raw == null) return null;
+        if (raw is Map) return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
+        return null;
+      }
       return MaterialPageRoute(
         builder: (_) => EditProfileDetailsScreen(
           staffCode: staffCode,
+          initialFirstName: args?['initialFirstName'] as String?,
+          initialLastName: args?['initialLastName'] as String?,
+          initialEmail: args?['initialEmail'] as String?,
+          initialStatus: args?['initialStatus'] as String?,
+          initialDesignation: args?['initialDesignation'] as String?,
+          initialAllowedClassrooms: _listArg('initialAllowedClassrooms'),
+          initialPrimaryClassroom: args?['initialPrimaryClassroom'] as String?,
+          initialPhoneNumber: args?['initialPhoneNumber'] as String?,
+          initialClassroomNames: _listArg('initialClassroomNames'),
+          initialClassroomCodeByName: _mapArg('initialClassroomCodeByName'),
         ),
         settings: settings,
       );

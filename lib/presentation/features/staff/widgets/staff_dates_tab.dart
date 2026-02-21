@@ -23,6 +23,8 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
   bool _isLoading = true;
   String? _errorMessage;
   final Map<String, String> _datesByType = {};
+  /// Full list from API/cache for passing to edit screen and Physical Checkup display.
+  List<Map<String, String>> _importantDatesList = [];
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
           if (cached != null && mounted) {
             _datesByType.clear();
+            _importantDatesList = List.from(cached);
             for (final date in cached) {
               final type = (date['importantDateType'] ?? '').toUpperCase();
               final dueDate = date['dueDate'] ?? '';
@@ -76,10 +79,12 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
             _isLoading = false;
             _errorMessage = failure.message ?? 'Failed to load important dates';
             _datesByType.clear();
+            _importantDatesList = [];
           });
         },
         (dates) {
           _datesByType.clear();
+          _importantDatesList = List.from(dates);
           for (final date in dates) {
             final type = (date['importantDateType'] ?? '').toUpperCase();
             final dueDate = date['dueDate'] ?? '';
@@ -99,6 +104,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
         _isLoading = false;
         _errorMessage = 'Failed to load important dates';
         _datesByType.clear();
+        _importantDatesList = [];
       });
     }
   }
@@ -114,6 +120,102 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
   String _getDateForType(String type) {
     return _datesByType[type.toUpperCase()] ?? '';
+  }
+
+  Map<String, String>? _getEntryByType(String type) {
+    final key = type.toUpperCase();
+    for (final e in _importantDatesList) {
+      if ((e['importantDateType'] ?? '').toUpperCase() == key) return e;
+    }
+    return null;
+  }
+
+  DateTime? _parseIsoDate(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    try {
+      return DateTime.parse(iso);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Maps API status (OVERDUE, SCHEDULED, COMPLETED) to edit-screen dropdown value.
+  String? _apiStatusToDropdown(String? apiStatus) {
+    if (apiStatus == null) return null;
+    switch (apiStatus.toUpperCase()) {
+      case 'COMPLETED':
+        return 'Completed';
+      case 'OVERDUE':
+      case 'SCHEDULED':
+        return 'Scheduled';
+      default:
+        return 'Scheduled';
+    }
+  }
+
+  Widget _buildPhysicalCheckupSection() {
+    final physical = _getEntryByType('PHYSICAL_CHECKUP');
+    const completedColor = Color.fromRGBO(56, 200, 32, 1);
+    const completedBg = Color.fromRGBO(56, 200, 32, 0.1);
+    const overdueColor = Color.fromRGBO(234, 186, 0, 1);
+    const overdueBg = Color.fromRGBO(234, 186, 0, 0.1);
+    const scheduledColor = Color.fromRGBO(234, 186, 0, 1);
+    const scheduledBg = Color.fromRGBO(234, 186, 0, 0.1);
+
+    String statusLabel;
+    Color statusColor;
+    Color statusBg;
+    if (physical == null) {
+      statusLabel = '-';
+      statusColor = AppColors.primaryColor.withOpacity(0.5);
+      statusBg = AppColors.primaryColor.withOpacity(0.1);
+    } else {
+      switch ((physical['status'] ?? '').toUpperCase()) {
+        case 'COMPLETED':
+          statusLabel = 'Completed';
+          statusColor = completedColor;
+          statusBg = completedBg;
+          break;
+        case 'OVERDUE':
+          statusLabel = 'Overdue';
+          statusColor = overdueColor;
+          statusBg = overdueBg;
+          break;
+        case 'SCHEDULED':
+          statusLabel = 'Scheduled';
+          statusColor = scheduledColor;
+          statusBg = scheduledBg;
+          break;
+        default:
+          statusLabel = physical['status']?.isNotEmpty == true ? physical['status']! : 'Scheduled';
+          statusColor = scheduledColor;
+          statusBg = scheduledBg;
+      }
+    }
+    final dateStr = physical != null
+        ? _formatDate(physical['completedDate'] ?? physical['dueDate'] ?? '')
+        : '-';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Physical Checkup',
+          style: TextStyle(
+            color: AppColors.primaryColor.withOpacity(0.5),
+            fontSize: 16,
+            letterSpacing: 14 * (-3 / 100),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _PhysicalCard(
+          statusLabel: statusLabel,
+          statusColor: statusColor,
+          statusBg: statusBg,
+          date: dateStr,
+        ),
+      ],
+    );
   }
 
   @override
@@ -156,18 +258,27 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     ),
                     GestureDetector(
                       onTap: () {
+                        final hire = _getEntryByType('HIRE_DATE');
+                        final cda = _getEntryByType('CDA');
+                        final firstAid = _getEntryByType('FIRST_AID_CPR');
+                        final brc = _getEntryByType('BRC');
+                        final physical = _getEntryByType('PHYSICAL_CHECKUP');
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => EditImportantDatesScreen(
                               staffCode: widget.staffCode,
-                              initialHireDate: null, // You can pass actual dates here
-                              initialCdaExaminationDate: null,
-                              initialFirstAidCprExpirationDate: null,
-                              initialBackgroundRecordCheckExpirationDate: null,
+                              initialHireDate: _parseIsoDate(hire?['dueDate']),
+                              initialCdaExaminationDate: _parseIsoDate(cda?['dueDate']),
+                              initialFirstAidCprExpirationDate: _parseIsoDate(firstAid?['dueDate']),
+                              initialBackgroundRecordCheckExpirationDate: _parseIsoDate(brc?['dueDate']),
+                              initialPhysicalCheckupDate: _parseIsoDate(physical?['dueDate']),
+                              initialPhysicalCheckupStatus: _apiStatusToDropdown(physical?['status']),
                             ),
                           ),
-                        );
+                        ).then((_) {
+                          if (mounted) _loadDates(useCache: false);
+                        });
                       },
                       child: Container(
                         width: 38,
@@ -225,34 +336,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     showInfo: false,
                   ),
                   const SizedBox(height: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Physical Checkup',
-                        style: TextStyle(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 16,
-                          letterSpacing: 14 * (-3 / 100),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Completed card
-                      const _PhysicalCard(
-                        statusLabel: 'Completed',
-                        statusColor: Color.fromRGBO(56, 200, 32, 1),
-                        statusBg: Color.fromRGBO(56, 200, 32, 0.1),
-                        date: 'Dec 09 ,2023',
-                      ),
-                      // Due/Overdue card
-                      const _PhysicalCard(
-                        statusLabel: 'Due',
-                        statusColor: Color.fromRGBO(234, 186, 0, 1),
-                        statusBg: Color.fromRGBO(234, 186, 0, 0.1),
-                        date: 'Dec 09 ,2023',
-                      ),
-                    ],
-                  ),
+                  _buildPhysicalCheckupSection(),
                 ],
               ],
             ),

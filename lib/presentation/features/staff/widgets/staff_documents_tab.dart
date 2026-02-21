@@ -59,8 +59,10 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
       return;
     }
 
-    final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
-    
+    final expiryDate = (doc.expiryDate == null || doc.expiryDate!.trim().isEmpty)
+        ? null
+        : DateFormat('yyyy-MM-dd').parse(doc.expiryDate!);
+
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => BlocProvider<StaffDocumentCubit>(
@@ -75,6 +77,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
             initialFilePath: doc.documentUrl,
             initialMimeType: doc.mimeType,
             initialFileSizeKb: doc.documentSizeKb,
+            initialDocumentNotes: doc.documentNotes,
           ),
         ),
       ),
@@ -267,7 +270,12 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                             itemCount: documents.length,
                             itemBuilder: (context, i) {
                               final doc = documents[i];
-                              final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
+                              final expiryDateTime = (doc.expiryDate == null || doc.expiryDate!.trim().isEmpty)
+                                  ? null
+                                  : DateFormat('yyyy-MM-dd').parse(doc.expiryDate!);
+                              final expiryDisplay = expiryDateTime != null
+                                  ? DateFormat('MMM dd, yyyy').format(expiryDateTime)
+                                  : '-';
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: ExpansionTile(
@@ -297,7 +305,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                     const SizedBox(height: 16),
                                     _DocRow(
                                       label: 'Expiry Date',
-                                      text: DateFormat('MMM dd, yyyy').format(expiryDate),
+                                      text: expiryDisplay,
                                     ),
                                     const SizedBox(height: 16),
                                     _DocRow(label: 'Document', text: doc.documentName, trailingIcon: Icons.insert_drive_file_outlined),

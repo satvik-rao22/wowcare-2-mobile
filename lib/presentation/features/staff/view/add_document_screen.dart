@@ -7,6 +7,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -26,6 +27,7 @@ class AddDocumentScreen extends StatefulWidget {
     this.initialFilePath,
     this.initialMimeType,
     this.initialFileSizeKb,
+    this.initialDocumentNotes,
   });
   static const String routeName = '/add-document-screen';
 
@@ -38,6 +40,7 @@ class AddDocumentScreen extends StatefulWidget {
   final String? initialFilePath;
   final String? initialMimeType;
   final int? initialFileSizeKb;
+  final String? initialDocumentNotes;
 
   @override
   _AddDocumentScreenState createState() => _AddDocumentScreenState();
@@ -45,10 +48,13 @@ class AddDocumentScreen extends StatefulWidget {
 
 class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final TextEditingController _documentNameController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
   String? _selectedDocumentType;
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
   PlatformFile? _selectedFile;
+  static const int _documentNameMaxLength = 100;
+  static const int _notesMaxLength = 500;
 
   final List<String> _documentTypes = [
     'Educational',
@@ -70,34 +76,63 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       _selectedDocumentType = widget.initialDocumentType;
       _selectedExpiryDate = widget.initialExpiryDate;
       _selectedFilePath = widget.initialFilePath;
+      if (widget.initialDocumentNotes != null) {
+        _notesController.text = widget.initialDocumentNotes!.trim();
+      }
     }
   }
 
   @override
   void dispose() {
     _documentNameController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
   void _addDocument() {
-    if (_documentNameController.text.isEmpty) {
-      _showWarningMessage('Document name is required');
+    final name = _documentNameController.text.trim();
+    if (name.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Document name is required',
+        isWarning: true,
+      );
+      return;
+    }
+    if (name.length > _documentNameMaxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Document name must be at most $_documentNameMaxLength characters',
+        isWarning: true,
+      );
       return;
     }
 
     if (_selectedDocumentType == null) {
-      _showWarningMessage('Please select a document type');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select a document type',
+        isWarning: true,
+      );
       return;
     }
 
-    if (_selectedExpiryDate == null) {
-      _showWarningMessage('Please select an expiry date');
+    if (_notesController.text.length > _notesMaxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Notes must be at most $_notesMaxLength characters',
+        isWarning: true,
+      );
       return;
     }
 
     // In edit mode, file upload is optional (can use existing file)
     if (!widget.isEdit && _selectedFile == null) {
-      _showWarningMessage('Please upload a document');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please upload a document',
+        isWarning: true,
+      );
       return;
     }
 
@@ -117,17 +152,26 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       fileSizeKb = widget.initialFileSizeKb ?? 0;
       mimeType = widget.initialMimeType ?? 'application/pdf';
     } else {
-      _showWarningMessage('Please upload a document');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please upload a document',
+        isWarning: true,
+      );
       return;
     }
 
     final document = StaffDocument(
       documentType: _selectedDocumentType!,
-      documentName: _documentNameController.text.trim(),
+      documentName: name,
       documentUrl: documentUrl,
       documentSizeKb: fileSizeKb,
       mimeType: mimeType,
-      expiryDate: DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!),
+      expiryDate: _selectedExpiryDate != null
+          ? DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!)
+          : null,
+      documentNotes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
     );
 
     if (widget.isEdit && widget.documentUuid != null) {
@@ -160,33 +204,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     return mimeTypes[extension] ?? 'application/octet-stream';
   }
 
-  void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
 
   Future<void> _selectExpiryDate() async {
     try {
@@ -200,8 +217,19 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       );
       
       if (result != null && result['date'] != null) {
+        final selectedDate = result['date'] as DateTime;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        if (selectedDate.isBefore(today) || selectedDate.isAtSameMomentAs(today)) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Expiry date must be a future date',
+            isWarning: true,
+          );
+          return;
+        }
         setState(() {
-          _selectedExpiryDate = result['date'] as DateTime;
+          _selectedExpiryDate = selectedDate;
         });
       }
     } catch (e) {
@@ -226,7 +254,11 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       }
     } catch (e) {
       print('Error picking file: $e');
-      _showWarningMessage('Error selecting file. Please try again.');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Error selecting file. Please try again.',
+        isWarning: true,
+      );
     }
   }
 
@@ -264,17 +296,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            _buildInputField(
-              "Document name",
-              "E.g. Report Card",
-              _documentNameController,
-            ),
+            _buildDocumentNameField(),
             SizedBox(height: responsive.verticalSpacing),
             _buildCustomDropdown(),
             SizedBox(height: responsive.verticalSpacing),
             _buildDateField(),
             SizedBox(height: responsive.verticalSpacing),
             _buildFileUploadField(),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildNotesField(),
             const SizedBox(height: 12),
           ],
         ),
@@ -299,26 +329,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         ),
         child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
           builder: (context, state) {
-            final isSubmitting = state.isLoading;
-            return Container(
-              height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
-                color: isSubmitting ? Colors.grey[300] : null,
-                borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-              ),
-              child: TextButton(
-                onPressed: isSubmitting ? null : _addDocument,
-            child: Text(
-              widget.isEdit ? 'Save' : 'Add',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-                ),
-              ),
+            return CustomButtonLayout(
+              confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+              onPressedConfirm: _addDocument,
+              showCancelButton: false,
+              isForm: false,
+              isLoading: state.isLoading,
             );
           },
         ),
@@ -327,11 +343,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     );
   }
 
-  Widget _buildInputField(
-    String label, 
-    String hint, 
-    TextEditingController controller,
-  ) {
+  Widget _buildDocumentNameField() {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
@@ -347,7 +359,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           text: TextSpan(
             style: labelStyle,
             children: [
-              TextSpan(text: label),
+              const TextSpan(text: 'Document'),
               const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
             ],
           ),
@@ -361,12 +373,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
           child: TextField(
-            controller: controller,
+            controller: _documentNameController,
             textCapitalization: TextCapitalization.sentences,
+            maxLength: _documentNameMaxLength,
             decoration: InputDecoration(
-              hintText: hint,
+              hintText: 'E.g. Report Card',
               hintStyle: labelStyle.copyWith(color: Colors.grey),
               border: InputBorder.none,
+              counterText: '',
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
                 vertical: responsive.isTablet ? 16.0 : 12.0,
@@ -380,7 +394,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   Widget _buildCustomDropdown() {
     return CustomDropdown(
-      label: "Document Type *",
+      label: "Document Type",
       hintText: "Select",
       items: _documentTypes,
       selectedItem: _selectedDocumentType,
@@ -400,14 +414,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              const TextSpan(text: 'Expiry Date'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
+        Text(
+          'Expiry Date',
+          style: labelStyle,
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
@@ -509,5 +518,50 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     );
   }
 
+  Widget _buildNotesField() {
+    final responsive = ResponsiveHelper(context);
+    final labelStyle = TextStyle(
+      fontSize: responsive.labelFontSize,
+      fontFamily: "Manrope",
+      fontWeight: FontWeight.w400,
+      color: const Color(0xff573353),
+    );
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Notes',
+          style: labelStyle,
+        ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        Container(
+          constraints: BoxConstraints(
+            minHeight: responsive.inputFieldHeight * 2,
+            maxHeight: responsive.inputFieldHeight * 4,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0x66573353)),
+            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+          ),
+          child: TextField(
+            controller: _notesController,
+            maxLines: 4,
+            maxLength: _notesMaxLength,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'Add notes...',
+              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

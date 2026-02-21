@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -509,7 +511,11 @@ class _StaffCardState extends State<StaffCard> {
                                               },
                                             ),
                                           ),
-                                        );
+                                        ).then((_) {
+                                          if (context.mounted) {
+                                            context.read<StaffCubit>().refresh();
+                                          }
+                                        });
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,

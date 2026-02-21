@@ -382,10 +382,24 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
           initialDate: _selectedBirthDate,
         ),
       );
-      
+
       if (result != null && result['date'] != null) {
+        final selectedDate = result['date'] as DateTime;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+
+        // Birthdate must be a past date (not today or future)
+        if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Birthdate must be a past date',
+            isError: true,
+          );
+          return;
+        }
+
         setState(() {
-          _selectedBirthDate = result['date'] as DateTime;
+          _selectedBirthDate = selectedDate;
         });
       }
     } catch (e) {

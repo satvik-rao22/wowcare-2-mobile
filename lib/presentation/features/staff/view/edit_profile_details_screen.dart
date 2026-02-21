@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -105,6 +106,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final List<String> _countryOptions =
       COUNTRY_LIST.map((c) => c.name).toList(growable: false);
 
+  late final GetStaffProfileUseCase _getStaffProfileUseCase;
+
   // Simple validators (align with Add Staff)
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
@@ -116,6 +119,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _getStaffProfileUseCase = serviceLocator<GetStaffProfileUseCase>();
     // Hydrate classrooms from cached metadata if available (no extra API calls).
     if (widget.initialClassroomNames != null &&
         widget.initialClassroomNames!.isNotEmpty) {
@@ -134,51 +138,86 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       ..clear()
       ..addAll(widget.initialClassroomCodeByName ?? {});
 
-    // Prefill when editing (use existing profile values; no mock defaults).
-    _firstNameController.text = widget.initialFirstName ?? '';
-    _lastNameController.text = widget.initialLastName ?? '';
-    _selectedStatus = widget.initialStatus;
-    _selectedDesignation =
-        _mapDesignationFromApiOrLabel(widget.initialDesignation);
-    _selectedAllowedClassrooms =
-        List<String>.from(widget.initialAllowedClassrooms ?? const []);
-    _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
-    _selectedBirthDate = widget.initialBirthDate;
-    _selectedJobTag = widget.initialJobTag?.isNotEmpty == true
-        ? _mapJobTagFromApiOrLabel(widget.initialJobTag)
-        : null;
-    _emailController.text = widget.initialEmail ?? '';
-    _phoneNumberController.text =
-        _formatUsPhone(widget.initialPhoneNumber ?? '');
-    _streetController.text = widget.initialStreet ?? '';
-    _street2Controller.text = '';
-    _cityController.text = widget.initialCity ?? '';
-
-    // Map initial state (name or abbreviation) to display name from US_STATES.
-    if (widget.initialState != null && widget.initialState!.isNotEmpty) {
-      final raw = widget.initialState!;
-      final match = US_STATES.firstWhere(
-        (s) =>
-            s.name.toLowerCase() == raw.toLowerCase() ||
-            s.abbreviation.toLowerCase() == raw.toLowerCase(),
-        orElse: () => US_STATES.first,
-      );
-      _selectedState = match.name;
+    // All fields are prefilled from GET /api/v1/staff/{staffCode}/profile (see _loadProfileForPrefill).
+    if (widget.staffCode.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfileForPrefill());
     }
+  }
 
-    // Map initial country (name or code) to display name from COUNTRY_LIST.
-    if (widget.initialCountry != null && widget.initialCountry!.isNotEmpty) {
-      final raw = widget.initialCountry!;
-      final match = COUNTRY_LIST.firstWhere(
-        (c) =>
-            c.name.toLowerCase() == raw.toLowerCase() ||
-            c.code.toLowerCase() == raw.toLowerCase(),
-        orElse: () => COUNTRY_LIST.first,
-      );
-      _selectedCountry = match.name;
+  String _statusApiToLabel(String? status) {
+    if (status == null) return 'Active';
+    switch (status.toUpperCase()) {
+      case 'ACTIVE': return 'Active';
+      case 'INACTIVE': return 'Inactive';
+      case 'UPCOMING': return 'Upcoming';
+      default: return status;
     }
+  }
 
-    _zipCodeController.text = widget.initialZipCode ?? '';
+  Future<void> _loadProfileForPrefill() async {
+    if (!mounted) return;
+    try {
+      final profile = await _getStaffProfileUseCase(staffCode: widget.staffCode);
+      if (!mounted) return;
+      final codeToName = {
+        for (final e in _classroomCodeByName.entries) e.value: e.key,
+      };
+      final a = profile.address;
+      setState(() {
+        _firstNameController.text = profile.firstName;
+        _lastNameController.text = profile.lastName;
+        _emailController.text = profile.email;
+        _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
+        _selectedStatus = _statusApiToLabel(profile.status);
+        _selectedDesignation = _mapDesignationFromApiOrLabel(profile.designation);
+        _selectedAllowedClassrooms = profile.allowedClassroomCodes
+            .map((c) => codeToName[c] ?? c)
+            .toList();
+        _selectedPrimaryClassroom = profile.primaryClassroomCode.isEmpty
+            ? null
+            : (codeToName[profile.primaryClassroomCode] ?? profile.primaryClassroomCode);
+        if (_classroomOptions.isEmpty) {
+          _classroomOptions.addAll(
+            Set<String>.from(_selectedAllowedClassrooms).toList(),
+          );
+          if (_selectedPrimaryClassroom != null &&
+              !_classroomOptions.contains(_selectedPrimaryClassroom)) {
+            _classroomOptions.add(_selectedPrimaryClassroom!);
+          }
+        }
+        _selectedBirthDate = profile.birthDate.isEmpty
+            ? null
+            : DateTime.tryParse(profile.birthDate);
+        _selectedJobTag = profile.jobTag.isEmpty
+            ? null
+            : _mapJobTagFromApiOrLabel(profile.jobTag);
+
+        _streetController.text = a.street;
+        _street2Controller.text = a.line2;
+        _cityController.text = a.city;
+        _zipCodeController.text = a.zipCode;
+        if (a.state.isNotEmpty) {
+          final match = US_STATES.firstWhere(
+            (s) =>
+                s.name.toLowerCase() == a.state.toLowerCase() ||
+                s.abbreviation.toLowerCase() == a.state.toLowerCase(),
+            orElse: () => US_STATES.first,
+          );
+          _selectedState = match.name;
+        }
+        if (a.country.isNotEmpty) {
+          final match = COUNTRY_LIST.firstWhere(
+            (c) =>
+                c.name.toLowerCase() == a.country.toLowerCase() ||
+                c.code.toLowerCase() == a.country.toLowerCase(),
+            orElse: () => COUNTRY_LIST.first,
+          );
+          _selectedCountry = match.name;
+        }
+      });
+    } catch (_) {
+      // Ignore; form stays empty
+    }
   }
 
   @override
@@ -470,10 +509,24 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           initialDate: _selectedBirthDate,
         ),
       );
-      
+
       if (result != null && result['date'] != null) {
+        final selectedDate = result['date'] as DateTime;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+
+        // Birthdate must be a past date (not today or future)
+        if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Birthdate must be a past date',
+            isError: true,
+          );
+          return;
+        }
+
         setState(() {
-          _selectedBirthDate = result['date'] as DateTime;
+          _selectedBirthDate = selectedDate;
         });
       }
     } catch (e) {

@@ -447,6 +447,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
             importantDateType: (json['importantDateType'] ?? '').toString(),
             dueDate: (json['dueDate'] ?? '').toString(),
             completedDate: json['completedDate']?.toString(),
+            status: json['status']?.toString(),
           ),
         )
         .toList();

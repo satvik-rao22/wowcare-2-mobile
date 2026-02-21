@@ -17,22 +17,26 @@ class ImportantDateRequestModel extends Equatable {
     required this.importantDateType,
     required this.dueDate,
     this.completedDate,
+    this.status,
   });
 
   final String importantDateType;
   final String dueDate; // ISO format: "yyyy-MM-dd"
   final String? completedDate; // ISO format: "yyyy-MM-dd"
+  /// Optional status (e.g. "Scheduled", "Completed" for physical checkup).
+  final String? status;
 
   Map<String, dynamic> toJson() {
     return {
       'importantDateType': importantDateType,
       'dueDate': dueDate,
       if (completedDate != null) 'completedDate': completedDate,
+      if (status != null && status!.isNotEmpty) 'status': status,
     };
   }
 
   @override
-  List<Object?> get props => [importantDateType, dueDate, completedDate];
+  List<Object?> get props => [importantDateType, dueDate, completedDate, status];
 }
 
 class ImportantDatesResponseModel extends Equatable {

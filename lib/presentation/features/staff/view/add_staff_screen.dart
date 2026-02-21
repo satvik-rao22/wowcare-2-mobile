@@ -550,10 +550,23 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       : 'User created successfully',
                   isSuccess: true,
                 );
+                // Prefill from API response so edit profile shows exactly what was saved
+                final u = result.user;
                 Navigator.pop(context, {
                   'showPostAddPrompt': true,
                   'staffName': staffName,
-                  'userCode': result.user.userCode,
+                  'userCode': u.userCode,
+                  'staffCode': u.staffCode ?? u.userCode,
+                  'initialFirstName': u.firstName,
+                  'initialLastName': u.lastName,
+                  'initialEmail': u.email,
+                  'initialDesignation': u.designation,
+                  'initialPhoneNumber': u.mobile,
+                  'initialPrimaryClassroom': _selectedPrimaryClassroomName,
+                  'initialAllowedClassrooms': List<String>.from(_selectedAllowedClassroomNames),
+                  'initialClassroomNames': List<String>.from(_classrooms),
+                  'initialClassroomCodeByName': Map<String, String>.from(_classroomCodeByName),
+                  'initialStatus': u.status ?? _selectedStatus,
                 });
               }
             },

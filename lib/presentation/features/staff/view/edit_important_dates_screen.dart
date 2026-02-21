@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -112,7 +113,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       });
     }
 
-    // Physical Checkup Date
+    // Physical Checkup Date (API supports status: Scheduled | Completed)
     if (_selectedPhysicalCheckupDate != null) {
       final dueDate = DateFormat('yyyy-MM-dd').format(_selectedPhysicalCheckupDate!);
       final map = <String, String>{
@@ -121,6 +122,9 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       };
       if (_selectedPhysicalCheckupStatus == 'Completed') {
         map['completedDate'] = dueDate;
+        map['status'] = 'COMPLETED';
+      } else {
+        map['status'] = 'SCHEDULED';
       }
       dates.add(map);
     }
@@ -314,25 +318,12 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
             topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: Container(
-          height: responsive.buttonHeight,
-          decoration: BoxDecoration(
-            gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: isSubmitting ? Colors.grey[300] : null,
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-          ),
-          child: TextButton(
-            onPressed: isSubmitting ? null : _saveImportantDates,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
+        child: CustomButtonLayout(
+          confirmButtonLabel: 'Save',
+          onPressedConfirm: _saveImportantDates,
+          showCancelButton: false,
+          isForm: false,
+          isLoading: isSubmitting,
         ),
       ),
             );

@@ -188,7 +188,8 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       documentUrl: document.documentUrl,
       documentSizeKb: document.documentSizeKb,
       mimeType: document.mimeType,
-      expiryDate: document.expiryDate,
+      expiryDate: document.expiryDate ?? '',
+      documentNotes: document.documentNotes,
     );
 
     final response = await _remoteDataSource.addStaffDocument(
@@ -215,7 +216,8 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       documentUrl: document.documentUrl,
       documentSizeKb: document.documentSizeKb,
       mimeType: document.mimeType,
-      expiryDate: document.expiryDate,
+      expiryDate: document.expiryDate ?? '',
+      documentNotes: document.documentNotes,
     );
 
     final response = await _remoteDataSource.updateStaffDocument(
@@ -279,7 +281,8 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             documentUrl: m.documentUrl,
             documentSizeKb: m.documentSizeKb,
             mimeType: m.mimeType,
-            expiryDate: m.expiryDate,
+            expiryDate: m.expiryDate.isEmpty ? null : m.expiryDate,
+            documentNotes: m.documentNotes,
             expired: m.expired,
             createdAt: m.createdAt,
           ),
@@ -440,6 +443,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             'importantDateType': m.importantDateType,
             'dueDate': m.dueDate,
             if (m.completedDate != null) 'completedDate': m.completedDate!,
+            if (m.status != null && m.status!.isNotEmpty) 'status': m.status!,
           },
         )
         .toList();
@@ -469,6 +473,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
               'importantDateType': d['importantDateType']?.toString() ?? '',
               'dueDate': d['dueDate']?.toString() ?? '',
               if (d['completedDate'] != null) 'completedDate': d['completedDate']!.toString(),
+              if (d['status'] != null) 'status': d['status']!.toString(),
             })
         .toList();
   }
@@ -484,6 +489,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             importantDateType: date['importantDateType']!,
             dueDate: date['dueDate']!,
             completedDate: date['completedDate'],
+            status: date['status'],
           ),
         )
         .toList();
@@ -684,6 +690,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   SchoolUser _mapSchoolUserModelToEntity(SchoolUserModel model) {
     return SchoolUser(
       userCode: model.userCode,
+      staffCode: model.staffCode,
       firstName: model.firstName,
       lastName: model.lastName,
       displayName: model.displayName,

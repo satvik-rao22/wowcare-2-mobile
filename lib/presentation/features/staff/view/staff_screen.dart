@@ -158,6 +158,7 @@ class _StaffScreenState extends State<StaffScreen> {
 
                       if (result is Map && (result['showPostAddPrompt'] == true)) {
                         final staffName = (result['staffName'] as String?) ?? '';
+                        final editArgs = Map<String, dynamic>.from(result);
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           showModalBottomSheet(
                             context: context,
@@ -174,7 +175,12 @@ class _StaffScreenState extends State<StaffScreen> {
                               onLater: () => Navigator.of(ctx).pop(),
                               onYes: () {
                                 Navigator.of(ctx).pop();
-                                Navigator.of(context).pushNamed('/edit-profile-details-screen');
+                                Navigator.of(context).pushNamed(
+                                  '/edit-profile-details-screen',
+                                  arguments: editArgs,
+                                ).then((_) {
+                                  if (mounted) staffCubit.refresh();
+                                });
                               },
                             ),
                           );
