@@ -332,11 +332,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   void _updateClassroomsFromCubitState(ClassroomState state) {
     if (state.classrooms.isEmpty) {
       if (state.errorMessage != null) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: state.errorMessage!,
-          isError: true,
-        );
+        CoreUtils.logApiError(state.errorMessage!);
       } else if (!state.isLoading) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -511,11 +507,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               if (!mounted) return;
 
               if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: state.errorMessage!,
-                  isError: true,
-                );
+                CoreUtils.logApiError(state.errorMessage!);
                 return;
               }
 

@@ -34,6 +34,7 @@ class ApiPaths {
 
   // Student
   static const String studentList = '/api/v1/student';
+  static const String studentDocuments = '/api/v1/student-documents';
   static String studentProfile(String code) => '/api/v1/student/$code';
   static String studentProfileUpdate(String code) => '/api/v1/student/$code/profile';
   static String studentDeactivate(String code) => '/api/v1/student/$code/deactivate';

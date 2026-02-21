@@ -1,9 +1,13 @@
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
+import '../../../../domain/features/student/entities/student_document.dart';
+import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../models/student_models.dart';
+import '../models/student_document_models.dart';
 
 class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithCache {
   StudentRepositoryImpl(this._remoteDataSource, StorageService storageService)
@@ -18,6 +22,13 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         feature: 'student',
         resource: 'list',
         identifier: schoolCode,
+      );
+
+  static String _studentDocumentsCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'documents',
+        identifier: studentCode,
       );
 
   @override
@@ -51,6 +62,98 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     }
 
     return _mapPageModelToEntity(studentPageModel);
+  }
+
+  @override
+  Future<StudentDocumentsPage?> loadCachedStudentDocuments(String studentCode) async {
+    final payload = await _cacheManager.loadCache(_studentDocumentsCacheKey(studentCode));
+    if (payload == null) return null;
+
+    final model = StudentDocumentsPageModel.fromCacheJson(payload);
+    return _mapDocumentsPageModelToEntity(model);
+  }
+
+  @override
+  Future<StudentDocumentsPage> getStudentDocuments({
+    required String studentCode,
+    int page = 0,
+    int size = 10,
+    bool? expiredOnly,
+  }) async {
+    final documentsPageModel = await _remoteDataSource.getStudentDocuments(
+      ownerId: studentCode,
+      page: page,
+      size: size,
+      expiredOnly: expiredOnly,
+    );
+
+    if (page == 0) {
+      await _cacheManager.saveCache(
+        _studentDocumentsCacheKey(studentCode),
+        documentsPageModel.toJson(),
+      );
+    }
+
+    return _mapDocumentsPageModelToEntity(documentsPageModel);
+  }
+
+  StudentDocumentsPage _mapDocumentsPageModelToEntity(StudentDocumentsPageModel model) {
+    final items = model.items.map((m) {
+      final storagePath = m.storagePath;
+      final documentUrl = storagePath.startsWith('http')
+          ? storagePath
+          : '${ApiConstants.studentBaseUrl}${storagePath.startsWith('/') ? '' : '/'}$storagePath';
+      return StudentDocument(
+        documentUuid: m.code,
+        documentType: m.type,
+        documentName: m.name,
+        documentUrl: documentUrl,
+        documentSizeKb: m.size > 0 ? (m.size / 1024).ceil() : 0,
+        mimeType: m.mimeType,
+        expiryDate: m.expiryDate,
+        expired: false,
+        createdAt: m.createdAt,
+      );
+    }).toList();
+
+    return StudentDocumentsPage(
+      items: items,
+      page: model.page,
+      size: model.size,
+      totalPages: model.totalPages,
+      totalElements: model.totalElements,
+      hasMore: model.hasMore,
+    );
+  }
+
+  @override
+  Future<String> addStudentDocument({
+    required String studentCode,
+    required String name,
+    required String type,
+    required String expiryDate,
+    required String storagePath,
+    required String mimeType,
+    required int size,
+    String? notes,
+  }) async {
+    final request = StudentDocumentRequestModel(
+      name: name,
+      type: type,
+      expiryDate: expiryDate,
+      storagePath: storagePath,
+      mimeType: mimeType,
+      size: size,
+      ownerType: 'STUDENT',
+      ownerId: studentCode,
+      notes: notes,
+    );
+
+    final response = await _remoteDataSource.addStudentDocument(request: request);
+
+    await _cacheManager.invalidateCache(_studentDocumentsCacheKey(studentCode));
+
+    return response.message;
   }
 
   @override

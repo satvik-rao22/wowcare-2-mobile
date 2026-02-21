@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -11,6 +12,8 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_document_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -41,7 +44,6 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
   PlatformFile? _selectedFile;
-  bool _isSubmitting = false;
 
   final List<String> _documentTypes = [
     'Educational',
@@ -72,6 +74,22 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     super.dispose();
   }
 
+  String _getMimeType(String extension) {
+    const mimeTypes = {
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    };
+    return mimeTypes[extension] ?? 'application/octet-stream';
+  }
+
   void _addDocument() {
     if (_documentNameController.text.isEmpty) {
       _showWarningMessage('Document name is required');
@@ -93,25 +111,26 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       return;
     }
 
-    // TODO: Implement actual API call to add student document
-    setState(() {
-      _isSubmitting = true;
-    });
+    if (widget.studentCode.isEmpty) {
+      _showWarningMessage('Student code is required');
+      return;
+    }
 
-    // Simulate API call
-    Future.delayed(const Duration(seconds: 1)).then((_) {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: widget.isEdit ? 'Document updated successfully' : 'Document added successfully',
-          isSuccess: true,
+    // storagePath: use file path when available (mobile), else file name
+    final storagePath = _selectedFile!.path ?? _selectedFile!.name;
+    final extension = _selectedFile!.extension?.toLowerCase() ?? '';
+    final mimeType = _getMimeType(extension);
+    final sizeBytes = _selectedFile!.size;
+
+    context.read<StudentDocumentCubit>().addDocument(
+          studentCode: widget.studentCode,
+          name: _documentNameController.text.trim(),
+          type: _selectedDocumentType!,
+          expiryDate: DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!),
+          storagePath: storagePath,
+          mimeType: mimeType,
+          size: sizeBytes,
         );
-        Navigator.pop(context, true);
-      }
-    });
   }
 
   void _showWarningMessage(String message) {
@@ -190,6 +209,31 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
+    return BlocProvider<StudentDocumentCubit>(
+      create: (_) => serviceLocator<StudentDocumentCubit>(),
+      child: BlocListener<StudentDocumentCubit, StudentDocumentState>(
+        listener: (context, state) {
+          if (state.isSuccess && state.message != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message!,
+              isSuccess: true,
+            );
+            Navigator.pop(context, true);
+          } else if (state.isError && state.message != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message!,
+              isError: true,
+            );
+          }
+        },
+        child: _buildForm(responsive, safeAreaBottom),
+      ),
+    );
+  }
+
+  Widget _buildForm(ResponsiveHelper responsive, double safeAreaBottom) {
     return StaffFormLayout(
       title: widget.isEdit ? "Edit Document" : "Add Document",
       child: GestureDetector(
@@ -233,25 +277,30 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: Container(
-          height: responsive.buttonHeight,
-          decoration: BoxDecoration(
-            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: _isSubmitting ? Colors.grey[300] : null,
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-          ),
-          child: TextButton(
-            onPressed: _isSubmitting ? null : _addDocument,
-            child: Text(
-              widget.isEdit ? 'Save' : 'Add',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+        child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
+          builder: (context, state) {
+            final isSubmitting = state.isLoading;
+            return Container(
+              height: responsive.buttonHeight,
+              decoration: BoxDecoration(
+                gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
+                color: isSubmitting ? Colors.grey[300] : null,
+                borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
               ),
-            ),
-          ),
+              child: TextButton(
+                onPressed: isSubmitting ? null : _addDocument,
+                child: Text(
+              widget.isEdit ? 'Save' : 'Add',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.buttonFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

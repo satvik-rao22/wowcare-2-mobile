@@ -73,14 +73,10 @@ class _StaffScreenState extends State<StaffScreen> {
         final classroomNames = _getClassroomNames(classroomState);
         final classroomNameByCode = _getClassroomNameByCode(classroomState);
         
-        // Show error if classroom loading failed
+        // Log error if classroom loading failed (no UI display - core_utils only)
         if (classroomState.errorMessage != null && classroomState.classrooms.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: classroomState.errorMessage!,
-              isError: true,
-            );
+            CoreUtils.logApiError(classroomState.errorMessage!);
             context.read<ClassroomCubit>().clearError();
           });
         }
@@ -487,11 +483,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 if (!mounted) return;
                                 final err = staffCubit.state.errorMessage;
                                 if (err != null && err.isNotEmpty) {
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message: err,
-                                    isError: true,
-                                  );
+                                  CoreUtils.logApiError(err);
                                 } else {
                                   CoreUtils.showTopSnackBar(
                                     context: context,
@@ -547,12 +539,12 @@ class _StaffScreenState extends State<StaffScreen> {
                   }
 
                   if (state.errorMessage != null && state.items.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(
                         child: Text(
-                          'Failed to load staff: ${state.errorMessage}',
-                          style: const TextStyle(color: Colors.redAccent),
+                          'Unable to load staff. Please try again.',
+                          style: TextStyle(color: Colors.redAccent),
                         ),
                       ),
                     );
@@ -624,13 +616,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                     Navigator.of(context).maybePop();
                                   } catch (e) {
                                     if (!mounted) return;
-                                    final message =
-                                        ApiErrorHandler.extractErrorMessage(e);
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message: message,
-                                      isError: true,
-                                    );
+                                    CoreUtils.logApiError(
+                                        ApiErrorHandler.extractErrorMessage(e));
                                   }
                                 },
                                 isSelected: isSelected,

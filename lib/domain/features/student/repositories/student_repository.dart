@@ -1,4 +1,6 @@
 import '../entities/student.dart';
+import '../entities/student_document.dart';
+import '../entities/student_documents_page.dart';
 
 abstract class StudentRepository {
   Future<StudentPage> getStudentPage({
@@ -40,10 +42,31 @@ abstract class StudentRepository {
     required String code,
     required Map<String, dynamic> fields,
   });
+
+  /// Fetches paginated student documents. [studentCode] = ownerId.
+  Future<StudentDocumentsPage> getStudentDocuments({
+    required String studentCode,
+    int page = 0,
+    int size = 10,
+    bool? expiredOnly,
+  });
+
+  /// Adds a student document via POST /api/v1/student-documents.
+  Future<String> addStudentDocument({
+    required String studentCode,
+    required String name,
+    required String type,
+    required String expiryDate,
+    required String storagePath,
+    required String mimeType,
+    required int size,
+    String? notes,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
 abstract class StudentRepositoryWithCache {
   Future<StudentPage?> loadCachedStudentPage(String schoolCode);
+  Future<StudentDocumentsPage?> loadCachedStudentDocuments(String studentCode);
 }
 

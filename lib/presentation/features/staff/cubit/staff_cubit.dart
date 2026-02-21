@@ -2,7 +2,9 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
@@ -122,7 +124,14 @@ class StaffCubit extends Cubit<StaffState> {
 
       if (isClosed) return;
 
-      final staffCount = await staffCountFuture;
+      // Staff count is non-fatal: if it fails, use defaults so list still shows.
+      // Error is already logged by API interceptor -> CoreUtils.
+      StaffCount staffCount = const StaffCount(total: 0, active: 0, upcoming: 0);
+      try {
+        staffCount = await staffCountFuture;
+      } catch (_) {}
+
+
       final firstPage = await firstPageFuture;
 
       var items = List<StaffMember>.from(firstPage.items);
@@ -145,6 +154,7 @@ class StaffCubit extends Cubit<StaffState> {
         hasMore = secondPage.hasMore;
       }
 
+      if (isClosed) return;
       emit(
         state.copyWith(
           items: items,
@@ -160,6 +170,7 @@ class StaffCubit extends Cubit<StaffState> {
       );
     } catch (e) {
       if (isClosed) return;
+      CoreUtils.logApiError(e.toString());
       emit(
         state.copyWith(
           isLoading: false,
@@ -366,7 +377,14 @@ class StaffCubit extends Cubit<StaffState> {
 
       if (isClosed) return;
 
-      final staffCount = await staffCountFuture;
+      // Staff count is non-fatal: if it fails, use defaults so list still shows.
+      // Error is already logged by API interceptor -> CoreUtils.
+      StaffCount staffCount = const StaffCount(total: 0, active: 0, upcoming: 0);
+      try {
+        staffCount = await staffCountFuture;
+      } catch (_) {}
+
+
       final firstPage = await firstPageFuture;
 
       var items = List<StaffMember>.from(firstPage.items);
@@ -389,6 +407,7 @@ class StaffCubit extends Cubit<StaffState> {
         hasMore = secondPage.hasMore;
       }
 
+      if (isClosed) return;
       emit(
         state.copyWith(
           items: items,
@@ -404,6 +423,7 @@ class StaffCubit extends Cubit<StaffState> {
       );
     } catch (e) {
       if (isClosed) return;
+      CoreUtils.logApiError(e.toString());
       emit(
         state.copyWith(
           isLoading: false,

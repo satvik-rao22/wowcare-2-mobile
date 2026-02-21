@@ -7,6 +7,7 @@ import '../entities/staff_count.dart';
 
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   });
 

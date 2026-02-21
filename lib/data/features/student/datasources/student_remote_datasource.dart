@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../models/student_models.dart';
+import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
 
 abstract class StudentRemoteDataSource {
@@ -18,6 +19,21 @@ abstract class StudentRemoteDataSource {
   });
 
   Future<StudentProfileModel> getStudentProfile(String code);
+
+  /// Adds a student document via POST /api/v1/student-documents.
+  Future<StudentDocumentResponseModel> addStudentDocument({
+    required StudentDocumentRequestModel request,
+  });
+
+  /// Fetches paginated student documents via GET /api/v1/student-documents.
+  /// [ownerId] = student code (required).
+  /// [expiredOnly] when true returns only expired documents.
+  Future<StudentDocumentsPageModel> getStudentDocuments({
+    required String ownerId,
+    int page = 0,
+    int size = 10,
+    bool? expiredOnly,
+  });
 
   Future<String> deactivateStudent(String code);
 
@@ -138,6 +154,69 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     return StudentPageModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<StudentDocumentResponseModel> addStudentDocument({
+    required StudentDocumentRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentDocuments,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student document API response format');
+    }
+
+    return StudentDocumentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StudentDocumentsPageModel> getStudentDocuments({
+    required String ownerId,
+    int page = 0,
+    int size = 10,
+    bool? expiredOnly,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'ownerId': ownerId,
+      'page': page,
+      'size': size,
+    };
+
+    if (expiredOnly != null) {
+      queryParameters['expiredOnly'] = expiredOnly;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentDocuments,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student documents API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final dataPayload = data['data'] as Map<String, dynamic>?;
+    if (dataPayload == null) {
+      throw Exception('Missing data field in student documents response');
+    }
+
+    return StudentDocumentsPageModel.fromJson(dataPayload);
   }
 
   @override
