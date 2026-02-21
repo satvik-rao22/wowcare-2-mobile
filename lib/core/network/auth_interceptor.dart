@@ -28,6 +28,14 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    // If the request already has an explicit Authorization header (e.g. login-context
+    // right after login with the fresh token), do not overwrite it with storage.
+    final existingAuth = options.headers['Authorization'] ?? options.headers['authorization'];
+    if (existingAuth != null && existingAuth.toString().trim().isNotEmpty) {
+      handler.next(options);
+      return;
+    }
+
     final token = await _storage.getString(StorageKeys.accessToken);
     final headers = ApiHeaders.authorizedJson(token ?? '');
     options.headers.addAll(headers);

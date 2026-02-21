@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -20,6 +21,8 @@ class EditImportantDatesScreen extends StatefulWidget {
     this.initialCdaExaminationDate,
     this.initialFirstAidCprExpirationDate,
     this.initialBackgroundRecordCheckExpirationDate,
+    this.initialPhysicalCheckupDate,
+    this.initialPhysicalCheckupStatus,
   });
   static const String routeName = '/edit-important-dates-screen';
 
@@ -28,6 +31,8 @@ class EditImportantDatesScreen extends StatefulWidget {
   final DateTime? initialCdaExaminationDate;
   final DateTime? initialFirstAidCprExpirationDate;
   final DateTime? initialBackgroundRecordCheckExpirationDate;
+  final DateTime? initialPhysicalCheckupDate;
+  final String? initialPhysicalCheckupStatus;
 
   @override
   _EditImportantDatesScreenState createState() => _EditImportantDatesScreenState();
@@ -39,6 +44,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   DateTime? _selectedCdaExaminationDate;
   DateTime? _selectedFirstAidCprExpirationDate;
   DateTime? _selectedBackgroundRecordCheckExpirationDate;
+  DateTime? _selectedPhysicalCheckupDate;
+  String? _selectedPhysicalCheckupStatus;
+
+  static const List<String> _physicalCheckupStatusOptions = ['Scheduled', 'Completed'];
 
   @override
   void initState() {
@@ -49,6 +58,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     _selectedCdaExaminationDate = widget.initialCdaExaminationDate;
     _selectedFirstAidCprExpirationDate = widget.initialFirstAidCprExpirationDate;
     _selectedBackgroundRecordCheckExpirationDate = widget.initialBackgroundRecordCheckExpirationDate;
+    _selectedPhysicalCheckupDate = widget.initialPhysicalCheckupDate;
+    _selectedPhysicalCheckupStatus = widget.initialPhysicalCheckupStatus;
   }
 
   @override
@@ -101,6 +112,19 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       });
     }
 
+    // Physical Checkup Date
+    if (_selectedPhysicalCheckupDate != null) {
+      final dueDate = DateFormat('yyyy-MM-dd').format(_selectedPhysicalCheckupDate!);
+      final map = <String, String>{
+        'importantDateType': ImportantDateType.physicalCheckup.value,
+        'dueDate': dueDate,
+      };
+      if (_selectedPhysicalCheckupStatus == 'Completed') {
+        map['completedDate'] = dueDate;
+      }
+      dates.add(map);
+    }
+
     _importantDatesCubit.updateImportantDates(
       staffCode: widget.staffCode,
       dates: dates,
@@ -151,6 +175,9 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         case 'background':
           currentDate = _selectedBackgroundRecordCheckExpirationDate;
           break;
+        case 'physical':
+          currentDate = _selectedPhysicalCheckupDate;
+          break;
       }
 
       final result = await showDialog<Map<String, dynamic>>(
@@ -176,6 +203,9 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
               break;
             case 'background':
               _selectedBackgroundRecordCheckExpirationDate = result['date'] as DateTime;
+              break;
+            case 'physical':
+              _selectedPhysicalCheckupDate = result['date'] as DateTime;
               break;
           }
         });
@@ -241,6 +271,27 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
             "Background Record Check Expiration date",
             _selectedBackgroundRecordCheckExpirationDate,
             'background',
+          ),
+          SizedBox(height: responsive.verticalSpacing),
+          _buildDateField(
+            "Physical Checkup Date",
+            _selectedPhysicalCheckupDate,
+            'physical',
+          ),
+          SizedBox(height: responsive.verticalSpacing),
+          CustomDropdown(
+            label: "Physical Checkup Status",
+            hintText: 'Select an option',
+            items: _physicalCheckupStatusOptions,
+            selectedItem: _selectedPhysicalCheckupStatus,
+            labelStyle: TextStyle(
+              fontSize: responsive.labelFontSize,
+              fontFamily: "Manrope",
+              fontWeight: FontWeight.w400,
+              color: const Color(0xff573353),
+            ),
+            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+            onSelect: (val) => setState(() => _selectedPhysicalCheckupStatus = val ?? _selectedPhysicalCheckupStatus),
           ),
           const SizedBox(height: 12),
         ],
