@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
@@ -68,12 +69,23 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     super.build(context);
     final responsive = ResponsiveHelper(context);
     final mediaQuery = MediaQuery.of(context);
+    final contentPadding = ResponsiveSizing.contentPadding(context);
     final safeAreaTop = mediaQuery.padding.top;
-    final appBarHeight = AppBar().preferredSize.height;
-    final tabBarHeight = 48.0; // Approximate tab bar height
-    final floatingButtonTop = safeAreaTop + appBarHeight + tabBarHeight + 8;
-    final floatingButtonSize = responsive.isTablet ? 52.0 : 45.0;
-    final floatingButtonRight = responsive.horizontalSpacing;
+    final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
+
+    // Match GradientAddButton responsive sizes (as used in StaffScreen)
+    final double screenWidth = mediaQuery.size.width;
+    final bool isTablet = screenWidth >= 600;
+    final bool isLargeTablet = screenWidth >= 900;
+    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+
+    // Align the button with the TabBar headings row (Daily/Custom/Absent)
+    // by vertically centering it within the TabBar height.
+    final floatingButtonTop =
+        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+    // Align the floating button horizontally with the main content padding,
+    // similar to how GradientAddButton is aligned in StaffScreen.
+    final floatingButtonRight = contentPadding.right;
     
     return Stack(
       children: [
@@ -155,26 +167,11 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         Positioned(
           top: floatingButtonTop,
           right: floatingButtonRight,
-          child: Container(
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: SizedBox(
-              width: floatingButtonSize,
-              height: floatingButtonSize,
-              child: StaffAttendanceVerticalPopUp(
-                students: const [],
-                refreshCallback: _refreshCurrentTab,
-                topPosition: floatingButtonTop,
-                rightPosition: floatingButtonRight,
-              ),
-            ),
+          child: GradientAddButton(
+            onTap: () => _showActionMenu(context),
+            isTablet: isTablet,
+            isLargeTablet: isLargeTablet,
+            wantedButtonSize: floatingButtonSize,
           ),
         ),
       ],
@@ -207,5 +204,96 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         }
         break;
     }
+  }
+
+  void _showActionMenu(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final safeAreaTop = mediaQuery.padding.top;
+    final appBarHeight = AppBar().preferredSize.height;
+    final double screenWidth = mediaQuery.size.width;
+    final bool isTablet = screenWidth >= 600;
+    final bool isLargeTablet = screenWidth >= 900;
+    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final floatingButtonTop =
+        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+    final floatingButtonRight = contentPadding.right;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: EdgeInsets.only(
+            top: floatingButtonTop + floatingButtonSize + 8,
+            bottom: mediaQuery.size.height * 0.45,
+            left: mediaQuery.size.width * 0.75,
+            right: floatingButtonRight,
+          ),
+          child: Container(
+            width: 50,
+            constraints: const BoxConstraints(maxHeight: 400),
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+                const SizedBox(height: 5),
+                _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+                const SizedBox(height: 5),
+                _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                const SizedBox(height: 5),
+                _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
+    return InkWell(
+      onTap: () => Navigator.pop(context),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Manrope',
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

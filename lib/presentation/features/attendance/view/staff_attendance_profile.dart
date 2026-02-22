@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -344,19 +344,18 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   Widget _buildPopupMenu() {
-    return Stack(
-      children: [
-        SizedBox(
-          height: 45,
-          width: 45,
-          child: CustomFloatingActionButton(
-            onPressed: () {
-              _showActionMenu(context);
-            },
-            icon: Icons.more_vert,
-          ),
-        ),
-      ],
+    final responsive = ResponsiveHelper(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 600;
+    final isLargeTablet = screenWidth >= 900;
+    
+    return GradientAddButton(
+      onTap: () {
+        _showActionMenu(context);
+      },
+      isTablet: isTablet,
+      isLargeTablet: isLargeTablet,
+      isRectangle: true,
     );
   }
 

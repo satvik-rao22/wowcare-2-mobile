@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
-import 'package:wowcare/shared/common/widgets/custom_text_field.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -15,13 +12,34 @@ class StudentEntity {
   final String fullName;
   final int roomId;
   final String roomName;
+  final String photoUuid;
+  final List<TagEntity> tags;
 
   StudentEntity({
     required this.id,
     required this.fullName,
     required this.roomId,
     required this.roomName,
+    this.photoUuid = '',
+    this.tags = const [],
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StudentEntity &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+// Mock tag entity for UI-only implementation
+class TagEntity {
+  final String name;
+
+  TagEntity({required this.name});
 }
 
 class StudentMarkAbsentForm extends StatefulWidget {
@@ -50,6 +68,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     for (var student in widget.students) {
       notesControllers[student.id] = TextEditingController();
     }
+
     currentStudents = List.from(widget.students);
   }
 
@@ -108,7 +127,6 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = ResponsiveSizing.isTablet(context);
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
@@ -121,59 +139,211 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 24 : 16,
-          vertical: 16,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppText.title('Mark Absent'),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDateField(context, true, isTablet),
-                ),
-                SizedBox(width: isTablet ? 20 : 16),
-                Expanded(
-                  child: _buildDateField(context, false, isTablet),
-                ),
-              ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 8),
+            child: Text(
+              'Mark Absent',
+              style: TextStyle(
+                color: AppColors.primaryColor,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 17 * (-3 / 100),
+              ),
             ),
-            const SizedBox(height: 24),
-            if (currentStudents.isNotEmpty)
-              ListView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                itemCount: currentStudents.length,
-                itemBuilder: (context, index) {
-                  final student = currentStudents[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: SizedBox(
+              width: double.infinity,
+              child: Card(
+                elevation: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SingleChildScrollView(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildStudentChip(student),
-                        const SizedBox(height: 12),
-                        CustomTextField(
-                          controller: notesControllers[student.id],
-                          hintText: 'Enter Absent Notes',
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Start Date',
+                                    style: TextStyle(
+                                      color: Color.fromRGBO(87, 51, 83, 0.5),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  InkWell(
+                                    onTap: () => _selectDate(context, true),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: Colors.grey.shade200),
+                                        borderRadius: BorderRadius.circular(8),
+                                        color:
+                                            const Color.fromRGBO(249, 245, 250, 1),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            DateUtilsNew.formatToReadableDate(
+                                                startDate),
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          SvgPicture.asset(
+                                              MediaRes.calender_icon)
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'End Date',
+                                    style: TextStyle(
+                                      color: Color.fromRGBO(87, 51, 83, 0.5),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  InkWell(
+                                    onTap: () => _selectDate(context, false),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: Colors.grey.shade200),
+                                        borderRadius: BorderRadius.circular(8),
+                                        color:
+                                            const Color.fromRGBO(249, 245, 250, 1),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            DateUtilsNew.formatToReadableDate(
+                                                endDate),
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          SvgPicture.asset(
+                                              MediaRes.calender_icon)
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+                        ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          itemCount: currentStudents.length,
+                          itemBuilder: (context, index) {
+                            final student = currentStudents[index];
+
+                            return Column(
+                              children: [
+                                RemoveStudentTile(
+                                  student: student,
+                                  onRemove: () => _removeStudent(student),
+                                ),
+                                const SizedBox(height: 20),
+                                TextField(
+                                  controller: notesControllers[student.id],
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter Absent Notes',
+                                    hintStyle: const TextStyle(
+                                      color: Color.fromRGBO(87, 51, 83, 0.5),
+                                      fontSize: 15,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                          color: Color.fromRGBO(87, 51, 83, 0.4)),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                        color: Color.fromRGBO(87, 51, 83, 0.4),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                        color: Color.fromRGBO(87, 51, 83, 0.4),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                        color: Colors.red,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                        color: Colors.red,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: AppColors.cardColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
-            SizedBox(height: safeAreaBottom + 100), // Space for bottom button
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: Container(
         padding: EdgeInsets.only(
           bottom: safeAreaBottom,
-          left: isTablet ? 24 : 16,
-          right: isTablet ? 24 : 16,
+          left: 16,
+          right: 16,
           top: 8,
         ),
         decoration: BoxDecoration(
@@ -185,10 +355,6 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
               blurRadius: 16,
             ),
           ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(isTablet ? 40.0 : 24.0),
-          ),
         ),
         child: CustomButtonLayout(
           confirmButtonLabel: 'Submit',
@@ -198,71 +364,67 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       ),
     );
   }
+}
 
-  Widget _buildStudentChip(StudentEntity student) {
-    return CustomSectionCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+class RemoveStudentTile extends StatelessWidget {
+  final StudentEntity student;
+  final VoidCallback onRemove;
+
+  const RemoveStudentTile({
+    super.key,
+    required this.student,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: AppColors.themeColor,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        color: const Color.fromRGBO(249, 245, 250, 1),
+      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-            child: AppText.value(
-              student.fullName.split(' ').first,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.errorColor),
-            onPressed: () => _removeStudent(student),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateField(BuildContext context, bool isStartDate, bool isTablet) {
-    final date = isStartDate ? startDate : endDate;
-    final label = isStartDate ? 'Start Date' : 'End Date';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppText.label(label),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () => _selectDate(context, isStartDate),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? 12 : 8,
-              vertical: isTablet ? 14 : 12,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(8),
-              color: AppColors.fieldBackgroundColor,
-            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                AppText.value(
-                  DateFormat('MMM dd, yyyy').format(date),
+                DocumentImageWidget(
+                  fileUuid: student.photoUuid,
+                  size: 30,
+                  name: student.fullName,
+                  fontSize: 12,
                 ),
-                SvgPicture.asset(
-                  MediaRes.calender_icon,
-                  height: 20,
-                  width: 20,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.primaryColor,
-                    BlendMode.srcIn,
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    student.fullName.split(' ').first,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+          GestureDetector(
+            onTap: onRemove,
+            child: SvgPicture.asset(MediaRes.delete_icon),
+          )
+        ],
+      ),
     );
   }
 }

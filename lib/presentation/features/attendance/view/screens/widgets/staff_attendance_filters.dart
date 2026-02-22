@@ -61,66 +61,29 @@ class StaffAttendanceFilters extends StatelessWidget {
           ],
         ),
         SizedBox(height: responsive.verticalSpacing / 2),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // For smaller screens, stack vertically if needed
-            if (constraints.maxWidth < 400) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildFilterButton(context, responsive),
-                      SizedBox(width: spacing),
-                      if (hasActiveFilters && onClearAll != null)
-                        Flexible(
-                          child: CustomClearAllChip(
-                            onTap: onClearAll,
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: spacing),
-                  CustomToggle(
-                    label: 'Show Absent',
-                    isToggled: showAbsentOnly,
-                    onToggle: onToggleChanged,
-                  ),
-                ],
-              );
-            }
-            
-            // For larger screens, use horizontal layout
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildFilterButton(context, responsive),
-                      SizedBox(width: spacing),
-                      if (hasActiveFilters && onClearAll != null)
-                        Flexible(
-                          child: CustomClearAllChip(
-                            onTap: onClearAll,
-                          ),
-                        ),
-                    ],
-                  ),
+        // Filter button, clear-all chip, and "Show Absent" toggle on one row.
+        Row(
+          children: [
+            _buildFilterButton(context, responsive),
+            SizedBox(width: spacing),
+            if (hasActiveFilters && onClearAll != null)
+              Flexible(
+                child: CustomClearAllChip(
+                  onTap: onClearAll,
                 ),
-                SizedBox(width: spacing),
-                Flexible(
-                  child: CustomToggle(
-                    label: 'Show Absent',
-                    isToggled: showAbsentOnly,
-                    onToggle: onToggleChanged,
-                  ),
+              ),
+            const Spacer(),
+            Flexible(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: CustomToggle(
+                  label: 'Show Absent',
+                  isToggled: showAbsentOnly,
+                  onToggle: onToggleChanged,
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ],
     );

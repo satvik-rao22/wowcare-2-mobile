@@ -11,6 +11,8 @@ class StaffAttendanceSummary extends StatelessWidget {
   final int expected;
   final int present;
   final int absent;
+  final int signedOut;
+  final int notMarked;
   final bool isLoading;
   final Function(String)? onLegendTap;
 
@@ -22,6 +24,8 @@ class StaffAttendanceSummary extends StatelessWidget {
     required this.expected,
     required this.present,
     required this.absent,
+    this.signedOut = 0,
+    this.notMarked = 0,
     this.isLoading = false,
     this.onLegendTap,
   });
@@ -83,12 +87,32 @@ class StaffAttendanceSummary extends StatelessWidget {
               color: AppColors.redProgressBar,
               filterValue: 'Absent',
             ),
+            if (signedOut > 0)
+              ProgressItemHelper(
+                label: 'Signed Out ($signedOut)',
+                value: signedOut.toDouble(),
+                color: AppColors.lightBlueProgressBar,
+                filterValue: 'Signed Out',
+              ),
+            if (notMarked > 0)
+              ProgressItemHelper(
+                label: 'Not Marked ($notMarked)',
+                value: notMarked.toDouble(),
+                color: AppColors.mustardProgressBar,
+                filterValue: 'Not Marked',
+              ),
           ],
           onLegendTap: onLegendTap != null
               ? (label, filterValue) {
                   final status = label.split(' ').first;
-                  if (status == 'Present' || status == 'Absent') {
-                    onLegendTap!(status);
+                  if (status == 'Present' || status == 'Absent' || status == 'Signed' || status == 'Not') {
+                    if (status == 'Signed') {
+                      onLegendTap!('Signed Out');
+                    } else if (status == 'Not') {
+                      onLegendTap!('Not Marked');
+                    } else {
+                      onLegendTap!(status);
+                    }
                   }
                 }
               : null,

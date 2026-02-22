@@ -3,10 +3,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -14,12 +14,14 @@ class StudentEntity {
   final String fullName;
   final int roomId;
   final String roomName;
+  final String photoUuid;
 
   StudentEntity({
     required this.id,
     required this.fullName,
     required this.roomId,
     required this.roomName,
+    this.photoUuid = '',
   });
 }
 
@@ -47,21 +49,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   @override
   void initState() {
     super.initState();
-    currentStudents = List.from(widget.students);
-  }
-
-  Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+    if (widget.students.isNotEmpty) {
+      currentStudents = List.from(widget.students);
     }
   }
 
@@ -107,192 +96,229 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = ResponsiveSizing.isTablet(context);
-    final mediaQuery = MediaQuery.of(context);
-    final safeAreaBottom = mediaQuery.padding.bottom;
+    if (currentStudents.isEmpty && widget.students.isNotEmpty) {
+      currentStudents = List.from(widget.students);
+    }
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
+    return GlobalScaffold(
+      body: Card(
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 24 : 16,
-          vertical: 16,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppText.title('Sign-Out'),
-            const SizedBox(height: 24),
-            if (currentStudents.isNotEmpty) ...[
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: isTablet ? 16 : 12,
-                  mainAxisSpacing: isTablet ? 16 : 12,
-                  childAspectRatio: 3.5,
-                ),
-                itemCount: currentStudents.length,
-                itemBuilder: (context, index) {
-                  final student = currentStudents[index];
-                  return _buildStudentChip(student);
-                },
-              ),
-              const SizedBox(height: 24),
-            ],
-            Row(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: _buildDateField(isTablet),
+                const Text(
+                  'Sign-Out',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Color.fromRGBO(87, 51, 82, 1),
+                  ),
                 ),
-                SizedBox(width: isTablet ? 20 : 16),
-                Expanded(
-                  child: _buildTimeField(isTablet),
+                const SizedBox(height: 30),
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    childAspectRatio: 3.5,
+                  ),
+                  itemCount: currentStudents.length,
+                  itemBuilder: (context, index) => RemoveStudentTile(
+                    student: currentStudents[index],
+                    onRemove: () => _removeStudent(
+                      currentStudents[index],
+                    ),
+                  ),
                 ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Date',
+                            style: TextStyle(
+                              color: Color.fromRGBO(87, 51, 83, 0.5),
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.grey.shade100,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  DateUtilsNew.formatToReadableDate(selectedDate),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                SvgPicture.asset(
+                                  MediaRes.calender_icon,
+                                  colorFilter: ColorFilter.mode(
+                                    Colors.grey.shade600,
+                                    BlendMode.srcIn,
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Time',
+                            style: TextStyle(
+                              color: Color.fromRGBO(87, 51, 83, 0.5),
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () {
+                              _selectTime(context);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                                color: const Color.fromRGBO(249, 245, 250, 1),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    selectedTime.format(context),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  SvgPicture.asset(MediaRes.clock_icon)
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 80),
               ],
             ),
-            SizedBox(height: safeAreaBottom + 100), // Space for bottom button
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: isTablet ? 24 : 16,
-          right: isTablet ? 24 : 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Sign-Out',
-          onPressedConfirm: _handleSubmit,
-          showCancelButton: false,
-        ),
+      ),
+      hasBackButton: true,
+      showCustomNavigationBar: false,
+      customButtonLayout: CustomButtonLayout(
+        confirmButtonLabel: 'Sign-Out',
+        onPressedConfirm: _handleSubmit,
+        showCancelButton: false,
       ),
     );
   }
+}
 
-  Widget _buildStudentChip(StudentEntity student) {
-    return CustomSectionCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+class RemoveStudentTile extends StatelessWidget {
+  final StudentEntity student;
+  final VoidCallback onRemove;
+
+  const RemoveStudentTile({
+    super.key,
+    required this.student,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: AppColors.themeColor,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        color: const Color.fromRGBO(249, 245, 250, 1),
+      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-            child: AppText.value(
-              student.fullName.split(' ').first,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                DocumentImageWidget(
+                  fileUuid: student.photoUuid,
+                  name: student.fullName,
+                  size: 30,
+                  fontSize: 12,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    student.fullName.split(' ').first,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.errorColor),
-            onPressed: () => _removeStudent(student),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
+          GestureDetector(
+            onTap: onRemove,
+            child: SvgPicture.asset(
+              MediaRes.delete_icon,
+              height: 18,
+              width: 18,
+            ),
+          )
         ],
       ),
-    );
-  }
-
-  Widget _buildDateField(bool isTablet) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppText.label('Date'),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: _selectDate,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? 12 : 8,
-              vertical: isTablet ? 14 : 12,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(8),
-              color: AppColors.fieldBackgroundColor,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                AppText.value(
-                  DateFormat('MMM dd, yyyy').format(selectedDate),
-                ),
-                SvgPicture.asset(
-                  MediaRes.calender_icon,
-                  height: 20,
-                  width: 20,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.primaryColor,
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimeField(bool isTablet) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppText.label('Time'),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () => _selectTime(context),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? 12 : 8,
-              vertical: isTablet ? 14 : 12,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(8),
-              color: AppColors.fieldBackgroundColor,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                AppText.value(selectedTime.format(context)),
-                SvgPicture.asset(
-                  MediaRes.clock_icon,
-                  height: 20,
-                  width: 20,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.primaryColor,
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

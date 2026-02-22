@@ -49,6 +49,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   int expected = 0;
   int present = 0;
   int absent = 0;
+  int signedOut = 0;
+  int notMarked = 0;
 
   // Staff data lists
   final List<StaffAttendanceCardData> _staffMembers = [];
@@ -113,6 +115,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           expected = 48;
           present = 40;
           absent = 8;
+          signedOut = 3;
+          notMarked = 5;
 
           // Generate dummy staff data
           if (_showAbsentOnly) {
@@ -234,6 +238,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
               expected: expected,
               present: present,
               absent: absent,
+              signedOut: signedOut,
+              notMarked: notMarked,
               isLoading: _isLoading,
               onLegendTap: (status) {
                 setState(() {

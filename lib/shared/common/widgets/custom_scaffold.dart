@@ -180,6 +180,7 @@ class GlobalScaffold extends StatelessWidget {
     this.showCustomNavigationBar = true,
     this.isParent = false,
     this.studentList,
+    this.customButtonLayout,
     super.key,
   });
 
@@ -189,6 +190,7 @@ class GlobalScaffold extends StatelessWidget {
   final bool showCustomNavigationBar;
   final bool isParent;
   final List<String>? studentList;
+  final Widget? customButtonLayout;
 
   @override
   Widget build(BuildContext context) {
@@ -215,8 +217,9 @@ class GlobalScaffold extends StatelessWidget {
         ),
         extendBody: true,
         floatingActionButton: floatingActionButton,
-        bottomNavigationBar:
-            showCustomNavigationBar ? const CustomNavigationBar() : null,
+        bottomNavigationBar: showCustomNavigationBar
+            ? const CustomNavigationBar()
+            : customButtonLayout,
       ),
     );
   }

@@ -1,14 +1,10 @@
-import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'student_transfer_form.dart';
 
@@ -387,9 +383,11 @@ class StudentListItem extends StatelessWidget {
                   onChanged: onSelectionChanged,
                 ),
               ),
-              StudentProfileImage(
-                imageUrl: student.photoUuid,
-                studentId: student.id,
+              DocumentImageWidget(
+                fileUuid: student.photoUuid,
+                name: student.fullName,
+                size: 32,
+                fontSize: 14,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -407,107 +405,6 @@ class StudentListItem extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class StudentProfileImage extends StatefulWidget {
-  final String imageUrl;
-  final int studentId;
-  final double radius;
-
-  const StudentProfileImage({
-    Key? key,
-    required this.imageUrl,
-    required this.studentId,
-    this.radius = 16,
-  }) : super(key: key);
-
-  @override
-  State<StudentProfileImage> createState() => _StudentProfileImageState();
-}
-
-class _StudentProfileImageState extends State<StudentProfileImage> {
-  static final Map<String, Uint8List?> _imageCache = {};
-
-  StreamSubscription? _subscription;
-  Uint8List? _currentImage;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImage();
-  }
-
-  @override
-  void didUpdateWidget(StudentProfileImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl ||
-        oldWidget.studentId != widget.studentId) {
-      _loadImage();
-    }
-  }
-
-  void _loadImage() {
-    // UI-only: skip downloading; always use placeholder/asset
-    if (widget.imageUrl.isEmpty) {
-      setState(() {
-        _currentImage = null;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    final String cacheKey = '${widget.studentId}-${widget.imageUrl}';
-
-    if (_imageCache.containsKey(cacheKey)) {
-      setState(() {
-        _currentImage = _imageCache[cacheKey];
-        _isLoading = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _currentImage = null;
-      _isLoading = false;
-    });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
-        child: Container(
-          width: widget.radius * 2,
-          height: widget.radius * 2,
-          decoration: const BoxDecoration(
-            color: Colors.grey,
-            shape: BoxShape.circle,
-          ),
-        ),
-      );
-    }
-
-    if (_currentImage == null) {
-      return CircleAvatar(
-        radius: widget.radius,
-        backgroundImage: const AssetImage(MediaRes.userImageMale),
-      );
-    }
-
-    return CircleAvatar(
-      radius: widget.radius,
-      backgroundImage: MemoryImage(_currentImage!),
     );
   }
 }

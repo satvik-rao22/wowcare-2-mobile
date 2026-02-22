@@ -1,36 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'student_sign_in_form.dart';
-
-// Mock student entity for UI-only implementation
-class StudentEntity {
-  final int id;
-  final String fullName;
-  final int roomId;
-  final String roomName;
-
-  StudentEntity({
-    required this.id,
-    required this.fullName,
-    required this.roomId,
-    required this.roomName,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StudentEntity &&
-          runtimeType == other.runtimeType &&
-          id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-}
 
 class StudentSelectionSignInForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-in-form';
@@ -60,6 +38,7 @@ class _StudentSelectionSignInFormState
       fullName: 'Student ${index + 1}',
       roomId: (index % 4) + 1,
       roomName: 'Classroom ${String.fromCharCode(65 + (index % 4))}',
+      photoUuid: '', // Empty string for mock data - will show initials avatar
     ),
   );
 
@@ -132,6 +111,17 @@ class _StudentSelectionSignInFormState
     });
   }
 
+  void refreshCallback() {
+    // Reset selections when returning from sign-in form
+    setState(() {
+      isSelectAllChecked = false;
+      selectedStudents.clear();
+      _selectedClassroom = '';
+      _selectedTag.clear();
+      _filteredStudents = List.from(_allStudents);
+    });
+  }
+
   void _handleNext() {
     if (selectedStudents.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -143,17 +133,13 @@ class _StudentSelectionSignInFormState
       return;
     }
 
-    // Cast to avoid type mismatch due to circular import
-    final studentsList = selectedStudents.toList();
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) {
-          // Import StudentSignInForm here to ensure type compatibility
-          return StudentSignInForm(
-            students: studentsList,
-          );
-        },
+        builder: (context) => StudentSignInForm(
+          students: selectedStudents.toList(),
+          refreshCallback: refreshCallback,
+        ),
       ),
     );
   }
@@ -370,19 +356,11 @@ class StudentListItem extends StatelessWidget {
                   onChanged: onSelectionChanged,
                 ),
               ),
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: AppColors.themeColor.withOpacity(0.1),
-                child: Text(
-                  student.fullName.isNotEmpty
-                      ? student.fullName[0].toUpperCase()
-                      : '',
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              DocumentImageWidget(
+                fileUuid: student.photoUuid ?? '',
+                name: student.fullName,
+                size: 32,
+                fontSize: 14,
               ),
               const SizedBox(width: 8),
               Expanded(
