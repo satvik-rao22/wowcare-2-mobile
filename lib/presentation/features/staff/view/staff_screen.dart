@@ -206,11 +206,13 @@ class _StaffScreenState extends State<StaffScreen> {
                       label: 'Active (${state.staffCountActive})',
                       value: active,
                       color: AppColors.lightBlueProgressBar,
+                      filterValue: 'ACTIVE',
                     ),
                     ProgressItemHelper(
                       label: 'Upcoming (${state.staffCountUpcoming})',
                       value: upcoming,
                       color: AppColors.mustardProgressBar,
+                      filterValue: 'UPCOMING',
                     ),
                   ];
 
@@ -227,6 +229,25 @@ class _StaffScreenState extends State<StaffScreen> {
                           number: '$totalCount',
                           items: items,
                           fullWidthBar: false,
+                          selectedFilterValue: (state.statusFilter ?? '').trim().isEmpty
+                              ? 'ACTIVE'
+                              : state.statusFilter,
+                          onLegendTap: (label, filterValue) async {
+                            if (filterValue == null ||
+                                filterValue.trim().isEmpty) return;
+                            final staffCubit = context.read<StaffCubit>();
+                            final staffState = context.read<StaffCubit>().state;
+                            staffCubit.updateFilters(
+                              status: filterValue.trim(),
+                              designation: staffState.designationFilter,
+                            );
+                            if (!context.mounted) return;
+                            setState(() {
+                              _showInactive =
+                                  filterValue.trim().toUpperCase() == 'INACTIVE';
+                            });
+                            await staffCubit.refresh();
+                          },
                         ),
                       );
                     },
