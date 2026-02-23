@@ -438,137 +438,121 @@ class CoreUtils {
     bool isAdjust = false,
     Duration duration = const Duration(seconds: 2),
   }) {
-    // Check if the context is still valid (context.mounted is available in modern Flutter)
-    // If not available in your SDK, this guard is safe to remove.
-    if ((context as dynamic).mounted == false) return;
-    
-    // Use a more robust approach with a custom overlay
-    _showCustomSnackBar(
-      context: context,
-      message: message,
-      isError: isError,
-      isWarning: isWarning,
-      isSuccess: isSuccess,
-      isAdjust: isAdjust,
-      duration: duration,
-    );
-  }
-
-  static void _showCustomSnackBar({
-    required BuildContext context,
-    required String message,
-    bool isError = false,
-    bool isWarning = false,
-    bool isSuccess = false,
-    bool isAdjust = false,
-    Duration duration = const Duration(seconds: 2),
-  }) {
-    // Check if the context is still valid (context.mounted is available in modern Flutter)
     if ((context as dynamic).mounted == false) return;
 
     const Color successColor = Color.fromRGBO(21, 133, 49, 1);
     const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
 
-    // Calculate position - position from top
-    final topInset = MediaQuery.of(context).padding.top;
-    final topPosition = topInset + 20; // 20px below the status bar
+    final backgroundColor = isError
+        ? Colors.red.shade50
+        : isWarning
+            ? Colors.orange.shade50
+            : isSuccess
+                ? successBackgroundColor
+                : Colors.black;
+    final contentColor = isError
+        ? Colors.red
+        : isWarning
+            ? Colors.orange
+            : isSuccess
+                ? successColor
+                : Colors.black;
 
-    // Create overlay entry
+    final String typeLabel = isError
+        ? 'Error'
+        : isWarning
+            ? 'Warning'
+            : isSuccess
+                ? 'Success'
+                : '';
+
     final overlay = Overlay.of(context);
-    late OverlayEntry overlayEntry;
+    final topInset = MediaQuery.of(context).padding.top;
+    final rightInset = MediaQuery.of(context).padding.right;
+    final screenWidth = MediaQuery.of(context).size.width;
+    const horizontalMargin = 16.0;
+    const topMargin = 12.0;
+    const maxBannerWidth = 240.0;
 
+    late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: topPosition,
-        right: 0,
-        left: MediaQuery.of(context).size.width / 3,
+        top: topInset + topMargin,
+        right: rightInset + horizontalMargin,
+        left: screenWidth - maxBannerWidth - rightInset - horizontalMargin,
         child: Material(
           color: Colors.transparent,
           child: Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: isError
-                      ? Colors.red.shade50
-                      : isWarning
-                          ? Colors.orange.shade50
-                          : isSuccess
-                              ? successBackgroundColor
-                              : Colors.black,
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(10),
-                  ),
-                  border: Border.all(
-                    color: isError
-                        ? Colors.red.shade100
-                        : isWarning
-                            ? Colors.orange.shade100
-                            : isSuccess
-                                ? successBackgroundColor
-                                : Colors.black,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isError
-                          ? Icons.error
-                          : isWarning
-                              ? Icons.error
-                              : Icons.check,
-                      color: isError
-                          ? Colors.red
-                          : isWarning
-                              ? Colors.orange
-                              : isSuccess
-                                  ? successColor
-                                  : Colors.black,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        message,
-                        style: TextStyle(
-                          color: isError
-                              ? Colors.red
-                              : isWarning
-                                  ? Colors.orange
-                                  : isSuccess
-                                      ? successColor
-                                      : Colors.black,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isError
+                    ? Colors.red.shade100
+                    : isWarning
+                        ? Colors.orange.shade100
+                        : isSuccess
+                            ? successBackgroundColor
+                            : Colors.black,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  isError || isWarning ? Icons.error : Icons.check,
+                  color: contentColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        color: contentColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      children: [
+                        if (typeLabel.isNotEmpty) ...[
+                          TextSpan(
+                            text: '$typeLabel: ',
+                            style: TextStyle(
+                              color: contentColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                        TextSpan(
+                          text: message,
+                          style: TextStyle(
+                            color: contentColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
 
-    // Insert overlay
     overlay.insert(overlayEntry);
 
-    // Remove overlay after duration
     Future.delayed(duration, () {
       if (overlayEntry.mounted) {
         overlayEntry.remove();

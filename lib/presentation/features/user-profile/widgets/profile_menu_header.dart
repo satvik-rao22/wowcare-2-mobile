@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/string_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -74,13 +75,17 @@ class _ProfileMenuHeaderState extends State<ProfileMenuHeader> {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selected profile image')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected profile image',
+        isSuccess: true,
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to pick image: $e',
+        isError: true,
+      );
     }
   }
 

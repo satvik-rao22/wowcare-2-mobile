@@ -257,58 +257,58 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final address2 = _addressLine2Controller.text.trim();
 
     if (first.isEmpty || !_nameRegex.hasMatch(first)) {
-      _showWarningMessage('First Name is required');
+      CoreUtils.showTopSnackBar(context: context, message:'First Name is required', isError: true);
       return;
     }
     if (last.isEmpty || !_nameRegex.hasMatch(last)) {
-      _showWarningMessage('Last Name is required');
+      CoreUtils.showTopSnackBar(context: context, message:'Last Name is required', isError: true);
       return;
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
-      _showWarningMessage('Email is required');
+      CoreUtils.showTopSnackBar(context: context, message:'Email is required', isError: true);
       return;
     }
     if (phoneDigits.length < 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
-      _showWarningMessage('Phone Number is required');
+      CoreUtils.showTopSnackBar(context: context, message:'Phone Number is required', isError: true);
       return;
     }
     if (_streetController.text.isEmpty) {
-      _showWarningMessage('Street is required');
+      CoreUtils.showTopSnackBar(context: context, message:'Street is required', isError: true);
       return;
     }
     if (street.length > 150) {
-      _showWarningMessage('Street address cannot exceed 150 characters');
+      CoreUtils.showTopSnackBar(context: context, message:'Street address cannot exceed 150 characters', isError: true);
       return;
     }
     if (_cityController.text.isEmpty) {
-      _showWarningMessage('City is required');
+      CoreUtils.showTopSnackBar(context: context, message:'City is required', isError: true);
       return;
     }
     if (city.length > 50) {
-      _showWarningMessage('City name cannot exceed 50 characters');
+      CoreUtils.showTopSnackBar(context: context, message:'City name cannot exceed 50 characters', isError: true);
       return;
     }
     if (_zipCodeController.text.trim().isEmpty) {
-      _showWarningMessage('Zip Code is required');
+      CoreUtils.showTopSnackBar(context: context, message:'Zip Code is required', isError: true);
       return;
     }
     if (!RegExp(r'^\d{3,10}$').hasMatch(zip)) {
-      _showWarningMessage('Zip Code must contain only numbers (3–10 digits)');
+      CoreUtils.showTopSnackBar(context: context, message:'Zip Code must contain only numbers (3–10 digits)', isError: true);
       return;
     }
     if ((_selectedState ?? '').trim().isEmpty) {
-      _showWarningMessage('State is required');
+      CoreUtils.showTopSnackBar(context: context, message:'State is required', isError: true);
       return;
     }
     if ((_selectedCountry ?? '').trim().isEmpty) {
-      _showWarningMessage('Country is required');
+      CoreUtils.showTopSnackBar(context: context, message:'Country is required', isError: true);
       return;
     }
 
 
 
     if (address2.length > 150) {
-      _showWarningMessage('Address Line 2 cannot exceed 150 characters');
+      CoreUtils.showTopSnackBar(context: context, message:'Address Line 2 cannot exceed 150 characters', isError: true);
       return;
     }
 
@@ -368,35 +368,6 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       );
     }
   }
-
-  void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
-
 
   @override
   Widget build(BuildContext context) {
@@ -518,7 +489,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
                         ],
                       ),
                     )
-                )
+                ),
+                const SizedBox(height: 12),
               ],
             )
           ],

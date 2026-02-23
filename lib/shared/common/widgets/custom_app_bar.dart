@@ -366,9 +366,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 }
                 break;
               case 8:
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Logout tapped')));
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Logout tapped',
+                );
                 break;
             }
           },
