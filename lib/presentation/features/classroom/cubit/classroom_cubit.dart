@@ -18,11 +18,26 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StorageService _storageService;
 
-  Future<void> loadActiveClassrooms({bool force = false}) async {
+  Future<void> loadActiveClassrooms({
+    bool force = false,
+    bool onlyTypeClassroom = true,
+  }) async {
     if (state.isLoading) return;
-    if (!force && state.classrooms.isNotEmpty) return;
+    // If we already have classrooms for the same filter mode,
+    // avoid reloading unless explicitly forced.
+    if (!force &&
+        state.classrooms.isNotEmpty &&
+        state.onlyTypeClassroom == onlyTypeClassroom) {
+      return;
+    }
 
-    emit(state.copyWith(isLoading: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isLoading: true,
+        errorMessage: null,
+        onlyTypeClassroom: onlyTypeClassroom,
+      ),
+    );
 
     try {
       // Take school from login-context API (saved in storage) only.
@@ -31,6 +46,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
 
       final classrooms = await _getActiveClassroomsUseCase(
         schoolCode: schoolCode,
+        onlyTypeClassroom: onlyTypeClassroom,
       );
 
       if (isClosed) return;
@@ -39,6 +55,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         state.copyWith(
           classrooms: classrooms,
           isLoading: false,
+          onlyTypeClassroom: onlyTypeClassroom,
         ),
       );
     } catch (e) {

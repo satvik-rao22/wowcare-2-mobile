@@ -349,8 +349,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   }
 
   Future<void> _loadClassrooms() async {
-    // Load classrooms via cubit
-    _classroomCubit!.loadActiveClassrooms();
+    // Load classrooms via cubit using the classroom-only API
+    // (maps to type=CLASSROOM in the backend URL for all roles).
+    _classroomCubit!.loadActiveClassrooms(
+      onlyTypeClassroom: true,
+    );
   }
 
   void _updateClassroomsFromCubitState(ClassroomState state) {
@@ -701,6 +704,14 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                   _selectedPrimaryClassroomName = null;
                                 }
                               });
+                              // Reload classrooms for the selected role.
+                              // For both Admin and Staff, use type=CLASSROOM
+                              // so the dropdown is populated only with classrooms.
+                              final classroomCubit = context.read<ClassroomCubit>();
+                              classroomCubit.loadActiveClassrooms(
+                                force: true,
+                                onlyTypeClassroom: true,
+                              );
                             },
                           ),
                                 SizedBox(height: responsive.verticalSpacing),

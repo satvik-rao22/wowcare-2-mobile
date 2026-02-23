@@ -32,7 +32,7 @@ class StaffCubit extends Cubit<StaffState> {
   String? _organizationCode;
 
   // How many staff records to load per page from the API
-  static const int _pageSize = 15;
+  static const int _pageSize = 10;
 
   String? _effectiveStatusFilter() {
     final raw = state.statusFilter;
@@ -207,7 +207,17 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   Future<void> loadNextPage() async {
-    if (state.isLoadingMore || !state.hasMore) return;
+    // ignore: avoid_print
+    print('[StaffCubit] loadNextPage called: '
+        'isLoadingMore=${state.isLoadingMore}, '
+        'hasMore=${state.hasMore}, '
+        'currentPage=${state.currentPage}, '
+        'items=${state.items.length}');
+    if (state.isLoadingMore || !state.hasMore) {
+      // ignore: avoid_print
+      print('[StaffCubit] loadNextPage aborted due to guard.');
+      return;
+    }
 
     final schoolCode = await _resolveSchoolCode();
 
@@ -215,6 +225,8 @@ class StaffCubit extends Cubit<StaffState> {
 
     try {
       final nextPageIndex = state.currentPage + 1;
+      // ignore: avoid_print
+      print('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
       final page = await _getStaffPageUseCase(
         schoolCode: schoolCode,
         page: nextPageIndex,
@@ -229,6 +241,10 @@ class StaffCubit extends Cubit<StaffState> {
 
       if (isClosed) return;
 
+      // ignore: avoid_print
+      print('[StaffCubit] loaded page=${page.page}, '
+          'itemsAdded=${page.items.length}, '
+          'hasMore=${page.hasMore}');
       emit(
         state.copyWith(
           items: [...state.items, ...page.items],

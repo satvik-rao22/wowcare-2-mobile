@@ -143,8 +143,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                         ..loadInitial(),
                                     ),
                                     BlocProvider<ClassroomCubit>(
-                                      create: (_) => serviceLocator<ClassroomCubit>()
-                                        ..loadActiveClassrooms(),
+                                      create: (_) =>
+                                          serviceLocator<ClassroomCubit>()
+                                            ..loadActiveClassrooms(),
                                     ),
                                   ],
                                   child: const StudentScreen(),
@@ -268,8 +269,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                         ..loadInitial(),
                                     ),
                                     BlocProvider<ClassroomCubit>(
-                                      create: (_) => serviceLocator<ClassroomCubit>()
-                                        ..loadActiveClassrooms(),
+                                      create: (_) =>
+                                          serviceLocator<ClassroomCubit>()
+                                            ..loadActiveClassrooms(),
                                     ),
                                   ],
                                   child: const StudentScreen(),

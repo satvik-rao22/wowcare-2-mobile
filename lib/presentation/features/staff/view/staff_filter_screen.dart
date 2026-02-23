@@ -142,8 +142,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   }
 
   void _fetchFilterData() {
-    // Load classrooms from ClassroomCubit
-    context.read<ClassroomCubit>().loadActiveClassrooms();
+    // Load classrooms from ClassroomCubit. For staff filters, we want the same
+    // set as the staff screen itself, i.e. all ACTIVE locations without
+    // restricting to type=CLASSROOM.
+    context
+        .read<ClassroomCubit>()
+        .loadActiveClassrooms(onlyTypeClassroom: false);
     
     setState(() {
       // Status options: ACTIVE, UPCOMING

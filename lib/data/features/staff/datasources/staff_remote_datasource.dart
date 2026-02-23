@@ -198,16 +198,12 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     List<String>? classCodes,
     String? sortBy,
   }) async {
-    final sortDir = (sortBy ?? 'desc').trim().toLowerCase();
-    final sortDirection = sortDir == 'asc' ? 'asc' : 'desc';
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
       'page': page,
       'size': size,
       'pageable.page': page,
       'pageable.size': size,
-      'sortBy': 'name',
-      'sortDirection': sortDirection,
     };
 
     if (code != null && code.isNotEmpty) {

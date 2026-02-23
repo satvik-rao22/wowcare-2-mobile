@@ -46,17 +46,41 @@ class _StaffScreenState extends State<StaffScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<ClassroomCubit>().loadActiveClassrooms();
+    // For the staff list, load all ACTIVE locations (no type filter)
+    // so that Office and other non-classroom locations are also available.
+    context.read<ClassroomCubit>().loadActiveClassrooms(onlyTypeClassroom: false);
     _scrollController.addListener(_onScroll);
   }
 
   void _onScroll() {
+    _maybeLoadNextPage();
+  }
+
+  void _maybeLoadNextPage() {
     if (!_scrollController.hasClients) return;
+    final cubit = context.read<StaffCubit>();
+    final state = cubit.state;
+    // Debug: log scroll + pagination state
     final position = _scrollController.position;
-    if (position.maxScrollExtent <= 0) return;
-    // Load next page when within 300px of the bottom
-    if (position.pixels >= position.maxScrollExtent - 300) {
-      context.read<StaffCubit>().loadNextPage();
+    // ignore: avoid_print
+    print('[StaffScreen] scroll pixels=${position.pixels}, '
+        'max=${position.maxScrollExtent}, '
+        'hasMore=${state.hasMore}, '
+        'isLoadingMore=${state.isLoadingMore}, '
+        'items=${state.items.length}');
+    if (state.isLoadingMore || !state.hasMore) return;
+    // When content doesn't fill the viewport but we have more data, load next page
+    if (position.maxScrollExtent <= 0) {
+      // ignore: avoid_print
+      print('[StaffScreen] maxScrollExtent <= 0, forcing loadNextPage');
+      cubit.loadNextPage();
+      return;
+    }
+    // Load next page when within 400px of the bottom
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      // ignore: avoid_print
+      print('[StaffScreen] near bottom, requesting next page');
+      cubit.loadNextPage();
     }
   }
 
@@ -110,7 +134,9 @@ class _StaffScreenState extends State<StaffScreen> {
               // (or changes from other flows) are reflected.
               await Future.wait([
                 staffCubit.refresh(),
-                context.read<ClassroomCubit>().loadActiveClassrooms(force: true),
+                context
+                    .read<ClassroomCubit>()
+                    .loadActiveClassrooms(force: true, onlyTypeClassroom: false),
               ]);
             },
             child: SingleChildScrollView(
@@ -308,7 +334,10 @@ class _StaffScreenState extends State<StaffScreen> {
                               final query = value.trim();
                               final classroomCubit = context.read<ClassroomCubit>();
                               // Keep classrooms in sync while searching.
-                              classroomCubit.loadActiveClassrooms(force: true);
+                              classroomCubit.loadActiveClassrooms(
+                                force: true,
+                                onlyTypeClassroom: false,
+                              );
 
                               // For empty query, reset to full data (staff + counts).
                               if (query.isEmpty) {
@@ -610,6 +639,12 @@ class _StaffScreenState extends State<StaffScreen> {
                       ),
                     );
                   }
+
+                  // After list is built, check if we're near bottom and should load more
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    _maybeLoadNextPage();
+                  });
 
                   return Column(
                     children: [

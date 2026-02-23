@@ -45,7 +45,12 @@ Route<dynamic> generateRoute(RouteSettings settings) {
               create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
             ),
             BlocProvider<ClassroomCubit>(
-              create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(
+                  // Staff screen should see all active locations,
+                  // not just type=CLASSROOM.
+                  onlyTypeClassroom: false,
+                ),
             ),
           ],
           child: const StaffScreen(),
