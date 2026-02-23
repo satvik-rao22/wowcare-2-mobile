@@ -19,6 +19,8 @@ class ApiPaths {
   static const String staffList = '/api/v1/staff';
   static const String staffCount = '/api/v1/staff/count';
   static const String staffProfile = '/api/v1/staff';
+  /// Resolve staffCode from userCode + org + school.
+  static const String staffCodeByUser = '/api/v1/staff/code';
   static const String staffDocuments = '/api/v1/staff-documents';
   static const String staffDocumentAdd = '/api/v1/staff-documents';
   static const String staffDocumentUpdate = '/api/v1/staff-documents';

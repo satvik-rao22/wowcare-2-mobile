@@ -14,6 +14,7 @@ abstract class StaffRemoteDataSource {
   });
 
   Future<StaffPageModel> getStaffPage({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page = 0,
@@ -49,6 +50,14 @@ abstract class StaffRemoteDataSource {
 
   Future<StaffProfileModel> getStaffProfile({
     required String staffCode,
+  });
+
+  /// Resolves staffCode for a given userCode + organizationCode + schoolCode via
+  /// `GET /api/v1/staff/code`.
+  Future<String?> getStaffCodeByUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
   });
 
   /// Updates core staff profile details via `/api/v1/staff/{staffCode}/profile`.
@@ -187,6 +196,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
   @override
   Future<StaffPageModel> getStaffPage({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page = 0,
@@ -205,6 +215,11 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       'pageable.page': page,
       'pageable.size': size,
     };
+
+    // New: send organizationCode so backend can scope staff list correctly.
+    if (organizationCode.isNotEmpty) {
+      queryParameters['organizationCode'] = organizationCode;
+    }
 
     if (code != null && code.isNotEmpty) {
       queryParameters['code'] = code;
@@ -384,6 +399,45 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return StaffProfileModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<String?> getStaffCodeByUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffCodeByUser,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff code API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final inner = data['data'];
+
+    if (inner == null) return null;
+    if (inner is String) {
+      return inner.trim().isEmpty ? null : inner.trim();
+    }
+    if (inner is Map<String, dynamic>) {
+      final code = (inner['staffCode'] ?? inner['code'] ?? '').toString().trim();
+      return code.isEmpty ? null : code;
+    }
+    // Fallback: unknown shape
+    return null;
   }
 
   @override

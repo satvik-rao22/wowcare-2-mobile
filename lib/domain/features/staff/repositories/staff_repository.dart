@@ -12,6 +12,7 @@ abstract class StaffRepository {
   });
 
   Future<StaffPage> getStaffPage({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page,
@@ -49,6 +50,14 @@ abstract class StaffRepository {
 
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
+  });
+
+  /// Resolves staffCode for a given userCode + organizationCode + schoolCode
+  /// using the `/api/v1/staff/code` endpoint.
+  Future<String?> getStaffCodeForUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
   });
 
   /// Updates staff profile core details (name, status, phone, designation, jobTag, classrooms, etc.).

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -7,6 +8,7 @@ import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/string_utils.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -42,6 +44,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final ImagePicker _picker = ImagePicker();
   StaffProfile? _profile;
   bool _isLoadingProfile = false;
+  String _loginDisplayName = '';
+  String _loginEmail = '';
+  String _loginPersona = '';
 
   @override
   void initState() {
@@ -54,6 +59,30 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _initProfileLoad() async {
+    // Preload login-based user summary (name, email, persona) from storage
+    try {
+      final storage = serviceLocator<StorageService>();
+      _loginDisplayName =
+          (await storage.getString(StorageKeys.displayName) ?? '').trim();
+      _loginEmail = (await storage.getString(StorageKeys.email) ?? '').trim();
+
+      final rolesJson =
+          await storage.getString(StorageKeys.roles); // JSON array from login
+      String persona = '';
+      if (rolesJson != null && rolesJson.isNotEmpty) {
+        try {
+          final List<dynamic> roles =
+              (jsonDecode(rolesJson) as List<dynamic>);
+          if (roles.isNotEmpty) {
+            final first = roles.first as Map<String, dynamic>;
+            final roleCode = (first['role'] ?? '').toString();
+            persona = StringUtils.staffTypeToDisplayRole(roleCode);
+          }
+        } catch (_) {}
+      }
+      _loginPersona = persona;
+    } catch (_) {}
+
     final direct = (widget.staffCode ?? '').trim();
     if (direct.isNotEmpty) {
       await _loadStaffProfile(direct);
@@ -68,37 +97,57 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// Attempts to resolve staffCode for the logged-in user.
-  /// Uses stored `email` + `schoolCode` and calls staff list API to find matching staff.
+  /// Uses `/api/v1/staff/code` with stored `userCode`, `organizationCode` and `schoolCode`
+  /// to resolve the staffCode for the currently logged-in user.
   Future<String> _resolveLoggedInStaffCode() async {
     try {
       final storage = serviceLocator<StorageService>();
       final repo = serviceLocator<StaffRepository>();
 
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final email = (await storage.getString(StorageKeys.email) ?? '').trim();
-      if (schoolCode.isEmpty || email.isEmpty) return '';
+      // Ensure cached staffCode, if any, belongs to the currently logged-in user.
+      final currentUserCode =
+          (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      final cachedStaffCode =
+          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      final cachedStaffUser =
+          (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
 
-      final page = await repo.getStaffPage(
+      if (cachedStaffCode.isNotEmpty &&
+          cachedStaffUser.isNotEmpty &&
+          currentUserCode.isNotEmpty &&
+          cachedStaffUser == currentUserCode) {
+        // Cache is valid for this user.
+        return cachedStaffCode;
+      } else {
+        // Cached value belongs to another user or is invalid – clear it.
+        await storage.remove(StorageKeys.staffCode);
+        await storage.remove(StorageKeys.staffCodeUser);
+      }
+
+      final organizationCode =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (currentUserCode.isEmpty ||
+          organizationCode.isEmpty ||
+          schoolCode.isEmpty) {
+        return '';
+      }
+
+      // Ask backend directly for staffCode for this user.
+      final resolvedCode = await repo.getStaffCodeForUser(
+        userCode: currentUserCode,
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
-        page: 0,
-        size: 25,
-        status: 'ACTIVE',
-        search: email,
       );
 
-      final emailLower = email.toLowerCase();
-      for (final item in page.items) {
-        if (item.email.trim().toLowerCase() == emailLower) {
-          return item.code.trim();
-        }
+      final code = (resolvedCode ?? '').trim();
+      if (code.isNotEmpty) {
+        await storage.saveString(StorageKeys.staffCode, code);
+        await storage.saveString(StorageKeys.staffCodeUser, currentUserCode);
       }
 
-      // Fallback: if API search is fuzzy and returns a single item, use it.
-      if (page.items.length == 1) {
-        return page.items.first.code.trim();
-      }
-
-      return '';
+      return code;
     } catch (_) {
       return '';
     }
@@ -109,6 +158,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       final repo = serviceLocator<StaffRepository>();
       final profile = await repo.getStaffProfile(staffCode: staffCode);
+      if (!mounted) return;
+      // Cache staffType for ProfileMenuHeader (3-dot menu role display)
+      if (profile.staffType.isNotEmpty) {
+        final storage = serviceLocator<StorageService>();
+        await storage.saveString(StorageKeys.staffType, profile.staffType);
+      }
       if (!mounted) return;
       setState(() {
         _profile = profile;
@@ -142,23 +197,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final responsive = ResponsiveHelper(context);
-    // Derive displayed values either from loaded profile or from widget defaults.
-    final displayName = _profile?.fullName.isNotEmpty == true
-        ? _profile!.fullName
-        : widget.userName;
-    final displayEmail = _profile?.email.isNotEmpty == true
-        ? _profile!.email
-        : widget.userEmail;
-    final displayPhone = _profile?.phoneNumber.isNotEmpty == true
-        ? _profile!.phoneNumber
-        : widget.userPhoneNo;
-    final displayAddress =
+    final String displayName =
+        _profile?.fullName.isNotEmpty == true
+            ? _profile!.fullName
+            : (_loginDisplayName.isNotEmpty ? _loginDisplayName : '-');
+    final String displayEmail =
+        _profile?.email.isNotEmpty == true
+            ? _profile!.email
+            : (_loginEmail.isNotEmpty ? _loginEmail : '-');
+    final String displayPhone =
+        _profile?.phoneNumber.isNotEmpty == true ? _profile!.phoneNumber : '-';
+    final String displayAddress =
         _profile?.address.formattedAddress.isNotEmpty == true
             ? _profile!.address.formattedAddress
-            : widget.userAddress;
-    final displayPersona = _profile != null
-        ? (_profile!.staffType.toUpperCase() == 'ADMIN' ? 'Admin' : 'Staff')
-        : widget.userPersona;
+            : '-';
+    final String roleDisplay = _profile != null
+        ? StringUtils.staffTypeToDisplayRole(_profile!.staffType)
+        : _loginPersona;
+    final String displayPersona =
+        roleDisplay.isNotEmpty ? roleDisplay : '-';
 
     return GlobalScaffold(
         hasBackButton: true,
@@ -195,8 +252,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     clipBehavior: Clip.none,
                                     children: [
                                       DocumentImageWidget(
-                                        fileUuid: widget.userName,
-                                        name: widget.userName, // hardcoded for now
+                                        fileUuid: displayName.isNotEmpty ? displayName : 'User',
+                                        name: displayName.isNotEmpty ? displayName : 'User',
                                         size: 90,
                                         fontSize: 24,
                                         statusColor: const Color(0xFF00B115),

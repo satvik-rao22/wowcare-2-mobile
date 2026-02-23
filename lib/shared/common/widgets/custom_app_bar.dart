@@ -145,45 +145,31 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ],
         ),
         PopupMenuButton<int>(
+          constraints: const BoxConstraints(maxWidth: 240),
           icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
           offset: const Offset(0, 48),
-					color: Colors.white,
+          color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           itemBuilder: (context) => [
             PopupMenuItem<int>(
               enabled: false,
-              height: 80,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
+              height: 64,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 240),
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 4,
+                      right: 10,
+                      top: 8,
+                      bottom: 8,
+                    ),
+                    child: ProfileMenuHeader(),
                   ),
-                  child: ProfileMenuHeader(),
                 ),
-                // child: Column(
-                //   mainAxisSize: MainAxisSize.min,
-                //   children: [
-                //     CircleAvatar(
-                //       radius: 30,
-                //       child: Text('W', style: TextStyle(fontSize: 24)),
-                //     ),
-                //     SizedBox(height: 8),
-                //     Text(
-                //       'WowCare',
-                //       style: TextStyle(
-                //         fontWeight: FontWeight.bold,
-                //         fontSize: 16,
-                //       ),
-                //     ),
-                //     Text(
-                //       'User',
-                //       style: TextStyle(fontSize: 12, color: Colors.grey),
-                //     ),
-                //   ],
-                // ),
               ),
             ),
             PopupMenuItem<int>(

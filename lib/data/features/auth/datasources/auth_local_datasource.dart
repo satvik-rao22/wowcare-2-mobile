@@ -34,6 +34,12 @@ abstract class AuthLocalDataSource {
     required String schoolCode,
     String? schoolName,
   });
+
+  /// Persists resolved staffCode for the currently logged-in user.
+  Future<void> saveStaffCode({
+    required String userCode,
+    required String staffCode,
+  });
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
@@ -140,6 +146,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.remove(StorageKeys.organizationsAndSchools);
     await _storage.remove(StorageKeys.loginCompleted);
     await _storage.remove(StorageKeys.loginContext);
+    await _storage.remove(StorageKeys.staffCode);
+    await _storage.remove(StorageKeys.staffCodeUser);
+    await _storage.remove(StorageKeys.staffType);
   }
 
   @override
@@ -258,6 +267,15 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       StorageKeys.selectedSchoolName,
       schoolName ?? schoolCode,
     );
+  }
+
+  @override
+  Future<void> saveStaffCode({
+    required String userCode,
+    required String staffCode,
+  }) async {
+    await _storage.saveString(StorageKeys.staffCode, staffCode);
+    await _storage.saveString(StorageKeys.staffCodeUser, userCode);
   }
 
   @override

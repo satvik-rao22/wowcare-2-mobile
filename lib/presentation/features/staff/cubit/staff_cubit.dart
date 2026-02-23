@@ -133,6 +133,7 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
       );
       final firstPageFuture = _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
@@ -163,6 +164,7 @@ class StaffCubit extends Cubit<StaffState> {
       // Auto-load next page so that page 0 and 1 are both visible initially
       if (hasMore) {
         final secondPage = await _getStaffPageUseCase(
+          organizationCode: organizationCode,
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
@@ -220,6 +222,7 @@ class StaffCubit extends Cubit<StaffState> {
     }
 
     final schoolCode = await _resolveSchoolCode();
+    final organizationCode = await _resolveOrganizationCode();
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
@@ -228,6 +231,7 @@ class StaffCubit extends Cubit<StaffState> {
       // ignore: avoid_print
       print('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
       final page = await _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: nextPageIndex,
         size: _pageSize,
@@ -315,6 +319,7 @@ class StaffCubit extends Cubit<StaffState> {
   /// refresh or automatic second-page preloading). Intended for rapid typing.
   Future<void> searchStaff(String query) async {
     final schoolCode = await _resolveSchoolCode();
+    final organizationCode = await _resolveOrganizationCode();
 
     emit(
       state.copyWith(
@@ -327,6 +332,7 @@ class StaffCubit extends Cubit<StaffState> {
 
     try {
       final firstPage = await _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
@@ -427,6 +433,7 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
       );
       final firstPageFuture = _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
@@ -457,6 +464,7 @@ class StaffCubit extends Cubit<StaffState> {
       // Auto-load next page so that page 0 and 1 are both visible initially
       if (hasMore) {
         final secondPage = await _getStaffPageUseCase(
+          organizationCode: organizationCode,
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,

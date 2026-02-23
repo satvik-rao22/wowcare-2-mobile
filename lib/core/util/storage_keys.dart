@@ -22,6 +22,14 @@ class StorageKeys {
   static const String schoolCode = 'schoolCode';
   static const String selectedSchoolName = 'selectedSchoolName';
 
+  /// Optional cached staffCode for the logged-in user (when they have a staff profile).
+  static const String staffCode = 'staffCode';
+  /// Cached staffType from staff profile API (e.g. ORGANIZATION_ADMIN → shown as role).
+  static const String staffType = 'staffType';
+  /// UserCode that owns the cached staffCode; used to invalidate
+  /// staffCode when a different user logs in.
+  static const String staffCodeUser = 'staffCodeUser';
+
   /// JSON list of {organizationCode, schoolCode, schoolName} - all org+school combos user has access to.
   static const String organizationsAndSchools = 'organizationsAndSchools';
 

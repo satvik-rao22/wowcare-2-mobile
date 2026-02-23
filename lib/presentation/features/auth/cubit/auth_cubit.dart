@@ -6,6 +6,8 @@ import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/auth/usecases/login_usecase.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 part 'auth_state.dart';
 
@@ -144,6 +146,41 @@ class AuthCubit extends Cubit<AuthState> {
                 schoolCode: schoolCode,
                 schoolName: '',
               );
+            }
+          }
+
+          // After login-context, resolve staffCode for this user (if they have a staff profile)
+          // using `/api/v1/staff/code?userCode=...&organizationCode=...&schoolCode=...`.
+          if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
+            try {
+              final staffRepository = serviceLocator<StaffRepository>();
+              // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
+              // for the staff-code API as required by backend.
+              String effectiveSchoolCode = schoolCode;
+              const orgAdminRole = 'ORGANIZATION_ADMIN';
+              final rolesForOrg = response.roles
+                  .where((r) => r.organizationCode == orgCode)
+                  .toList();
+              final isOrgAdmin = rolesForOrg
+                  .any((r) => r.role.toUpperCase() == orgAdminRole);
+              if (isOrgAdmin) {
+                effectiveSchoolCode = '-';
+              }
+
+              final staffCode = await staffRepository.getStaffCodeForUser(
+                userCode: response.userCode,
+                organizationCode: orgCode,
+                schoolCode: effectiveSchoolCode,
+              );
+              final trimmed = (staffCode ?? '').trim();
+              if (trimmed.isNotEmpty) {
+                await _localDataSource.saveStaffCode(
+                  userCode: response.userCode,
+                  staffCode: trimmed,
+                );
+              }
+            } catch (_) {
+              // Non-blocking: profile screen can still work without staffCode.
             }
           }
         } catch (_) {
