@@ -127,30 +127,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Default role when creating new entry
     _selectedRole ??= widget.initialRole ?? 'Staff';
 
-    // If classrooms were prefetched by a parent screen (e.g. StaffScreen),
-    // hydrate local caches from those and avoid hitting the classrooms API again.
-    if (widget.initialClassroomNames != null &&
-        widget.initialClassroomNames!.isNotEmpty) {
-      _classrooms
-        ..clear()
-        ..addAll(widget.initialClassroomNames!);
-      _classroomCodeByName
-        ..clear()
-        ..addAll(widget.initialClassroomCodeByName ?? {});
-
-      // For admin, all classrooms are auto-allowed and primary defaults to first.
-      if (_isAdminSelected) {
-        _selectedAllowedClassroomNames = List<String>.from(_classrooms);
-        if (_classrooms.isNotEmpty &&
-            _selectedPrimaryClassroomName == null) {
-          _selectedPrimaryClassroomName = _classrooms.first;
-        }
-        _selectedStatus ??= 'Active';
-      }
-    } else {
-      // No prefetched classrooms available – fall back to API call.
-      _loadClassrooms();
-    }
+    
+    _loadClassrooms();
   }
 
   @override
@@ -515,11 +493,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         value: _createSchoolUserCubit,
         child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, classroomState) {
-          // Update local state when classrooms are loaded from cubit
-          if (!classroomState.isLoading && 
-              classroomState.classrooms.isNotEmpty && 
-              _classrooms.isEmpty &&
-              (widget.initialClassroomNames == null || widget.initialClassroomNames!.isEmpty)) {
+          // Update local caches once classrooms are loaded from cubit.
+          // We no longer rely on any prefetched classroom list for this screen.
+          if (!classroomState.isLoading &&
+              classroomState.classrooms.isNotEmpty &&
+              _classrooms.isEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _updateClassroomsFromCubitState(classroomState);
             });

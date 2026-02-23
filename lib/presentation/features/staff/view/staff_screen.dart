@@ -42,6 +42,9 @@ class _StaffScreenState extends State<StaffScreen> {
   final Set<String> _selectedStaffCodes = <String>{};
   bool _selectAll = false;
   StaffPanelType _currentPanel = StaffPanelType.none;
+  // Tracks if the current refresh was triggered by changing filters/search,
+  // so we only show the shimmer loader in that case.
+  bool _refreshTriggeredByFilters = false;
 
   @override
   void initState() {
@@ -90,6 +93,24 @@ class _StaffScreenState extends State<StaffScreen> {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Returns true when any non-default filter or search is applied.
+  bool _hasActiveFilters(StaffState state) {
+    final status = (state.statusFilter ?? '').trim().toUpperCase();
+    final designation = (state.designationFilter ?? '').trim();
+    final hasClassroomFilter =
+        (state.primaryClassroomCodes?.isNotEmpty ?? false) ||
+        (state.classCodes?.isNotEmpty ?? false);
+    final hasNonDefaultStatus =
+        status.isNotEmpty && status != 'ACTIVE'; // ACTIVE is the default
+    final hasDesignation = designation.isNotEmpty;
+    final hasSearch = (state.searchQuery ?? '').trim().isNotEmpty;
+
+    return hasNonDefaultStatus ||
+        hasDesignation ||
+        hasClassroomFilter ||
+        hasSearch;
   }
 
   // Helper to get classroom names and code mapping from cubit state
@@ -271,6 +292,7 @@ class _StaffScreenState extends State<StaffScreen> {
                             setState(() {
                               _showInactive =
                                   filterValue.trim().toUpperCase() == 'INACTIVE';
+                              _refreshTriggeredByFilters = true;
                             });
                             await staffCubit.refresh();
                           },
@@ -342,6 +364,7 @@ class _StaffScreenState extends State<StaffScreen> {
                               // For empty query, reset to full data (staff + counts).
                               if (query.isEmpty) {
                                 staffCubit.updateSearch('');
+                                _refreshTriggeredByFilters = true;
                                 staffCubit.refresh(ignoreRefreshingGuard: true);
                               } else {
                                 // Rapid search: only hit the staff list API on each keystroke.
@@ -427,6 +450,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 setState(() {
                                   _showInactive =
                                       (status ?? '').toUpperCase() == 'INACTIVE';
+                                  _refreshTriggeredByFilters = true;
                                 });
                                 await staffCubit.refresh();
                               }
@@ -526,6 +550,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 // Clear search field
                                 _searchController.clear();
                                 // Clear all filters and refresh atomically (updates cache)
+                                _refreshTriggeredByFilters = true;
                                 await staffCubit.clearAllFiltersAndRefresh();
                                 if (!mounted) return;
                                 setState(() => _showInactive = false);
@@ -558,6 +583,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                   status: v ? 'INACTIVE' : 'ACTIVE',
                                   designation: staffState.designationFilter,
                                 );
+                                _refreshTriggeredByFilters = true;
                                 await staffCubit.refresh();
 
                                 if (!mounted) return;
@@ -607,8 +633,23 @@ class _StaffScreenState extends State<StaffScreen> {
               const SizedBox(height: 16),
               BlocBuilder<StaffCubit, StaffState>(
                 builder: (context, state) {
-                  // Show shimmer on initial load or when applying filters (refreshing)
-                  if ((state.isLoading && state.items.isEmpty) || state.isRefreshing) {
+                  // Reset flag once a filter-triggered refresh finishes.
+                  if (!state.isRefreshing && _refreshTriggeredByFilters) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() {
+                          _refreshTriggeredByFilters = false;
+                        });
+                      }
+                    });
+                  }
+
+                  // Show shimmer on initial load, or when a refresh was
+                  // explicitly triggered by changing filters/search.
+                  final bool showFilteredRefreshLoader =
+                      state.isRefreshing && _refreshTriggeredByFilters;
+                  if ((state.isLoading && state.items.isEmpty) ||
+                      showFilteredRefreshLoader) {
                     return Column(
                       children: List.generate(
                         6,

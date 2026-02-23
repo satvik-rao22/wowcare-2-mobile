@@ -34,8 +34,8 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
       'status': 'ACTIVE',
     };
 
-    // For staff role flows we still need type=CLASSROOM so that
-    // only classroom-type locations are shown in dropdowns.
+    // When onlyTypeClassroom is true, pass type=CLASSROOM in the URL
+    // to match the backend enum.
     if (onlyTypeClassroom) {
       queryParameters['type'] = 'CLASSROOM';
     }
