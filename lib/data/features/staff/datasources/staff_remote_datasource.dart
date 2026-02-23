@@ -95,6 +95,26 @@ abstract class StaffRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// Updates the *logged-in* staff member's basic profile + address via
+  /// `PATCH /api/v1/staff/my-profile/{staffCode}` (my-profile controller).
+  ///
+  /// Expected [body] shape:
+  /// {
+  ///   "firstName": "string",
+  ///   "lastName": "string",
+  ///   "phoneNumber": "string",
+  ///   "addressStreet": "string",
+  ///   "addressLine2": "string",
+  ///   "addressCity": "string",
+  ///   "addressState": "string",
+  ///   "addressZipCode": "string",
+  ///   "addressCountry": "string"
+  /// }
+  Future<String> updateMyProfile({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  });
+
   /// Fetches staff important dates via `GET /api/v1/staff-dates/{staffCode}`.
   ///
   /// Returns a list of [ImportantDateRequestModel]-shaped items:
@@ -388,7 +408,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String staffCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffProfile}/$staffCode/profile',
+      '${ApiPaths.staffMyProfile}/$staffCode',
       ApiConstants.staffBaseUrl,
     );
 
@@ -484,6 +504,29 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Address updated successfully';
+  }
+
+  @override
+  Future<String> updateMyProfile({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffMyProfile}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected my-profile update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Profile updated successfully';
   }
 
   @override

@@ -381,6 +381,35 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<String> updateMyProfile({
+    required String staffCode,
+    required Map<String, dynamic> fields,
+  }) async {
+    // Call my-profile PATCH endpoint (updates name, phone, address together).
+    final message = await _remoteDataSource.updateMyProfile(
+      staffCode: staffCode,
+      body: fields,
+    );
+
+    // Refresh the cached profile:
+    // 1) Try to re-fetch the latest profile from my-profile GET.
+    // 2) If that fails, at least invalidate the cache so next load uses fresh data.
+    try {
+      final profileModel = await _remoteDataSource.getStaffProfile(
+        staffCode: staffCode,
+      );
+      await _cacheManager.saveCache(
+        _staffProfileCacheKey(staffCode),
+        profileModel.toJson(),
+      );
+    } catch (_) {
+      await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+    }
+
+    return message;
+  }
+
+  @override
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode) async {
     final payload = await _cacheManager.loadCache(_staffProfileCacheKey(staffCode));
     if (payload == null) return null;

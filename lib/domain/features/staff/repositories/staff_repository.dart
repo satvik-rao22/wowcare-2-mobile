@@ -77,6 +77,26 @@ abstract class StaffRepository {
     required Map<String, dynamic> fields,
   });
 
+  /// Updates the *logged-in* staff member's basic profile + address via
+  /// `PATCH /api/v1/staff/my-profile/{staffCode}` (my-profile controller).
+  ///
+  /// [fields] should match the backend contract:
+  /// {
+  ///   "firstName": "string",
+  ///   "lastName": "string",
+  ///   "phoneNumber": "string",
+  ///   "addressStreet": "string",
+  ///   "addressLine2": "string",
+  ///   "addressCity": "string",
+  ///   "addressState": "string",
+  ///   "addressZipCode": "string",
+  ///   "addressCountry": "string"
+  /// }
+  Future<String> updateMyProfile({
+    required String staffCode,
+    required Map<String, dynamic> fields,
+  });
+
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
   ///
   /// Returns a list of map entries shaped as:

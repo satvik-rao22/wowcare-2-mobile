@@ -1,4 +1,4 @@
-import '../../core/storage/storage_service.dart';
+import '../storage/storage_service.dart';
 import 'storage_keys.dart';
 
 /// Global cache manager for handling cached data with timestamps and expiration.
