@@ -46,12 +46,23 @@ class _StaffScreenState extends State<StaffScreen> {
   @override
   void initState() {
     super.initState();
-    // Load classrooms via cubit
     context.read<ClassroomCubit>().loadActiveClassrooms();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) return;
+    // Load next page when within 300px of the bottom
+    if (position.pixels >= position.maxScrollExtent - 300) {
+      context.read<StaffCubit>().loadNextPage();
+    }
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -102,15 +113,7 @@ class _StaffScreenState extends State<StaffScreen> {
                 context.read<ClassroomCubit>().loadActiveClassrooms(force: true),
               ]);
             },
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification.metrics.pixels >=
-                    notification.metrics.maxScrollExtent - 200) {
-                  staffCubit.loadNextPage();
-                }
-                return false;
-              },
-              child: SingleChildScrollView(
+            child: SingleChildScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
@@ -229,9 +232,6 @@ class _StaffScreenState extends State<StaffScreen> {
                           number: '$totalCount',
                           items: items,
                           fullWidthBar: false,
-                          selectedFilterValue: (state.statusFilter ?? '').trim().isEmpty
-                              ? 'ACTIVE'
-                              : state.statusFilter,
                           onLegendTap: (label, filterValue) async {
                             if (filterValue == null ||
                                 filterValue.trim().isEmpty) return;
@@ -345,6 +345,18 @@ class _StaffScreenState extends State<StaffScreen> {
                                       ? null
                                       : staffState.designationFilter;
 
+                              // Initial primary vs allowed classroom names so filter UI shows correct dropdowns
+                              final primaryCodes = staffState.primaryClassroomCodes ?? const [];
+                              final allowedCodes = staffState.classCodes ?? const [];
+                              final initialPrimaryNames = primaryCodes
+                                  .map((c) => classroomNameByCode[c] ?? c)
+                                  .where((n) => n.isNotEmpty)
+                                  .toList();
+                              final initialAllowedNames = allowedCodes
+                                  .map((c) => classroomNameByCode[c] ?? c)
+                                  .where((n) => n.isNotEmpty)
+                                  .toList();
+
                               final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -354,6 +366,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                       initialFilters: FilterData(
                                         classroomIds: const [],
                                         classrooms: const [],
+                                        primaryClassrooms: initialPrimaryNames,
+                                        allowedClassrooms: initialAllowedNames,
                                         statuses: initialStatus != null
                                             ? <String>[initialStatus]
                                             : const <String>[],
@@ -361,6 +375,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             ? <String>[initialDesignation]
                                             : const <String>[],
                                         attendanceStatuses: const <String>[],
+                                        sortBy: staffState.sortBy,
                                       ),
                                     ),
                                   ),
@@ -370,10 +385,15 @@ class _StaffScreenState extends State<StaffScreen> {
                               if (result is Map) {
                                 final status = result['status'] as String?;
                                 final designation = result['designation'] as String?;
-                                // Apply filters and refresh list so cache + UI stay in sync
+                                final primaryClassroomCodes = result['primaryClassroomCodes'] as List<String>?;
+                                final classCodes = result['classCodes'] as List<String>?;
+                                final sortBy = result['sortBy'] as String?;
                                 staffCubit.updateFilters(
                                   status: status,
                                   designation: designation,
+                                  primaryClassroomCodes: primaryClassroomCodes,
+                                  classCodes: classCodes,
+                                  sortBy: sortBy,
                                 );
                                 setState(() {
                                   _showInactive =
@@ -399,6 +419,9 @@ class _StaffScreenState extends State<StaffScreen> {
                                     final status = (staffState.statusFilter ?? '').trim();
                                     final designation =
                                         (staffState.designationFilter ?? '').trim();
+                                    final hasClassroomFilter =
+                                        (staffState.primaryClassroomCodes?.isNotEmpty ?? false) ||
+                                        (staffState.classCodes?.isNotEmpty ?? false);
 
                                     final bool hasNonDefaultStatus =
                                         status.isNotEmpty &&
@@ -407,7 +430,8 @@ class _StaffScreenState extends State<StaffScreen> {
 
                                     final int badgeCount =
                                         (hasNonDefaultStatus ? 1 : 0) +
-                                            (hasDesignation ? 1 : 0);
+                                            (hasDesignation ? 1 : 0) +
+                                            (hasClassroomFilter ? 1 : 0);
 
                                     if (badgeCount == 0) return const SizedBox.shrink();
 
@@ -554,7 +578,8 @@ class _StaffScreenState extends State<StaffScreen> {
               const SizedBox(height: 16),
               BlocBuilder<StaffCubit, StaffState>(
                 builder: (context, state) {
-                  if (state.isLoading && state.items.isEmpty) {
+                  // Show shimmer on initial load or when applying filters (refreshing)
+                  if ((state.isLoading && state.items.isEmpty) || state.isRefreshing) {
                     return Column(
                       children: List.generate(
                         6,
@@ -679,7 +704,6 @@ class _StaffScreenState extends State<StaffScreen> {
             ],
           ),
         ),
-          ),
         ),
         ),
           if (anySelected)

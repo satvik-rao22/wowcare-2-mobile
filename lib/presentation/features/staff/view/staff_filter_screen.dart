@@ -12,16 +12,25 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 class FilterData {
   final List<int> classroomIds;
   final List<String> classrooms;
+  /// Selected primary classroom names (for Primary Classroom dropdown).
+  final List<String>? primaryClassrooms;
+  /// Selected allowed classroom names (for Allowed Classroom dropdown).
+  final List<String>? allowedClassrooms;
   final List<String> statuses;
   final List<String> tags;
   final List<String> attendanceStatuses;
+  /// Sort direction: 'asc' or 'desc'.
+  final String? sortBy;
 
   FilterData({
     required this.classroomIds,
     required this.classrooms,
+    this.primaryClassrooms,
+    this.allowedClassrooms,
     required this.statuses,
     required this.tags,
     this.attendanceStatuses = const [],
+    this.sortBy,
   });
 
   static FilterData createWithTagMapping({
@@ -58,8 +67,17 @@ class StaffFilterScreen extends StatefulWidget {
 }
 
 class _StaffFilterScreenState extends State<StaffFilterScreen> {
-  final List<String> _labelList = ['Primary Classroom', 'Allowed Classroom', 'Status', 'Designation', 'Attendance Status'];
-  
+  final List<String> _labelList = [
+    'Primary Classroom',
+    'Allowed Classroom',
+    'Status',
+    'Designation',
+    'Sort by',
+    'Attendance Status',
+  ];
+
+  static const List<String> _sortByOptions = ['Descending', 'Ascending'];
+
   // Filter lists
   List<int> _primaryClassroomIdList = [];
   List<String> _primaryClassroomList = [];
@@ -68,7 +86,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   List<String> _statusList = [];
   List<String> _designationList = [];
   List<String> _attendanceStatusList = [];
-  
+
   // Selected values
   List<int> _selectedPrimaryClassroomIdList = [];
   List<String> _selectedPrimaryClassroomList = [];
@@ -76,6 +94,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   List<String> _selectedAllowedClassroomList = [];
   List<String> _selectedStatusList = [];
   List<String> _selectedDesignationList = [];
+  List<String> _selectedSortByList = [];
   List<String> _selectedAttendanceStatusList = [];
 
   void _syncPrimaryClassroomIds() {
@@ -103,10 +122,21 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     super.initState();
     if (widget.initialFilters != null) {
       _selectedPrimaryClassroomIdList = List.from(widget.initialFilters!.classroomIds);
-      _selectedPrimaryClassroomList = List.from(widget.initialFilters!.classrooms);
+      // Primary and Allowed are separate so UI shows the correct dropdown selection
+      _selectedPrimaryClassroomList = List.from(
+        widget.initialFilters!.primaryClassrooms ?? widget.initialFilters!.classrooms,
+      );
+      _selectedAllowedClassroomList = List.from(
+        widget.initialFilters!.allowedClassrooms ?? const [],
+      );
       _selectedStatusList = List.from(widget.initialFilters!.statuses);
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
+      final sortBy = (widget.initialFilters!.sortBy ?? 'desc').trim().toLowerCase();
+      _selectedSortByList = sortBy == 'asc' ? ['Ascending'] : ['Descending'];
       _selectedAttendanceStatusList = List.from(widget.initialFilters!.attendanceStatuses);
+    }
+    if (_selectedSortByList.isEmpty) {
+      _selectedSortByList.add('Descending');
     }
     _fetchFilterData();
   }
@@ -149,17 +179,40 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   void _applyFilters() {
     _syncPrimaryClassroomIds();
     _syncAllowedClassroomIds();
-    
+
+    // Map selected classroom names to codes for the API
+    final classroomState = context.read<ClassroomCubit>().state;
+    final nameToCode = {
+      for (final c in classroomState.classrooms) c.name: c.code,
+    };
+    final primaryCodes = _selectedPrimaryClassroomList
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    final allowedCodes = _selectedAllowedClassroomList
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
     // Return Map format expected by staff_screen.dart
     final String? status =
         _selectedStatusList.isNotEmpty ? _selectedStatusList.first : null;
     final String? designation = _selectedDesignationList.isNotEmpty
         ? _selectedDesignationList.first
         : null;
-    
+    final String sortBy = _selectedSortByList.isNotEmpty &&
+            _selectedSortByList.first == 'Ascending'
+        ? 'asc'
+        : 'desc';
+
     Navigator.pop(context, {
       'status': status,
       'designation': designation,
+      'primaryClassroomCodes': primaryCodes,
+      'classCodes': allowedCodes,
+      'sortBy': sortBy,
     });
   }
 
@@ -221,6 +274,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             _allowedClassroomList,
             _statusList,
             _designationList,
+            _sortByOptions,
             _attendanceStatusList,
           ];
           final _selectedDropdownLists = [
@@ -228,6 +282,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             _selectedAllowedClassroomList,
             _selectedStatusList,
             _selectedDesignationList,
+            _selectedSortByList,
             _selectedAttendanceStatusList,
           ];
           
@@ -251,6 +306,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
                   _selectedDropdownLists[index].addAll(selectedItems);
                   if (index == 0) _syncPrimaryClassroomIds();
                   if (index == 1) _syncAllowedClassroomIds();
+                  // Sort by: keep single selection (last selected)
+                  if (index == 4 && selectedItems.isNotEmpty) {
+                    _selectedSortByList
+                      ..clear()
+                      ..add(selectedItems.last);
+                  }
                 });
               },
             ),
@@ -260,7 +321,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         // Show loading state
         return GridView.builder(
           padding: EdgeInsets.zero,
-          itemCount: 5,
+          itemCount: _labelList.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 16,

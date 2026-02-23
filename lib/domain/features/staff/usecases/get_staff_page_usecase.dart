@@ -14,6 +14,9 @@ class GetStaffPageUseCase {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) {
     return _repository.getStaffPage(
       schoolCode: schoolCode,
@@ -23,6 +26,9 @@ class GetStaffPageUseCase {
       status: status,
       designation: designation,
       search: search,
+      primaryClassroomCodes: primaryClassroomCodes,
+      classCodes: classCodes,
+      sortBy: sortBy,
     );
   }
 }

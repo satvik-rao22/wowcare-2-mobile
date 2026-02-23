@@ -19,6 +19,9 @@ abstract class StaffRepository {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
 
   Future<String> addStaffDocument({
@@ -143,6 +146,9 @@ abstract class StaffRepositoryWithCache {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode);

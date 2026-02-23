@@ -66,6 +66,9 @@ class StaffCubit extends Cubit<StaffState> {
                   status: _effectiveStatusFilter(),
                   designation: state.designationFilter,
                   search: state.searchQuery,
+                  primaryClassroomCodes: state.primaryClassroomCodes,
+                  classCodes: state.classCodes,
+                  sortBy: state.sortBy,
                 )
             : Future.value(null));
     if (cached != null && !isClosed) {
@@ -136,6 +139,9 @@ class StaffCubit extends Cubit<StaffState> {
         status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
+        primaryClassroomCodes: state.primaryClassroomCodes,
+        classCodes: state.classCodes,
+        sortBy: state.sortBy,
       );
 
       if (isClosed) return;
@@ -163,6 +169,9 @@ class StaffCubit extends Cubit<StaffState> {
           status: _effectiveStatusFilter(),
           designation: state.designationFilter,
           search: state.searchQuery,
+          primaryClassroomCodes: state.primaryClassroomCodes,
+          classCodes: state.classCodes,
+          sortBy: state.sortBy,
         );
 
         items.addAll(secondPage.items);
@@ -213,6 +222,9 @@ class StaffCubit extends Cubit<StaffState> {
         status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
+        primaryClassroomCodes: state.primaryClassroomCodes,
+        classCodes: state.classCodes,
+        sortBy: state.sortBy,
       );
 
       if (isClosed) return;
@@ -305,6 +317,9 @@ class StaffCubit extends Cubit<StaffState> {
         status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: query,
+        primaryClassroomCodes: state.primaryClassroomCodes,
+        classCodes: state.classCodes,
+        sortBy: state.sortBy,
       );
 
       if (isClosed) return;
@@ -348,30 +363,39 @@ class StaffCubit extends Cubit<StaffState> {
   void updateFilters({
     String? status,
     String? designation,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) {
     // Normalize empty / null to empty-string so that copyWith can
     // clear filters instead of keeping the previous non-null value.
     final normalizedStatus = (status ?? '').trim();
     final normalizedDesignation = (designation ?? '').trim();
+    final normalizedSortBy = (sortBy ?? '').trim().toLowerCase();
 
     emit(
       state.copyWith(
         statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
         designationFilter:
             normalizedDesignation.isEmpty ? '' : normalizedDesignation,
+        primaryClassroomCodes: primaryClassroomCodes ?? state.primaryClassroomCodes,
+        classCodes: classCodes ?? state.classCodes,
+        sortBy: normalizedSortBy.isEmpty ? state.sortBy : (normalizedSortBy == 'asc' ? 'asc' : 'desc'),
       ),
     );
   }
 
-  /// Clears all filters (search, status, designation) and refreshes the list.
+  /// Clears all filters (search, status, designation, classroom) and refreshes the list.
   Future<void> clearAllFiltersAndRefresh() async {
-    // Update state first to clear filters
+    // Update state first to clear filters (use [] so copyWith clears classroom filters)
     emit(
       state.copyWith(
         searchQuery: '',
-        // Reset to defaults used by the API (ACTIVE, no designation)
         statusFilter: 'ACTIVE',
         designationFilter: '',
+        primaryClassroomCodes: const [],
+        classCodes: const [],
+        sortBy: 'desc',
         isRefreshing: true,
         errorMessage: null,
       ),
@@ -390,9 +414,12 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: 'ACTIVE', // Default to ACTIVE when filters are cleared
-        designation: null, // Explicitly null
-        search: '', // Explicitly empty
+        status: 'ACTIVE',
+        designation: null,
+        search: '',
+        primaryClassroomCodes: null,
+        classCodes: null,
+        sortBy: 'desc',
       );
 
       if (isClosed) return;
@@ -417,9 +444,12 @@ class StaffCubit extends Cubit<StaffState> {
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: 'ACTIVE', // Default to ACTIVE when filters are cleared
-          designation: null, // Explicitly null
-          search: '', // Explicitly empty
+          status: 'ACTIVE',
+          designation: null,
+          search: '',
+          primaryClassroomCodes: null,
+          classCodes: null,
+          sortBy: 'desc',
         );
 
         items.addAll(secondPage.items);

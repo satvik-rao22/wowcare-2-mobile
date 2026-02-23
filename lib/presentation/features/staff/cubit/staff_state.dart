@@ -15,6 +15,9 @@ class StaffState extends Equatable {
     required this.searchQuery,
     required this.statusFilter,
     required this.designationFilter,
+    required this.primaryClassroomCodes,
+    required this.classCodes,
+    required this.sortBy,
     required this.errorMessage,
   });
 
@@ -32,6 +35,9 @@ class StaffState extends Equatable {
         searchQuery = '',
         statusFilter = null,
         designationFilter = null,
+        primaryClassroomCodes = null,
+        classCodes = null,
+        sortBy = 'desc',
         errorMessage = null;
 
   final List<StaffMember> items;
@@ -47,6 +53,9 @@ class StaffState extends Equatable {
   final String searchQuery;
   final String? statusFilter;
   final String? designationFilter;
+  final List<String>? primaryClassroomCodes;
+  final List<String>? classCodes;
+  final String? sortBy;
   final String? errorMessage;
 
   StaffState copyWith({
@@ -63,6 +72,9 @@ class StaffState extends Equatable {
     String? searchQuery,
     String? statusFilter,
     String? designationFilter,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
     String? errorMessage,
   }) {
     return StaffState(
@@ -79,6 +91,14 @@ class StaffState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       statusFilter: statusFilter ?? this.statusFilter,
       designationFilter: designationFilter ?? this.designationFilter,
+      // Treat null as "don't change"; treat empty list as "clear" (set to null)
+      primaryClassroomCodes: primaryClassroomCodes == null
+          ? this.primaryClassroomCodes
+          : (primaryClassroomCodes.isEmpty ? null : primaryClassroomCodes),
+      classCodes: classCodes == null
+          ? this.classCodes
+          : (classCodes.isEmpty ? null : classCodes),
+      sortBy: sortBy ?? this.sortBy,
       errorMessage: errorMessage,
     );
   }
@@ -98,6 +118,9 @@ class StaffState extends Equatable {
         searchQuery,
         statusFilter,
         designationFilter,
+        primaryClassroomCodes,
+        classCodes,
+        sortBy,
         errorMessage,
       ];
 }

@@ -21,6 +21,9 @@ abstract class StaffRemoteDataSource {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
 
   Future<StaffDocumentResponseModel> addStaffDocument({
@@ -191,32 +194,46 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) async {
+    final sortDir = (sortBy ?? 'desc').trim().toLowerCase();
+    final sortDirection = sortDir == 'asc' ? 'asc' : 'desc';
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
-      // Backward-compatible pagination params (older backend)
       'page': page,
       'size': size,
-      'sort': 'desc',
-      // Newer backend contract (Swagger shows pageable as required)
-      // Send as flattened keys to ensure typical Spring-style binding.
       'pageable.page': page,
       'pageable.size': size,
-      // Dio encodes lists as repeated query params.
-      'pageable.sort': <String>['desc'],
+      'sortBy': 'name',
+      'sortDirection': sortDirection,
     };
 
     if (code != null && code.isNotEmpty) {
       queryParameters['code'] = code;
     }
+    // API expects status as array[string]: ACTIVE | INACTIVE | ARCHIVE | UPCOMING
     if (status != null && status.isNotEmpty) {
-      queryParameters['status'] = status;
+      final normalized = status.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        queryParameters['status'] = [normalized];
+      }
     }
     if (designation != null && designation.isNotEmpty) {
       queryParameters['designation'] = designation;
     }
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
+    }
+    // API expects primaryClassroomCodes and classCodes as array[string]
+    final primaryCodes = primaryClassroomCodes?.where((c) => (c.trim()).isNotEmpty).toList();
+    if (primaryCodes != null && primaryCodes.isNotEmpty) {
+      queryParameters['primaryClassroomCodes'] = primaryCodes;
+    }
+    final allowedCodes = classCodes?.where((c) => (c.trim()).isNotEmpty).toList();
+    if (allowedCodes != null && allowedCodes.isNotEmpty) {
+      queryParameters['classCodes'] = allowedCodes;
     }
 
     final endpoint = ApiPaths.urlWithBase(

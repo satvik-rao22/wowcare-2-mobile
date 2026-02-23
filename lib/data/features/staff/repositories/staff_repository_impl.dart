@@ -27,21 +27,36 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) {
     // Make cached staff list depend on filters.
-    // This prevents ACTIVE/INACTIVE (and search/designation) from overwriting each other.
     String norm(String? v) => (v ?? '').trim().toUpperCase();
 
     final statusKey = norm(status).isEmpty ? 'ACTIVE' : norm(status);
     final designationKey = norm(designation);
-    // Search should not be uppercased for semantics, but for key stability we normalize.
     final searchKey = (search ?? '').trim().toLowerCase();
+    final sortKey = (sortBy ?? 'desc').trim().toLowerCase();
+    final primaryKey = (primaryClassroomCodes ?? [])
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList()
+      ..sort();
+    final classKey = (classCodes ?? [])
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList()
+      ..sort();
 
     final identifier = [
       schoolCode,
       'status=$statusKey',
       if (designationKey.isNotEmpty) 'designation=$designationKey',
       if (searchKey.isNotEmpty) 'search=$searchKey',
+      if (primaryKey.isNotEmpty) 'primaryClassrooms=${primaryKey.join(',')}',
+      if (classKey.isNotEmpty) 'classCodes=${classKey.join(',')}',
+      'sort=$sortKey',
     ].join('|');
 
     return CacheManager.buildCacheKey(
@@ -94,6 +109,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) async {
     final staffPageModel = await _remoteDataSource.getStaffPage(
       schoolCode: schoolCode,
@@ -103,6 +121,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       status: status,
       designation: designation,
       search: search,
+      primaryClassroomCodes: primaryClassroomCodes,
+      classCodes: classCodes,
+      sortBy: sortBy,
     );
 
     // Cache only the first page for simplicity
@@ -113,6 +134,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           status: status,
           designation: designation,
           search: search,
+          primaryClassroomCodes: primaryClassroomCodes,
+          classCodes: classCodes,
+          sortBy: sortBy,
         ),
         staffPageModel.toJson(),
       );
@@ -127,6 +151,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) async {
     final payload = await _cacheManager.loadCache(
       _staffListCacheKey(
@@ -134,6 +161,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         status: status,
         designation: designation,
         search: search,
+        primaryClassroomCodes: primaryClassroomCodes,
+        classCodes: classCodes,
+        sortBy: sortBy,
       ),
     );
     if (payload == null) return null;
