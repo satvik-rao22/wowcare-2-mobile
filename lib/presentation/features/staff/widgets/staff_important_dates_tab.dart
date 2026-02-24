@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class StaffImportantDatesTab extends StatefulWidget {
   const StaffImportantDatesTab({
@@ -21,10 +25,11 @@ class StaffImportantDatesTab extends StatefulWidget {
 
 class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
   final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
+  final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
   bool _isLoading = true;
   String? _errorMessage;
-  Map<String, String> _dates = const {};
+  List<Map<String, String>> _items = const [];
 
   @override
   void initState() {
@@ -47,20 +52,23 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
               .loadCachedImportantDates(widget.staffCode);
 
           if (cached != null && mounted) {
-            final mapped = <String, String>{};
+            final items = <Map<String, String>>[];
             for (final date in cached) {
               final type = (date['importantDateType'] ?? '').toUpperCase();
               final dueDate = date['dueDate'] ?? '';
               if (dueDate.isEmpty) continue;
-
-              final label = _mapTypeToLabel(type);
-              mapped[label] = _formatDate(dueDate);
+              items.add(<String, String>{
+                'importantDateType': type,
+                'dueDate': dueDate,
+                if ((date['status'] ?? '').toString().isNotEmpty)
+                  'status': (date['status'] ?? '').toString(),
+              });
             }
 
             setState(() {
               _isLoading = false;
               _errorMessage = null;
-              _dates = mapped;
+              _items = items;
             });
 
             // Don't hit API if cache is valid - return early
@@ -80,24 +88,27 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
           setState(() {
             _isLoading = false;
             _errorMessage = failure.message ?? 'Failed to load important dates';
-            _dates = const {};
+            _items = const [];
           });
         },
         (dates) {
-          final mapped = <String, String>{};
+          final items = <Map<String, String>>[];
           for (final date in dates) {
             final type = (date['importantDateType'] ?? '').toUpperCase();
             final dueDate = date['dueDate'] ?? '';
             if (dueDate.isEmpty) continue;
-
-            final label = _mapTypeToLabel(type);
-            mapped[label] = _formatDate(dueDate);
+            items.add(<String, String>{
+              'importantDateType': type,
+              'dueDate': dueDate,
+              if ((date['status'] ?? '').toString().isNotEmpty)
+                'status': (date['status'] ?? '').toString(),
+            });
           }
 
           setState(() {
             _isLoading = false;
             _errorMessage = null;
-            _dates = mapped;
+            _items = items;
           });
         },
       );
@@ -106,7 +117,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Failed to load important dates';
-        _dates = const {};
+        _items = const [];
       });
     }
   }
@@ -139,7 +150,22 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final entries = _dates.entries.toList();
+    final items = List<Map<String, String>>.from(_items);
+    // Keep stable ordering by known types first.
+    const typeOrder = <String, int>{
+      'HIRE_DATE': 0,
+      'CDA': 1,
+      'FIRST_AID_CPR': 2,
+      'BRC': 3,
+      'PHYSICAL_CHECKUP': 4,
+    };
+    items.sort((a, b) {
+      final at = (a['importantDateType'] ?? '').toUpperCase();
+      final bt = (b['importantDateType'] ?? '').toUpperCase();
+      final ai = typeOrder[at] ?? 999;
+      final bi = typeOrder[bt] ?? 999;
+      return ai.compareTo(bi);
+    });
 
     return MediaQuery.removePadding(
       context: context,
@@ -203,7 +229,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
                       fontSize: 14,
                     ),
                   )
-                else if (entries.isEmpty)
+                else if (items.isEmpty)
                   const Text(
                     'No important dates available.',
                     style: TextStyle(
@@ -212,25 +238,397 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
                     ),
                   )
                 else
-                  ...List.generate(entries.length * 2 - 1, (i) {
-                    if (i.isOdd) return const SizedBox(height: 16);
-                    final idx = i ~/ 2;
-                    final e = entries[idx];
-                    final lowerLabel = e.key.toLowerCase();
-                    final isCda = lowerLabel.contains('cda');
-                    final isBackgroundRecord = lowerLabel.contains('background') && lowerLabel.contains('record');
-                    return _DateRow(
-                      label: e.key,
-                      text: e.value,
-                      showInfo: isCda && !isBackgroundRecord,
-                      infoText: 'CDA - Child Development Associate',
-                    );
-                  }),
+                  ..._buildRows(items),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  List<Widget> _buildRows(List<Map<String, String>> items) {
+    final rows = <Widget>[];
+
+    for (final item in items) {
+      final type = (item['importantDateType'] ?? '').toUpperCase();
+      final dueDate = item['dueDate'] ?? '';
+      final status = (item['status'] ?? '').toString();
+
+      if (type == 'PHYSICAL_CHECKUP') {
+        final upperStatus = status.toUpperCase();
+        // If completed (or missing), keep existing UI style (same as other rows).
+        if (upperStatus == 'COMPLETED' || upperStatus.isEmpty) {
+          rows.add(
+            _DateRow(
+              label: _mapTypeToLabel(type),
+              text: _formatDate(dueDate),
+            ),
+          );
+        } else {
+          rows.add(
+            _PhysicalCheckupCard(
+              status: _mapPhysicalStatusToUi(status),
+              dateText: _formatDate(dueDate),
+              onMore: () => _openEditPhysicalDialog(
+                initialDateIso: dueDate,
+                initialStatusUi: _mapPhysicalStatusToUi(status),
+              ),
+            ),
+          );
+        }
+      } else {
+        final label = _mapTypeToLabel(type);
+        final lowerLabel = label.toLowerCase();
+        final isCda = lowerLabel.contains('cda');
+        final isBackgroundRecord =
+            lowerLabel.contains('background') && lowerLabel.contains('record');
+        rows.add(
+          _DateRow(
+            label: label,
+            text: _formatDate(dueDate),
+            showInfo: isCda && !isBackgroundRecord,
+            infoText: 'CDA - Child Development Associate',
+          ),
+        );
+      }
+    }
+
+    // interleave spacing
+    final spaced = <Widget>[];
+    for (int i = 0; i < rows.length; i++) {
+      spaced.add(rows[i]);
+      if (i != rows.length - 1) spaced.add(const SizedBox(height: 16));
+    }
+    return spaced;
+  }
+
+  String _mapPhysicalStatusToUi(String status) {
+    final upper = status.toUpperCase();
+    if (upper == 'COMPLETED') return 'Completed';
+    if (upper == 'SCHEDULED') return 'Scheduled';
+    if (upper == 'DUE') return 'Due';
+    return status;
+  }
+
+  Future<void> _openEditPhysicalDialog({
+    required String initialDateIso,
+    required String initialStatusUi,
+  }) async {
+    if (!mounted) return;
+
+    DateTime? selectedDate;
+    try {
+      selectedDate = DateTime.parse(initialDateIso);
+    } catch (_) {
+      selectedDate = null;
+    }
+    String statusUi = initialStatusUi.isNotEmpty ? initialStatusUi : 'Scheduled';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isTablet = screenWidth > 600;
+        final isLargeTablet = screenWidth > 900;
+        final bottomSafe = MediaQuery.of(context).padding.bottom;
+
+        final horizontalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
+        final buttonHeight = isLargeTablet ? 56.0 : (isTablet ? 48.0 : 40.0);
+        final buttonFontSize = isLargeTablet ? 18.0 : (isTablet ? 16.0 : 14.0);
+        final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
+
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isLargeTablet ? 1200.0 : double.infinity,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.only(
+                    left: horizontalPadding,
+                    right: horizontalPadding,
+                    top: verticalPadding,
+                    bottom: verticalPadding + bottomSafe,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(borderRadius),
+                      topRight: Radius.circular(borderRadius),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Edit Physical Examination',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff573353),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: AppColors.primaryColor),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: verticalPadding),
+                      if (isTablet)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _DialogField(
+                                label: 'Physical Checkup Date *',
+                                value: selectedDate != null
+                                    ? _apiFormatter.format(selectedDate!)
+                                    : '',
+                                suffix: SvgPicture.asset(
+                                  MediaRes.calender_icon,
+                                  height: 20.0,
+                                  colorFilter: const ColorFilter.mode(
+                                    AppColors.primaryColor,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                                onTap: () async {
+                                  final result = await showDialog<Map<String, dynamic>>(
+                                    context: context,
+                                    builder: (context) => CalendarDialog(
+                                      isRangePicker: false,
+                                      isTimePicker: false,
+                                      initialDate: selectedDate,
+                                    ),
+                                  );
+                                  if (result == null || result['date'] == null) return;
+                                  final picked = result['date'] as DateTime;
+                                  final now = DateTime.now();
+                                  final today = DateTime(now.year, now.month, now.day);
+                                  if (picked.isBefore(today)) {
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: 'Physical Checkup Date cannot be in the past',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
+                                  setLocalState(() => selectedDate = picked);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _DialogDropdown(
+                                label: 'Status *',
+                                value: statusUi,
+                                options: const ['Due', 'Scheduled', 'Completed'],
+                                onChanged: (v) => setLocalState(() => statusUi = v),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            _DialogField(
+                              label: 'Physical Checkup Date *',
+                              value: selectedDate != null
+                                  ? _apiFormatter.format(selectedDate!)
+                                  : '',
+                              suffix: SvgPicture.asset(
+                                MediaRes.calender_icon,
+                                height: 20.0,
+                                colorFilter: const ColorFilter.mode(
+                                  AppColors.primaryColor,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                              onTap: () async {
+                                final result = await showDialog<Map<String, dynamic>>(
+                                  context: context,
+                                  builder: (context) => CalendarDialog(
+                                    isRangePicker: false,
+                                    isTimePicker: false,
+                                    initialDate: selectedDate,
+                                  ),
+                                );
+                                if (result == null || result['date'] == null) return;
+                                final picked = result['date'] as DateTime;
+                                final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
+                                if (picked.isBefore(today)) {
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: 'Physical Checkup Date cannot be in the past',
+                                    isError: true,
+                                  );
+                                  return;
+                                }
+                                setLocalState(() => selectedDate = picked);
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _DialogDropdown(
+                              label: 'Status *',
+                              value: statusUi,
+                              options: const ['Due', 'Scheduled', 'Completed'],
+                              onChanged: (v) => setLocalState(() => statusUi = v),
+                            ),
+                          ],
+                        ),
+                      SizedBox(height: verticalPadding * 1.5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: buttonHeight,
+                              decoration: BoxDecoration(
+                                gradient: AppColors.buildPrimaryGradient(),
+                                borderRadius: BorderRadius.circular(borderRadius / 2),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(1),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                                  ),
+                                  child: TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    style: TextButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(borderRadius / 2 - 1),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Cancel',
+                                      style: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: buttonFontSize,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primaryColor,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: horizontalPadding / 2),
+                          Expanded(
+                            child: Container(
+                              height: buttonHeight,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(borderRadius / 2),
+                                gradient: AppColors.buildPrimaryGradient(),
+                              ),
+                              child: TextButton(
+                                onPressed: () async {
+                                  if (selectedDate == null) {
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: 'Physical Checkup Date is required',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
+
+                                  final now = DateTime.now();
+                                  final today = DateTime(now.year, now.month, now.day);
+                                  if (selectedDate!.isBefore(today)) {
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: 'Physical Checkup Date cannot be in the past',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
+
+                                  final dueIso = _apiFormatter.format(selectedDate!);
+                                  final statusApi = statusUi == 'Completed'
+                                      ? 'COMPLETED'
+                                      : statusUi == 'Scheduled'
+                                          ? 'SCHEDULED'
+                                          : 'DUE';
+
+                                  final payload = <String, String>{
+                                    'importantDateType': 'PHYSICAL_CHECKUP',
+                                    'dueDate': dueIso,
+                                    'status': statusApi,
+                                    if (statusApi == 'COMPLETED') 'completedDate': dueIso,
+                                  };
+
+                                  try {
+                                    final repo = serviceLocator<StaffRepository>();
+                                    final msg = await repo.updateImportantDates(
+                                      staffCode: widget.staffCode,
+                                      dates: [payload],
+                                    );
+                                    if (!context.mounted) return;
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: msg.isNotEmpty ? msg : 'Updated successfully',
+                                      isSuccess: true,
+                                    );
+                                    Navigator.of(context).pop();
+                                    await _loadDates(useCache: false);
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    CoreUtils.logApiError(e.toString());
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message:
+                                          'Failed to update physical checkup. Please try again.',
+                                      isError: true,
+                                    );
+                                  }
+                                },
+                                style: TextButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(borderRadius / 2),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Save',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: buttonFontSize,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -317,6 +715,223 @@ class _DateRow extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PhysicalCheckupCard extends StatelessWidget {
+  const _PhysicalCheckupCard({
+    required this.status,
+    required this.dateText,
+    required this.onMore,
+  });
+
+  final String status;
+  final String dateText;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final upper = status.toUpperCase();
+    final Color pillBg = upper == 'DUE'
+        ? const Color(0xFFFFF4D6)
+        : const Color(0xFFE7F0FF);
+    final Color pillText = upper == 'DUE'
+        ? const Color(0xFFB07A00)
+        : const Color(0xFF1E5EFF);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.primaryColor.withOpacity(0.15)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: pillBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: pillText,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: onMore,
+                icon: const Icon(Icons.more_horiz, color: AppColors.primaryColor),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                'Checkup Date',
+                style: TextStyle(
+                  color: AppColors.primaryColor.withOpacity(0.6),
+                  fontFamily: 'Manrope',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                dateText,
+                style: const TextStyle(
+                  color: AppColors.primaryColor,
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DialogField extends StatelessWidget {
+  const _DialogField({
+    required this.label,
+    required this.value,
+    required this.suffix,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final Widget suffix;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.primaryColor.withOpacity(0.6),
+            fontFamily: 'Manrope',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F4FB),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+                suffix,
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogDropdown extends StatelessWidget {
+  const _DialogDropdown({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.primaryColor.withOpacity(0.6),
+            fontFamily: 'Manrope',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F4FB),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primaryColor),
+              items: options
+                  .map(
+                    (o) => DropdownMenuItem<String>(
+                      value: o,
+                      child: Text(
+                        o,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                onChanged(v);
+              },
+            ),
           ),
         ),
       ],
