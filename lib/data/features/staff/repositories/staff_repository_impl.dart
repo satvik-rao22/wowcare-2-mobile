@@ -392,7 +392,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     // Refresh the cached profile:
-    // 1) Try to re-fetch the latest profile from my-profile GET.
+    // 1) Try to re-fetch the latest profile from the staff profile GET.
     // 2) If that fails, at least invalidate the cache so next load uses fresh data.
     try {
       final profileModel = await _remoteDataSource.getStaffProfile(

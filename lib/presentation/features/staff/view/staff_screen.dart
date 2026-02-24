@@ -476,9 +476,14 @@ class _StaffScreenState extends State<StaffScreen> {
                                         (staffState.primaryClassroomCodes?.isNotEmpty ?? false) ||
                                         (staffState.classCodes?.isNotEmpty ?? false);
 
+                                    final statusUpper = status.toUpperCase();
+                                    // Treat both ACTIVE and INACTIVE as "base" views so they
+                                    // don't show a filter badge; only other statuses (e.g. UPCOMING)
+                                    // should contribute to the badge count.
                                     final bool hasNonDefaultStatus =
-                                        status.isNotEmpty &&
-                                            status.toUpperCase() != 'ACTIVE';
+                                        statusUpper.isNotEmpty &&
+                                            statusUpper != 'ACTIVE' &&
+                                            statusUpper != 'INACTIVE';
                                     final bool hasDesignation = designation.isNotEmpty;
 
                                     final int badgeCount =

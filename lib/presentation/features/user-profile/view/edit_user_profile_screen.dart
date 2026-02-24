@@ -58,7 +58,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   final List<String> _countryOptions =
       COUNTRY_LIST.map((country) => country.name).toList();
 
-  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
+  // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
   static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
@@ -256,20 +257,40 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final street = _streetController.text.trim();
     final address2 = _addressLine2Controller.text.trim();
 
-    if (first.isEmpty || !_nameRegex.hasMatch(first)) {
+    if (first.isEmpty) {
       CoreUtils.showTopSnackBar(context: context, message:'First Name is required', isError: true);
       return;
     }
-    if (last.isEmpty || !_nameRegex.hasMatch(last)) {
+    if (first.length > 50 || !_nameRegex.hasMatch(first)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:'First Name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (last.isEmpty) {
       CoreUtils.showTopSnackBar(context: context, message:'Last Name is required', isError: true);
+      return;
+    }
+    if (last.length > 50 || !_nameRegex.hasMatch(last)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:'Last Name must be letters only and max 50 characters',
+        isError: true,
+      );
       return;
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
       CoreUtils.showTopSnackBar(context: context, message:'Email is required', isError: true);
       return;
     }
-    if (phoneDigits.length < 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
+    if (phoneDigits.isEmpty) {
       CoreUtils.showTopSnackBar(context: context, message:'Phone Number is required', isError: true);
+      return;
+    }
+    if (phoneDigits.length != 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
+      CoreUtils.showTopSnackBar(context: context, message:'Please enter a valid 10-digit phone number', isError: true);
       return;
     }
     if (_streetController.text.isEmpty) {

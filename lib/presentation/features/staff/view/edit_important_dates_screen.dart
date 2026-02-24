@@ -51,6 +51,11 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   static const List<String> _editPhysicalStatusOptions = ['Due', 'Scheduled', 'Completed'];
   late List<String> _physicalCheckupStatusOptions;
 
+  DateTime _todayDateOnly() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -90,9 +95,91 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   }
 
   void _saveImportantDates() {
+    final today = _todayDateOnly();
+
     if (_selectedHireDate == null) {
-      _showWarningMessage('Hire Date is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Hire Date is required',
+        isError: true,
+      );
       return;
+    }
+
+    // Hire Date: only today or past.
+    if (_selectedHireDate!.isAfter(today)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Hire Date cannot be in the future',
+        isError: true,
+      );
+      return;
+    }
+
+    // CDA + BRC: must be today or future (alert if selected date is past).
+    if (_selectedCdaExaminationDate != null &&
+        _selectedCdaExaminationDate!.isBefore(today)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'CDA Examination Date cannot be in the past',
+        isError: true,
+      );
+      return;
+    }
+    if (_selectedBackgroundRecordCheckExpirationDate != null &&
+        _selectedBackgroundRecordCheckExpirationDate!.isBefore(today)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Background Record Check Expiration Date cannot be in the past',
+        isError: true,
+      );
+      return;
+    }
+
+    // Physical Checkup rules depend on Status:
+    // - Due/Scheduled: date must be today or future
+    // - Completed: date must be today or past
+    final physicalStatus = (_selectedPhysicalCheckupStatus ?? '').trim();
+    final hasPhysicalStatus = physicalStatus.isNotEmpty;
+    final hasPhysicalDate = _selectedPhysicalCheckupDate != null;
+    if (hasPhysicalStatus || hasPhysicalDate) {
+      if (!hasPhysicalStatus) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Physical Checkup Status is required',
+          isError: true,
+        );
+        return;
+      }
+      if (!hasPhysicalDate) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Physical Checkup Date is required',
+          isError: true,
+        );
+        return;
+      }
+
+      final picked = _selectedPhysicalCheckupDate!;
+      if (physicalStatus == 'Completed') {
+        if (picked.isAfter(today)) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'For Completed status, Physical Checkup Date must be today or past',
+            isError: true,
+          );
+          return;
+        }
+      } else if (physicalStatus == 'Due' || physicalStatus == 'Scheduled') {
+        if (picked.isBefore(today)) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'For Due/Scheduled status, Physical Checkup Date must be today or future',
+            isError: true,
+          );
+          return;
+        }
+      }
     }
 
     final dates = <Map<String, String>>[];
@@ -157,40 +244,15 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     );
   }
 
-  void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
-
   Future<void> _selectDate(String fieldName) async {
     try {
       DateTime? currentDate;
+      DateTime? firstDate;
+      DateTime? lastDate;
       switch (fieldName) {
         case 'hire':
           currentDate = _selectedHireDate;
+          lastDate = _todayDateOnly();
           break;
         case 'cda':
           currentDate = _selectedCdaExaminationDate;
@@ -203,6 +265,13 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
           break;
         case 'physical':
           currentDate = _selectedPhysicalCheckupDate;
+          final today = _todayDateOnly();
+          if ((_selectedPhysicalCheckupStatus ?? '').trim() == 'Completed') {
+            lastDate = today;
+          } else {
+            // Due/Scheduled (and default): today or future.
+            firstDate = today;
+          }
           break;
       }
 
@@ -212,25 +281,13 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
           isRangePicker: false,
           isTimePicker: false,
           initialDate: currentDate,
+          firstDate: firstDate,
+          lastDate: lastDate,
         ),
       );
       
       if (result != null && result['date'] != null) {
         final selected = result['date'] as DateTime;
-
-        // Physical Checkup Date: do NOT allow past dates (only today or future).
-        if (fieldName == 'physical') {
-          final now = DateTime.now();
-          final today = DateTime(now.year, now.month, now.day);
-          if (selected.isBefore(today)) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Physical Checkup Date cannot be in the past',
-              isError: true,
-            );
-            return;
-          }
-        }
 
         setState(() {
           switch (fieldName) {
@@ -358,7 +415,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         ),
         child: CustomButtonLayout(
           confirmButtonLabel: 'Save',
-          onPressedConfirm: _saveImportantDates,
+          onPressedConfirm: isSubmitting ? null : _saveImportantDates,
           showCancelButton: false,
           isForm: false,
           isLoading: isSubmitting,

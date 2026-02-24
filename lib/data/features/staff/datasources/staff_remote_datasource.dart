@@ -408,7 +408,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String staffCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffMyProfile}/$staffCode',
+      '${ApiPaths.staffProfile}/$staffCode/profile',
       ApiConstants.staffBaseUrl,
     );
 

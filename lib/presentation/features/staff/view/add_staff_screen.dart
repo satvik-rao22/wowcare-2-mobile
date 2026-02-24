@@ -88,7 +88,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   ];
 
   // Phone number validation regex - now requires exactly 10 digits
-  static final RegExp _phoneRegex = RegExp(r'^\\(\\d{3}\\)\\s\\d{3}-\\d{4}$');
+  static final RegExp _phoneRegex = RegExp(r'^\(\d{3}\)\s\d{3}-\d{4}$');
+  // First/Last name: first character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   // Email validation regex
   // Email validation regexes: strict and permissive; accept if any matches
   static final RegExp _emailRegexStrict = RegExp(
@@ -147,7 +149,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
   void _addStaff() {
     _trimAllInputs();
-    if (_firstNameController.text.isEmpty) {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+
+    if (firstName.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'First name is required',
@@ -155,10 +160,26 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       );
       return;
     }
-    if (_lastNameController.text.isEmpty) {
+    if (firstName.length > 50 || !_nameRegex.hasMatch(firstName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (lastName.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last name is required',
+        isError: true,
+      );
+      return;
+    }
+    if (lastName.length > 50 || !_nameRegex.hasMatch(lastName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -260,8 +281,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       }
     }
 
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
+    // firstName / lastName already trimmed and validated above
     final displayName = _composeStaffName();
     final email = _emailController.text.trim();
     final mobileDigits = _phoneController.text.trim().replaceAll(
@@ -915,7 +935,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             "E.g. John",
             _firstNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+              LengthLimitingTextInputFormatter(50),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -928,7 +949,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             "E.g. Smith",
             _lastNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+              LengthLimitingTextInputFormatter(50),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],

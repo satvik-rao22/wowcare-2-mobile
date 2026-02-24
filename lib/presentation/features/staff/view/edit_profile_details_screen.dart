@@ -109,7 +109,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   late final GetStaffProfileUseCase _getStaffProfileUseCase;
 
   // Simple validators (align with Add Staff)
-  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
+  // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
   static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
@@ -239,8 +240,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     final email = _emailController.text.trim().toLowerCase();
     final phoneRaw = _phoneNumberController.text.trim();
     final phoneDigits = phoneRaw.replaceAll(RegExp(r'\D'), '');
+    final street = _streetController.text.trim();
+    final city = _cityController.text.trim();
+    final zip = _zipCodeController.text.trim();
 
-    if (first.isEmpty || !_nameRegex.hasMatch(first)) {
+    if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'First Name is required',
@@ -248,10 +252,26 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (last.isEmpty || !_nameRegex.hasMatch(last)) {
+    if (first.length > 50 || !_nameRegex.hasMatch(first)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First Name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (last.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last Name is required',
+        isError: true,
+      );
+      return;
+    }
+    if (last.length > 50 || !_nameRegex.hasMatch(last)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -280,7 +300,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (phoneDigits.length < 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
+    if (phoneDigits.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Phone Number is required',
@@ -288,7 +308,16 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_streetController.text.isEmpty) {
+    if (phoneDigits.length != 10 || !_e164Regex.hasMatch('+' + phoneDigits)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please enter a valid 10-digit phone number',
+        isError: true,
+      );
+      return;
+    }
+    // Address - Street: required, max 150 chars.
+    if (street.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Street is required',
@@ -296,7 +325,17 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_cityController.text.isEmpty) {
+    if (street.length > 150) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street address cannot exceed 150 characters',
+        isError: true,
+      );
+      return;
+    }
+
+    // Address - City: required, max 50 chars.
+    if (city.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'City is required',
@@ -304,10 +343,46 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_zipCodeController.text.trim().isEmpty) {
+    if (city.length > 50) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City name cannot exceed 50 characters',
+        isError: true,
+      );
+      return;
+    }
+
+    // Address - Zip: required, numeric 3–10 digits (US-style; extendable per country if needed).
+    if (zip.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code is required',
+        isError: true,
+      );
+      return;
+    }
+    if (!RegExp(r'^\d{3,10}$').hasMatch(zip)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code must contain only numbers (3–10 digits)',
+        isError: true,
+      );
+      return;
+    }
+
+    // Address - State / Country: required dropdowns.
+    if ((_selectedState ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'State is required',
+        isError: true,
+      );
+      return;
+    }
+    if ((_selectedCountry ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Country is required',
         isError: true,
       );
       return;

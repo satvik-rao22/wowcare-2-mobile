@@ -191,8 +191,9 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
   Widget build(BuildContext context) {
     return BlocProvider<StaffDocumentsListCubit>.value(
       value: _documentsListCubit,
-      child: Scaffold(
-          body: BlocBuilder<StaffDocumentsListCubit, StaffDocumentsListState>(
+      child: Stack(
+        children: [
+          BlocBuilder<StaffDocumentsListCubit, StaffDocumentsListState>(
             builder: (context, state) {
               if (state.isLoading && state.documents.isEmpty) {
                 return const Center(child: PrimaryCircularLoader());
@@ -229,7 +230,9 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
+                    // Extra bottom padding so the floating add button
+                    // doesn't overlap the last items.
+                    padding: const EdgeInsets.fromLTRB(6, 16, 6, 96),
                     child: Column(
                       children: [
                         Container(
@@ -237,7 +240,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
                             borderRadius: BorderRadius.circular(14),
-                            color: Colors.white,
+                            color: Colors.white.withOpacity(0.88),
                           ),
           child: CustomToggle(
             label: 'Show Expired Documents',
@@ -287,8 +290,8 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                     ),
                                   ),
                                   trailing: const SizedBox.shrink(),
-                                  backgroundColor: Colors.white,
-                                  collapsedBackgroundColor: Colors.white,
+                                  backgroundColor: Colors.white.withOpacity(0.88),
+                                  collapsedBackgroundColor: Colors.white.withOpacity(0.88),
                                   collapsedShape: RoundedRectangleBorder(
                                     side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
                                     borderRadius: BorderRadius.circular(14),
@@ -409,7 +412,10 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
             );
             },
           ),
-          floatingActionButton: GradientAddButton(
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: GradientAddButton(
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -435,8 +441,9 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
             iconSize: 28.0,
             borderRadius: 12.0,
           ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        ),
+          ),
+        ],
+      ),
     );
   }
 }

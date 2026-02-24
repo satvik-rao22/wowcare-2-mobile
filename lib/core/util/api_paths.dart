@@ -19,8 +19,8 @@ class ApiPaths {
   static const String staffList = '/api/v1/staff';
   static const String staffCount = '/api/v1/staff/count';
   static const String staffProfile = '/api/v1/staff';
-  /// My-profile controller: GET `/api/v1/staff/my-profile/{staffCode}`
-  /// Used for fetching the logged-in staff member's profile/details.
+  /// My-profile controller: `PATCH /api/v1/staff/my-profile/{staffCode}`
+  /// Used for updating the logged-in staff member's basic profile + address.
   static const String staffMyProfile = '/api/v1/staff/my-profile';
   /// Resolve staffCode from userCode + org + school.
   static const String staffCodeByUser = '/api/v1/staff/code';

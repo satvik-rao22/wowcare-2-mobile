@@ -458,21 +458,13 @@ class CoreUtils {
                 ? successColor
                 : Colors.black;
 
-    final String typeLabel = isError
-        ? 'Error'
-        : isWarning
-            ? 'Warning'
-            : isSuccess
-                ? 'Success'
-                : '';
-
     final overlay = Overlay.of(context);
     final topInset = MediaQuery.of(context).padding.top;
     final rightInset = MediaQuery.of(context).padding.right;
     final screenWidth = MediaQuery.of(context).size.width;
     const horizontalMargin = 16.0;
     const topMargin = 12.0;
-    const maxBannerWidth = 240.0;
+    const maxBannerWidth = 280.0;
 
     late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
@@ -522,16 +514,6 @@ class CoreUtils {
                         fontWeight: FontWeight.w600,
                       ),
                       children: [
-                        if (typeLabel.isNotEmpty) ...[
-                          TextSpan(
-                            text: '$typeLabel: ',
-                            style: TextStyle(
-                              color: contentColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
                         TextSpan(
                           text: message,
                           style: TextStyle(

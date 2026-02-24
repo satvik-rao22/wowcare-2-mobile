@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_important_dates_sc
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class StaffDatesTab extends StatefulWidget {
@@ -250,6 +251,8 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     }
     String statusUi = initialStatusUi.isNotEmpty ? initialStatusUi : 'Scheduled';
 
+    bool isSaving = false;
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -263,8 +266,6 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
         final horizontalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
         final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
         final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
-        final buttonHeight = isLargeTablet ? 56.0 : (isTablet ? 48.0 : 40.0);
-        final buttonFontSize = isLargeTablet ? 18.0 : (isTablet ? 16.0 : 14.0);
         final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
 
         return StatefulBuilder(
@@ -338,20 +339,14 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                       isRangePicker: false,
                                       isTimePicker: false,
                                       initialDate: selectedDate,
+                                      firstDate: (() {
+                                        final now = DateTime.now();
+                                        return DateTime(now.year, now.month, now.day);
+                                      })(),
                                     ),
                                   );
                                   if (result == null || result['date'] == null) return;
                                   final picked = result['date'] as DateTime;
-                                  final now = DateTime.now();
-                                  final today = DateTime(now.year, now.month, now.day);
-                                  if (picked.isBefore(today)) {
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message: 'Physical Checkup Date cannot be in the past',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
                                   setLocalState(() => selectedDate = picked);
                                 },
                               ),
@@ -390,20 +385,14 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                     isRangePicker: false,
                                     isTimePicker: false,
                                     initialDate: selectedDate,
+                                    firstDate: (() {
+                                      final now = DateTime.now();
+                                      return DateTime(now.year, now.month, now.day);
+                                    })(),
                                   ),
                                 );
                                 if (result == null || result['date'] == null) return;
                                 final picked = result['date'] as DateTime;
-                                final now = DateTime.now();
-                                final today = DateTime(now.year, now.month, now.day);
-                                if (picked.isBefore(today)) {
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message: 'Physical Checkup Date cannot be in the past',
-                                    isError: true,
-                                  );
-                                  return;
-                                }
                                 setLocalState(() => selectedDate = picked);
                               },
                             ),
@@ -416,135 +405,71 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                             ),
                           ],
                         ),
-                      SizedBox(height: verticalPadding * 1.5),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: buttonHeight,
-                              decoration: BoxDecoration(
-                                gradient: AppColors.buildPrimaryGradient(),
-                                borderRadius: BorderRadius.circular(borderRadius / 2),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(1),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
-                                  ),
-                                  child: TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    style: TextButton.styleFrom(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(borderRadius / 2 - 1),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Cancel',
-                                      style: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: buttonFontSize,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.primaryColor,
-                                        height: 1.0,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: horizontalPadding / 2),
-                          Expanded(
-                            child: Container(
-                              height: buttonHeight,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(borderRadius / 2),
-                                gradient: AppColors.buildPrimaryGradient(),
-                              ),
-                              child: TextButton(
-                                onPressed: () async {
-                                  if (selectedDate == null) {
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message: 'Physical Checkup Date is required',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
+                      SizedBox(height: verticalPadding),
+                      Builder(
+                        builder: (_) {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          final canSave =
+                              selectedDate != null && !selectedDate!.isBefore(today);
 
-                                  final now = DateTime.now();
-                                  final today = DateTime(now.year, now.month, now.day);
-                                  if (selectedDate!.isBefore(today)) {
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message: 'Physical Checkup Date cannot be in the past',
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
+                          return CustomButtonLayout(
+                            confirmButtonLabel: 'Save',
+                            cancelButtonLabel: 'Cancel',
+                            isForm: false,
+                            isLoading: isSaving,
+                            onPressedCancel: () => Navigator.of(context).pop(),
+                            onPressedConfirm: canSave
+                                ? () async {
 
-                                  final dueIso = _apiFormatter.format(selectedDate!);
-                                  final statusApi = statusUi == 'Completed'
-                                      ? 'COMPLETED'
-                                      : statusUi == 'Scheduled'
-                                          ? 'SCHEDULED'
-                                          : 'DUE';
+                          final dueIso = _apiFormatter.format(selectedDate!);
+                          final statusApi = statusUi == 'Completed'
+                              ? 'COMPLETED'
+                              : statusUi == 'Scheduled'
+                                  ? 'SCHEDULED'
+                                  : 'DUE';
 
-                                  final payload = <String, String>{
-                                    'importantDateType': 'PHYSICAL_CHECKUP',
-                                    'dueDate': dueIso,
-                                    'status': statusApi,
-                                    if (statusApi == 'COMPLETED') 'completedDate': dueIso,
-                                  };
+                          final payload = <String, String>{
+                            'importantDateType': 'PHYSICAL_CHECKUP',
+                            'dueDate': dueIso,
+                            'status': statusApi,
+                            if (statusApi == 'COMPLETED') 'completedDate': dueIso,
+                          };
 
-                                  try {
-                                    final repo = serviceLocator<StaffRepository>();
-                                    final msg = await repo.updateImportantDates(
-                                      staffCode: widget.staffCode,
-                                      dates: [payload],
-                                    );
-                                    if (!context.mounted) return;
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message: msg.isNotEmpty ? msg : 'Updated successfully',
-                                      isSuccess: true,
-                                    );
-                                    Navigator.of(context).pop();
-                                    await _loadDates(useCache: false);
-                                  } catch (e) {
-                                    if (!context.mounted) return;
-                                    CoreUtils.logApiError(e.toString());
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message:
-                                          'Failed to update physical checkup. Please try again.',
-                                      isError: true,
-                                    );
-                                  }
-                                },
-                                style: TextButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(borderRadius / 2),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Save',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: buttonFontSize,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    height: 1.0,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                          setLocalState(() => isSaving = true);
+                          try {
+                            final repo = serviceLocator<StaffRepository>();
+                            final msg = await repo.updateImportantDates(
+                              staffCode: widget.staffCode,
+                              dates: [payload],
+                            );
+                            if (!context.mounted) return;
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message: msg.isNotEmpty ? msg : 'Updated successfully',
+                              isSuccess: true,
+                            );
+                            Navigator.of(context).pop();
+                            await _loadDates(useCache: false);
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            CoreUtils.logApiError(e.toString());
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message:
+                                  'Failed to update physical checkup. Please try again.',
+                              isError: true,
+                            );
+                          } finally {
+                            // `setLocalState` belongs to the bottom sheet; guard with sheet context.
+                            if (context.mounted) {
+                              setLocalState(() => isSaving = false);
+                            }
+                          }
+                        }
+                                : null,
+                          );
+                        },
                       ),
                     ],
                   ),

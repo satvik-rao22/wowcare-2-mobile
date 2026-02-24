@@ -43,10 +43,17 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   late TabController _tabController;
   final ImagePicker _picker = ImagePicker();
 
+  late String _displayName;
+  late String _displayDesignation;
+  late String _displayClassroom;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _displayName = widget.name;
+    _displayDesignation = widget.designation;
+    _displayClassroom = widget.classroom;
   }
 
   @override
@@ -123,6 +130,14 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   staffCode: widget.staffCode,
                   classroomNames: widget.classroomNames,
                   classroomNameByCode: widget.classroomNameByCode,
+                  onProfileSummaryChanged:
+                      (String name, String classroom, String designation) {
+                    setState(() {
+                      _displayName = name;
+                      _displayDesignation = designation;
+                      _displayClassroom = classroom;
+                    });
+                  },
                 ),
                 StaffDatesTab(staffCode: widget.staffCode),
                 StaffDocumentsTab(staffCode: widget.staffCode),
@@ -188,7 +203,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.name,
+                        _displayName,
                         style: const TextStyle(
                           color: AppColors.primaryColor,
                           fontSize: 23,
@@ -200,7 +215,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        widget.designation,
+                        _displayDesignation,
                         style: TextStyle(
                           color: AppColors.primaryColor.withOpacity(0.7),
                           fontSize: 14,
@@ -217,7 +232,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          widget.classroom,
+                          _displayClassroom,
                           style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.w500,
