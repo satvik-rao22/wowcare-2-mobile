@@ -47,8 +47,9 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   DateTime? _selectedBackgroundRecordCheckExpirationDate;
   DateTime? _selectedPhysicalCheckupDate;
   String? _selectedPhysicalCheckupStatus;
-
-  static const List<String> _physicalCheckupStatusOptions = ['Scheduled', 'Completed'];
+  static const List<String> _initialPhysicalStatusOptions = ['Scheduled', 'Completed'];
+  static const List<String> _editPhysicalStatusOptions = ['Due', 'Scheduled', 'Completed'];
+  late List<String> _physicalCheckupStatusOptions;
 
   @override
   void initState() {
@@ -60,7 +61,26 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     _selectedFirstAidCprExpirationDate = widget.initialFirstAidCprExpirationDate;
     _selectedBackgroundRecordCheckExpirationDate = widget.initialBackgroundRecordCheckExpirationDate;
     _selectedPhysicalCheckupDate = widget.initialPhysicalCheckupDate;
-    _selectedPhysicalCheckupStatus = widget.initialPhysicalCheckupStatus;
+    // Map initial physical status from API value to display value and choose options list.
+    final initialStatus = widget.initialPhysicalCheckupStatus;
+    if (initialStatus != null && initialStatus.isNotEmpty) {
+      final upper = initialStatus.toUpperCase();
+      if (upper == 'COMPLETED') {
+        _selectedPhysicalCheckupStatus = 'Completed';
+      } else if (upper == 'SCHEDULED') {
+        _selectedPhysicalCheckupStatus = 'Scheduled';
+      } else if (upper == 'DUE') {
+        _selectedPhysicalCheckupStatus = 'Due';
+      } else {
+        _selectedPhysicalCheckupStatus = initialStatus;
+      }
+      // When editing an existing record, allow Due/Scheduled/Completed.
+      _physicalCheckupStatusOptions = _editPhysicalStatusOptions;
+    } else {
+      // When creating a new record, only allow Scheduled/Completed.
+      _selectedPhysicalCheckupStatus = null;
+      _physicalCheckupStatusOptions = _initialPhysicalStatusOptions;
+    }
   }
 
   @override
@@ -123,8 +143,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       if (_selectedPhysicalCheckupStatus == 'Completed') {
         map['completedDate'] = dueDate;
         map['status'] = 'COMPLETED';
-      } else {
+      } else if (_selectedPhysicalCheckupStatus == 'Scheduled') {
         map['status'] = 'SCHEDULED';
+      } else if (_selectedPhysicalCheckupStatus == 'Due') {
+        map['status'] = 'DUE';
       }
       dates.add(map);
     }
@@ -194,22 +216,38 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       );
       
       if (result != null && result['date'] != null) {
+        final selected = result['date'] as DateTime;
+
+        // Physical Checkup Date: do NOT allow past dates (only today or future).
+        if (fieldName == 'physical') {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          if (selected.isBefore(today)) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Physical Checkup Date cannot be in the past',
+              isError: true,
+            );
+            return;
+          }
+        }
+
         setState(() {
           switch (fieldName) {
             case 'hire':
-              _selectedHireDate = result['date'] as DateTime;
+              _selectedHireDate = selected;
               break;
             case 'cda':
-              _selectedCdaExaminationDate = result['date'] as DateTime;
+              _selectedCdaExaminationDate = selected;
               break;
             case 'firstAid':
-              _selectedFirstAidCprExpirationDate = result['date'] as DateTime;
+              _selectedFirstAidCprExpirationDate = selected;
               break;
             case 'background':
-              _selectedBackgroundRecordCheckExpirationDate = result['date'] as DateTime;
+              _selectedBackgroundRecordCheckExpirationDate = selected;
               break;
             case 'physical':
-              _selectedPhysicalCheckupDate = result['date'] as DateTime;
+              _selectedPhysicalCheckupDate = selected;
               break;
           }
         });
