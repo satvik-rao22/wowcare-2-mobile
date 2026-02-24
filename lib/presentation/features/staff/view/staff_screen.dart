@@ -248,8 +248,10 @@ class _StaffScreenState extends State<StaffScreen> {
                 builder: (context, state) {
                   final double active = state.staffCountActive.toDouble();
                   final double upcoming = state.staffCountUpcoming.toDouble();
-                  final int totalCount =
-                      state.staffCountTotal > 0 ? state.staffCountTotal : (active + upcoming).toInt();
+                  // Status bar distribution should reflect only Active + Upcoming,
+                  // so the total displayed here is the sum of those two buckets,
+                  // regardless of any other statuses (e.g. Inactive) in the system.
+                  final int totalCount = (active + upcoming).toInt();
 
                   final items = [
                     ProgressItemHelper(
