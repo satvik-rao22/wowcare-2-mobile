@@ -22,12 +22,24 @@ class StudentListItemModel extends Equatable {
   String get fullName => '$firstName $lastName'.trim();
 
   factory StudentListItemModel.fromJson(Map<String, dynamic> json) {
+    final classroomRaw = json['classroom'];
+    String classroomName = '';
+    if (classroomRaw is String) {
+      classroomName = classroomRaw;
+    } else if (classroomRaw is Map) {
+      final name = classroomRaw['name'];
+      final code = classroomRaw['code'];
+      classroomName = (name?.toString().trim().isNotEmpty ?? false)
+          ? name.toString()
+          : (code?.toString() ?? '');
+    }
+
     return StudentListItemModel(
       code: json['code'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       status: json['status'] as String? ?? '',
-      classroom: json['classroom'] as String? ?? '',
+      classroom: classroomName,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
     );

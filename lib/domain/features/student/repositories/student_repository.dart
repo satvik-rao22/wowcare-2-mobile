@@ -1,5 +1,4 @@
 import '../entities/student.dart';
-import '../entities/student_document.dart';
 import '../entities/student_documents_page.dart';
 
 abstract class StudentRepository {
@@ -61,6 +60,24 @@ abstract class StudentRepository {
     required String mimeType,
     required int size,
     String? notes,
+  });
+
+  /// Creates or links a guardian user to a student via `/api/v1/guardian-user`.
+  ///
+  /// Returns the backend `message` field.
+  Future<String> createGuardianUser({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String mobile,
+    required String relationToStudent,
+    required bool primaryContact,
+    required bool legalCustody,
+    String? profilePhotoUrl,
+    String? userCode,
+    String? organizationCode,
   });
 }
 

@@ -93,6 +93,24 @@ abstract class StudentRemoteDataSource {
     required String code,
     required Map<String, dynamic> body,
   });
+
+  /// Creates / links a guardian user to a student via `/api/v1/guardian-user`.
+  ///
+  /// Returns the backend `message` field.
+  Future<String> createGuardianUser({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String mobile,
+    required String relationToStudent,
+    required bool primaryContact,
+    required bool legalCustody,
+    String? profilePhotoUrl,
+    String? userCode,
+    String? organizationCode,
+  });
 }
 
 class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
@@ -416,6 +434,55 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Student profile updated successfully';
+  }
+
+  @override
+  Future<String> createGuardianUser({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String mobile,
+    required String relationToStudent,
+    required bool primaryContact,
+    required bool legalCustody,
+    String? profilePhotoUrl,
+    String? userCode,
+    String? organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianUser,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = <String, dynamic>{
+      'code': '', // let backend generate
+      'schoolCode': schoolCode,
+      'studentCode': studentCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'mobile': mobile,
+      'relationToStudent': relationToStudent,
+      'primaryContact': primaryContact,
+      'legalCustody': legalCustody,
+      'profilePhotoUrl': profilePhotoUrl ?? '',
+      'userCode': userCode ?? '',
+      'organizationCode': organizationCode ?? '',
+    };
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian-user API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Guardian user created successfully';
   }
 }
 

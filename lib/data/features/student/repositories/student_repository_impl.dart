@@ -157,6 +157,37 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }
 
   @override
+  Future<String> createGuardianUser({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String mobile,
+    required String relationToStudent,
+    required bool primaryContact,
+    required bool legalCustody,
+    String? profilePhotoUrl,
+    String? userCode,
+    String? organizationCode,
+  }) {
+    return _remoteDataSource.createGuardianUser(
+      schoolCode: schoolCode,
+      studentCode: studentCode,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      mobile: mobile,
+      relationToStudent: relationToStudent,
+      primaryContact: primaryContact,
+      legalCustody: legalCustody,
+      profilePhotoUrl: profilePhotoUrl,
+      userCode: userCode,
+      organizationCode: organizationCode,
+    );
+  }
+
+  @override
   Future<StudentPage?> loadCachedStudentPage(String schoolCode) async {
     final payload = await _cacheManager.loadCache(_studentListCacheKey(schoolCode));
     if (payload == null) return null;

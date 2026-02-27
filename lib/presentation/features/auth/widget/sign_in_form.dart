@@ -38,7 +38,7 @@ class _SignInFormState extends State<SignInForm> {
             hintText: 'Email Address',
             usePrimaryGradientText: true,
             textFontSize: 16,
-            textFontWeight: FontWeight.w500,
+            textFontWeight: FontWeight.w400,
             onChanged: (_) => setState(() {}),
             suffixIcon: const Icon(
               IconlyBroken.message,
@@ -66,7 +66,7 @@ class _SignInFormState extends State<SignInForm> {
             fillColor: Colors.grey[100],
             usePrimaryGradientText: true,
             textFontSize: 16,
-            textFontWeight: FontWeight.w500,
+            textFontWeight: FontWeight.w400,
             onChanged: (_) => setState(() {}),
             suffixIcon: IconButton(
               color: Colors.black,
