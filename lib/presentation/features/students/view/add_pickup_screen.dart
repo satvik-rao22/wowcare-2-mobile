@@ -118,13 +118,17 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     });
 
     try {
+      // API expects phoneNumber in ###-###-#### format.
+      final formattedPhone =
+          '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
+
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       final message = await dataSource.addPickup(
         studentCode: widget.studentCode,
         firstName: first,
         lastName: last,
         email: email,
-        phoneNumber: phone,
+        phoneNumber: formattedPhone,
         relation: relation,
       );
 
@@ -312,7 +316,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                           SizedBox(height: responsive.verticalSpacing),
                           _buildInputField(
                             label: 'Phone Number',
-                            hint: 'E.g. (000) 000-0000',
+                            hint: 'E.g. 000-000-0000',
                             controller: _phoneController,
                             isRequired: true,
                             keyboardType: TextInputType.phone,

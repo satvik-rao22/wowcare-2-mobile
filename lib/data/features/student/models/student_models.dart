@@ -232,13 +232,26 @@ class StudentProfileModel extends Equatable {
     final data = json['data'] as Map<String, dynamic>? ?? {};
     final importantDatesJson = data['importantDates'] as Map<String, dynamic>?;
 
+    // Classroom can come as a plain string or as an object { code, name }.
+    final classroomRaw = data['classroom'];
+    String? classroomName;
+    if (classroomRaw is String) {
+      classroomName = classroomRaw;
+    } else if (classroomRaw is Map) {
+      final name = classroomRaw['name'];
+      final code = classroomRaw['code'];
+      classroomName = (name?.toString().trim().isNotEmpty ?? false)
+          ? name.toString()
+          : (code?.toString() ?? '');
+    }
+
     return StudentProfileModel(
       code: data['code'] as String? ?? '',
       schoolCode: data['schoolCode'] as String? ?? '',
       firstName: data['firstName'] as String? ?? '',
       lastName: data['lastName'] as String? ?? '',
       status: data['status'] as String? ?? '',
-      classroom: data['classroom'] as String?,
+      classroom: classroomName,
       dob: data['dob'] as String?,
       notes: data['notes'] as String?,
       profilePhotoUrl: data['profilePhotoUrl'] as String?,

@@ -225,8 +225,6 @@ class _PickupCard extends StatefulWidget {
 }
 
 class _PickupCardState extends State<_PickupCard> {
-  bool isExpanded = false;
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -237,174 +235,166 @@ class _PickupCardState extends State<_PickupCard> {
         return IntrinsicHeight(
           child: Container(
             width: constraints.maxWidth,
-            height: isExpanded ? null : 64.0,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
+              borderRadius: BorderRadius.only(
+                topRight: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              border: Border.fromBorderSide(
+                BorderSide(color: AppColors.themeColor, width: 1),
               ),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    isExpanded = !isExpanded;
-                  });
-                },
-                child: Column(
-                  children: [
-                    Container(
-                      height: 60,
-                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
+            child: Column(
+              children: [
+                Container(
+                  height: 60,
+                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      DocumentImageWidget(
+                        fileUuid: '',
+                        name: widget.name,
+                        size: 50,
+                      ),
+                      SizedBox(width: isTablet ? 16 : 9),
+                      Expanded(
+                        child: Text(
+                          widget.name,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: Color(0xFFE9ECEF),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: '',
-                            name: widget.name,
-                            size: 50,
+                          const Text(
+                            'Relation',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xff573353),
+                              height: 16 / 13,
+                            ),
                           ),
-                          SizedBox(width: isTablet ? 16 : 9),
-                          Expanded(
-                            child: Text(
-                              widget.name,
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: isTablet ? 16 : 14,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xff573353),
-                                height: 19 / 14,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            widget.relation ?? '-',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xff573353),
+                              height: 19 / 14,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    if (isExpanded) ...[
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: Color(0xFFE9ECEF),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Email',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xff573353),
+                              height: 16 / 13,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              (widget.email != null &&
+                                      widget.email!.isNotEmpty &&
+                                      widget.email != '-')
+                                  ? widget.email!
+                                  : '-',
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xff573353),
+                                height: 19 / 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        ],
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Relation',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
-                                ),
-                                Text(
-                                  widget.relation ?? '-',
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
-                                  ),
-                                ),
-                              ],
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Phone Number',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xff573353),
+                              height: 16 / 13,
                             ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Email',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
-                                ),
-                                Flexible(
-                                  child: Text(
-                                    (widget.email != null && widget.email!.isNotEmpty && widget.email != '-')
-                                        ? widget.email!
-                                        : '-',
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xff573353),
-                                      height: 19 / 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.right,
-                                  ),
-                                ),
-                              ],
+                          ),
+                          Text(
+                            widget.phoneNumber ?? '-',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xff573353),
+                              height: 19 / 14,
                             ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Phone Number',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
-                                ),
-                                Text(
-                                  widget.phoneNumber ?? '-',
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            CustomButtonLayout(
-                              confirmButtonLabel: 'Edit',
-                              cancelButtonLabel: 'Delete',
-                              onPressedConfirm: () {
-                                // TODO: Implement Edit Pickup handler; after success call widget.onRefresh?.call()
-                              },
-                              onPressedCancel: () {
-                                // TODO: Implement Delete Pickup handler; after success call widget.onRefresh?.call()
-                              },
-                              isForm: false,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      CustomButtonLayout(
+                        confirmButtonLabel: 'Edit',
+                        cancelButtonLabel: 'Delete',
+                        onPressedConfirm: () {
+                          // TODO: Implement Edit Pickup handler; after success call widget.onRefresh?.call()
+                        },
+                        onPressedCancel: () {
+                          // TODO: Implement Delete Pickup handler; after success call widget.onRefresh?.call()
+                        },
+                        isForm: false,
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         );
