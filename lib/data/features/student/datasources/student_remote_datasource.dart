@@ -25,6 +25,17 @@ abstract class StudentRemoteDataSource {
     required StudentDocumentRequestModel request,
   });
 
+  /// Updates a student document via PATCH /api/v1/student-documents/{code}.
+  Future<StudentDocumentResponseModel> updateStudentDocument({
+    required String code,
+    required StudentDocumentRequestModel request,
+  });
+
+  /// Deletes a student document via DELETE /api/v1/student-documents/{code}.
+  Future<String> deleteStudentDocument({
+    required String code,
+  });
+
   /// Fetches paginated student documents via GET /api/v1/student-documents.
   /// [ownerId] = student code (required).
   /// [expiredOnly] when true returns only expired documents.
@@ -235,6 +246,53 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     return StudentDocumentsPageModel.fromJson(dataPayload);
+  }
+
+  @override
+  Future<StudentDocumentResponseModel> updateStudentDocument({
+    required String code,
+    required StudentDocumentRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentDocuments}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student document update API response format');
+    }
+
+    return StudentDocumentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<String> deleteStudentDocument({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentDocuments}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    if (response.data == null) {
+      return 'Document deleted successfully';
+    }
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student document delete API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Document deleted successfully';
   }
 
   @override

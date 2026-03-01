@@ -24,6 +24,7 @@ class AddStudentDocumentScreen extends StatefulWidget {
     this.initialDocumentType,
     this.initialExpiryDate,
     this.initialFilePath,
+    this.documentUuid,
   });
   static const String routeName = '/add-student-document-screen';
 
@@ -33,6 +34,7 @@ class AddStudentDocumentScreen extends StatefulWidget {
   final String? initialDocumentType;
   final DateTime? initialExpiryDate;
   final String? initialFilePath;
+  final String? documentUuid;
 
   @override
   _AddStudentDocumentScreenState createState() => _AddStudentDocumentScreenState();
@@ -122,15 +124,40 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     final mimeType = _getMimeType(extension);
     final sizeBytes = _selectedFile!.size;
 
-    context.read<StudentDocumentCubit>().addDocument(
-          studentCode: widget.studentCode,
-          name: _documentNameController.text.trim(),
-          type: _selectedDocumentType!,
-          expiryDate: DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!),
-          storagePath: storagePath,
-          mimeType: mimeType,
-          size: sizeBytes,
-        );
+    final cubit = context.read<StudentDocumentCubit>();
+
+    final payload = (
+      studentCode: widget.studentCode,
+      name: _documentNameController.text.trim(),
+      type: _selectedDocumentType!,
+      expiryDate: DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!),
+      storagePath: storagePath,
+      mimeType: mimeType,
+      size: sizeBytes,
+    );
+
+    if (widget.isEdit && (widget.documentUuid ?? '').isNotEmpty) {
+      cubit.updateDocument(
+        documentUuid: widget.documentUuid!,
+        studentCode: payload.studentCode,
+        name: payload.name,
+        type: payload.type,
+        expiryDate: payload.expiryDate,
+        storagePath: payload.storagePath,
+        mimeType: payload.mimeType,
+        size: payload.size,
+      );
+    } else {
+      cubit.addDocument(
+        studentCode: payload.studentCode,
+        name: payload.name,
+        type: payload.type,
+        expiryDate: payload.expiryDate,
+        storagePath: payload.storagePath,
+        mimeType: payload.mimeType,
+        size: payload.size,
+      );
+    }
   }
 
   void _showWarningMessage(String message) {

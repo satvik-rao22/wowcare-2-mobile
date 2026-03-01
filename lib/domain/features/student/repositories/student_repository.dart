@@ -62,6 +62,25 @@ abstract class StudentRepository {
     String? notes,
   });
 
+  /// Updates a student document via PATCH /api/v1/student-documents/{code}`.
+  Future<String> updateStudentDocument({
+    required String documentUuid,
+    required String studentCode,
+    required String name,
+    required String type,
+    required String expiryDate,
+    required String storagePath,
+    required String mimeType,
+    required int size,
+    String? notes,
+  });
+
+  /// Deletes a student document via DELETE `/api/v1/student-documents/{code}`.
+  Future<String> deleteStudentDocument({
+    required String documentUuid,
+    required String studentCode,
+  });
+
   /// Creates or links a guardian user to a student via `/api/v1/guardian-user`.
   ///
   /// Returns the backend `message` field.

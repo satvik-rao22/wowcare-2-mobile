@@ -41,6 +41,8 @@ import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/add_student_document_usecase.dart';
+import '../../domain/features/student/usecases/update_student_document_usecase.dart';
+import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
@@ -188,6 +190,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<AddStudentDocumentUseCase>(
     () => AddStudentDocumentUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UpdateStudentDocumentUseCase>(
+    () => UpdateStudentDocumentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStudentDocumentUseCase>(
+    () => DeleteStudentDocumentUseCase(serviceLocator()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -251,12 +259,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<StudentDocumentsListCubit>(
     () => StudentDocumentsListCubit(
       getStudentDocumentsUseCase: serviceLocator(),
+      deleteStudentDocumentUseCase: serviceLocator(),
       repository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentDocumentCubit>(
     () => StudentDocumentCubit(
       addStudentDocumentUseCase: serviceLocator(),
+      updateStudentDocumentUseCase: serviceLocator(),
     ),
   );
 }

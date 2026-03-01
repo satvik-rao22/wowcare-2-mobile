@@ -157,6 +157,54 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }
 
   @override
+  Future<String> updateStudentDocument({
+    required String documentUuid,
+    required String studentCode,
+    required String name,
+    required String type,
+    required String expiryDate,
+    required String storagePath,
+    required String mimeType,
+    required int size,
+    String? notes,
+  }) async {
+    final request = StudentDocumentRequestModel(
+      name: name,
+      type: type,
+      expiryDate: expiryDate,
+      storagePath: storagePath,
+      mimeType: mimeType,
+      size: size,
+      ownerType: 'STUDENT',
+      ownerId: studentCode,
+      notes: notes,
+    );
+
+    final response = await _remoteDataSource.updateStudentDocument(
+      code: documentUuid,
+      request: request,
+    );
+
+    await _cacheManager.invalidateCache(_studentDocumentsCacheKey(studentCode));
+
+    return response.message;
+  }
+
+  @override
+  Future<String> deleteStudentDocument({
+    required String documentUuid,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.deleteStudentDocument(
+      code: documentUuid,
+    );
+
+    await _cacheManager.invalidateCache(_studentDocumentsCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
   Future<String> createGuardianUser({
     required String schoolCode,
     required String studentCode,

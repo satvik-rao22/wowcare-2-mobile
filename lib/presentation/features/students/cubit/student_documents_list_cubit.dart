@@ -4,16 +4,20 @@ import 'package:equatable/equatable.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../../../../domain/features/student/usecases/get_student_documents_usecase.dart';
+import '../../../../domain/features/student/usecases/delete_student_document_usecase.dart';
 
 class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
   StudentDocumentsListCubit({
     required GetStudentDocumentsUseCase getStudentDocumentsUseCase,
+    required DeleteStudentDocumentUseCase deleteStudentDocumentUseCase,
     required StudentRepository repository,
   })  : _getStudentDocumentsUseCase = getStudentDocumentsUseCase,
+        _deleteStudentDocumentUseCase = deleteStudentDocumentUseCase,
         _repository = repository,
         super(const StudentDocumentsListState.initial());
 
   final GetStudentDocumentsUseCase _getStudentDocumentsUseCase;
+  final DeleteStudentDocumentUseCase _deleteStudentDocumentUseCase;
   final StudentRepository _repository;
 
   static const int _pageSize = 10;
@@ -113,6 +117,27 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
           errorMessage: e.toString(),
         ),
       );
+    }
+  }
+
+  Future<String?> deleteDocument(String studentCode, String documentUuid) async {
+    try {
+      final result = await _deleteStudentDocumentUseCase.call(
+        documentUuid: documentUuid,
+        studentCode: studentCode,
+      );
+
+      return result.fold(
+        (failure) {
+          return failure.message ?? 'Failed to delete document';
+        },
+        (message) {
+          refresh(studentCode, expiredOnly: null);
+          return null;
+        },
+      );
+    } catch (e) {
+      return e.toString();
     }
   }
 }

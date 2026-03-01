@@ -68,7 +68,9 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       return;
     }
 
-    final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
+    final expiryDate = (doc.expiryDate.trim().isEmpty)
+        ? null
+        : DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
 
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
@@ -79,6 +81,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           initialDocumentType: doc.documentType,
           initialExpiryDate: expiryDate,
           initialFilePath: doc.documentUrl,
+          documentUuid: doc.documentUuid,
         ),
       ),
     );
@@ -101,13 +104,49 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           name: doc.documentName,
           type: 'document',
           onDelete: () async {
-            Navigator.of(ctx).pop();
-            if (!mounted) return;
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Delete document API not yet integrated',
-              isError: true,
-            );
+            try {
+              if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
+                Navigator.of(ctx).pop();
+                if (!mounted) return;
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Document ID not available',
+                  isError: true,
+                );
+                return;
+              }
+
+              final errorMessage = await _documentsListCubit.deleteDocument(
+                widget.studentCode ?? '',
+                doc.documentUuid!,
+              );
+
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+
+              if (errorMessage != null) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: errorMessage,
+                  isError: true,
+                );
+              } else {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Document deleted successfully',
+                  isSuccess: true,
+                );
+              }
+            } catch (e) {
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+              final message = ApiErrorHandler.extractErrorMessage(e);
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isError: true,
+              );
+            }
           },
           onCancel: () {
             Navigator.of(ctx).pop();
