@@ -1,9 +1,12 @@
+import 'package:intl/intl.dart';
+
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
+import '../../../../domain/features/student/entities/student_important_dates.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../models/student_models.dart';
@@ -337,6 +340,58 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     // since profile changes might affect list display.
     // TODO: Add profile cache key if needed
     // await _cacheManager.invalidateCache(_studentProfileCacheKey(code));
+
+    return message;
+  }
+
+  @override
+  Future<StudentImportantDates> getStudentImportantDates({
+    required String studentCode,
+  }) async {
+    final model = await _remoteDataSource.getStudentImportantDates(
+      code: studentCode,
+    );
+
+    DateTime? _parse(String? value) {
+      if (value == null || value.isEmpty) return null;
+      try {
+        return DateTime.parse(value);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return StudentImportantDates(
+      enrollDate: _parse(model.enrollDate),
+      schoolStartDate: _parse(model.schoolStartDate),
+      currentClassroomStartDate: _parse(model.currentClassroomStartDate),
+      upcomingMoveDate: _parse(model.upcomingMoveDate),
+      schoolLeavingDate: _parse(model.schoolLeavingDate),
+    );
+  }
+
+  @override
+  Future<String> updateStudentImportantDates({
+    required String studentCode,
+    required StudentImportantDates dates,
+  }) async {
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+
+    String? _fmt(DateTime? value) =>
+        value == null ? null : dateFormatter.format(value);
+
+    final model = StudentImportantDatesModel(
+      enrollDate: _fmt(dates.enrollDate),
+      schoolStartDate: _fmt(dates.schoolStartDate),
+      currentClassroomStartDate: _fmt(dates.currentClassroomStartDate),
+      upcomingMoveDate: _fmt(dates.upcomingMoveDate),
+      schoolLeavingDate: _fmt(dates.schoolLeavingDate),
+    );
+
+    final message = await _remoteDataSource.updateStudentImportantDates(
+      code: studentCode,
+      dates: model,
+    );
 
     return message;
   }

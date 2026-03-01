@@ -44,6 +44,8 @@ class ApiPaths {
   static String studentProfileUpdate(String code) => '/api/v1/student/$code/profile';
   static String studentDeactivate(String code) => '/api/v1/student/$code/deactivate';
   static String studentReactivate(String code) => '/api/v1/student/$code/reactivate';
+  static String studentImportantDates(String code) =>
+      '/api/v1/student/$code/important-dates';
 
   // Guardian / Parent users
   static const String guardianUser = '/api/v1/guardian-user';

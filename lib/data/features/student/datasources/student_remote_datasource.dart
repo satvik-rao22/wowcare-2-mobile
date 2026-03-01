@@ -122,6 +122,19 @@ abstract class StudentRemoteDataSource {
     String? userCode,
     String? organizationCode,
   });
+
+  /// Fetches student important dates via
+  /// `GET /api/v1/student/{code}/important-dates`.
+  Future<StudentImportantDatesModel> getStudentImportantDates({
+    required String code,
+  });
+
+  /// Updates student important dates via
+  /// `PATCH /api/v1/student/{code}/important-dates`.
+  Future<String> updateStudentImportantDates({
+    required String code,
+    required StudentImportantDatesModel dates,
+  });
 }
 
 class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
@@ -541,6 +554,53 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Guardian user created successfully';
+  }
+
+  @override
+  Future<StudentImportantDatesModel> getStudentImportantDates({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImportantDates(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student important dates API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>?;
+    if (data == null) {
+      throw Exception('Missing data field in student important dates response');
+    }
+
+    return StudentImportantDatesModel.fromJson(data);
+  }
+
+  @override
+  Future<String> updateStudentImportantDates({
+    required String code,
+    required StudentImportantDatesModel dates,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImportantDates(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: dates.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student important dates update API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Important dates updated successfully';
   }
 }
 

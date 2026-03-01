@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_important_dates_usecase.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.studentCode,
     super.key,
   });
 
   final ScrollController scrollController;
   final String name;
   final String classroom;
+  final String? studentCode;
 
   @override
   State<StudentImportantDatesTab> createState() =>
@@ -21,33 +29,129 @@ class StudentImportantDatesTab extends StatefulWidget {
 }
 
 class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
-  Future<void> _refreshDates() async {
-    // TODO: Replace with real API integration for student important dates
-    setState(() {});
-  }
+  final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
+
+  bool _isLoading = true;
+  String? _errorMessage;
+  StudentImportantDates? _dates;
 
   @override
   void initState() {
     super.initState();
+    _loadDates();
+  }
+
+  Future<void> _loadDates() async {
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Student code is required';
+        _dates = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStudentImportantDatesUseCase>();
+      final result = await useCase(studentCode: studentCode);
+
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage =
+                failure.message ?? 'Failed to load important dates';
+            _dates = null;
+          });
+        },
+        (dates) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = null;
+            _dates = dates;
+          });
+        },
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load important dates';
+        _dates = null;
+      });
+    }
+  }
+
+  String _format(DateTime? date) {
+    if (date == null) return '-';
+    return _displayFormatter.format(date);
+  }
+
+  Future<void> _openEdit(BuildContext context) async {
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isEmpty) return;
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => EditStudentImportantDatesScreen(
+          studentCode: studentCode,
+          initialEnrollDate: _dates?.enrollDate,
+          initialSchoolStartDate: _dates?.schoolStartDate,
+        ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      await _loadDates();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, String> dates = {
-      'Enroll Date': 'Oct 23, 2025',
-      'School Start Date': 'Oct 27, 2025',
-      'Current Classroom Start Date': 'Nov 03, 2025',
-      'Upcoming Moving Date': 'Nov 17, 2025',
-      'School Leaving Date': 'Dec 20, 2025',
-    };
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isEmpty) {
+      return MediaQuery.removePadding(
+        context: context,
+        removeLeft: true,
+        removeRight: true,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Student code is required to load important dates',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.primaryColor.withOpacity(0.7),
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
-    final entries = dates.entries.toList();
+    final entries = <MapEntry<String, String>>[
+      MapEntry('Enroll Date', _format(_dates?.enrollDate)),
+      MapEntry('School Start Date', _format(_dates?.schoolStartDate)),
+      MapEntry('Current Classroom Start Date', _format(_dates?.currentClassroomStartDate)),
+      MapEntry('Upcoming Moving Date', _format(_dates?.upcomingMoveDate)),
+      MapEntry('School Leaving Date', _format(_dates?.schoolLeavingDate)),
+    ];
+
     return MediaQuery.removePadding(
       context: context,
       removeLeft: true,
       removeRight: true,
       child: CustomRefreshIndicator(
-        onRefresh: _refreshDates,
+        onRefresh: _loadDates,
         child: SingleChildScrollView(
           controller: widget.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
@@ -56,46 +160,67 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
-               // Match staff card styling: card border color and radius 12.
               border: Border.all(color: AppColors.cardBorderColor, width: 1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Important Dates',
-                      style: AppTextStyles.title,
-                    ),
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(8),
+                GestureDetector(
+                  onTap: () => _openEdit(context),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Important Dates',
+                        style: AppTextStyles.title,
                       ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.edit,
-                        size: 22,
-                        color: Colors.white,
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.buildPrimaryGradient(),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.edit,
+                          size: 22,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
-                ...List.generate(entries.length * 2 - 1, (i) {
-                  if (i.isOdd) return const SizedBox(height: 16);
-                  final idx = i ~/ 2;
-                  final e = entries[idx];
-                  return _DateRow(
-                    label: e.key,
-                    text: e.value,
-                  );
-                }),
+                if (_isLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: PrimaryCircularLoader(size: 32),
+                    ),
+                  )
+                else if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 14,
+                      ),
+                    ),
+                  )
+                else
+                  ...List.generate(entries.length * 2 - 1, (i) {
+                    if (i.isOdd) return const SizedBox(height: 16);
+                    final idx = i ~/ 2;
+                    final e = entries[idx];
+                    return _DateRow(
+                      label: e.key,
+                      text: e.value,
+                    );
+                  }),
               ],
             ),
           ),
@@ -112,7 +237,10 @@ class _DateRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayText = (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda') ? '-' : text;
+    final displayText =
+        (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda')
+            ? '-'
+            : text;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,21 +280,3 @@ class _DateRow extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

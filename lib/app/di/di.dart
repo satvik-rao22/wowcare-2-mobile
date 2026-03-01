@@ -41,6 +41,8 @@ import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/add_student_document_usecase.dart';
+import '../../domain/features/student/usecases/get_student_important_dates_usecase.dart';
+import '../../domain/features/student/usecases/update_student_important_dates_usecase.dart';
 import '../../domain/features/student/usecases/update_student_document_usecase.dart';
 import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
@@ -54,6 +56,7 @@ import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
+import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -190,6 +193,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<AddStudentDocumentUseCase>(
     () => AddStudentDocumentUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentImportantDatesUseCase>(
+    () => GetStudentImportantDatesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentImportantDatesUseCase>(
+    () => UpdateStudentImportantDatesUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<UpdateStudentDocumentUseCase>(
     () => UpdateStudentDocumentUseCase(serviceLocator()),
   );
@@ -267,6 +276,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentDocumentCubit(
       addStudentDocumentUseCase: serviceLocator(),
       updateStudentDocumentUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentImportantDatesCubit>(
+    () => StudentImportantDatesCubit(
+      updateStudentImportantDatesUseCase: serviceLocator(),
     ),
   );
 }

@@ -7,6 +7,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -346,26 +347,12 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         ),
         child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
           builder: (context, state) {
-            final isSubmitting = state.isLoading;
-            return Container(
-              height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
-                color: isSubmitting ? Colors.grey[300] : null,
-                borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-              ),
-              child: TextButton(
-                onPressed: isSubmitting ? null : () => _addDocument(context),
-                child: Text(
-              widget.isEdit ? 'Save' : 'Add',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+            return CustomButtonLayout(
+              confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+              onPressedConfirm: () => _addDocument(context),
+              showCancelButton: false,
+              isForm: false,
+              isLoading: state.isLoading,
             );
           },
         ),

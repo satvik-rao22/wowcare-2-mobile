@@ -1,5 +1,6 @@
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
+import '../entities/student_important_dates.dart';
 
 abstract class StudentRepository {
   Future<StudentPage> getStudentPage({
@@ -79,6 +80,19 @@ abstract class StudentRepository {
   Future<String> deleteStudentDocument({
     required String documentUuid,
     required String studentCode,
+  });
+
+  /// Fetches important dates for a student via
+  /// `GET /api/v1/student/{code}/important-dates`.
+  Future<StudentImportantDates> getStudentImportantDates({
+    required String studentCode,
+  });
+
+  /// Updates important dates for a student via
+  /// `PATCH /api/v1/student/{code}/important-dates`.
+  Future<String> updateStudentImportantDates({
+    required String studentCode,
+    required StudentImportantDates dates,
   });
 
   /// Creates or links a guardian user to a student via `/api/v1/guardian-user`.
