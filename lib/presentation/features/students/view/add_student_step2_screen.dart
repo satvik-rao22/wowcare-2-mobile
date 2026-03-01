@@ -308,7 +308,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Add Student - Step 2 of 3',
+                      'Add parent',
                       style: TextStyle(
                         fontFamily: "Manrope",
                         fontSize: responsive.titleFontSize,

@@ -203,6 +203,8 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         scrollController: _familyScrollController,
                         name: widget.name,
                         classroom: widget.classroom,
+                        studentCode: widget.studentCode,
+                        schoolCode: '', // schoolCode unknown in this path
                         onRefresh: _refreshProfile,
                       ),
                       StudentPickupTabCard(
@@ -286,7 +288,9 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         scrollController: _familyScrollController,
                         name: widget.name,
                         classroom: widget.classroom,
-                      onRefresh: _refreshProfile,
+                        studentCode: widget.studentCode,
+                        schoolCode: '', // schoolCode unknown in this path
+                        onRefresh: _refreshProfile,
                       ),
                       StudentPickupTabCard(
                         scrollController: _pickupScrollController,
@@ -322,6 +326,8 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                           ? profileData.fullName 
                           : widget.name,
                       classroom: profileData.classroom ?? widget.classroom,
+                      studentCode: profileData.code,
+                      schoolCode: profileData.schoolCode,
                       onRefresh: _refreshProfile,
                     ),
                     StudentPickupTabCard(

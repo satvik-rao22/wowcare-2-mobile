@@ -3,6 +3,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentFamilyTabCard extends StatefulWidget {
@@ -10,6 +12,8 @@ class StudentFamilyTabCard extends StatefulWidget {
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.studentCode,
+    this.schoolCode,
     this.onRefresh,
     super.key,
   });
@@ -17,6 +21,8 @@ class StudentFamilyTabCard extends StatefulWidget {
   final ScrollController scrollController;
   final String name;
   final String classroom;
+  final String? studentCode;
+  final String? schoolCode;
   final Future<void> Function()? onRefresh;
 
   @override
@@ -26,33 +32,149 @@ class StudentFamilyTabCard extends StatefulWidget {
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   @override
   Widget build(BuildContext context) {
-    return CustomRefreshIndicator(
-      onRefresh: () async {
-        await widget.onRefresh?.call();
-      },
-      child: SingleChildScrollView(
-        controller: widget.scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: const [
-            _FamilyCard(
-              name: 'Parent name',
-              relation: 'Father',
-              email: 'father@mail.com',
-              phone: '(986) 027-1627',
-              pin: '263630',
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
+
+    return Stack(
+      children: [
+        CustomRefreshIndicator(
+          onRefresh: () async {
+            await widget.onRefresh?.call();
+          },
+          child: SingleChildScrollView(
+            controller: widget.scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: const [
+                _FamilyCard(
+                  name: 'Parent name',
+                  relation: 'Father',
+                  email: 'father@mail.com',
+                  phone: '(986) 027-1627',
+                  pin: '263630',
+                ),
+                SizedBox(height: 12),
+                _FamilyCard(
+                  name: 'Parent name',
+                  relation: 'Mother',
+                  email: 'mother@mail.com',
+                  phone: '(986) 027-1627',
+                  pin: '263630',
+                ),
+                SizedBox(height: 76),
+              ],
             ),
-            SizedBox(height: 12),
-            _FamilyCard(
-              name: 'Parent name',
-              relation: 'Mother',
-              email: 'mother@mail.com',
-              phone: '(986) 027-1627',
-              pin: '263630',
-            ),
-          ],
+          ),
         ),
-      ),
+        Positioned(
+          right: 16,
+          bottom: 16 + bottomSafe,
+          child: GradientAddButton(
+            onTap: () async {
+              final studentCode = widget.studentCode ?? '';
+              final schoolCode = widget.schoolCode ?? '';
+              if (studentCode.isEmpty || schoolCode.isEmpty) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Student details not loaded yet. Please try again.',
+                  isError: true,
+                );
+                return;
+              }
+
+              final result = await Navigator.of(context).push<Map<String, dynamic>>(
+                MaterialPageRoute(
+                  builder: (_) => const AddStudentStep2Screen(),
+                ),
+              );
+
+              if (!mounted || result == null) return;
+
+              final selectFromExisting =
+                  result['selectFromExisting'] as bool? ?? false;
+              if (selectFromExisting) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Linking existing parents is not supported yet.',
+                  isError: true,
+                );
+                return;
+              }
+
+              final parentFirst =
+                  (result['firstName'] as String?)?.trim() ?? '';
+              final parentLast =
+                  (result['lastName'] as String?)?.trim() ?? '';
+              final parentEmail =
+                  (result['email'] as String?)?.trim().toLowerCase() ?? '';
+              final parentPhoneRaw =
+                  (result['phoneNumber'] as String?)?.trim() ?? '';
+              final parentPhoneDigits =
+                  parentPhoneRaw.replaceAll(RegExp(r'\D'), '');
+
+              if (parentFirst.isEmpty ||
+                  parentLast.isEmpty ||
+                  parentEmail.isEmpty ||
+                  parentPhoneDigits.isEmpty) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Parent details incomplete. Please try again.',
+                  isError: true,
+                );
+                return;
+              }
+
+              final relationLabel =
+                  (result['relation'] as String?)?.trim() ?? '';
+              final relationOther =
+                  (result['relationOther'] as String?)?.trim() ?? '';
+              final relationToStudent =
+                  (relationLabel == 'Other' && relationOther.isNotEmpty
+                          ? relationOther
+                          : relationLabel)
+                      .toUpperCase();
+
+              final bool primaryContact =
+                  result['isEmergencyContact'] as bool? ?? true;
+              final bool legalCustody =
+                  result['isChildCustody'] as bool? ?? true;
+
+              try {
+                final repo = serviceLocator<StudentRepository>();
+                final message = await repo.createGuardianUser(
+                  schoolCode: schoolCode,
+                  studentCode: studentCode,
+                  firstName: parentFirst,
+                  lastName: parentLast,
+                  email: parentEmail,
+                  mobile: parentPhoneDigits,
+                  relationToStudent: relationToStudent,
+                  primaryContact: primaryContact,
+                  legalCustody: legalCustody,
+                );
+
+                if (!mounted) return;
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: message,
+                  isSuccess: true,
+                );
+                await widget.onRefresh?.call();
+              } catch (e) {
+                if (!mounted) return;
+                final message = ApiErrorHandler.extractErrorMessage(e);
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: message,
+                  isError: true,
+                );
+              }
+            },
+            size: 50.0,
+            iconSize: 28.0,
+            borderRadius: 12.0,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -110,20 +232,6 @@ class _FamilyCard extends StatelessWidget {
                       letterSpacing: -0.03 * 16,
                     ),
                     overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.edit,
-                    size: 18,
-                    color: Colors.white,
                   ),
                 ),
               ],
