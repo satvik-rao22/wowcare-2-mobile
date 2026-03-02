@@ -4,8 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
-// import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
+import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
@@ -265,17 +264,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                ),
+                builder: (_) => const ComingSoonScreen(),
               ),
             );
           }),
@@ -283,17 +272,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                ),
+                builder: (_) => const ComingSoonScreen(),
               ),
             );
           }),

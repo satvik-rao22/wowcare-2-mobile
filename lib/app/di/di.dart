@@ -59,8 +59,6 @@ import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
-import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
-import '../../presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
@@ -287,18 +285,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentPageUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
-    ),
-  );
-  serviceLocator.registerFactory<StudentAttendanceDailyCubit>(
-    () => StudentAttendanceDailyCubit(
-      getStudentAttendanceDailyUseCase: serviceLocator(),
-      repository: serviceLocator(),
-    ),
-  );
-  serviceLocator.registerFactory<StudentAttendanceCustomCubit>(
-    () => StudentAttendanceCustomCubit(
-      getStudentAttendanceCustomUseCase: serviceLocator(),
-      repository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentDocumentsListCubit>(
