@@ -5,11 +5,14 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/views/filter_screen.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_summary.dart';
-import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_filters.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -23,6 +26,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/shared/common/views/filter_screen.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
   const StudentAttendanceDailyViewScreen({
@@ -49,7 +54,6 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   DateTime _selectedDate = DateTime.now();
   bool _showAbsentOnly = false;
   String? _statusLegendFilter;
-  FilterData? _studentFilters;
   int? _expandedStudentIndex;
   
   // Filter state
@@ -103,11 +107,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       }
     }
 
-    // Handle classroom filter
+    // Handle initial classroom filter (for tabbed/parent screens)
     if (widget.classroomFilter != null) {
-      _studentFilters = widget.classroomFilter;
-      // Extract classroom codes from filter if needed
-      // _selectedClassrooms = widget.classroomFilter?.selectedValues ?? [];
+      _selectedClassrooms =
+          List<String>.from(widget.classroomFilter!.classrooms);
+      _selectedTags = List<String>.from(widget.classroomFilter!.tags);
     }
 
     // Load initial data
@@ -248,58 +252,97 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     },
                   ),
                   SizedBox(height: responsive.verticalSpacing),
-                  // Filters row
-                  StudentAttendanceFilters(
-                    searchController: _searchController,
-                    selectedDate: _selectedDate,
-                    showAbsentOnly: _showAbsentOnly,
-                    selectedClassrooms: _selectedClassrooms,
-                    selectedTags: _selectedTags,
-                    availableClassrooms: ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Room 5'],
-                    availableTags: ['Full Day', 'Half Day', '5 Days', 'Photo Permission'],
-                    hasActiveFilters: _statusLegendFilter != null || 
-                        _studentFilters != null || 
-                        _selectedClassrooms.isNotEmpty || 
-                        _selectedTags.isNotEmpty,
-                    onDateSelected: (date) {
-                      setState(() {
-                        _selectedDate = date;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
-                    onToggleChanged: (value) {
-                      setState(() {
-                        _showAbsentOnly = value;
-                        if (value) {
-                          _statusLegendFilter = null;
-                        }
-                      });
-                      _loadAttendanceData();
-                    },
-                    onClassroomsChanged: (classrooms) {
-                      setState(() {
-                        _selectedClassrooms = classrooms;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
-                    onTagsChanged: (tags) {
-                      setState(() {
-                        _selectedTags = tags;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
-                    onFilterTap: () {
-                      _navigateToFilterScreen();
-                    },
-                    onClearAll: () {
-                      setState(() {
-                        _statusLegendFilter = null;
-                        _studentFilters = null;
-                        _selectedClassrooms = [];
-                        _selectedTags = [];
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
+                  // Search + filter icon on first row, date + clear-all below, toggle on its own row
+                  Container(
+                    padding: EdgeInsets.all(responsive.horizontalSpacing),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorderColor),
+                      color: AppColors.cardColor,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Row 1: search + filter icon
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomSearchBar(
+                                controller: _searchController,
+                                hintText: 'Search Students',
+                              ),
+                            ),
+                            SizedBox(width: responsive.horizontalSpacing / 2),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(100),
+                                onTap: _navigateToFilterScreen,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: SvgPicture.asset(
+                                    MediaRes.filterIcon,
+                                    height: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: responsive.verticalSpacing / 2),
+                        // Row 2: date picker + clear-all
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: false,
+                                isTime: false,
+                                fetchInitialTime: false,
+                                initialDate: _selectedDate,
+                                onDateSelected: (date) {
+                                  setState(() {
+                                    _selectedDate = date;
+                                  });
+                                  _loadAttendanceData(reset: true);
+                                },
+                              ),
+                            ),
+                            SizedBox(width: responsive.horizontalSpacing / 2),
+                            CustomClearAllChip(
+                              onTap: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _selectedClassrooms = [];
+                                  _selectedTags = [];
+                                  _statusLegendFilter = null;
+                                  _showAbsentOnly = false;
+                                });
+                                _loadAttendanceData(reset: true);
+                              },
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: responsive.verticalSpacing / 2),
+                        // Row 3: toggle aligned right
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: CustomToggle(
+                            label: 'Show Absent',
+                            isToggled: _showAbsentOnly,
+                            onToggle: (value) {
+                              setState(() {
+                                _showAbsentOnly = value;
+                                if (value) {
+                                  _statusLegendFilter = null;
+                                }
+                              });
+                              _loadAttendanceData();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   SizedBox(height: responsive.verticalSpacing),
                   // Error handling
@@ -554,5 +597,4 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       ),
     );
   }
-
 }

@@ -3,14 +3,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -402,6 +400,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     splashFactory: NoSplash.splashFactory,
                     labelStyle: tabBarStyle?.labelStyle,
                     unselectedLabelStyle: tabBarStyle?.unselectedLabelStyle,
+                    dividerColor: Colors
+                        .transparent, // hide default grey divider under tabs
                     tabs: tabs!,
                   ),
                 ],

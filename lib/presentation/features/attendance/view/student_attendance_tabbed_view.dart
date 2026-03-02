@@ -84,11 +84,18 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
 
     // Align the button with the TabBar headings row (Daily/Custom/Absent)
     // by vertically centering it within the TabBar height.
-    final floatingButtonTop =
-        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
-    // Align the floating button horizontally with the main content padding,
-    // similar to how GradientAddButton is aligned in StaffScreen.
-    final floatingButtonRight = contentPadding.right;
+    // Base position: vertically centered on the TabBar row,
+    // then nudged slightly down and left for better visual balance.
+    final double floatingButtonTop =
+        safeAreaTop +
+        appBarHeight +
+        (kTextTabBarHeight - floatingButtonSize) / 2 +
+        (isTablet ? 4.0 : 8.0);
+
+    // Start from the main content padding, then push a bit further left
+    // so the button does not hug the screen edge.
+    final double floatingButtonRight =
+        contentPadding.right + (isTablet ? 4.0 : 8.0);
     
     return Stack(
       children: [
