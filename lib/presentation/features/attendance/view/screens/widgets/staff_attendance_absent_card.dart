@@ -196,7 +196,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                     Expanded(
                       flex: responsive.isTablet ? 2 : 1,
                       child: AppText.small(
-                        'Note',
+                        'Absent Note',
                         style: TextStyle(
                           fontSize: responsive.isTablet ? 14 : 12,
                           color: AppColors.secondaryColor.withOpacity(0.6),

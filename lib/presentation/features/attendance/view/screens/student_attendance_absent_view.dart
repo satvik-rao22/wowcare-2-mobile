@@ -8,16 +8,18 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
-import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_paths.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -33,9 +35,6 @@ class _AbsentStudentModel {
   final int studentId;
   final int roomId;
   final int schoolId;
-  final String? status;
-  final DateTime? lastModified;
-  final String? lastModifiedBy;
 
   _AbsentStudentModel({
     required this.id,
@@ -50,9 +49,6 @@ class _AbsentStudentModel {
     required this.studentId,
     required this.roomId,
     required this.schoolId,
-    this.status,
-    this.lastModified,
-    this.lastModifiedBy,
   });
 }
 
@@ -159,12 +155,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   void _triggerSearchReload() {
-    if ((_selectedClassroom != null && _selectedClassroom != 'All') ||
-        (_rangeStart != null && _rangeEnd != null)) {
-      _loadAbsentStudents(reset: true);
-    } else {
-      _loadInitialData(reset: true);
-    }
+    _loadAbsentStudents(reset: true);
   }
 
   void _onScroll() {
@@ -179,146 +170,163 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _studentsHasMore &&
         position.pixels >= threshold) {
       setState(() => _isBackgroundFetchingStudents = true);
-      if ((_selectedClassroom != null && _selectedClassroom != 'All') ||
-          (_rangeStart != null && _rangeEnd != null)) {
-        _loadAbsentStudents(fromBackground: true);
-      } else {
-        _loadInitialData(fromBackground: true);
-      }
+      _loadAbsentStudents(fromBackground: true);
     }
   }
 
   Future<void> _loadInitialData({bool reset = false, bool fromBackground = false}) async {
-    if ((_selectedClassroom != null && _selectedClassroom != 'All') ||
-        (_rangeStart != null && _rangeEnd != null)) {
-      await _loadAbsentStudents(
-        reset: reset,
-        fromBackground: fromBackground,
-      );
-      return;
-    }
-
-    if (_isLoadingStudents && !reset) return;
-
-    setState(() {
-      _isLoadingStudents = true;
-      isLoading = true;
-      errorMessage = null;
-      if (reset) {
-        _isInitialLoadingStudents = true;
-        _isBackgroundFetchingStudents = false;
-        _absentStudents.clear();
-        _studentsPage = 0;
-        _studentsHasMore = true;
-      } else if (fromBackground) {
-        _isInitialLoadingStudents = false;
-        _isBackgroundFetchingStudents = true;
-      } else if (_studentsPage == 0) {
-        _isInitialLoadingStudents = true;
-        _isBackgroundFetchingStudents = false;
-        _absentStudents.clear();
-      }
-    });
-
-    // Simulate API call with dummy data
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-
-      final List<_AbsentStudentModel> newStudents = [];
-      final startIndex = _studentsPage * _pageSize;
-      
-      for (int i = 0; i < _pageSize; i++) {
-        final index = startIndex + i + 1;
-        newStudents.add(_AbsentStudentModel(
-          id: 'absent_$index',
-          name: 'Absent Student $index',
-          photoUuid: null,
-          roomName: 'Room ${(index % 3) + 1}',
-          absentDays: index % 5 + 1,
-          startDate: DateTime.now().subtract(Duration(days: index % 10)),
-          absentTime: '09:${(index * 5) % 60}:00 AM',
-          absentBy: 'Staff Member $index',
-          note: index % 3 == 0 ? 'Student is absent' : null,
-          studentId: 100 + index,
-          roomId: (index % 3) + 1,
-          schoolId: 1,
-        ));
-      }
-
-      setState(() {
-        _absentStudents.addAll(newStudents);
-        _studentsHasMore = newStudents.length == _pageSize;
-        if (newStudents.isNotEmpty) {
-          _studentsPage++;
-        }
-        _isInitialLoadingStudents = false;
-        _isLoadingStudents = false;
-        isLoading = false;
-        _isBackgroundFetchingStudents = false;
-      });
-
-      _updateClassroomsList(_absentStudents);
-    });
+    await _loadAbsentStudents(reset: reset, fromBackground: fromBackground);
   }
 
   Future<void> _loadAbsentStudents({bool reset = false, bool fromBackground = false}) async {
     if (_isLoadingStudents && !reset) return;
 
+    if (_rangeStart == null || _rangeEnd == null) {
+      _initializeDefaultRange();
+    }
+
+    final from = _rangeStart!;
+    final to = _rangeEnd!;
+
     setState(() {
       _isLoadingStudents = true;
       isLoading = true;
       errorMessage = null;
-      if (reset) {
-        _isInitialLoadingStudents = true;
+
+      if (reset || _studentsPage == 0) {
+        if (reset || !fromBackground) {
+          _isInitialLoadingStudents = true;
+        }
         _isBackgroundFetchingStudents = false;
-        _absentStudents.clear();
+        if (reset) {
+          _absentStudents.clear();
+        }
+      }
+
+      if (reset) {
         _studentsPage = 0;
         _studentsHasMore = true;
-      } else if (fromBackground) {
-        _isInitialLoadingStudents = false;
-        _isBackgroundFetchingStudents = true;
-      } else if (_studentsPage == 0) {
-        _isInitialLoadingStudents = true;
-        _isBackgroundFetchingStudents = false;
-        _absentStudents.clear();
       }
     });
 
-    // Simulate API call with filtered dummy data
-    Future.delayed(const Duration(milliseconds: 500), () {
+    final apiClient = serviceLocator<ApiClient>().client;
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceAbsentView,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final fromStr = DateFormat('yyyy-MM-dd').format(from);
+    final toStr = DateFormat('yyyy-MM-dd').format(to);
+
+    final classroomCodes = (_selectedClassroom != null &&
+            _selectedClassroom != 'All' &&
+            _selectedClassroom!.trim().isNotEmpty)
+        ? <String>[_selectedClassroom!.trim()]
+        : null;
+
+    final queryParameters = <String, dynamic>{
+      'fromAbsenceDate': fromStr,
+      'toAbsenceDate': toStr,
+      'page': _studentsPage,
+      'size': _pageSize,
+      'sort': <String>['studentName,asc'],
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    final trimmedSearch = _searchQuery.trim();
+    if (trimmedSearch.isNotEmpty) {
+      queryParameters['search'] = trimmedSearch;
+    }
+
+    debugPrint(
+      'StudentAbsent API → GET $endpoint query=$queryParameters',
+    );
+
+    try {
+      final response = await apiClient.get<dynamic>(
+        endpoint,
+        queryParameters: queryParameters,
+      );
+
+      debugPrint(
+        'StudentAbsent API ← status=${response.statusCode} data=${response.data}',
+      );
+
       if (!mounted) return;
 
-      final List<_AbsentStudentModel> newStudents = [];
-      final startIndex = _studentsPage * _pageSize;
-      
-      for (int i = 0; i < _pageSize; i++) {
-        final index = startIndex + i + 1;
-        final roomName = _selectedClassroom != null && _selectedClassroom != 'All'
-            ? _selectedClassroom!
-            : 'Room ${(index % 3) + 1}';
-        
-        newStudents.add(_AbsentStudentModel(
-          id: 'absent_$index',
-          name: 'Absent Student $index',
-          photoUuid: null,
-          roomName: roomName,
-          absentDays: index % 5 + 1,
-          startDate: _rangeStart ?? DateTime.now().subtract(Duration(days: index % 10)),
-          absentTime: '09:${(index * 5) % 60}:00 AM',
-          absentBy: 'Staff Member $index',
-          note: index % 3 == 0 ? 'Student is absent' : null,
-          studentId: 100 + index,
-          roomId: (index % 3) + 1,
-          schoolId: 1,
-        ));
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        setState(() {
+          _isInitialLoadingStudents = false;
+          _isLoadingStudents = false;
+          isLoading = false;
+          _isBackgroundFetchingStudents = false;
+        });
+        return;
       }
 
-      setState(() {
-        _absentStudents.addAll(newStudents);
-        _studentsHasMore = newStudents.length == _pageSize;
-        if (newStudents.isNotEmpty) {
-          _studentsPage++;
+      final root = data['data'] as Map<String, dynamic>? ?? {};
+      final content = root['content'] as List<dynamic>? ?? const [];
+      final last = root['last'] as bool? ?? true;
+      final number = root['number'] as int? ?? _studentsPage;
+
+      String _parseTime(dynamic value) {
+        if (value == null) return '';
+        if (value is String) return value;
+        if (value is Map<String, dynamic>) {
+          final hour = value['hour'] as int? ?? 0;
+          final minute = value['minute'] as int? ?? 0;
+          final second = value['second'] as int? ?? 0;
+          final h = hour.toString().padLeft(2, '0');
+          final mStr = minute.toString().padLeft(2, '0');
+          final sStr = second.toString().padLeft(2, '0');
+          return '$h:$mStr:$sStr';
         }
+        return value.toString();
+      }
+
+      final newData = content.asMap().entries.map<_AbsentStudentModel>((entry) {
+        final indexInPage = entry.key;
+        final e = entry.value;
+        final m = e as Map<String, dynamic>;
+
+        final absenceDateStr = m['absenceDate'] as String? ?? '';
+        final absenceDate = absenceDateStr.isNotEmpty
+            ? DateTime.tryParse(absenceDateStr) ?? DateTime.now()
+            : DateTime.now();
+
+        final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
+        final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
+        final roomDisplay =
+            classroomName.isNotEmpty ? classroomName : classroomCode;
+
+        return _AbsentStudentModel(
+          id: (m['studentCode'] as String?) ?? '',
+          name: (m['studentName'] as String?) ?? '',
+          photoUuid: null,
+          roomName: roomDisplay,
+          absentDays: (m['absentDays'] as int?) ?? 0,
+          startDate: absenceDate,
+          absentTime: _parseTime(m['markedAbsentTime']),
+          absentBy: (m['markedAbsentByName'] as String?) ?? '',
+          note: (m['absenceNote'] as String?),
+          // No numeric studentId available in this response - use a stable placeholder
+          studentId: (number * _pageSize) + indexInPage,
+          roomId: 0,
+          schoolId: 0,
+        );
+      }).toList();
+
+      setState(() {
+        if (reset) {
+          _absentStudents.clear();
+        }
+        _absentStudents.addAll(newData);
+        _studentsHasMore = !last;
+        _studentsPage = number + (newData.isNotEmpty ? 1 : 0);
         _isInitialLoadingStudents = false;
         _isLoadingStudents = false;
         isLoading = false;
@@ -326,7 +334,17 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       });
 
       _updateClassroomsList(_absentStudents);
-    });
+    } catch (error) {
+      debugPrint('StudentAbsent API error: $error');
+      if (!mounted) return;
+      setState(() {
+        _isInitialLoadingStudents = false;
+        _isLoadingStudents = false;
+        isLoading = false;
+        _isBackgroundFetchingStudents = false;
+        errorMessage = error.toString();
+      });
+    }
   }
 
   void _updateClassroomsList(List<_AbsentStudentModel> students) {
@@ -345,12 +363,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   Future<void> _handleRefresh() async {
-    if ((_selectedClassroom != null && _selectedClassroom != 'All') ||
-        (_rangeStart != null && _rangeEnd != null)) {
-      await _loadAbsentStudents(reset: true);
-    } else {
-      await _loadInitialData(reset: true);
-    }
+    await _loadAbsentStudents(reset: true);
   }
 
 
@@ -370,14 +383,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
-    
-    // Filter students by search query
-    final filtered = _absentStudents.where((student) {
-      if (_searchQuery.trim().isEmpty) return true;
-      final query = _searchQuery.toLowerCase();
-      return student.name.toLowerCase().contains(query) ||
-          student.roomName.toLowerCase().contains(query);
-    }).toList();
+    final filtered = _absentStudents;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -417,11 +423,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                             setState(() {
                               _selectedClassroom = val;
                             });
-                            if (val == 'All') {
-                              _loadInitialData(reset: true);
-                            } else {
-                              _loadAbsentStudents(reset: true);
-                            }
+                            _loadAbsentStudents(reset: true);
                           },
                         ),
                       ),
@@ -438,11 +440,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                         _rangeStart = start;
                         _rangeEnd = end;
                       });
-                      if (start == null || end == null) {
-                        _loadInitialData(reset: true);
-                      } else {
-                        _loadAbsentStudents(reset: true);
-                      }
+                      _loadAbsentStudents(reset: true);
                     },
                   ),
                 ],
@@ -495,7 +493,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                       AppText.body(
                         _absentStudents.isEmpty
                             ? 'No absent students found'
-                            : 'No students match your search',
+                            : 'No students match your filters',
                         style: TextStyle(color: AppColors.secondaryColor),
                         textAlign: TextAlign.center,
                       ),
@@ -615,31 +613,14 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
               _buildDetailRow(responsive, 'Absent Time', student.absentTime),
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(responsive, 'Marked By', student.absentBy),
-              if (student.note != null && student.note!.isNotEmpty) ...[
-                SizedBox(height: responsive.isTablet ? 8 : 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: responsive.isTablet ? 2 : 1,
-                      child: AppText.small(
-                        'Note',
-                        style: TextStyle(color: AppColors.secondaryColor.withOpacity(0.6)),
-                      ),
-                    ),
-                    SizedBox(width: responsive.horizontalSpacing / 2),
-                    Expanded(
-                      flex: responsive.isTablet ? 3 : 2,
-                      child: AppText.value(
-                        student.note!,
-                        textAlign: TextAlign.end,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              SizedBox(height: responsive.isTablet ? 8 : 6),
+              _buildDetailRow(
+                responsive,
+                'Absent Note',
+                (student.note != null && student.note!.trim().isNotEmpty)
+                    ? student.note!.trim()
+                    : '-',
+              ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),

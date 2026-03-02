@@ -44,6 +44,9 @@ import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
+import '../../domain/features/attendance/usecases/get_staff_attendance_daily_usecase.dart';
+import '../../domain/features/attendance/usecases/get_staff_attendance_custom_usecase.dart';
+import '../../domain/features/attendance/usecases/get_staff_attendance_absent_usecase.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/add_student_document_usecase.dart';
 import '../../domain/features/student/usecases/get_student_important_dates_usecase.dart';
@@ -61,6 +64,9 @@ import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
+import '../../presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
+import '../../presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
+import '../../presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
@@ -211,6 +217,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentAttendanceCustomUseCase>(
     () => GetStudentAttendanceCustomUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStaffAttendanceDailyUseCase>(
+    () => GetStaffAttendanceDailyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffAttendanceCustomUseCase>(
+    () => GetStaffAttendanceCustomUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffAttendanceAbsentUseCase>(
+    () => GetStaffAttendanceAbsentUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
     () => GetStudentDocumentsUseCase(serviceLocator()),
   );
@@ -299,6 +314,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentAttendanceCustomCubit(
       getStudentAttendanceCustomUseCase: serviceLocator(),
       repository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffAttendanceDailyCubit>(
+    () => StaffAttendanceDailyCubit(
+      getStaffAttendanceDailyUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffAttendanceCustomCubit>(
+    () => StaffAttendanceCustomCubit(
+      getStaffAttendanceCustomUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffAttendanceAbsentCubit>(
+    () => StaffAttendanceAbsentCubit(
+      getStaffAttendanceAbsentUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentDocumentsListCubit>(

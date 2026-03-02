@@ -13,6 +13,10 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
 
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
@@ -136,6 +140,7 @@ class StaffAttendanceProfile extends StatefulWidget {
 
   const StaffAttendanceProfile({
     super.key,
+    required this.staffCode,
     required this.staffId,
     required this.staffName,
     this.staffPhotoUuid,
@@ -148,6 +153,7 @@ class StaffAttendanceProfile extends StatefulWidget {
     this.profileStatus = 'A',
   });
 
+  final String staffCode;
   final int staffId;
   final String staffName;
   final String? staffPhotoUuid;
@@ -165,6 +171,7 @@ class StaffAttendanceProfile extends StatefulWidget {
 
 class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   DateTime? _startDate;
+  DateTime? _endDate;
   bool isAttendancesLoading = false;
   bool isAbsentDaysLoading = false;
   bool isStaffLoading = false;
@@ -181,6 +188,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     super.initState();
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, 1);
+    _endDate = DateTime(now.year, now.month, now.day);
 
     // Initialize staff model
     staff = _StaffModel(
@@ -196,53 +204,122 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       profileStatus: widget.profileStatus,
     );
 
-    // Load dummy data
     _loadData();
   }
 
   void _loadData() {
+    final from = _startDate ?? DateTime.now();
+    final to = _endDate ?? from;
+
     setState(() {
       isAttendancesLoading = true;
-      isAbsentDaysLoading = true;
+      isAbsentDaysLoading = false;
       isStaffLoading = true;
     });
 
-    // Simulate API calls
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
+    final apiClient = serviceLocator<ApiClient>().client;
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceProfile,
+      ApiConstants.attendanceBaseUrl,
+    );
 
-      // Generate dummy attendance data
-      attendances = List.generate(5, (index) {
-        final date = DateTime.now().subtract(Duration(days: index));
-        return _AttendanceModel(
-          date: date,
-          signInTime: '08:${30 + index}:00 AM',
-          signOutTime: index < 3 ? '05:${10 + index}:00 PM' : '',
-          roomName: widget.roomName,
-          signInBy: 'Staff Member ${index + 1}',
-          signOutBy: index < 3 ? 'Staff Member ${index + 1}' : 'System Auto Signout',
-        );
-      });
+    final fromStr = DateFormat('yyyy-MM-dd').format(from);
+    final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-      // Generate dummy absent days
-      absentDays = List.generate(2, (index) {
-        final startDate = DateTime.now().subtract(Duration(days: index + 10));
-        return _AbsentDayModel(
-          startDate: startDate,
-          endDate: startDate,
-          absentTime: '09:00:00 AM',
-          absentBy: 'Staff Member ${index + 1}',
-          note: index == 0 ? 'Staff is absent' : '',
-        );
-      });
+    final queryParameters = <String, dynamic>{
+      'staffCode': widget.staffCode,
+      'fromAttendanceDate': fromStr,
+      'toAttendanceDate': toStr,
+      'page': 0,
+      'size': 10,
+      'sort': <String>['attendanceDate,desc'],
+    };
 
-      // Generate dummy attendance report
-      attendanceReport = _AttendanceReportModel(
-        attendedDays: 12,
-        totalAttendedHours: '48h 30m',
-        absentDays: 2,
+    debugPrint(
+      'StaffAttendanceProfile API → GET $endpoint '
+      'query=$queryParameters',
+    );
+
+    apiClient
+        .get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    )
+        .then((response) {
+      debugPrint(
+        'StaffAttendanceProfile API ← status=${response.statusCode} '
+        'data=${response.data}',
       );
 
+      if (!mounted) return;
+
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        setState(() {
+          isAttendancesLoading = false;
+          isStaffLoading = false;
+        });
+        return;
+      }
+
+      final root = data['data'] as Map<String, dynamic>? ?? {};
+      final aggJson = root['aggregations'] as Map<String, dynamic>? ?? {};
+      final recordsJson = root['records'] as Map<String, dynamic>? ?? {};
+      final content = recordsJson['content'] as List<dynamic>? ?? const [];
+
+      // Aggregations
+      attendanceReport = _AttendanceReportModel(
+        attendedDays: (aggJson['attendedDays'] as int?) ?? 0,
+        totalAttendedHours:
+            (aggJson['totalAttendedTime'] as String?) ?? '',
+        absentDays: (aggJson['absentDays'] as int?) ?? 0,
+      );
+
+      // Records
+      attendances = content.map<_AttendanceModel>((e) {
+        final m = e as Map<String, dynamic>;
+
+        String _parseTime(dynamic value) {
+          if (value == null) return '';
+          if (value is String) return value;
+          if (value is Map<String, dynamic>) {
+            final hour = value['hour'] as int? ?? 0;
+            final minute = value['minute'] as int? ?? 0;
+            final second = value['second'] as int? ?? 0;
+            final h = hour.toString().padLeft(2, '0');
+            final mStr = minute.toString().padLeft(2, '0');
+            final sStr = second.toString().padLeft(2, '0');
+            return '$h:$mStr:$sStr';
+          }
+          return value.toString();
+        }
+
+        final dateStr = m['attendanceDate'] as String? ?? '';
+        final parsedDate = dateStr.isNotEmpty
+            ? DateTime.tryParse(dateStr) ?? DateTime.now()
+            : DateTime.now();
+
+        final signInRaw = _parseTime(m['signedInTime']);
+        final signOutRaw = _parseTime(m['signedOutTime']);
+
+        return _AttendanceModel(
+          date: parsedDate,
+          signInTime: signInRaw,
+          signOutTime: signOutRaw,
+          roomName: (m['classroomName'] as String?) ?? widget.roomName,
+          signInBy: (m['signedInBy'] as String?) ?? '',
+          signOutBy: (m['signedOutBy'] as String?) ?? '',
+        );
+      }).toList();
+
+      setState(() {
+        isAttendancesLoading = false;
+        isAbsentDaysLoading = false;
+        isStaffLoading = false;
+      });
+    }).catchError((error, stack) {
+      debugPrint('StaffAttendanceProfile API error: $error');
+      if (!mounted) return;
       setState(() {
         isAttendancesLoading = false;
         isAbsentDaysLoading = false;
@@ -258,6 +335,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
     setState(() {
       _startDate = startDate;
+      _endDate = endDate ?? startDate;
     });
     _loadData();
   }

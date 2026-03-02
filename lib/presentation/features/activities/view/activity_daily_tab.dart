@@ -19,11 +19,13 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
@@ -347,6 +349,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     'Learning': MediaRes.learningActivityIcon,
   };
 
+  Future<void> _onRefresh() async {
+    // TODO: Integrate with API to reload activities.
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
@@ -381,8 +390,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     return OrientationBuilder(
         builder: (context, orientation){
           if(orientation == Orientation.landscape){
-            return CustomScrollView(
-              slivers: [
+            return CustomRefreshIndicator(
+              onRefresh: _onRefresh,
+              child: CustomScrollView(
+                slivers: [
                 SliverToBoxAdapter(child: Padding(
                   padding: ResponsiveSizing.contentPadding(context),
                   child: Container(
@@ -624,14 +635,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                         color: AppColors.cardColor,
                       ),
                       child: Center(
-                        child: Text(
+                        child: AppText.title(
                           'No Activities found',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontFamily: 'Manrope',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ),
@@ -704,10 +710,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                     const SizedBox(width: 20),
                                     SizedBox(
                                       height: 20,
-                                      child: Text(
+                                      child: AppText.small(
                                         activity.time,
-                                        style: TextStyle(
-                                          fontSize: 14,
+                                        style: AppTextStyles.small.copyWith(
                                           color: AppColors.primaryColor,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -1058,34 +1063,24 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                           ),
                                                           const SizedBox(height: 10),
 
-                                                          Text(
+                                                          AppText.body(
                                                             activity.description ?? 'No description',
-
-                                                            style: TextStyle(
-                                                              color: AppColors
-                                                                  .primaryColor,
-                                                              fontSize: 14,
-                                                              fontWeight:
-                                                              FontWeight.w600,
+                                                            style: AppTextStyles.body.copyWith(
+                                                              color: AppColors.primaryColor,
+                                                              fontWeight: FontWeight.w600,
                                                             ),
                                                             maxLines: 1,
-                                                            overflow:
-                                                            TextOverflow.ellipsis,
+                                                            overflow: TextOverflow.ellipsis,
                                                           ),
                                                           const SizedBox(height: 10),
-                                                          Text(
+                                                          AppText.small(
                                                             'Created By - ${activity.createdBy}',
-
-                                                            style: TextStyle(
-                                                              color: AppColors
-                                                                  .primaryColor,
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                              FontWeight.w500,
+                                                            style: AppTextStyles.small.copyWith(
+                                                              color: AppColors.primaryColor,
+                                                              fontWeight: FontWeight.w500,
                                                             ),
                                                             maxLines: 1,
-                                                            overflow:
-                                                            TextOverflow.ellipsis,
+                                                            overflow: TextOverflow.ellipsis,
                                                           ),
                                                         ],
                                                       ),
@@ -1107,9 +1102,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 20,),)
+                const SliverToBoxAdapter(child: SizedBox(height: 20,),),
               ],
-            );
+            ),);
             // return SingleChildScrollView(
             //   child: Column(
             //     children: [
@@ -1802,8 +1797,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             //   ),
             // );
           } else {
-            return Column(
-              children: [
+            return CustomRefreshIndicator(
+              onRefresh: _onRefresh,
+              child: Column(
+                children: [
                 Padding(
                   padding: ResponsiveSizing.contentPadding(context),
                   child: Container(
@@ -2048,14 +2045,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                           color: AppColors.cardColor,
                         ),
                         child: Center(
-                          child: Text(
+                          child: AppText.title(
                             'No Activities found',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontFamily: 'Manrope',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
@@ -2120,10 +2112,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                         const SizedBox(width: 20),
                                         SizedBox(
                                           height: 20,
-                                          child: Text(
+                                          child: AppText.small(
                                             activity.time,
-                                            style: TextStyle(
-                                              fontSize: 14,
+                                            style: AppTextStyles.small.copyWith(
                                               color: AppColors.primaryColor,
                                               fontWeight: FontWeight.w500,
                                             ),
@@ -2472,34 +2463,24 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                             ),
                                                             const SizedBox(height: 10),
 
-                                                            Text(
-                                                              activity.description!,
-
-                                                              style: TextStyle(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                FontWeight.w600,
+                                                            AppText.body(
+                                                              activity.description ?? 'No description',
+                                                              style: AppTextStyles.body.copyWith(
+                                                                color: AppColors.primaryColor,
+                                                                fontWeight: FontWeight.w600,
                                                               ),
                                                               maxLines: 1,
-                                                              overflow:
-                                                              TextOverflow.ellipsis,
+                                                              overflow: TextOverflow.ellipsis,
                                                             ),
                                                             const SizedBox(height: 10),
-                                                            Text(
+                                                            AppText.small(
                                                               'Created By - ${activity.createdBy}',
-
-                                                              style: TextStyle(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontSize: 12,
-                                                                fontWeight:
-                                                                FontWeight.w500,
+                                                              style: AppTextStyles.small.copyWith(
+                                                                color: AppColors.primaryColor,
+                                                                fontWeight: FontWeight.w500,
                                                               ),
                                                               maxLines: 1,
-                                                              overflow:
-                                                              TextOverflow.ellipsis,
+                                                              overflow: TextOverflow.ellipsis,
                                                             ),
                                                           ],
                                                         ),
@@ -2523,7 +2504,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                     ),
                   ),
               ],
-            );
+            ),);
           }
         }
     );
@@ -2562,15 +2543,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
-                child: Text(
+                child: AppText.small(
                   selectedDate != null
                       ? DateFormat('MMM dd, yyyy').format(selectedDate)
                       : 'Select Date',
-                  style: TextStyle(
+                  style: AppTextStyles.small.copyWith(
                     color: selectedDate == null
                         ? AppColors.primaryColor.withOpacity(0.6)
                         : AppColors.primaryColor,
-                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,

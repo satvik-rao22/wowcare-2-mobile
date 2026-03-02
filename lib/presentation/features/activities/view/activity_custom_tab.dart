@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/views/filter_screen.dart';
@@ -611,28 +612,25 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                 ),),
                 SliverToBoxAdapter(child: SizedBox(height: 12,),),
                 if(activities.isEmpty)
-                  SliverToBoxAdapter(child: Padding(
-                    padding: ResponsiveSizing.contentPadding(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.cardBorderColor),
-                        borderRadius: BorderRadius.circular(12),
-                        color: AppColors.cardColor,
-                      ),
-                      child: Center(
-                        child: Text(
-                          'No Activities found',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontFamily: 'Manrope',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.cardBorderColor),
+                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.cardColor,
+                        ),
+                        child: const Center(
+                          child: AppText.title(
+                            'No Activities found',
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
                     ),
-                  ),),
+                  ),
                 if(activities.isNotEmpty)
                   SliverPadding(
                     padding: ResponsiveSizing.contentPadding(context),
@@ -685,10 +683,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     const SizedBox(width: 20),
                                     SizedBox(
                                       height: 20,
-                                      child: Text(
+                                      child: AppText.small(
                                         activity.time,
-                                        style: TextStyle(
-                                          fontSize: 14,
+                                        style: AppTextStyles.small.copyWith(
                                           color: AppColors.primaryColor,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -1039,34 +1036,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           ),
                                                           const SizedBox(height: 10),
 
-                                                          Text(
+                                                          AppText.body(
                                                             activity.description ?? 'No description',
-
-                                                            style: TextStyle(
-                                                              color: AppColors
-                                                                  .primaryColor,
-                                                              fontSize: 14,
-                                                              fontWeight:
-                                                              FontWeight.w600,
+                                                            style: AppTextStyles.body.copyWith(
+                                                              color: AppColors.primaryColor,
+                                                              fontWeight: FontWeight.w600,
                                                             ),
                                                             maxLines: 1,
-                                                            overflow:
-                                                            TextOverflow.ellipsis,
+                                                            overflow: TextOverflow.ellipsis,
                                                           ),
                                                           const SizedBox(height: 10),
-                                                          Text(
+                                                          AppText.small(
                                                             'Created By - ${activity.createdBy}',
-
-                                                            style: TextStyle(
-                                                              color: AppColors
-                                                                  .primaryColor,
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                              FontWeight.w500,
+                                                            style: AppTextStyles.small.copyWith(
+                                                              color: AppColors.primaryColor,
+                                                              fontWeight: FontWeight.w500,
                                                             ),
                                                             maxLines: 1,
-                                                            overflow:
-                                                            TextOverflow.ellipsis,
+                                                            overflow: TextOverflow.ellipsis,
                                                           ),
                                                         ],
                                                       ),
@@ -1330,15 +1317,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                           borderRadius: BorderRadius.circular(12),
                           color: AppColors.cardColor,
                         ),
-                        child: Center(
-                          child: Text(
+                        child: const Center(
+                          child: AppText.title(
                             'No Activities found',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontFamily: 'Manrope',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
@@ -1397,10 +1379,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                       const SizedBox(width: 20),
                                       SizedBox(
                                         height: 20,
-                                        child: Text(
+                                        child: AppText.small(
                                           activity.time,
-                                          style: TextStyle(
-                                            fontSize: 14,
+                                          style: AppTextStyles.small.copyWith(
                                             color: AppColors.primaryColor,
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -1674,34 +1655,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                       ),
                                                       const SizedBox(height: 10),
 
-                                                      Text(
-                                                        activity.description!,
-
-                                                        style: TextStyle(
-                                                          color: AppColors
-                                                              .primaryColor,
-                                                          fontSize: 14,
-                                                          fontWeight:
-                                                          FontWeight.w600,
+                                                      AppText.body(
+                                                        activity.description ?? 'No description',
+                                                        style: AppTextStyles.body.copyWith(
+                                                          color: AppColors.primaryColor,
+                                                          fontWeight: FontWeight.w600,
                                                         ),
                                                         maxLines: 1,
-                                                        overflow:
-                                                        TextOverflow.ellipsis,
+                                                        overflow: TextOverflow.ellipsis,
                                                       ),
                                                       const SizedBox(height: 10),
-                                                      Text(
+                                                      AppText.small(
                                                         'Created By - ${activity.createdBy}',
-
-                                                        style: TextStyle(
-                                                          color: AppColors
-                                                              .primaryColor,
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                          FontWeight.w500,
+                                                        style: AppTextStyles.small.copyWith(
+                                                          color: AppColors.primaryColor,
+                                                          fontWeight: FontWeight.w500,
                                                         ),
                                                         maxLines: 1,
-                                                        overflow:
-                                                        TextOverflow.ellipsis,
+                                                        overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ],
                                                   ),

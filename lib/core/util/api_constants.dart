@@ -12,7 +12,7 @@ class ApiConstants {
   static const String schoolMs = _host;
 
   /// Attendance service base URL
-  static const String attendanceBaseUrl = 'http://fitten-vallie-forthrightly.ngrok-free.dev/attendance';
+  static const String attendanceBaseUrl = 'https://wnmrl4rn-8083.inc1.devtunnels.ms/attendance';
 
   // Legacy / alternate (for reference)
   // static const String baseUrlDev = 'https://242sq05v-8080.inc1.devtunnels.ms';

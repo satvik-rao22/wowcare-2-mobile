@@ -442,3 +442,329 @@ class StudentAttendanceCustomPageModel extends Equatable {
     );
   }
 }
+
+class StaffAttendanceDailyItemModel extends Equatable {
+  const StaffAttendanceDailyItemModel({
+    required this.staffCode,
+    required this.staffName,
+    required this.isExpectedToday,
+    required this.classroomName,
+    required this.classroomCode,
+    required this.attendedDays,
+    this.signedInBy,
+    this.signedInTime,
+    this.signedOutBy,
+    this.signedOutTime,
+    required this.designation,
+    this.attendedTime,
+    this.attendedHours,
+    this.attendedMinutes,
+  });
+
+  final String staffCode;
+  final String staffName;
+  final bool isExpectedToday;
+  final String classroomName;
+  final String classroomCode;
+  final int attendedDays;
+  final String? signedInBy;
+  final StudentAttendanceTimeModel? signedInTime;
+  final String? signedOutBy;
+  final StudentAttendanceTimeModel? signedOutTime;
+  final List<String> designation;
+  final String? attendedTime;
+  final int? attendedHours;
+  final int? attendedMinutes;
+
+  factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
+    return StaffAttendanceDailyItemModel(
+      staffCode: json['staffCode'] as String? ?? '',
+      staffName: json['staffName'] as String? ?? '',
+      isExpectedToday: json['isExpectedToday'] as bool? ?? false,
+      classroomName: json['classroomName'] as String? ?? '',
+      classroomCode: json['classroomCode'] as String? ?? '',
+      attendedDays: json['attendedDays'] as int? ?? 0,
+      signedInBy: json['signedInBy'] as String?,
+      signedInTime: json['signedInTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['signedInTime'])
+          : null,
+      signedOutBy: json['signedOutBy'] as String?,
+      signedOutTime: json['signedOutTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
+          : null,
+      designation: (json['designation'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      attendedTime: json['attendedTime'] as String?,
+      attendedHours: json['attendedHours'] as int?,
+      attendedMinutes: json['attendedMinutes'] as int?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'staffCode': staffCode,
+      'staffName': staffName,
+      'isExpectedToday': isExpectedToday,
+      'classroomName': classroomName,
+      'classroomCode': classroomCode,
+      'attendedDays': attendedDays,
+      'signedInBy': signedInBy,
+      'signedInTime': signedInTime?.toJson(),
+      'signedOutBy': signedOutBy,
+      'signedOutTime': signedOutTime?.toJson(),
+      'designation': designation,
+      'attendedTime': attendedTime,
+      'attendedHours': attendedHours,
+      'attendedMinutes': attendedMinutes,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        staffCode,
+        staffName,
+        isExpectedToday,
+        classroomName,
+        classroomCode,
+        attendedDays,
+        signedInBy,
+        signedInTime,
+        signedOutBy,
+        signedOutTime,
+        designation,
+        attendedTime,
+        attendedHours,
+        attendedMinutes,
+      ];
+}
+
+class StaffAttendanceDailyPageModel extends Equatable {
+  const StaffAttendanceDailyPageModel({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalPages,
+    required this.totalElements,
+    required this.hasMore,
+  });
+
+  final List<StaffAttendanceDailyItemModel> items;
+  final int page;
+  final int size;
+  final int totalPages;
+  final int totalElements;
+  final bool hasMore;
+
+  @override
+  List<Object?> get props =>
+      [items, page, size, totalPages, totalElements, hasMore];
+
+  factory StaffAttendanceDailyPageModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    final content = data['content'] as List<dynamic>? ?? const [];
+    final pageNumber = data['number'] as int? ?? 0;
+    final pageSize = data['size'] as int? ?? content.length;
+    final totalPages = data['totalPages'] as int? ?? 0;
+    final totalElements = data['totalElements'] as int? ?? content.length;
+
+    final items = content
+        .map(
+          (e) => StaffAttendanceDailyItemModel.fromJson(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+
+    final hasMore = pageNumber + 1 < totalPages;
+
+    return StaffAttendanceDailyPageModel(
+      items: items,
+      page: pageNumber,
+      size: pageSize,
+      totalPages: totalPages,
+      totalElements: totalElements,
+      hasMore: hasMore,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': items.map((e) => e.toJson()).toList(),
+      'number': page,
+      'size': size,
+      'totalPages': totalPages,
+      'totalElements': totalElements,
+      'last': !hasMore,
+    };
+  }
+
+  factory StaffAttendanceDailyPageModel.fromCacheJson(
+    Map<String, dynamic> json,
+  ) {
+    final itemsJson = json['content'] as List<dynamic>? ?? const [];
+    return StaffAttendanceDailyPageModel(
+      items: itemsJson
+          .map(
+            (e) => StaffAttendanceDailyItemModel.fromJson(
+              e as Map<String, dynamic>,
+            ),
+          )
+          .toList(),
+      page: json['number'] as int? ?? 0,
+      size: json['size'] as int? ?? itemsJson.length,
+      totalPages: json['totalPages'] as int? ?? 1,
+      totalElements: json['totalElements'] as int? ?? itemsJson.length,
+      hasMore: json['hasMore'] as bool? ?? false,
+    );
+  }
+}
+
+class StaffAttendanceAbsentItemModel extends Equatable {
+  const StaffAttendanceAbsentItemModel({
+    required this.staffCode,
+    required this.staffName,
+    required this.classroomCode,
+    required this.classroomName,
+    required this.absenceDate,
+    this.markedAbsentTime,
+    required this.markedAbsentByName,
+    this.absenceNote,
+    required this.absentDays,
+  });
+
+  final String staffCode;
+  final String staffName;
+  final String classroomCode;
+  final String classroomName;
+  final String absenceDate;
+  final StudentAttendanceTimeModel? markedAbsentTime;
+  final String markedAbsentByName;
+  final String? absenceNote;
+  final int absentDays;
+
+  factory StaffAttendanceAbsentItemModel.fromJson(Map<String, dynamic> json) {
+    return StaffAttendanceAbsentItemModel(
+      staffCode: json['staffCode'] as String? ?? '',
+      staffName: json['staffName'] as String? ?? '',
+      classroomCode: json['classroomCode'] as String? ?? '',
+      classroomName: json['classroomName'] as String? ?? '',
+      absenceDate: json['absenceDate'] as String? ?? '',
+      markedAbsentTime: json['markedAbsentTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['markedAbsentTime'])
+          : null,
+      markedAbsentByName: json['markedAbsentByName'] as String? ?? '',
+      absenceNote: json['absenceNote'] as String?,
+      absentDays: json['absentDays'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'staffCode': staffCode,
+      'staffName': staffName,
+      'classroomCode': classroomCode,
+      'classroomName': classroomName,
+      'absenceDate': absenceDate,
+      'markedAbsentTime': markedAbsentTime?.toJson(),
+      'markedAbsentByName': markedAbsentByName,
+      'absenceNote': absenceNote,
+      'absentDays': absentDays,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        staffCode,
+        staffName,
+        classroomCode,
+        classroomName,
+        absenceDate,
+        markedAbsentTime,
+        markedAbsentByName,
+        absenceNote,
+        absentDays,
+      ];
+}
+
+class StaffAttendanceAbsentPageModel extends Equatable {
+  const StaffAttendanceAbsentPageModel({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalPages,
+    required this.totalElements,
+    required this.hasMore,
+  });
+
+  final List<StaffAttendanceAbsentItemModel> items;
+  final int page;
+  final int size;
+  final int totalPages;
+  final int totalElements;
+  final bool hasMore;
+
+  @override
+  List<Object?> get props =>
+      [items, page, size, totalPages, totalElements, hasMore];
+
+  factory StaffAttendanceAbsentPageModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    final content = data['content'] as List<dynamic>? ?? const [];
+    final pageNumber = data['number'] as int? ?? 0;
+    final pageSize = data['size'] as int? ?? content.length;
+    final totalPages = data['totalPages'] as int? ?? 0;
+    final totalElements = data['totalElements'] as int? ?? content.length;
+
+    final items = content
+        .map(
+          (e) => StaffAttendanceAbsentItemModel.fromJson(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+
+    final hasMore = pageNumber + 1 < totalPages;
+
+    return StaffAttendanceAbsentPageModel(
+      items: items,
+      page: pageNumber,
+      size: pageSize,
+      totalPages: totalPages,
+      totalElements: totalElements,
+      hasMore: hasMore,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': items.map((e) => e.toJson()).toList(),
+      'number': page,
+      'size': size,
+      'totalPages': totalPages,
+      'totalElements': totalElements,
+      'last': !hasMore,
+    };
+  }
+
+  factory StaffAttendanceAbsentPageModel.fromCacheJson(
+    Map<String, dynamic> json,
+  ) {
+    final itemsJson = json['content'] as List<dynamic>? ?? const [];
+    return StaffAttendanceAbsentPageModel(
+      items: itemsJson
+          .map(
+            (e) => StaffAttendanceAbsentItemModel.fromJson(
+              e as Map<String, dynamic>,
+            ),
+          )
+          .toList(),
+      page: json['number'] as int? ?? 0,
+      size: json['size'] as int? ?? itemsJson.length,
+      totalPages: json['totalPages'] as int? ?? 1,
+      totalElements: json['totalElements'] as int? ?? itemsJson.length,
+      hasMore: json['hasMore'] as bool? ?? false,
+    );
+  }
+}

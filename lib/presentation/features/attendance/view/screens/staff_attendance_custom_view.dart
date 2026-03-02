@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -13,6 +14,9 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_p
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
   const StaffAttendanceCustomView({
@@ -43,13 +47,15 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
   final List<_CustomStaffAttendanceRow> _attendanceList = <_CustomStaffAttendanceRow>[];
   List<String> _classrooms = <String>['All'];
 
+  late final StaffAttendanceCustomCubit _cubit;
+
   @override
   void initState() {
     super.initState();
     _customSelectedClassroom = 'All';
     _customSearchController.addListener(_onSearchChanged);
-    _initializeClassrooms();
     _initializeDefaultRange();
+    _cubit = serviceLocator<StaffAttendanceCustomCubit>();
     _loadAttendanceData(reset: true);
   }
 
@@ -59,10 +65,6 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _customSearchController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _initializeClassrooms() {
-    _classrooms = ['All', 'Room 1', 'Room 2', 'Room 3'];
   }
 
   void _initializeDefaultRange() {
@@ -78,34 +80,38 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _loadAttendanceData(reset: true);
   }
 
-  // Method to load attendance data (UI-only, backend removed)
+  // Method to load attendance data from backend
   void _loadAttendanceData({bool reset = false}) {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-      _errorMessage = '';
+    if (_customRangeStart == null || _customRangeEnd == null) {
+      _initializeDefaultRange();
+    }
+
+    final from = _customRangeStart!;
+    final to = _customRangeEnd!;
+
+    final classroomCodes = _customSelectedClassroom != null &&
+            _customSelectedClassroom != 'All'
+        ? <String>[_customSelectedClassroom!]
+        : null;
+
       if (reset) {
-        _attendanceList.clear();
         _customExpandedStaffIndex = null;
-      }
-    });
-
-    // Simulate loading + populate dummy data
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-
-      // Keep dummy data stable once loaded unless reset requested
-      final next = reset || _attendanceList.isEmpty
-          ? _buildDummyAttendanceData()
-          : _attendanceList;
-
-      setState(() {
-        _attendanceList
-          ..clear()
-          ..addAll(next);
-        _isLoading = false;
-      });
-    });
+      _cubit.loadInitial(
+        fromDate: from,
+        toDate: to,
+        classroomCodes: classroomCodes,
+        tagCodes: null,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
+      );
+    } else {
+      _cubit.refresh(
+        fromDate: from,
+        toDate: to,
+        classroomCodes: classroomCodes,
+        tagCodes: null,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
+      );
+    }
   }
 
   List<_CustomStaffAttendanceRow> _buildDummyAttendanceData() {
@@ -175,11 +181,50 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
   Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
+
+    return BlocProvider<StaffAttendanceCustomCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<StaffAttendanceCustomCubit, StaffAttendanceCustomState>(
+        builder: (context, state) {
+          final isLoading = state.isLoading;
+
+          final items = state.items;
+          _attendanceList
+            ..clear()
+            ..addAll(
+              items.map(
+                (item) => _CustomStaffAttendanceRow(
+                  id: item.staffCode,
+                  staffId: 0,
+                  staffName: item.staffName,
+                  designationName:
+                      item.designation.isNotEmpty ? item.designation.first : null,
+                  staffPhotoUuid: '',
+                  roomName: item.classroomName,
+                  daysAttended: item.attendedDays.toString(),
+                  totalHours: item.attendedTime ?? '',
+                  expectedToday: item.isExpectedToday,
+                  hasSignIn: item.hasSignIn,
+                  schoolId: 0,
+                  roomId: 0,
+                ),
+              ),
+            );
+
     final filtered = _getFilteredAttendance();
 
     return CustomRefreshIndicator(
       onRefresh: () async {
-        _loadAttendanceData(reset: true);
+              _loadAttendanceData(reset: false);
+            },
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification &&
+                    notification.metrics.pixels >=
+                        notification.metrics.maxScrollExtent - 200) {
+                  _cubit.loadNextPage();
+                }
+                return false;
       },
       child: SingleChildScrollView(
         controller: _scrollController,
@@ -211,7 +256,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                         child: CustomDropdown(
                           hintText: 'Select Classroom',
                           items: _classrooms,
-                          selectedItem: _customSelectedClassroom ?? 'All',
+                                  selectedItem:
+                                      _customSelectedClassroom ?? 'All',
                           onSelect: (val) {
                             setState(() {
                               _customSelectedClassroom = val;
@@ -228,10 +274,13 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                     isRangePicker: true,
                     initialDate: _customRangeStart,
                     onRangeSelected: (start, end) {
-                      if (start != null && end != null && start.isAfter(end)) {
+                              if (start != null &&
+                                  end != null &&
+                                  start.isAfter(end)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Text('Start date cannot be after end date'),
+                                    content: const Text(
+                                        'Start date cannot be after end date'),
                             backgroundColor: AppColors.errorColor,
                           ),
                         );
@@ -249,19 +298,21 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
             ),
             SizedBox(height: responsive.verticalSpacing),
             // Content area
-            if (_isLoading)
+                    if (isLoading)
               Column(
                 children: [
                   ShimmerLoader(
                     height: 100,
-                    margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
+                            margin: EdgeInsets.only(
+                                bottom: responsive.verticalSpacing / 2),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   ...List.generate(
                     6,
                     (index) => ShimmerLoader(
                       height: 80,
-                      margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
+                              margin: EdgeInsets.only(
+                                  bottom: responsive.verticalSpacing / 2),
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
@@ -305,6 +356,10 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
             SizedBox(height: responsive.verticalSpacing),
           ],
         ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -438,6 +493,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => StaffAttendanceProfile(
+                            staffCode: attendance.id,
                             staffId: attendance.staffId,
                             staffName: staffName,
                             staffPhotoUuid: attendance.staffPhotoUuid,

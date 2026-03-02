@@ -2,6 +2,8 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart';
 import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../datasources/attendance_remote_datasource.dart';
 import '../models/student_attendance_models.dart';
@@ -267,6 +269,159 @@ class AttendanceRepositoryImpl
       signedOutTime: model.signedOutTime,
       tagCodes: model.tagCodes,
       tagNames: model.tagNames,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceDailyPage> getStaffAttendanceDaily({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffAttendanceDaily(
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStaffDailyPageModelToEntity(pageModel);
+  }
+
+  StaffAttendanceDailyPage _mapStaffDailyPageModelToEntity(
+    StaffAttendanceDailyPageModel model,
+  ) {
+    return StaffAttendanceDailyPage(
+      items: model.items.map(_mapStaffItemModelToEntity).toList(),
+      page: model.page,
+      size: model.size,
+      totalPages: model.totalPages,
+      totalElements: model.totalElements,
+      hasMore: model.hasMore,
+    );
+  }
+
+  StaffAttendanceDailyItem _mapStaffItemModelToEntity(
+    StaffAttendanceDailyItemModel model,
+  ) {
+    return StaffAttendanceDailyItem(
+      staffCode: model.staffCode,
+      staffName: model.staffName,
+      isExpectedToday: model.isExpectedToday,
+      classroomName: model.classroomName,
+      classroomCode: model.classroomCode,
+      attendedDays: model.attendedDays,
+      signedInBy: model.signedInBy,
+      signedInTime: model.signedInTime != null
+          ? StaffAttendanceTime(
+              hour: model.signedInTime!.hour,
+              minute: model.signedInTime!.minute,
+              second: model.signedInTime!.second,
+              nano: model.signedInTime!.nano,
+            )
+          : null,
+      signedOutBy: model.signedOutBy,
+      signedOutTime: model.signedOutTime != null
+          ? StaffAttendanceTime(
+              hour: model.signedOutTime!.hour,
+              minute: model.signedOutTime!.minute,
+              second: model.signedOutTime!.second,
+              nano: model.signedOutTime!.nano,
+            )
+          : null,
+      designation: model.designation,
+      attendedTime: model.attendedTime,
+      attendedHours: model.attendedHours,
+      attendedMinutes: model.attendedMinutes,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffAttendanceCustom(
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStaffDailyPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<StaffAttendanceAbsentPage> getStaffAttendanceAbsent({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffAttendanceAbsent(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStaffAbsentPageModelToEntity(pageModel);
+  }
+
+  StaffAttendanceAbsentPage _mapStaffAbsentPageModelToEntity(
+    StaffAttendanceAbsentPageModel model,
+  ) {
+    return StaffAttendanceAbsentPage(
+      items: model.items.map(_mapStaffAbsentItemModelToEntity).toList(),
+      page: model.page,
+      size: model.size,
+      totalPages: model.totalPages,
+      totalElements: model.totalElements,
+      hasMore: model.hasMore,
+    );
+  }
+
+  StaffAttendanceAbsentItem _mapStaffAbsentItemModelToEntity(
+    StaffAttendanceAbsentItemModel model,
+  ) {
+    return StaffAttendanceAbsentItem(
+      staffCode: model.staffCode,
+      staffName: model.staffName,
+      classroomCode: model.classroomCode,
+      classroomName: model.classroomName,
+      absenceDate: model.absenceDate,
+      markedAbsentTime: model.markedAbsentTime != null
+          ? StaffAttendanceTime(
+              hour: model.markedAbsentTime!.hour,
+              minute: model.markedAbsentTime!.minute,
+              second: model.markedAbsentTime!.second,
+              nano: model.markedAbsentTime!.nano,
+            )
+          : null,
+      markedAbsentByName: model.markedAbsentByName,
+      absenceNote: model.absenceNote,
+      absentDays: model.absentDays,
     );
   }
 }

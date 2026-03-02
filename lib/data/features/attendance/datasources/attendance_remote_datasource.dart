@@ -23,6 +23,39 @@ abstract class AttendanceRemoteDataSource {
     int size = 10,
     List<String>? sort,
   });
+
+  Future<StaffAttendanceDailyPageModel> getStaffAttendanceDaily({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
+
+  Future<StaffAttendanceDailyPageModel> getStaffAttendanceCustom({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
+
+  Future<StaffAttendanceAbsentPageModel> getStaffAttendanceAbsent({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
 }
 
 class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
@@ -136,6 +169,165 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
 
     return StudentAttendanceCustomPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceDailyPageModel> getStaffAttendanceDaily({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAttendanceDate': fromAttendanceDate,
+      'toAttendanceDate': toAttendanceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceDailyView,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff daily attendance API response format');
+    }
+
+    return StaffAttendanceDailyPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceDailyPageModel> getStaffAttendanceCustom({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAttendanceDate': fromAttendanceDate,
+      'toAttendanceDate': toAttendanceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceCustomView,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff custom attendance API response format');
+    }
+
+    return StaffAttendanceDailyPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceAbsentPageModel> getStaffAttendanceAbsent({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAbsenceDate': fromAbsenceDate,
+      'toAbsenceDate': toAbsenceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceAbsentView,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff absent list API response format');
+    }
+
+    return StaffAttendanceAbsentPageModel.fromJson(
       response.data! as Map<String, dynamic>,
     );
   }
