@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../app/theme/colors.dart';
@@ -138,69 +139,54 @@ class _FilterScreenState extends State<FilterScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
-      padding: EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
+      padding: EdgeInsets.only(
+        bottom: safeAreaBottom,
+        left: 16,
+        right: 16,
+        top: 8,
       ),
-      child: Container(
-        height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-        ),
-        child: TextButton(
-          onPressed: _applyFilters,
-          child: Text(
-            'Apply Filters',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.buttonFontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
+      child: CustomButtonLayout(
+        confirmButtonLabel: 'Apply Filters',
+        onPressedConfirm: _applyFilters,
+        showCancelButton: false,
+        isForm: false,
       ),
     );
   }
 
   Widget _buildMasonryGrid() {
-    return StaggeredGrid.count(
-      crossAxisCount: 2,
-      mainAxisSpacing: 20,
-      crossAxisSpacing: 16,
-      children: List.generate(widget.sections.length, (index) {
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: widget.sections.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.6,
+      ),
+      itemBuilder: (context, index) {
         final section = widget.sections[index];
         final selected = _selectedValues[index];
 
-        return StaggeredGridTile.fit(
-          crossAxisCellCount: 1,
-          child: section.isSingleSelect ?
-          CustomDropdown(
-              label: section.label,
-              hintText: section.hintText,
-              items: section.items,
-              selectedItem: selected.isNotEmpty ? selected.first : null,
-              isField: true,
-              showAsterisk: false,
-              onSelect: (String? value) {
-                setState(() {
-                  _selectedValues[index] = value != null ? [value] : [];
-                });
-              })
-          :section.isMultiSelectDropDown
-              ? CustomMultiSelectDropdown(
+        if (section.isSingleSelect) {
+          return CustomDropdown(
+            label: section.label,
+            hintText: section.hintText,
+            items: section.items,
+            selectedItem: selected.isNotEmpty ? selected.first : null,
+            isField: true,
+            showAsterisk: false,
+            onSelect: (String? value) {
+              setState(() {
+                _selectedValues[index] = value != null ? [value] : [];
+              });
+            },
+          );
+        }
+
+        if (section.isMultiSelectDropDown) {
+          return CustomMultiSelectDropdown(
             label: section.label,
             hintText: section.hintText,
             items: section.items,
@@ -208,22 +194,21 @@ class _FilterScreenState extends State<FilterScreen> {
             onChanged: (List<String> values) {
               setState(() => _selectedValues[index] = values);
             },
-          )
-              : MultiSelectWidget(
-            label: section.label,
-            hintText: section.hintText,
-            availableOptions: section.items,
-            selectedOptions: selected,
-            onSelectionChanged: (List<String> values) {
-              setState(() => _selectedValues[index] = values);
-            },
-            colorfulSelection: false,
-            isRequired: false,
-          ),
+          );
+        }
 
-
+        return MultiSelectWidget(
+          label: section.label,
+          hintText: section.hintText,
+          availableOptions: section.items,
+          selectedOptions: selected,
+          onSelectionChanged: (List<String> values) {
+            setState(() => _selectedValues[index] = values);
+          },
+          colorfulSelection: false,
+          isRequired: false,
         );
-      }),
+      },
     );
   }
 
