@@ -4,10 +4,12 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
@@ -34,151 +36,159 @@ class StudentFamilyTabCard extends StatefulWidget {
 }
 
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
+  late Future<List<Map<String, dynamic>>> _guardiansFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _guardiansFuture = _loadGuardians();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadGuardians() async {
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isEmpty) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    try {
+      final repo = serviceLocator<StudentRepository>();
+      final models = await (repo as StudentRepositoryImpl)
+          .getStudentGuardians(studentCode: studentCode);
+      return models.map((e) => e.toJson()).toList(growable: false);
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
+    }
+  }
+  Future<void> _onAddParent() async {
+    final studentCode = widget.studentCode ?? '';
+    final schoolCode = widget.schoolCode ?? '';
+    if (studentCode.isEmpty || schoolCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Student details not loaded yet. Please try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddStudentStep2Screen(
+          studentCode: studentCode,
+          schoolCode: schoolCode,
+          createGuardianDirectly: true,
+        ),
+      ),
+    );
+
+    if (!mounted || result != true) return;
+
+    setState(() {
+      _guardiansFuture = _loadGuardians();
+    });
+    await widget.onRefresh?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomSafe = MediaQuery.of(context).padding.bottom;
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _guardiansFuture = _loadGuardians();
+        });
+        await widget.onRefresh?.call();
+      },
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Parents & guardians',
+                      style: AppTextStyles.value.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                    GradientAddButton(
+                      onTap: _onAddParent,
+                      wantedButtonSize: 40,
+                      iconSize: 22,
+                      borderRadius: 10,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: _guardiansFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: PrimaryCircularLoader(
+                        size: 28,
+                        strokeWidth: 2.5,
+                      ),
+                    );
+                  }
 
-    return Stack(
-      children: [
-        CustomRefreshIndicator(
-          onRefresh: () async {
-            await widget.onRefresh?.call();
-          },
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              children: const [
-                _FamilyCard(
-                  name: 'Parent name',
-                  relation: 'Father',
-                  email: 'father@mail.com',
-                  phone: '(986) 027-1627',
-                  pin: '263630',
-                ),
-                SizedBox(height: 12),
-                _FamilyCard(
-                  name: 'Parent name',
-                  relation: 'Mother',
-                  email: 'mother@mail.com',
-                  phone: '(986) 027-1627',
-                  pin: '263630',
-                ),
-                SizedBox(height: 76),
-              ],
-            ),
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        'Failed to load parents',
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 14,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    );
+                  }
+
+                  final data = snapshot.data ?? const [];
+                  if (data.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'No parents added yet',
+                        style: AppTextStyles.value.copyWith(fontSize: 14),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      for (int i = 0; i < data.length; i++) ...[
+                        _FamilyCard(
+                          name:
+                              '${data[i]['firstName'] ?? ''} ${data[i]['lastName'] ?? ''}'
+                                  .trim(),
+                          relation:
+                              (data[i]['relationToStudent'] ?? '').toString(),
+                          email: (data[i]['email'] ?? '').toString(),
+                          phone: (data[i]['mobile'] ?? '').toString(),
+                          pin: '—',
+                        ),
+                        if (i != data.length - 1)
+                          const SizedBox(height: 12),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
         ),
-        Positioned(
-          right: 16,
-          bottom: 16 + bottomSafe,
-          child: GradientAddButton(
-            onTap: () async {
-              final studentCode = widget.studentCode ?? '';
-              final schoolCode = widget.schoolCode ?? '';
-              if (studentCode.isEmpty || schoolCode.isEmpty) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Student details not loaded yet. Please try again.',
-                  isError: true,
-                );
-                return;
-              }
-
-              final result = await Navigator.of(context).push<Map<String, dynamic>>(
-                MaterialPageRoute(
-                  builder: (_) => const AddStudentStep2Screen(),
-                ),
-              );
-
-              if (!mounted || result == null) return;
-
-              final selectFromExisting =
-                  result['selectFromExisting'] as bool? ?? false;
-              if (selectFromExisting) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Linking existing parents is not supported yet.',
-                  isError: true,
-                );
-                return;
-              }
-
-              final parentFirst =
-                  (result['firstName'] as String?)?.trim() ?? '';
-              final parentLast =
-                  (result['lastName'] as String?)?.trim() ?? '';
-              final parentEmail =
-                  (result['email'] as String?)?.trim().toLowerCase() ?? '';
-              final parentPhoneRaw =
-                  (result['phoneNumber'] as String?)?.trim() ?? '';
-              final parentPhoneDigits =
-                  parentPhoneRaw.replaceAll(RegExp(r'\D'), '');
-
-              if (parentFirst.isEmpty ||
-                  parentLast.isEmpty ||
-                  parentEmail.isEmpty ||
-                  parentPhoneDigits.isEmpty) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Parent details incomplete. Please try again.',
-                  isError: true,
-                );
-                return;
-              }
-
-              final relationLabel =
-                  (result['relation'] as String?)?.trim() ?? '';
-              final relationOther =
-                  (result['relationOther'] as String?)?.trim() ?? '';
-              final relationToStudent =
-                  (relationLabel == 'Other' && relationOther.isNotEmpty
-                          ? relationOther
-                          : relationLabel)
-                      .toUpperCase();
-
-              final bool primaryContact =
-                  result['isEmergencyContact'] as bool? ?? true;
-              final bool legalCustody =
-                  result['isChildCustody'] as bool? ?? true;
-
-              try {
-                final repo = serviceLocator<StudentRepository>();
-                final message = await repo.createGuardianUser(
-                  schoolCode: schoolCode,
-                  studentCode: studentCode,
-                  firstName: parentFirst,
-                  lastName: parentLast,
-                  email: parentEmail,
-                  mobile: parentPhoneDigits,
-                  relationToStudent: relationToStudent,
-                  primaryContact: primaryContact,
-                  legalCustody: legalCustody,
-                );
-
-                if (!mounted) return;
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: message,
-                  isSuccess: true,
-                );
-                await widget.onRefresh?.call();
-              } catch (e) {
-                if (!mounted) return;
-                final message = ApiErrorHandler.extractErrorMessage(e);
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: message,
-                  isError: true,
-                );
-              }
-            },
-            size: 50.0,
-            iconSize: 28.0,
-            borderRadius: 12.0,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -200,80 +210,158 @@ class _FamilyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 0),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(8),
-          bottomLeft: Radius.circular(8),
-          bottomRight: Radius.circular(8),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+
+    return IntrinsicHeight(
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
-        border: Border.fromBorderSide(
-          BorderSide(color: AppColors.themeColor, width: 1),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        clipBehavior: Clip.antiAlias,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: '',
-                  name: name,
-                  size: 40,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '$name ($relation)',
-                    style: AppTextStyles.value.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.03 * 16,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+            Container(
+              height: 60,
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 24 : 16,
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  DocumentImageWidget(
+                    fileUuid: '',
+                    name: name,
+                    size: 45,
                   ),
-                ),
-              ],
+                  SizedBox(width: isTablet ? 16 : 9),
+                  Flexible(
+                    child: Text(
+                      name,
+                      style: AppTextStyles.value.copyWith(
+                        fontSize: isTablet ? 16 : 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            const Divider(
+            Divider(
               height: 1,
               thickness: 1,
-              color: Color(0xFFE5E5F0),
+              indent: 16,
+              endIndent: 16,
+              color: AppColors.dividerColor,
             ),
-            const SizedBox(height: 12),
-            const _FamilyInfoRow(
-              label: 'Name',
-              valueKey: 'name',
-            ),
-            const _FamilyInfoRow(
-              label: 'Relationship',
-              valueKey: 'relation',
-            ),
-            const _FamilyInfoRow(
-              label: 'Email ID',
-              valueKey: 'email',
-            ),
-            const _FamilyInfoRow(
-              label: 'Phone',
-              valueKey: 'phone',
-            ),
-            const _FamilyInfoRow(
-              label: 'Sign-in Pin',
-              valueKey: 'pin',
-            ),
-            const SizedBox(height: 16),
-            CustomButtonLayout(
-              confirmButtonLabel: 'Edit',
-              cancelButtonLabel: 'Delete',
-              onPressedConfirm: null,
-              onPressedCancel: null,
-              isForm: false,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Relation',
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
+                        ),
+                      ),
+                      Text(
+                        relation,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Email ID',
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
+                        ),
+                      ),
+                      Text(
+                        email,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Phone Number',
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
+                        ),
+                      ),
+                      Text(
+                        phone,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Sign-in Pin',
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.primaryColor.withOpacity(0.5),
+                          fontSize: 14,
+                          letterSpacing: 14 * (-3 / 100),
+                        ),
+                      ),
+                      Text(
+                        pin,
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  CustomButtonLayout(
+                    confirmButtonLabel: 'Edit',
+                    cancelButtonLabel: 'Delete',
+                    onPressedConfirm: () {
+                      // TODO: hook up Edit parent
+                    },
+                    onPressedCancel: () {
+                      // TODO: hook up Delete parent
+                    },
+                    isForm: false,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
           ],
         ),
@@ -293,54 +381,8 @@ class _FamilyInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Read values from the nearest _FamilyCard using InheritedWidget pattern if needed.
-    // For now, keep it simple and just show placeholder-style values.
-    String value;
-    switch (valueKey) {
-      case 'relation':
-        value = 'Father';
-        break;
-      case 'email':
-        value = 'parent@mail.com';
-        break;
-      case 'phone':
-        value = '(986) 027-1627';
-        break;
-      case 'pin':
-        value = '263630';
-        break;
-      case 'name':
-      default:
-        value = 'Parent name';
-        break;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: AppTextStyles.label.copyWith(
-              color: AppColors.primaryColor.withOpacity(0.6),
-              fontSize: 14,
-              letterSpacing: 14 * (-3 / 100),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: AppTextStyles.value.copyWith(
-                fontSize: 15,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
+    // No longer used; kept for compatibility if needed later.
+    return const SizedBox.shrink();
   }
 }
 

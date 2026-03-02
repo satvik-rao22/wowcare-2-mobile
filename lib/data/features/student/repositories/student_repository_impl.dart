@@ -11,6 +11,8 @@ import '../../../../domain/features/student/repositories/student_repository.dart
 import '../datasources/student_remote_datasource.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
+import '../models/student_pickup_models.dart';
+import '../models/student_physician_models.dart';
 
 class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithCache {
   StudentRepositoryImpl(this._remoteDataSource, StorageService storageService)
@@ -20,17 +22,63 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   final CacheManager _cacheManager;
 
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
-  static String _studentListCacheKey(String schoolCode) =>
+  static String _studentListCacheKey(
+    String schoolCode, {
+    String? status,
+    String? search,
+    String? code,
+    String? firstName,
+    String? lastName,
+  }) {
+    String norm(String? v) => (v ?? '').trim();
+
+    final statusKey = norm(status).isEmpty ? 'ACTIVE' : norm(status).toUpperCase();
+    final searchKey = norm(search).toLowerCase();
+    final codeKey = norm(code).toUpperCase();
+    final firstNameKey = norm(firstName).toUpperCase();
+    final lastNameKey = norm(lastName).toUpperCase();
+
+    final identifier = [
+      schoolCode,
+      'status=$statusKey',
+      if (searchKey.isNotEmpty) 'search=$searchKey',
+      if (codeKey.isNotEmpty) 'code=$codeKey',
+      if (firstNameKey.isNotEmpty) 'firstName=$firstNameKey',
+      if (lastNameKey.isNotEmpty) 'lastName=$lastNameKey',
+    ].join('|');
+
+    return CacheManager.buildCacheKey(
+      feature: 'student',
+      resource: 'list',
+      identifier: identifier,
+    );
+  }
+
+  static String _studentGuardiansCacheKey(String studentCode) =>
       CacheManager.buildCacheKey(
         feature: 'student',
-        resource: 'list',
-        identifier: schoolCode,
+        resource: 'guardians',
+        identifier: studentCode,
+      );
+
+  static String _studentPickupsCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'pickups',
+        identifier: studentCode,
       );
 
   static String _studentDocumentsCacheKey(String studentCode) =>
       CacheManager.buildCacheKey(
         feature: 'student',
         resource: 'documents',
+        identifier: studentCode,
+      );
+
+  static String _studentPhysiciansCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'physicians',
         identifier: studentCode,
       );
 
@@ -56,10 +104,17 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       size: size,
     );
 
-    // Cache only the first page for simplicity
+    // Cache only the first page for simplicity, keyed by filters.
     if (page == 0) {
       await _cacheManager.saveCache(
-        _studentListCacheKey(schoolCode),
+        _studentListCacheKey(
+          schoolCode,
+          status: status,
+          search: search,
+          code: code,
+          firstName: firstName,
+          lastName: lastName,
+        ),
         studentPageModel.toJson(),
       );
     }
@@ -207,6 +262,179 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     return message;
   }
 
+  Future<List<StudentPickupModel>> getStudentPickups({
+    required String studentCode,
+  }) async {
+    // Try cache first
+    final cached =
+        await _cacheManager.loadCache(_studentPickupsCacheKey(studentCode));
+    if (cached != null) {
+      final list = (cached['items'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(StudentPickupModel.fromJson)
+          .toList(growable: false);
+      if (list.isNotEmpty) return list;
+    }
+
+    // Fallback to API
+    final models =
+        await _remoteDataSource.getStudentPickups(studentCode: studentCode);
+
+    // Cache simple list
+    await _cacheManager.saveCache(
+      _studentPickupsCacheKey(studentCode),
+      {
+        'items': models
+            .map((e) => {
+                  'studentCode': e.studentCode,
+                  'firstName': e.firstName,
+                  'lastName': e.lastName,
+                  'email': e.email,
+                  'phoneNumber': e.phoneNumber,
+                  'relation': e.relation,
+                })
+            .toList(),
+      },
+    );
+
+    return models;
+  }
+
+  Future<String> addPickup({
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String relation,
+  }) async {
+    final message = await _remoteDataSource.addPickup(
+      studentCode: studentCode,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      phoneNumber: phoneNumber,
+      relation: relation,
+    );
+
+    await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
+
+    return message;
+  }
+
+  Future<List<StudentPhysicianModel>> getStudentPhysicians({
+    required String studentCode,
+  }) async {
+    // Try cache first
+    final cached =
+        await _cacheManager.loadCache(_studentPhysiciansCacheKey(studentCode));
+    if (cached != null) {
+      final list = (cached['items'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(StudentPhysicianModel.fromJson)
+          .toList(growable: false);
+      if (list.isNotEmpty) return list;
+    }
+
+    // Fallback to API
+    final models =
+        await _remoteDataSource.getPhysicians(studentCode: studentCode);
+
+    // Cache simple list
+    await _cacheManager.saveCache(
+      _studentPhysiciansCacheKey(studentCode),
+      {
+        'items': models
+            .map((e) => {
+                  'code': e.code,
+                  'firstName': e.firstName,
+                  'lastName': e.lastName,
+                  'email': e.email,
+                  'phoneNumber': e.phoneNumber,
+                  'address': e.address,
+                  'specialty': e.specialty,
+                  'notes': e.notes,
+                  'status': e.status,
+                })
+            .toList(),
+      },
+    );
+
+    return models;
+  }
+
+  Future<StudentPhysicianModel> addPhysician({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  }) async {
+    final model = await _remoteDataSource.addPhysician(
+      schoolCode: schoolCode,
+      studentCode: studentCode,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      phoneNumber: phoneNumber,
+      address: address,
+      specialty: specialty,
+      notes: notes,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentPhysiciansCacheKey(studentCode),
+    );
+
+    return model;
+  }
+
+  Future<StudentPhysicianModel> updatePhysician({
+    required String code,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  }) async {
+    final model = await _remoteDataSource.updatePhysician(
+      code: code,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      phoneNumber: phoneNumber,
+      address: address,
+      specialty: specialty,
+      notes: notes,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentPhysiciansCacheKey(studentCode),
+    );
+
+    return model;
+  }
+
+  Future<String> deletePhysician({
+    required String code,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.deletePhysician(code);
+
+    await _cacheManager.invalidateCache(
+      _studentPhysiciansCacheKey(studentCode),
+    );
+
+    return message;
+  }
+
   @override
   Future<String> createGuardianUser({
     required String schoolCode,
@@ -238,9 +466,58 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     );
   }
 
+  Future<List<StudentGuardianModel>> getStudentGuardians({
+    required String studentCode,
+  }) async {
+    // Try cache first
+    final cached =
+        await _cacheManager.loadCache(_studentGuardiansCacheKey(studentCode));
+    if (cached != null) {
+      final list = (cached['items'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(StudentGuardianModel.fromJson)
+          .toList(growable: false);
+      if (list.isNotEmpty) return list;
+    }
+
+    // Fallback to API
+    final raw = await _remoteDataSource.getStudentGuardians(
+      studentCode: studentCode,
+    );
+    final models = raw
+        .map(StudentGuardianModel.fromJson)
+        .toList(growable: false);
+
+    // Cache simple list
+    await _cacheManager.saveCache(
+      _studentGuardiansCacheKey(studentCode),
+      {
+        'items': models.map((e) => e.toJson()).toList(),
+      },
+    );
+
+    return models;
+  }
+
   @override
-  Future<StudentPage?> loadCachedStudentPage(String schoolCode) async {
-    final payload = await _cacheManager.loadCache(_studentListCacheKey(schoolCode));
+  Future<StudentPage?> loadCachedStudentPage(
+    String schoolCode, {
+    String? status,
+    String? search,
+    String? code,
+    String? firstName,
+    String? lastName,
+  }) async {
+    final payload = await _cacheManager.loadCache(
+      _studentListCacheKey(
+        schoolCode,
+        status: status,
+        search: search,
+        code: code,
+        firstName: firstName,
+        lastName: lastName,
+      ),
+    );
     if (payload == null) return null;
 
     final model = StudentPageModel.fromCacheJson(payload);

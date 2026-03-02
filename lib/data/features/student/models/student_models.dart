@@ -189,6 +189,73 @@ class StudentImportantDatesModel extends Equatable {
       ];
 }
 
+class StudentGuardianModel extends Equatable {
+  const StudentGuardianModel({
+    required this.guardianCode,
+    required this.userCode,
+    required this.firstName,
+    required this.lastName,
+    required this.mobile,
+    required this.email,
+    required this.relationToStudent,
+    required this.primaryContact,
+    required this.legalCustody,
+  });
+
+  final String guardianCode;
+  final String userCode;
+  final String firstName;
+  final String lastName;
+  final String mobile;
+  final String email;
+  final String relationToStudent;
+  final bool primaryContact;
+  final bool legalCustody;
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory StudentGuardianModel.fromJson(Map<String, dynamic> json) {
+    return StudentGuardianModel(
+      guardianCode: json['guardianCode'] as String? ?? '',
+      userCode: json['userCode'] as String? ?? '',
+      firstName: json['firstName'] as String? ?? '',
+      lastName: json['lastName'] as String? ?? '',
+      mobile: json['mobile'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      relationToStudent: json['relationToStudent'] as String? ?? '',
+      primaryContact: json['primaryContact'] as bool? ?? false,
+      legalCustody: json['legalCustody'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'guardianCode': guardianCode,
+      'userCode': userCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'mobile': mobile,
+      'email': email,
+      'relationToStudent': relationToStudent,
+      'primaryContact': primaryContact,
+      'legalCustody': legalCustody,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        guardianCode,
+        userCode,
+        firstName,
+        lastName,
+        mobile,
+        email,
+        relationToStudent,
+        primaryContact,
+        legalCustody,
+      ];
+}
+
 class StudentProfileModel extends Equatable {
   const StudentProfileModel({
     required this.code,

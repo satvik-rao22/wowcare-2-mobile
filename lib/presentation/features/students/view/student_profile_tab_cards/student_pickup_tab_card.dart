@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_pickup_models.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -47,8 +48,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     if (code == null || code.isEmpty) {
       return Future.value(const <StudentPickupModel>[]);
     }
-    return serviceLocator<StudentRemoteDataSource>()
-        .getStudentPickups(studentCode: code);
+    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    return repo.getStudentPickups(studentCode: code);
   }
 
   Future<void> _handleRefresh() async {

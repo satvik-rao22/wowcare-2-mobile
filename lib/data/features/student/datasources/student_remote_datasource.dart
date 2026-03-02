@@ -5,6 +5,7 @@ import 'package:wowcare/core/util/api_paths.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
+import '../models/student_physician_models.dart';
 
 abstract class StudentRemoteDataSource {
   Future<StudentPageModel> getStudentPage({
@@ -66,6 +67,50 @@ abstract class StudentRemoteDataSource {
     required String relation,
   });
 
+  /// Fetches physicians associated with a student via `/api/v1/physicians`.
+  ///
+  /// Uses pageable-style query params as per backend swagger.
+  Future<List<StudentPhysicianModel>> getPhysicians({
+    required String studentCode,
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? phoneNumber,
+    String? address,
+    String? search,
+    int page = 0,
+    int size = 20,
+  });
+
+  /// Creates a physician and links to a student via
+  /// `POST /api/v1/physicians/{schoolCode}/add/{studentCode}`.
+  Future<StudentPhysicianModel> addPhysician({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  });
+
+  /// Updates a physician via `PUT /api/v1/physicians/{code}`.
+  Future<StudentPhysicianModel> updatePhysician({
+    required String code,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  });
+
+  /// Deletes a physician via `DELETE /api/v1/physicians/{code}`.
+  Future<String> deletePhysician(String code);
+
   Future<StudentListItemModel> createStudent({
     required String schoolCode,
     required String firstName,
@@ -121,6 +166,11 @@ abstract class StudentRemoteDataSource {
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
+  });
+
+  /// Fetches guardians/parents for a student via `GET /api/v1/guardian/{studentCode}`.
+  Future<List<Map<String, dynamic>>> getStudentGuardians({
+    required String studentCode,
   });
 
   /// Fetches student important dates via
@@ -344,6 +394,172 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<List<StudentPhysicianModel>> getPhysicians({
+    required String studentCode,
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? phoneNumber,
+    String? address,
+    String? search,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'studentCode': studentCode,
+      'pageable.page': page,
+      'pageable.size': size,
+      'pageable.sort': <String>['lastName,asc'],
+    };
+
+    if (firstName != null && firstName.isNotEmpty) {
+      queryParameters['firstName'] = firstName;
+    }
+    if (lastName != null && lastName.isNotEmpty) {
+      queryParameters['lastName'] = lastName;
+    }
+    if (email != null && email.isNotEmpty) {
+      queryParameters['email'] = email;
+    }
+    if (phoneNumber != null && phoneNumber.isNotEmpty) {
+      queryParameters['phoneNumber'] = phoneNumber;
+    }
+    if (address != null && address.isNotEmpty) {
+      queryParameters['address'] = address;
+    }
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.physicians,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected physicians API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final content = root['content'];
+    if (content is! List) {
+      return const <StudentPhysicianModel>[];
+    }
+
+    return content
+        .whereType<Map<String, dynamic>>()
+        .map(StudentPhysicianModel.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<StudentPhysicianModel> addPhysician({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.physicians}/$schoolCode/add/$studentCode',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = <String, dynamic>{
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'phoneNumber': phoneNumber,
+      'address': address,
+      'specialty': specialty ?? '',
+      'notes': notes ?? '',
+    };
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected add physician API response format');
+    }
+
+    return StudentPhysicianModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StudentPhysicianModel> updatePhysician({
+    required String code,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.physicians}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = <String, dynamic>{
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'phoneNumber': phoneNumber,
+      'address': address,
+      'specialty': specialty ?? '',
+      'notes': notes ?? '',
+    };
+
+    final response = await _client.put<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected update physician API response format');
+    }
+
+    return StudentPhysicianModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<String> deletePhysician(String code) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.physicians}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    if (response.data == null) {
+      return 'Physician deleted successfully';
+    }
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected delete physician API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Physician deleted successfully';
+  }
+
+  @override
   Future<String> reactivateStudent(String code) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentReactivate(code),
@@ -554,6 +770,26 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Guardian user created successfully';
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getStudentGuardians({
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.guardian}/$studentCode',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return (response.data as List)
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
   }
 
   @override

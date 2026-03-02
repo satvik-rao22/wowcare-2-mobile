@@ -9,7 +9,8 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 class AddPickupScreen extends StatefulWidget {
@@ -122,8 +123,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       final formattedPhone =
           '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
 
-      final dataSource = serviceLocator<StudentRemoteDataSource>();
-      final message = await dataSource.addPickup(
+      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final message = await repo.addPickup(
         studentCode: widget.studentCode,
         firstName: first,
         lastName: last,

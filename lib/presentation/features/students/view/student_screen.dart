@@ -443,7 +443,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             Expanded(
                               child: CustomSearchBar(
                                 controller: _searchController,
-                                hintText: 'Search student by student/parent name',
+                                hintText: 'Search Student',
                               ),
                             ),
                             const SizedBox(width: 8),

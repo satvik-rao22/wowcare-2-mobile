@@ -178,6 +178,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   scrollController: _healthScrollController,
                   name: widget.name,
                   classroom: widget.classroom,
+                  studentCode: widget.studentCode,
                 ),
                 StudentImportantDatesTab(
                   scrollController: _importantDatesScrollController,

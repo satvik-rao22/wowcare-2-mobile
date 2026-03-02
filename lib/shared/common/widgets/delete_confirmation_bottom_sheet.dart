@@ -113,6 +113,8 @@ class _DeleteConfirmationBottomSheetState
         ? "Do you want to delete ${widget.name}'s Attendance?"
         : widget.type == 'document'
         ? 'Do you want to delete this Document -\n"${widget.name}" ?'
+        : widget.type == 'physician'
+        ? 'Do you want to delete this Physician -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'
