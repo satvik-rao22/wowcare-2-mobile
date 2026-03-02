@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 
 class StaffAttendanceVerticalPopUp extends StatelessWidget {
   final List<dynamic> students;
@@ -84,7 +85,10 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
 
   Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
     return InkWell(
-      onTap: () => Navigator.pop(context),
+      onTap: () {
+        Navigator.pop(context);
+        _navigateToForm(context, label);
+      },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -103,6 +107,19 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _navigateToForm(BuildContext context, String label) {
+    if (label == 'Sign-in') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const StudentSelectionSignInForm(),
+        ),
+      );
+    }
+    // Other actions (Sign-Out / Transfer / Absent) can be wired later.
+    refreshCallback();
   }
 
 }
@@ -166,7 +183,10 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
 
   Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
     return InkWell(
-      onTap: () => Navigator.pop(context),
+      onTap: () {
+        Navigator.pop(context);
+        _navigateToForm(context, label);
+      },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -185,6 +205,19 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _navigateToForm(BuildContext context, String label) {
+    if (label == 'Sign-in') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const StudentSelectionSignInForm(),
+        ),
+      );
+    }
+    // Other actions (Sign-Out / Transfer / Absent) can be wired later.
+    refreshCallback();
   }
 }
 
