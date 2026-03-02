@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/src/attendance/presentation/views/screens/attendance_daily_view.dart';
+import 'package:wowcare/src/attendance/presentation/views/screens/attendance_custom_tab_view.dart';
+import 'package:wowcare/src/attendance/presentation/views/screens/attendance_absent_tab_view.dart';
+import 'package:wowcare/src/attendance/presentation/widgets/staff_attendance_vertical_popup.dart';
 
 /// High–level container for Attendance screens.
 ///
@@ -109,36 +113,69 @@ class _AttendanceTabbedShellState extends State<_AttendanceTabbedShell>
               ),
             ),
             const SizedBox(height: 16),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: TabBar(
-                isScrollable: true,
-                controller: _tabController,
-                dividerColor: Colors.transparent,
-                indicator: const UnderlineTabIndicator(
-                  borderSide: BorderSide(color: AppColors.themeColor),
+            Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: TabBar(
+                      isScrollable: true,
+                      controller: _tabController,
+                      dividerColor: Colors.transparent,
+                      indicator: const UnderlineTabIndicator(
+                        borderSide: BorderSide(color: AppColors.themeColor),
+                      ),
+                      indicatorPadding: const EdgeInsets.only(bottom: 8),
+                      labelStyle: const TextStyle(
+                        color: Colors.black,
+                        fontFamily: 'Manrope',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      unselectedLabelStyle: TextStyle(
+                        color: AppColors.primaryColor.withOpacity(0.5),
+                        fontFamily: 'Manrope',
+                        fontSize: 16,
+                      ),
+                      labelColor: Colors.black,
+                      unselectedLabelColor:
+                          AppColors.primaryColor.withOpacity(0.5),
+                      tabAlignment: TabAlignment.center,
+                      tabs: const [
+                        Tab(text: 'Daily'),
+                        Tab(text: 'Custom'),
+                        Tab(text: 'Absent'),
+                      ],
+                    ),
+                  ),
                 ),
-                indicatorPadding: const EdgeInsets.only(bottom: 8),
-                labelStyle: const TextStyle(
-                  color: Colors.black,
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(width: 8),
+                GradientAddButton(
+                  wantedButtonSize: 40,
+                  onTap: () {
+                    final topOffset =
+                        MediaQuery.of(context).padding.top + 96;
+                    showDialog(
+                      context: context,
+                      barrierDismissible: true,
+                      builder: (context) {
+                        return Stack(
+                          children: [
+                            Positioned(
+                              top: topOffset,
+                              right: 16,
+                              child: StaffAttendanceVerticalPopupOnly(
+                                students: const [],
+                                refreshCallback: () {},
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
-                unselectedLabelStyle: TextStyle(
-                  color: AppColors.primaryColor.withOpacity(0.5),
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                ),
-                labelColor: Colors.black,
-                unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
-                tabAlignment: TabAlignment.center,
-                tabs: const [
-                  Tab(text: 'Daily'),
-                  Tab(text: 'Custom'),
-                  Tab(text: 'Absent'),
-                ],
-              ),
+              ],
             ),
             const SizedBox(height: 12),
             Expanded(
@@ -146,63 +183,9 @@ class _AttendanceTabbedShellState extends State<_AttendanceTabbedShell>
                 controller: _tabController,
                 children: [
                   AttendanceDailyViewScreen(isStaff: widget.isStaff),
-                  const _AttendancePlaceholderTab(
-                    title: 'Custom View',
-                    description:
-                        'Custom attendance filters and ranges will be added here.',
-                  ),
-                  const _AttendancePlaceholderTab(
-                    title: 'Absent',
-                    description:
-                        'Absent students list and actions will be added here.',
-                  ),
+                  AttendanceCustomTabView(isStaff: widget.isStaff),
+                  AttendanceAbsentTabView(isStaff: widget.isStaff),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Simple placeholder content for tabs that are not yet implemented.
-class _AttendancePlaceholderTab extends StatelessWidget {
-  const _AttendancePlaceholderTab({
-    required this.title,
-    required this.description,
-  });
-
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: AppColors.primaryColor,
               ),
             ),
           ],
