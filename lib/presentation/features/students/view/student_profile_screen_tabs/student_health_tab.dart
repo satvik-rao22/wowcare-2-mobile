@@ -16,12 +16,14 @@ class StudentHealthTab extends StatefulWidget {
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.studentCode,
   });
 
   final int initialTabIndex;
   final ScrollController scrollController;
   final String name;
   final String classroom;
+  final String? studentCode;
 
 
   @override
@@ -246,7 +248,12 @@ class _StudentHealthTabState extends State<StudentHealthTab>
             controller: _tabController,
             children: [
               StudentHealthTabCard(scrollController: _healthScrollController, name: widget.name, classroom: widget.classroom),
-              StudentPhysicianTabCard(scrollController: _physicianScrollController, name: widget.name, classroom: widget.classroom),
+              StudentPhysicianTabCard(
+                scrollController: _physicianScrollController,
+                name: widget.name,
+                classroom: widget.classroom,
+                studentCode: widget.studentCode,
+              ),
               StudentDatesTabCard(scrollController: _datesScrollController, name: widget.name, classroom: widget.classroom),
               StudentImmunizationTabCard(scrollController: _immunizationScrollController, name: widget.name, classroom: widget.classroom),
             ],

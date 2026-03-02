@@ -8,6 +8,7 @@ class StaffDocumentRequestModel extends Equatable {
     required this.documentSizeKb,
     required this.mimeType,
     required this.expiryDate,
+    this.documentNotes,
   });
 
   final String documentType;
@@ -15,7 +16,8 @@ class StaffDocumentRequestModel extends Equatable {
   final String documentUrl;
   final int documentSizeKb;
   final String mimeType;
-  final String expiryDate; // ISO date string: "2026-01-30"
+  final String expiryDate; // ISO date string or empty when optional
+  final String? documentNotes;
 
   Map<String, dynamic> toJson() {
     return {
@@ -25,12 +27,13 @@ class StaffDocumentRequestModel extends Equatable {
       'documentSizeKb': documentSizeKb,
       'mimeType': mimeType,
       'expiryDate': expiryDate,
+      if (documentNotes != null && documentNotes!.isNotEmpty) 'documentNotes': documentNotes,
     };
   }
 
   @override
   List<Object?> get props =>
-      [documentType, documentName, documentUrl, documentSizeKb, mimeType, expiryDate];
+      [documentType, documentName, documentUrl, documentSizeKb, mimeType, expiryDate, documentNotes];
 }
 
 class StaffDocumentResponseModel extends Equatable {
@@ -68,6 +71,7 @@ class StaffDocumentItemModel extends Equatable {
     required this.documentSizeKb,
     required this.mimeType,
     required this.expiryDate,
+    this.documentNotes,
     required this.expired,
     required this.createdAt,
   });
@@ -79,6 +83,7 @@ class StaffDocumentItemModel extends Equatable {
   final int documentSizeKb;
   final String mimeType;
   final String expiryDate;
+  final String? documentNotes;
   final bool expired;
   final String createdAt;
 
@@ -91,6 +96,7 @@ class StaffDocumentItemModel extends Equatable {
       documentSizeKb: json['documentSizeKb'] as int? ?? 0,
       mimeType: json['mimeType'] as String? ?? '',
       expiryDate: json['expiryDate'] as String? ?? '',
+      documentNotes: json['documentNotes'] as String?,
       expired: json['expired'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
     );
@@ -105,6 +111,7 @@ class StaffDocumentItemModel extends Equatable {
       'documentSizeKb': documentSizeKb,
       'mimeType': mimeType,
       'expiryDate': expiryDate,
+      if (documentNotes != null) 'documentNotes': documentNotes,
       'expired': expired,
       'createdAt': createdAt,
     };
@@ -119,6 +126,7 @@ class StaffDocumentItemModel extends Equatable {
         documentSizeKb,
         mimeType,
         expiryDate,
+        documentNotes,
         expired,
         createdAt,
       ];

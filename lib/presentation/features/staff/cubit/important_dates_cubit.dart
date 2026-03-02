@@ -7,7 +7,7 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
   ImportantDatesCubit({
     required UpdateImportantDatesUseCase updateImportantDatesUseCase,
   })  : _updateImportantDatesUseCase = updateImportantDatesUseCase,
-        super(const ImportantDatesState.initial());
+        super(ImportantDatesState.initial());
 
   final UpdateImportantDatesUseCase _updateImportantDatesUseCase;
 
@@ -15,7 +15,7 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
     required String staffCode,
     required List<Map<String, String>> dates,
   }) async {
-    emit(const ImportantDatesState.loading());
+    emit(ImportantDatesState.loading());
 
     final result = await _updateImportantDatesUseCase(
       staffCode: staffCode,
@@ -37,15 +37,15 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
   }
 
   void reset() {
-    emit(const ImportantDatesState.initial());
+    emit(ImportantDatesState.initial());
   }
 }
 
 class ImportantDatesState extends Equatable {
-  const ImportantDatesState();
+  const ImportantDatesState._();
 
-  const ImportantDatesState.initial() : this();
-  const ImportantDatesState.loading() : this();
+  factory ImportantDatesState.initial() => const _InitialState();
+  factory ImportantDatesState.loading() => const _LoadingState();
   factory ImportantDatesState.success(String message) => _SuccessState(message);
   factory ImportantDatesState.error(String message) => _ErrorState(message);
 
@@ -64,12 +64,16 @@ class ImportantDatesState extends Equatable {
   List<Object?> get props => [];
 }
 
+class _InitialState extends ImportantDatesState {
+  const _InitialState() : super._();
+}
+
 class _LoadingState extends ImportantDatesState {
-  const _LoadingState();
+  const _LoadingState() : super._();
 }
 
 class _SuccessState extends ImportantDatesState {
-  const _SuccessState(this.message);
+  const _SuccessState(this.message) : super._();
   final String message;
 
   @override
@@ -77,7 +81,7 @@ class _SuccessState extends ImportantDatesState {
 }
 
 class _ErrorState extends ImportantDatesState {
-  const _ErrorState(this.message);
+  const _ErrorState(this.message) : super._();
   final String message;
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
@@ -8,8 +9,11 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_profile_tab.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
 
 import '../../../../app/theme/media_res.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentProfileScreen extends StatefulWidget {
@@ -20,6 +24,7 @@ class StudentProfileScreen extends StatefulWidget {
     required this.tags,
     required this.schedule,
     required this.sibling,
+    this.studentCode,
   });
 
   final String name;
@@ -27,6 +32,7 @@ class StudentProfileScreen extends StatefulWidget {
   final List<String> tags;
   final List<String> schedule;
   final Map<String, dynamic> sibling;
+  final String? studentCode;
 
   @override
   State<StudentProfileScreen> createState() => _StudentProfileScreenState();
@@ -45,6 +51,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+
+    // Cache-first classroom load (won't refetch if already loaded).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        context.read<ClassroomCubit>().loadActiveClassrooms();
+      } catch (_) {
+        // If no ClassroomCubit is provided above, build() will wrap with one.
+      }
+    });
   }
 
   @override
@@ -62,18 +78,47 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selected profile image')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected profile image',
+        isSuccess: true,
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to pick image: $e',
+        isError: true,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Ensure classroom list is available for any downstream screens (edit dropdown etc.)
+    // - If a ClassroomCubit is already provided (e.g. from StudentScreen), reuse it.
+    // - Otherwise, create it here and load once.
+    final hasClassroomCubit = (() {
+      try {
+        context.read<ClassroomCubit>();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    if (!hasClassroomCubit) {
+      return BlocProvider<ClassroomCubit>(
+        create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+        child: Builder(
+          builder: (context) => _buildScreen(context),
+        ),
+      );
+    }
+
+    return _buildScreen(context);
+  }
+
+  Widget _buildScreen(BuildContext context) {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
@@ -127,21 +172,25 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   tags: widget.tags,
                   schedule: widget.schedule,
                   sibling: widget.sibling,
+                  studentCode: widget.studentCode,
                 ),
                 StudentHealthTab(
                   scrollController: _healthScrollController,
                   name: widget.name,
                   classroom: widget.classroom,
+                  studentCode: widget.studentCode,
                 ),
                 StudentImportantDatesTab(
-                    scrollController: _importantDatesScrollController,
-                    name: widget.name,
-                    classroom: widget.classroom
+                  scrollController: _importantDatesScrollController,
+                  name: widget.name,
+                  classroom: widget.classroom,
+                  studentCode: widget.studentCode,
                 ),
                 StudentDocumentsTab(
-                    scrollController: _documentsScrollController,
-                    name: widget.name,
-                    classroom: widget.classroom
+                  scrollController: _documentsScrollController,
+                  name: widget.name,
+                  classroom: widget.classroom,
+                  studentCode: widget.studentCode,
                 )
 
               ],

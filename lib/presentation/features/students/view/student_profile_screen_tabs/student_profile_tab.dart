@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../student_profile_tab_cards/student_family_tab_card.dart';
 import '../student_profile_tab_cards/student_pickup_tab_card.dart';
@@ -15,7 +20,8 @@ class StudentProfileTab extends StatefulWidget {
     required this.classroom,
     required this.tags,
     required this.schedule,
-    required this.sibling
+    required this.sibling,
+    this.studentCode,
   });
 
   final int initialTabIndex;
@@ -25,6 +31,7 @@ class StudentProfileTab extends StatefulWidget {
   final List<String> tags;
   final List<String> schedule;
   final Map<String, dynamic> sibling;
+  final String? studentCode;
 
 
 
@@ -38,7 +45,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
   final ScrollController _aboutScrollController = ScrollController();
   final ScrollController _familyScrollController = ScrollController();
   final ScrollController _pickupScrollController = ScrollController();
-
+  late Future<StudentProfileModel?> _profileFuture;
 
   @override
   void initState() {
@@ -52,6 +59,31 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     _tabController.addListener(() {
       setState(() {});
     });
+
+    // Fetch student profile if studentCode is provided
+    if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      _profileFuture = dataSource.getStudentProfile(widget.studentCode!);
+    } else {
+      _profileFuture = Future<StudentProfileModel?>.value(null);
+    }
+  }
+
+  Future<void> _refreshProfile() async {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) return;
+    final dataSource = serviceLocator<StudentRemoteDataSource>();
+    // Create new future and update state to force FutureBuilder rebuild
+    final newFuture = dataSource.getStudentProfile(code);
+    setState(() {
+      _profileFuture = newFuture;
+    });
+    try {
+      // Wait for the future to complete to ensure data is loaded
+      await newFuture;
+    } catch (_) {
+      // UI handles errors via FutureBuilder
+    }
   }
 
 
@@ -150,28 +182,166 @@ class _StudentProfileTabState extends State<StudentProfileTab>
             ),
           ),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                StudentAboutTabCard(
-                    scrollController: _aboutScrollController,
-                    name: widget.name,
-                  classroom: widget.classroom,
-                  tags: widget.tags,
-                  schedule: widget.schedule,
-                  sibling: widget.sibling,
-                ),
-                StudentFamilyTabCard(
-                  scrollController: _familyScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
-                ),
-                StudentPickupTabCard(
-                  scrollController: _pickupScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
-                ),
-              ],
+            child: FutureBuilder<StudentProfileModel?>(
+              future: _profileFuture,
+              builder: (context, snapshot) {
+                // If no studentCode provided, use existing data
+                if (widget.studentCode == null || widget.studentCode!.isEmpty) {
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      StudentAboutTabCard(
+                        scrollController: _aboutScrollController,
+                        name: widget.name,
+                        classroom: widget.classroom,
+                        tags: widget.tags,
+                        schedule: widget.schedule,
+                        sibling: widget.sibling,
+                        onRefresh: _refreshProfile,
+                      ),
+                      StudentFamilyTabCard(
+                        scrollController: _familyScrollController,
+                        name: widget.name,
+                        classroom: widget.classroom,
+                        studentCode: widget.studentCode,
+                        schoolCode: '', // schoolCode unknown in this path
+                        onRefresh: _refreshProfile,
+                      ),
+                      StudentPickupTabCard(
+                        scrollController: _pickupScrollController,
+                        name: widget.name,
+                        classroom: widget.classroom,
+                        studentCode: widget.studentCode,
+                        onRefresh: _refreshProfile,
+                      ),
+                    ],
+                  );
+                }
+
+                // Loading state
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CustomRefreshIndicator(
+                    onRefresh: _refreshProfile,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                      children: const [
+                        SizedBox(height: 80),
+                        Center(child: PrimaryCircularLoader()),
+                      ],
+                    ),
+                  );
+                }
+
+                // Error state
+                if (snapshot.hasError) {
+                  return CustomRefreshIndicator(
+                    onRefresh: _refreshProfile,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Failed to load student profile',
+                          style: Theme.of(context).textTheme.titleMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          snapshot.error.toString(),
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _refreshProfile,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Success state - use API data
+                final profile = snapshot.data;
+                if (profile == null) {
+                  // Fallback to existing data if API returns null
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      StudentAboutTabCard(
+                        scrollController: _aboutScrollController,
+                        name: widget.name,
+                        classroom: widget.classroom,
+                        tags: widget.tags,
+                        schedule: widget.schedule,
+                        sibling: widget.sibling,
+                      onRefresh: _refreshProfile,
+                      ),
+                      StudentFamilyTabCard(
+                        scrollController: _familyScrollController,
+                        name: widget.name,
+                        classroom: widget.classroom,
+                        studentCode: widget.studentCode,
+                        schoolCode: '', // schoolCode unknown in this path
+                        onRefresh: _refreshProfile,
+                      ),
+                      StudentPickupTabCard(
+                        scrollController: _pickupScrollController,
+                        name: widget.name,
+                        classroom: widget.classroom,
+                        studentCode: widget.studentCode,
+                      onRefresh: _refreshProfile,
+                      ),
+                    ],
+                  );
+                }
+
+                // Use API data - profile is StudentProfileModel
+                final profileData = profile;
+                return TabBarView(
+                  controller: _tabController,
+                  children: [
+                    StudentAboutTabCard(
+                      scrollController: _aboutScrollController,
+                      name: profileData.fullName.isNotEmpty 
+                          ? profileData.fullName 
+                          : widget.name,
+                      classroom: profileData.classroom ?? widget.classroom,
+                      tags: widget.tags,
+                      schedule: widget.schedule,
+                      sibling: widget.sibling,
+                      studentProfile: profileData,
+                      onRefresh: _refreshProfile,
+                    ),
+                    StudentFamilyTabCard(
+                      scrollController: _familyScrollController,
+                      name: profileData.fullName.isNotEmpty 
+                          ? profileData.fullName 
+                          : widget.name,
+                      classroom: profileData.classroom ?? widget.classroom,
+                      studentCode: profileData.code,
+                      schoolCode: profileData.schoolCode,
+                      onRefresh: _refreshProfile,
+                    ),
+                    StudentPickupTabCard(
+                      scrollController: _pickupScrollController,
+                      name: profileData.fullName.isNotEmpty 
+                          ? profileData.fullName 
+                          : widget.name,
+                      classroom: profileData.classroom ?? widget.classroom,
+                      studentCode: widget.studentCode,
+                      onRefresh: _refreshProfile,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],

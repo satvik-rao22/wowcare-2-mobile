@@ -40,8 +40,14 @@ class StudentCubit extends Cubit<StudentState> {
     // Try cache first
     final cached =
         await (_repository is StudentRepositoryWithCache
-            ? (_repository as StudentRepositoryWithCache)
-                .loadCachedStudentPage(schoolCode)
+            ? (_repository as StudentRepositoryWithCache).loadCachedStudentPage(
+                schoolCode,
+                status: state.statusFilter,
+                search: state.searchQuery,
+                code: state.codeFilter,
+                firstName: state.firstNameFilter,
+                lastName: state.lastNameFilter,
+              )
             : Future.value(null));
     if (cached != null && !isClosed) {
       emit(

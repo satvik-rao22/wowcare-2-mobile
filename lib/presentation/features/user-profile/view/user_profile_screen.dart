@@ -1,20 +1,39 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/string_utils.dart';
+import '../../../../domain/features/staff/entities/staff_profile.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_user_profile_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({super.key, this.userName = 'Anna Smith', this.userPersona = 'Admin', this.userEmail = 'Annasmith@gmail.com', this.userPhoneNo = '(567) 303-2234', this.userAddress = '12, Main St. Nashua, NH'});
+  const UserProfileScreen({
+    super.key,
+    this.userName = '',
+    this.userPersona = '',
+    this.userEmail = '',
+    this.userPhoneNo = '',
+    this.userAddress = '',
+    this.staffCode,
+  });
   final String userName;
   final String userPersona;
   final String userEmail;
   final String userPhoneNo;
   final String userAddress;
+  /// Optional staffCode for the logged-in staff user. When provided,
+  /// this screen will load profile details via GET `/api/v1/staff/{staffCode}/profile`.
+  final String? staffCode;
 
   static const String routeName = '/userProfile';
 
@@ -24,19 +43,198 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final ImagePicker _picker = ImagePicker();
+  StaffProfile? _profile;
+  String _loginDisplayName = '';
+  String _loginEmail = '';
+  String _loginPersona = '';
+  bool _hasShownProfileLoadError = false;
+
+  String _formatPhoneForDisplay(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10) {
+      return CoreUtils.formatPhoneNumber(digits);
+    }
+    return raw;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Load profile for logged-in user.
+    // If staffCode is provided, use it; otherwise resolve staffCode from cached login info.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initProfileLoad();
+    });
+  }
+
+  Future<void> _initProfileLoad() async {
+    // Preload login-based user summary (name, email, persona) from storage
+    try {
+      final storage = serviceLocator<StorageService>();
+      _loginDisplayName =
+          (await storage.getString(StorageKeys.displayName) ?? '').trim();
+      _loginEmail = (await storage.getString(StorageKeys.email) ?? '').trim();
+
+      final rolesJson =
+          await storage.getString(StorageKeys.roles); // JSON array from login
+      String persona = '';
+      if (rolesJson != null && rolesJson.isNotEmpty) {
+        try {
+          final List<dynamic> roles =
+              (jsonDecode(rolesJson) as List<dynamic>);
+          if (roles.isNotEmpty) {
+            final first = roles.first as Map<String, dynamic>;
+            final roleCode = (first['role'] ?? '').toString();
+            persona = StringUtils.staffTypeToDisplayRole(roleCode);
+          }
+        } catch (_) {}
+      }
+      _loginPersona = persona;
+    } catch (_) {}
+
+    final direct = (widget.staffCode ?? '').trim();
+    if (direct.isNotEmpty) {
+      await _loadStaffProfile(direct);
+      return;
+    }
+
+    final resolved = await _resolveLoggedInStaffCode();
+    if (!mounted) return;
+    if (resolved.isNotEmpty) {
+      await _loadStaffProfile(resolved);
+    }
+  }
+
+  /// Attempts to resolve staffCode for the logged-in user.
+  /// Uses `/api/v1/staff/code` with stored `userCode`, `organizationCode` and `schoolCode`
+  /// to resolve the staffCode for the currently logged-in user.
+  Future<String> _resolveLoggedInStaffCode() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final repo = serviceLocator<StaffRepository>();
+
+      // Ensure cached staffCode, if any, belongs to the currently logged-in user.
+      final currentUserCode =
+          (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      final cachedStaffCode =
+          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      final cachedStaffUser =
+          (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
+
+      if (cachedStaffCode.isNotEmpty &&
+          cachedStaffUser.isNotEmpty &&
+          currentUserCode.isNotEmpty &&
+          cachedStaffUser == currentUserCode) {
+        // Cache is valid for this user.
+        return cachedStaffCode;
+      } else {
+        // Cached value belongs to another user or is invalid – clear it.
+        await storage.remove(StorageKeys.staffCode);
+        await storage.remove(StorageKeys.staffCodeUser);
+      }
+
+      final organizationCode =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (currentUserCode.isEmpty ||
+          organizationCode.isEmpty ||
+          schoolCode.isEmpty) {
+        return '';
+      }
+
+      // Ask backend directly for staffCode for this user.
+      final resolvedCode = await repo.getStaffCodeForUser(
+        userCode: currentUserCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
+
+      final code = (resolvedCode ?? '').trim();
+      if (code.isNotEmpty) {
+        await storage.saveString(StorageKeys.staffCode, code);
+        await storage.saveString(StorageKeys.staffCodeUser, currentUserCode);
+      }
+
+      return code;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _loadStaffProfile(String staffCode) async {
+    try {
+      final repo = serviceLocator<StaffRepository>();
+      // 1) Try cached profile first (fast, no loader).
+      if (repo is StaffRepositoryWithCache) {
+        final cached =
+            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
+          staffCode,
+        );
+        if (!mounted) return;
+        if (cached != null) {
+          _profile = cached;
+          // Persist staffType for ProfileMenuHeader.
+          if (cached.staffType.isNotEmpty) {
+            final storage = serviceLocator<StorageService>();
+            await storage.saveString(StorageKeys.staffType, cached.staffType);
+          }
+          setState(() {});
+        }
+      }
+
+      // 2) Prefetch latest profile in the background (no loader shown).
+      try {
+        final fresh = await repo.getStaffProfile(staffCode: staffCode);
+        if (!mounted) return;
+        // Persist staffType for ProfileMenuHeader (overwrite with latest).
+        if (fresh.staffType.isNotEmpty) {
+          final storage = serviceLocator<StorageService>();
+          await storage.saveString(StorageKeys.staffType, fresh.staffType);
+        }
+        setState(() {
+          _profile = fresh;
+        });
+      } catch (e) {
+        CoreUtils.logApiError(e.toString());
+        if (_profile == null && !_hasShownProfileLoadError) {
+          _hasShownProfileLoadError = true;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Failed to load profile. Please try again.',
+            isError: true,
+          );
+        }
+      }
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      if (_profile == null && !_hasShownProfileLoadError) {
+        _hasShownProfileLoadError = true;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to load profile. Please try again.',
+          isError: true,
+        );
+      }
+    }
+  }
 
   Future<void> _pickProfileImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selected profile image')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected profile image',
+        isSuccess: true,
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to pick image: $e',
+        isError: true,
+      );
     }
   }
 
@@ -45,14 +243,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final responsive = ResponsiveHelper(context);
+    final String displayName =
+        _profile?.fullName.isNotEmpty == true
+            ? _profile!.fullName
+            : (_loginDisplayName.isNotEmpty ? _loginDisplayName : '-');
+    final String displayEmail =
+        _profile?.email.isNotEmpty == true
+            ? _profile!.email
+            : (_loginEmail.isNotEmpty ? _loginEmail : '-');
+    final String displayPhone =
+        _profile?.phoneNumber.isNotEmpty == true
+            ? _formatPhoneForDisplay(_profile!.phoneNumber)
+            : '-';
+    final String displayAddress =
+        _profile?.address.formattedAddress.isNotEmpty == true
+            ? _profile!.address.formattedAddress
+            : '-';
+    final String roleDisplay = _profile != null
+        ? StringUtils.staffTypeToDisplayRole(_profile!.staffType)
+        : _loginPersona;
+    final String displayPersona =
+        roleDisplay.isNotEmpty ? roleDisplay : '-';
+
     return GlobalScaffold(
         hasBackButton: true,
         body: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
+              // Top profile header (name + role) with 4px horizontal gap
               Card(
-                margin: EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+                margin: const EdgeInsets.symmetric(vertical: 15, horizontal: 4),
                 color: Colors.white,
                 elevation: 2,
                 child: Column(
@@ -79,8 +300,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     clipBehavior: Clip.none,
                                     children: [
                                       DocumentImageWidget(
-                                        fileUuid: widget.userName,
-                                        name: widget.userName, // hardcoded for now
+                                        fileUuid: displayName.isNotEmpty ? displayName : 'User',
+                                        name: displayName.isNotEmpty ? displayName : 'User',
                                         size: 90,
                                         fontSize: 24,
                                         statusColor: const Color(0xFF00B115),
@@ -133,8 +354,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     children: [
                                       SizedBox(height: 10,),
                                       CustomTextWidget(
-                                        text: widget.userName,
-                                        fontSize: 23,
+                                        text: displayName,
+                                        fontSize: 26,
                                       ),
                                       // Text(
                                       //   widget.userName, // hardcoded for now
@@ -150,9 +371,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       // ),
                                       const SizedBox(height: 5),
                                       CustomTextWidget(
-                                        text: widget.userPersona,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w400,
+                                        text: displayPersona,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                       // Text(
                                       //   widget.userPersona,
@@ -236,7 +457,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       alignment: Alignment.center
                                     ),
                                     child: CustomTextWidget(
-                                      text: widget.userPersona == 'Admin' ?'View Admin Profile' :  widget.userPersona == 'Parent' ? "View Child's Profile" : 'View Staff Profile',
+                                      text: displayPersona == 'Admin'
+                                          ? 'View Admin Profile'
+                                          : displayPersona == 'Parent'
+                                              ? "View Child's Profile"
+                                              : 'View Staff Profile',
                                       textStyle: TextStyle(
                                         fontFamily: 'Manrope',
                                         fontSize: 16,
@@ -273,23 +498,39 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
               ),
               //const SizedBox(height: 15,),
-              Card(
-                margin: EdgeInsets.symmetric(vertical: 20, horizontal: 15),
-                color: Colors.white,
-                elevation: 2,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+              // "My Profile" card with 4px gap from screen edge and gradient border
+              Container(
+              margin: const EdgeInsets.fromLTRB(4, 6, 4, 12),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildPrimaryGradient(),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Container(
+                  margin: const EdgeInsets.all(1),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               CustomTextWidget(
                                 text: 'My Profile',
-                                fontSize: 16,
+                                fontSize: 18,
                               ),
                               // Text(
                               //   'My Profile',
@@ -303,13 +544,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               // ),
                               GestureDetector(
                                 onTap: () {
-                                  final parts = widget.userName.trim().split(' ');
+                                  // Prefer loaded profile data; fall back to login name/email.
+                                  final fullName = (_profile?.fullName ?? '').trim().isNotEmpty
+                                      ? _profile!.fullName.trim()
+                                      : _loginDisplayName.trim();
+                                  final parts = fullName.split(' ').where((p) => p.isNotEmpty).toList();
                                   final initialFirstName = parts.isNotEmpty ? parts.first : '';
                                   final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-                                  final initialEmail = widget.userEmail;
-                                  final initialPhoneNo = widget.userPhoneNo;
-                                  final initialAddress = widget.userAddress;
-                                  final role = widget.userPersona;
+                                  final initialEmail = (_profile?.email ?? '').trim().isNotEmpty
+                                      ? _profile!.email.trim()
+                                      : _loginEmail;
+                                  final initialPhoneNo = (_profile?.phoneNumber ?? '').trim();
+                                  final initialAddress = _profile?.address.formattedAddress ?? '';
+                                  final role = displayPersona;
 
                                   Navigator.push(
                                     context,
@@ -323,10 +570,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         role: role,
                                         initialStreet: '',
                                         initialCity: '',
-                                        initialState: 'New Hampshire',
-                                        initialCountry: 'United States',
+                                        // Leave state & country empty so edit screen dropdowns show "Select"
+                                        // when there is no real data from profile.
+                                        initialState: '',
+                                        initialCountry: '',
                                         initialZipCode: '',
-                                        signInPin: '5769', // hard coded for now
                                       ),
                                     ),
                                   );
@@ -355,7 +603,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             children: [
                               CustomTextWidget(
                                 text: 'Name',
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 height: 16 / 13,
                               ),
@@ -370,8 +618,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               //   ),
                               // ),
                               CustomTextWidget(
-                                text: widget.userName,
-                                fontSize: 14,
+                                text: displayName,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w500,
                                 height: 19 / 14,
                               ),
@@ -394,7 +642,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             children: [
                               CustomTextWidget(
                                 text: 'Email',
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 height: 16 / 13,
                               ),
@@ -409,8 +657,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               //   ),
                               // ),
                               CustomTextWidget(
-                                text: widget.userEmail,
-                                fontSize: 14,
+                                text: displayEmail,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w500,
                                 height: 19 / 14,
                               ),
@@ -433,7 +681,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             children: [
                               CustomTextWidget(
                                 text: 'Phone Number',
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 height: 16 / 13,
                               ),
@@ -448,8 +696,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               //   ),
                               // ),
                               CustomTextWidget(
-                                text: widget.userPhoneNo,
-                                fontSize: 14,
+                                text: displayPhone,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w500,
                                 height: 19 / 14,
                               ),
@@ -472,7 +720,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             children: [
                               CustomTextWidget(
                                 text: 'Address',
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 height: 16 / 13,
                               ),
@@ -487,8 +735,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               //   ),
                               // ),
                               CustomTextWidget(
-                                text: widget.userAddress,
-                                fontSize: 14,
+                                text: displayAddress,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w500,
                                 height: 19 / 14,
                               ),
@@ -508,11 +756,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ),
                           SizedBox(height: responsive.verticalSpacing),
 
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-
+                    ],
+                  ),
                 ),
               )
             ],

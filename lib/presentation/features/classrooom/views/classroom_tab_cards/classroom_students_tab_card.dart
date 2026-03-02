@@ -789,6 +789,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                   tags: student.tags.map((tag) => tag.name).toList(),
                                   schedule: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], // Default schedule
                                   sibling: {'name': [], 'relation': [], 'status': []}, // Default empty sibling data
+                                  studentCode: student.id.toString(),
                                 ),
                               ),
                             );

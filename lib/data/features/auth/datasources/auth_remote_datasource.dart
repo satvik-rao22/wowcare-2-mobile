@@ -71,12 +71,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final apiResponse = ApiResponse<LoginResponseModel>.fromJson(
-          response.data!,
-          (dataJson) =>
-              LoginResponseModel.fromJson(dataJson as Map<String, dynamic>),
-        );
-        if (apiResponse.data == null) {
+        final rawMap = response.data!;
+        // Extract data - handle both { data: {...} } and { data: { data: {...} } }
+        Object? dataPayload = rawMap['data'];
+        if (dataPayload is Map<String, dynamic> &&
+            dataPayload['accessToken'] == null &&
+            dataPayload['access_token'] == null &&
+            dataPayload['data'] != null) {
+          dataPayload = dataPayload['data'];
+        }
+        final dataMap = dataPayload as Map<String, dynamic>?;
+        if (dataMap == null) {
           throw DioException(
             requestOptions: response.requestOptions,
             response: response,
@@ -84,7 +89,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             error: 'Login failed: Missing data in response',
           );
         }
-        return apiResponse.data!;
+        final loginModel = LoginResponseModel.fromJson(dataMap);
+        if (loginModel.accessToken.isEmpty) {
+          throw DioException(
+            requestOptions: response.requestOptions,
+            response: response,
+            type: DioExceptionType.badResponse,
+            error: 'Login failed: Missing accessToken in response',
+          );
+        }
+        return loginModel;
       } else {
         throw DioException(
           requestOptions: response.requestOptions,

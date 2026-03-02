@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_document_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -21,6 +25,10 @@ class AddStudentDocumentScreen extends StatefulWidget {
     this.initialDocumentType,
     this.initialExpiryDate,
     this.initialFilePath,
+    this.initialMimeType,
+    this.initialFileSizeKb,
+    this.initialDocumentNotes,
+    this.documentUuid,
   });
   static const String routeName = '/add-student-document-screen';
 
@@ -30,6 +38,10 @@ class AddStudentDocumentScreen extends StatefulWidget {
   final String? initialDocumentType;
   final DateTime? initialExpiryDate;
   final String? initialFilePath;
+  final String? initialMimeType;
+  final int? initialFileSizeKb;
+  final String? initialDocumentNotes;
+  final String? documentUuid;
 
   @override
   _AddStudentDocumentScreenState createState() => _AddStudentDocumentScreenState();
@@ -37,25 +49,25 @@ class AddStudentDocumentScreen extends StatefulWidget {
 
 class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   final TextEditingController _documentNameController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
   String? _selectedDocumentType;
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
   PlatformFile? _selectedFile;
-  bool _isSubmitting = false;
+  static const int _documentNameMaxLength = 100;
+  static const int _notesMaxLength = 500;
 
   final List<String> _documentTypes = [
-    'Educational',
-    'Training',
-    'Health',
-    'Employment',
-    'Resume',
+    'Birth Certificate',
+    'Health Forms',
+    'Registration Forms',
+    'Special Program Forms',
     'Other'
   ];
 
   @override
   void initState() {
     super.initState();
-    // Prefill when editing
     if (widget.isEdit) {
       if (widget.initialDocumentName != null) {
         _documentNameController.text = widget.initialDocumentName!.trim();
@@ -63,18 +75,39 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       _selectedDocumentType = widget.initialDocumentType;
       _selectedExpiryDate = widget.initialExpiryDate;
       _selectedFilePath = widget.initialFilePath;
+      if (widget.initialDocumentNotes != null) {
+        _notesController.text = widget.initialDocumentNotes!.trim();
+      }
     }
   }
 
   @override
   void dispose() {
     _documentNameController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
-  void _addDocument() {
-    if (_documentNameController.text.isEmpty) {
+  String _getMimeType(String extension) {
+    const mimeTypes = {
+      'pdf': 'application/pdf',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'heic': 'image/heic',
+    };
+    return mimeTypes[extension] ?? 'application/octet-stream';
+  }
+
+  void _addDocument(BuildContext context) {
+    final name = _documentNameController.text.trim();
+    if (name.isEmpty) {
       _showWarningMessage('Document name is required');
+      return;
+    }
+    if (name.length > _documentNameMaxLength) {
+      _showWarningMessage('Document name must be at most $_documentNameMaxLength characters');
       return;
     }
 
@@ -83,35 +116,80 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       return;
     }
 
-    if (_selectedExpiryDate == null) {
-      _showWarningMessage('Please select an expiry date');
+    if (_notesController.text.length > _notesMaxLength) {
+      _showWarningMessage('Notes must be at most $_notesMaxLength characters');
       return;
     }
 
-    if (_selectedFile == null) {
+    if (!widget.isEdit && _selectedFile == null) {
       _showWarningMessage('Please upload a document');
       return;
     }
 
-    // TODO: Implement actual API call to add student document
-    setState(() {
-      _isSubmitting = true;
-    });
+    if (widget.studentCode.isEmpty) {
+      _showWarningMessage('Student code is required');
+      return;
+    }
 
-    // Simulate API call
-    Future.delayed(const Duration(seconds: 1)).then((_) {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: widget.isEdit ? 'Document updated successfully' : 'Document added successfully',
-          isSuccess: true,
-        );
-        Navigator.pop(context, true);
-      }
-    });
+    String storagePath;
+    int sizeBytes;
+    String mimeType;
+
+    if (_selectedFile != null) {
+      storagePath = _selectedFile!.path ?? _selectedFile!.name;
+      sizeBytes = _selectedFile!.size;
+      final extension = _selectedFile!.extension?.toLowerCase() ?? '';
+      mimeType = _getMimeType(extension);
+    } else if (widget.isEdit && widget.initialFilePath != null) {
+      storagePath = widget.initialFilePath!;
+      sizeBytes = (widget.initialFileSizeKb ?? 0) * 1024;
+      mimeType = widget.initialMimeType ?? 'application/pdf';
+    } else {
+      _showWarningMessage('Please upload a document');
+      return;
+    }
+
+    final cubit = context.read<StudentDocumentCubit>();
+
+    final documentType = _selectedDocumentType!.toUpperCase().replaceAll(' ', '_');
+
+    final payload = (
+      studentCode: widget.studentCode,
+      name: name,
+      type: documentType,
+      expiryDate: _selectedExpiryDate != null 
+          ? DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!)
+          : '',
+      storagePath: storagePath,
+      mimeType: mimeType,
+      size: sizeBytes,
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+    );
+
+    if (widget.isEdit && (widget.documentUuid ?? '').isNotEmpty) {
+      cubit.updateDocument(
+        documentUuid: widget.documentUuid!,
+        studentCode: payload.studentCode,
+        name: payload.name,
+        type: payload.type,
+        expiryDate: payload.expiryDate,
+        storagePath: payload.storagePath,
+        mimeType: payload.mimeType,
+        size: payload.size,
+        notes: payload.notes,
+      );
+    } else {
+      cubit.addDocument(
+        studentCode: payload.studentCode,
+        name: payload.name,
+        type: payload.type,
+        expiryDate: payload.expiryDate,
+        storagePath: payload.storagePath,
+        mimeType: payload.mimeType,
+        size: payload.size,
+        notes: payload.notes,
+      );
+    }
   }
 
   void _showWarningMessage(String message) {
@@ -154,8 +232,15 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       );
       
       if (result != null && result['date'] != null) {
+        final selectedDate = result['date'] as DateTime;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        if (selectedDate.isBefore(today) || selectedDate.isAtSameMomentAs(today)) {
+          _showWarningMessage('Expiry date must be a future date');
+          return;
+        }
         setState(() {
-          _selectedExpiryDate = result['date'] as DateTime;
+          _selectedExpiryDate = selectedDate;
         });
       }
     } catch (e) {
@@ -167,7 +252,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xls', 'xlsx', 'ppt', 'pptx'],
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'docx', 'heic'],
         allowMultiple: false,
       );
 
@@ -190,6 +275,31 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
+    return BlocProvider<StudentDocumentCubit>(
+      create: (_) => serviceLocator<StudentDocumentCubit>(),
+      child: BlocListener<StudentDocumentCubit, StudentDocumentState>(
+        listener: (context, state) {
+          if (state.isSuccess && state.message != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message!,
+              isSuccess: true,
+            );
+            Navigator.pop(context, true);
+          } else if (state.isError && state.message != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message!,
+              isError: true,
+            );
+          }
+        },
+        child: _buildForm(responsive, safeAreaBottom),
+      ),
+    );
+  }
+
+  Widget _buildForm(ResponsiveHelper responsive, double safeAreaBottom) {
     return StaffFormLayout(
       title: widget.isEdit ? "Edit Document" : "Add Document",
       child: GestureDetector(
@@ -211,6 +321,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             _buildDateField(),
             SizedBox(height: responsive.verticalSpacing),
             _buildFileUploadField(),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildNotesField(),
             const SizedBox(height: 12),
           ],
         ),
@@ -233,25 +345,16 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: Container(
-          height: responsive.buttonHeight,
-          decoration: BoxDecoration(
-            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: _isSubmitting ? Colors.grey[300] : null,
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-          ),
-          child: TextButton(
-            onPressed: _isSubmitting ? null : _addDocument,
-            child: Text(
-              widget.isEdit ? 'Save' : 'Add',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
+        child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
+          builder: (context, state) {
+            return CustomButtonLayout(
+              confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+              onPressedConfirm: () => _addDocument(context),
+              showCancelButton: false,
+              isForm: false,
+              isLoading: state.isLoading,
+            );
+          },
         ),
       ),
     );
@@ -290,10 +393,12 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           child: TextField(
             controller: controller,
             textCapitalization: TextCapitalization.sentences,
+            maxLength: _documentNameMaxLength,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
               border: InputBorder.none,
+              counterText: '',
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
                 vertical: responsive.isTablet ? 16.0 : 12.0,
@@ -324,14 +429,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              const TextSpan(text: 'Expiry Date'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
+        Text(
+          'Expiry Date',
+          style: labelStyle,
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
@@ -423,6 +523,50 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                   colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotesField() {
+    final responsive = ResponsiveHelper(context);
+    final labelStyle = AppTextStyles.label.copyWith(
+      fontSize: responsive.labelFontSize,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Notes',
+          style: labelStyle,
+        ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        Container(
+          constraints: BoxConstraints(
+            minHeight: responsive.inputFieldHeight * 2,
+            maxHeight: responsive.inputFieldHeight * 4,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0x66573353)),
+            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+          ),
+          child: TextField(
+            controller: _notesController,
+            maxLines: 4,
+            maxLength: _notesMaxLength,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'Add notes...',
+              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
             ),
           ),
         ),

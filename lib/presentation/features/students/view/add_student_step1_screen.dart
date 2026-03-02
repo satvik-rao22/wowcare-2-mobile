@@ -392,6 +392,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final storage = serviceLocator<StorageService>();
       final schoolCode =
           await storage.getString(StorageKeys.schoolCode) ?? '';
+      final organizationCode =
+          await storage.getString(StorageKeys.organizationCode) ?? '';
+      final userCode =
+          await storage.getString(StorageKeys.userCode) ?? '';
 
       final repo = serviceLocator<StudentRepository>();
 
@@ -409,6 +413,78 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final studentName = student.fullName.isNotEmpty
           ? student.fullName
           : '$firstName $lastName'.trim();
+
+      // Create guardian-user records for each newly entered parent (step 2).
+      // Existing parents selected from the list are skipped here.
+      for (final parent in parents) {
+        if (parent is! Map) continue;
+        final map = Map<String, dynamic>.from(parent);
+        final bool selectFromExisting =
+            map['selectFromExisting'] as bool? ?? false;
+        if (selectFromExisting) {
+          // Existing parents linking flow is not implemented yet.
+          continue;
+        }
+
+        final parentFirst =
+            (map['firstName'] as String?)?.trim() ?? '';
+        final parentLast =
+            (map['lastName'] as String?)?.trim() ?? '';
+        final parentEmail =
+            (map['email'] as String?)?.trim().toLowerCase() ?? '';
+        final parentPhoneRaw =
+            (map['phoneNumber'] as String?)?.trim() ?? '';
+        final parentPhoneDigits =
+            parentPhoneRaw.replaceAll(RegExp(r'\D'), '');
+
+        if (parentFirst.isEmpty ||
+            parentLast.isEmpty ||
+            parentEmail.isEmpty ||
+            parentPhoneDigits.isEmpty) {
+          continue;
+        }
+
+        final relationLabel =
+            (map['relation'] as String?)?.trim() ?? '';
+        final relationOther =
+            (map['relationOther'] as String?)?.trim() ?? '';
+        final relationToStudent = (relationLabel == 'Other' && relationOther.isNotEmpty
+                ? relationOther
+                : relationLabel)
+            .toUpperCase();
+
+        final bool primaryContact =
+            map['isEmergencyContact'] as bool? ?? true;
+        final bool legalCustody =
+            map['isChildCustody'] as bool? ?? true;
+
+        try {
+          await repo.createGuardianUser(
+            schoolCode: schoolCode,
+            studentCode: student.code,
+            firstName: parentFirst,
+            lastName: parentLast,
+            email: parentEmail,
+            mobile: parentPhoneDigits,
+            relationToStudent: relationToStudent,
+            primaryContact: primaryContact,
+            legalCustody: legalCustody,
+            profilePhotoUrl: null,
+            userCode: userCode.isEmpty ? null : userCode,
+            organizationCode:
+                organizationCode.isEmpty ? null : organizationCode,
+          );
+        } catch (e) {
+          final message = ApiErrorHandler.extractErrorMessage(e);
+          if (mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Failed to add guardian: $message',
+              isError: true,
+            );
+          }
+        }
+      }
 
       CoreUtils.showTopSnackBar(
         context: context,

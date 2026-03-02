@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../core/util/core_utils.dart';
 
 class NonEditableInfoWidget extends StatelessWidget {
   const NonEditableInfoWidget({
@@ -19,34 +20,6 @@ class NonEditableInfoWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    void showWarningMessage(String message) {
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      final snackBar = SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade50,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Colors.orange.shade100),
-        ),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -72,7 +45,11 @@ class NonEditableInfoWidget extends StatelessWidget {
         InkWell(
           onTap: !isEditable
               ? () {
-                  showWarningMessage("Can not be edited.");
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: 'Can not be edited.',
+                    isError: true,
+                  );
                 }
               : null,
           child: Opacity(

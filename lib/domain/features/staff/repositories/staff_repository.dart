@@ -7,10 +7,12 @@ import '../entities/staff_count.dart';
 
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   });
 
   Future<StaffPage> getStaffPage({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page,
@@ -18,6 +20,9 @@ abstract class StaffRepository {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
 
   Future<String> addStaffDocument({
@@ -47,6 +52,14 @@ abstract class StaffRepository {
     required String staffCode,
   });
 
+  /// Resolves staffCode for a given userCode + organizationCode + schoolCode
+  /// using the `/api/v1/staff/code` endpoint.
+  Future<String?> getStaffCodeForUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
   /// Updates staff profile core details (name, status, phone, designation, jobTag, classrooms, etc.).
   ///
   /// [fields] should follow the backend PATCH contract for `/api/v1/staff/{staffCode}/profile`.
@@ -60,6 +73,26 @@ abstract class StaffRepository {
   /// [fields] should include addressStreet, addressLine2, addressCity,
   /// addressState, addressZipCode, addressCountry.
   Future<String> updateStaffAddress({
+    required String staffCode,
+    required Map<String, dynamic> fields,
+  });
+
+  /// Updates the *logged-in* staff member's basic profile + address via
+  /// `PATCH /api/v1/staff/my-profile/{staffCode}` (my-profile controller).
+  ///
+  /// [fields] should match the backend contract:
+  /// {
+  ///   "firstName": "string",
+  ///   "lastName": "string",
+  ///   "phoneNumber": "string",
+  ///   "addressStreet": "string",
+  ///   "addressLine2": "string",
+  ///   "addressCity": "string",
+  ///   "addressState": "string",
+  ///   "addressZipCode": "string",
+  ///   "addressCountry": "string"
+  /// }
+  Future<String> updateMyProfile({
     required String staffCode,
     required Map<String, dynamic> fields,
   });
@@ -142,6 +175,9 @@ abstract class StaffRepositoryWithCache {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode);

@@ -9,7 +9,11 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 
 class AddStudentStep2Screen extends StatefulWidget {
   const AddStudentStep2Screen({
@@ -25,6 +29,9 @@ class AddStudentStep2Screen extends StatefulWidget {
     this.initialIsEmergencyContact = true,
     this.initialIsChildCustody = true,
     this.initialProfilePhoto,
+    this.studentCode,
+    this.schoolCode,
+    this.createGuardianDirectly = false,
   });
 
   static const String routeName = '/add-student-step2-screen';
@@ -40,6 +47,9 @@ class AddStudentStep2Screen extends StatefulWidget {
   final bool initialIsEmergencyContact;
   final bool initialIsChildCustody;
   final File? initialProfilePhoto;
+  final String? studentCode;
+  final String? schoolCode;
+  final bool createGuardianDirectly;
 
   @override
   _AddStudentStep2ScreenState createState() => _AddStudentStep2ScreenState();
@@ -59,6 +69,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   bool _isEmergencyContact = true;
   bool _isChildCustody = true;
   File? _profilePhoto;
+  bool _isSubmitting = false;
 
   final List<String> _relationOptions = ['Mother', 'Father', 'Guardian', 'Other'];
   final List<String> _existingParents = [
@@ -258,6 +269,70 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       }
     }
 
+    // If launched from Family tab to create guardian immediately
+    final studentCode = widget.studentCode ?? '';
+    final schoolCode = widget.schoolCode ?? '';
+    if (widget.createGuardianDirectly &&
+        studentCode.isNotEmpty &&
+        schoolCode.isNotEmpty &&
+        !_selectFromExisting) {
+      final first = _firstNameController.text.trim();
+      final last = _lastNameController.text.trim();
+      final email = _emailController.text.trim().toLowerCase();
+      final rawPhone = _phoneController.text.trim();
+      final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+
+      final relationLabel = (_selectedRelation ?? '').trim();
+      final relationOther = _relationOtherController.text.trim();
+      final relationToStudent =
+          (relationLabel == 'Other' && relationOther.isNotEmpty
+                  ? relationOther
+                  : relationLabel)
+              .toUpperCase();
+
+      final primaryContact = _isEmergencyContact;
+      final legalCustody = _isChildCustody;
+
+      if (_isSubmitting) return;
+      setState(() => _isSubmitting = true);
+      () async {
+        try {
+          final repo = serviceLocator<StudentRepository>();
+          final message = await repo.createGuardianUser(
+            schoolCode: schoolCode,
+            studentCode: studentCode,
+            firstName: first,
+            lastName: last,
+            email: email,
+            mobile: digits,
+            relationToStudent: relationToStudent,
+            primaryContact: primaryContact,
+            legalCustody: legalCustody,
+          );
+
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isSuccess: true,
+          );
+          Navigator.pop(context, true);
+        } catch (e) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: ApiErrorHandler.extractErrorMessage(e),
+            isError: true,
+          );
+        } finally {
+          if (mounted) {
+            setState(() => _isSubmitting = false);
+          }
+        }
+      }();
+      return;
+    }
+
     final step2Data = {
       'selectFromExisting': _selectFromExisting,
       'selectedExistingParents': _selectedExistingParents,
@@ -308,7 +383,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Add Student - Step 2 of 3',
+                      'Add parent',
                       style: TextStyle(
                         fontFamily: "Manrope",
                         fontSize: responsive.titleFontSize,
@@ -544,24 +619,12 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _onNext,
-              child: Text(
-                'Next',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+          child: CustomButtonLayout(
+            confirmButtonLabel: 'ADD',
+            onPressedConfirm: _isSubmitting ? null : _onNext,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting,
           ),
         ),
       ),

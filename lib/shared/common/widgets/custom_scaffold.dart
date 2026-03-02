@@ -172,7 +172,7 @@ import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 
-class GlobalScaffold extends StatelessWidget {
+class GlobalScaffold extends StatefulWidget {
   const GlobalScaffold({
     required this.body,
     this.hasBackButton = false,
@@ -193,25 +193,71 @@ class GlobalScaffold extends StatelessWidget {
   final Widget? customButtonLayout;
 
   @override
+  State<GlobalScaffold> createState() => _GlobalScaffoldState();
+}
+
+class _GlobalScaffoldState extends State<GlobalScaffold> {
+  bool _showBars = true;
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+
+    // If there's effectively no scrollable content, always show bars.
+    if (notification.metrics.maxScrollExtent <= 32) {
+      if (!_showBars) {
+        setState(() => _showBars = true);
+      }
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification &&
+        notification.scrollDelta != null) {
+      final delta = notification.scrollDelta!;
+      // Small threshold to avoid jitter.
+      if (delta > 2 && _showBars) {
+        // scrolling down → hide
+        setState(() => _showBars = false);
+      } else if (delta < -2 && !_showBars) {
+        // scrolling up → show
+        setState(() => _showBars = true);
+      }
+    }
+    return false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleProvider>();
     final isParentRole = roleProvider.isParent;
-    
+
+    final appBar = CustomAppBar(
+      hasBackButton: widget.hasBackButton,
+      isParent: isParentRole || widget.isParent,
+      studentList: widget.studentList,
+    );
+
+    final double navHeight =
+        CustomNavigationBar.navBarHeight > 0 ? CustomNavigationBar.navBarHeight : 72;
+
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        appBar: CustomAppBar(
-          hasBackButton: hasBackButton,
-          isParent: isParentRole || isParent,
-          studentList: studentList,
-        ),
+        appBar: _showBars
+            ? appBar
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(0),
+                child: const SizedBox.shrink(),
+              ),
         drawer: const CustomDrawer(),
         drawerEnableOpenDragGesture: false,
         body: SafeArea(
           child: GradientBackground(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: body,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScrollNotification,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: widget.body,
+              ),
             ),
           ),
         ),
@@ -220,6 +266,14 @@ class GlobalScaffold extends StatelessWidget {
         bottomNavigationBar: showCustomNavigationBar
             ? const CustomNavigationBar()
             : customButtonLayout,
+        floatingActionButton: widget.floatingActionButton,
+        bottomNavigationBar: widget.showCustomNavigationBar
+            ? AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: _showBars ? navHeight : 0,
+                child: const CustomNavigationBar(),
+              )
+            : null,
       ),
     );
   }

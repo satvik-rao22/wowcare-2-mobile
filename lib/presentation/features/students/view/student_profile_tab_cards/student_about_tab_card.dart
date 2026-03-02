@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
+import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -17,6 +23,8 @@ class StudentAboutTabCard extends StatefulWidget {
     required this.tags,
     required this.schedule,
     required this.sibling,
+    this.onRefresh,
+    this.studentProfile,
     super.key,
   });
 
@@ -26,6 +34,8 @@ class StudentAboutTabCard extends StatefulWidget {
   final List<String> tags;
   final List<String> schedule;
   final Map<String, dynamic> sibling;
+  final Future<void> Function()? onRefresh;
+  final StudentProfileModel? studentProfile;
 
   @override
   State<StudentAboutTabCard> createState() => _StudentAboutTabCardState();
@@ -37,67 +47,268 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     super.initState();
   }
 
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return '-';
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('MMM dd, yyyy').format(date);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  String _getValueOrDash(String? value) {
+    if (value == null || value.isEmpty) return '-';
+    return value;
+  }
+
+  String _formatAddress(Map<String, dynamic> address) {
+    final parts = <String>[];
+    if (address['street'] != null && address['street'].toString().isNotEmpty) {
+      parts.add(address['street'].toString());
+    }
+    if (address['city'] != null && address['city'].toString().isNotEmpty) {
+      parts.add(address['city'].toString());
+    }
+    if (address['state'] != null && address['state'].toString().isNotEmpty) {
+      parts.add(address['state'].toString());
+    }
+    if (address['country'] != null && address['country'].toString().isNotEmpty) {
+      parts.add(address['country'].toString());
+    }
+    if (address['zipCode'] != null && address['zipCode'].toString().isNotEmpty) {
+      parts.add(address['zipCode'].toString());
+    }
+    return parts.isEmpty ? '-' : parts.join(', ');
+  }
+
+  bool _hasTags() {
+    // Check if we have tags from API or widget
+    final apiTags = widget.studentProfile?.regularSchedules;
+    final widgetTags = widget.tags;
+    
+    // For now, API doesn't have tags field, so check widget tags
+    // If API has tags in future, check that first
+    return widgetTags.isNotEmpty;
+  }
+
+  List<String> _getTagsList() {
+    // Return tags from widget (API doesn't have tags field yet)
+    return widget.tags;
+  }
+
+  Widget _buildUpcomingMove() {
+    final upcomingMoveDate = widget.studentProfile?.importantDates?.upcomingMoveDate;
+    
+    if (upcomingMoveDate == null || upcomingMoveDate.isEmpty) {
+      // Show "-" in ProfileField format to preserve UI
+      return ProfileField(
+        label: 'Upcoming move',
+        value: '-',
+        isStudentStyle: true,
+      );
+    }
+
+    try {
+      final date = DateTime.parse(upcomingMoveDate);
+      final month = DateFormat('MMM').format(date);
+      final day = DateFormat('dd').format(date);
+      
+      // Get current and next class from API if available
+      final currentClass = widget.studentProfile?.classroom ?? widget.classroom;
+      final nextClass = widget.studentProfile?.classroom ?? '-'; // API doesn't provide next class yet
+      
+      return UpcomingMoveWidget(
+        month: month,
+        day: day,
+        currentClass: currentClass.isNotEmpty ? currentClass : '-',
+        nextClass: nextClass.isNotEmpty ? nextClass : '-',
+      );
+    } catch (e) {
+      // If date parsing fails, show "-"
+      return ProfileField(
+        label: 'Upcoming move',
+        value: '-',
+        isStudentStyle: true,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ProfileInfoCard(
-      cardType: 'student',
-      title: 'Profile Information',
-      scrollController: widget.scrollController,
-      studentFirstField: ProfileField(label: 'Name', value: widget.name, isStudentStyle: true),
-      onEdit: () {
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        await widget.onRefresh?.call();
+      },
+      child: ProfileInfoCard(
+        cardType: 'student',
+        title: 'Profile Information',
+        scrollController: widget.scrollController,
+        studentFirstField:
+            ProfileField(label: 'Name', value: widget.name, isStudentStyle: true),
+        onEdit: () {
+        if (widget.studentProfile == null) return;
+        
+        final profile = widget.studentProfile!;
+        
+        // Map status from API format (ACTIVE) to display format (Active)
+        String statusDisplay = 'Active';
+        final upperStatus = profile.status.toUpperCase();
+        if (upperStatus == 'ACTIVE' || profile.status == 'A') {
+          statusDisplay = 'Active';
+        } else if (upperStatus == 'INACTIVE' || profile.status == 'I') {
+          statusDisplay = 'Inactive';
+        } else if (profile.status == 'Upcoming') {
+          statusDisplay = 'Upcoming';
+        } else if (upperStatus == 'WAITLIST') {
+          statusDisplay = 'Waitlist';
+        } else if (upperStatus == 'GRADUATED') {
+          statusDisplay = 'Graduated';
+        }
+        
+        // Parse birth date
+        DateTime? birthDate;
+        if (profile.dob != null && profile.dob!.isNotEmpty) {
+          try {
+            birthDate = DateTime.parse(profile.dob!);
+          } catch (e) {
+            birthDate = null;
+          }
+        }
+        
+        // Extract address fields
+        final address = profile.address;
+        final street = address?['street']?.toString() ?? '';
+        final city = address?['city']?.toString() ?? '';
+        final state = address?['state']?.toString() ?? '';
+        final country = address?['country']?.toString() ?? '';
+        final zipCode = address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
+        
+        // Extract tags (from widget tags for now)
+        final tags = widget.tags.isNotEmpty
+            ? List<String>.from(widget.tags)
+            : const <String>[];
+        
+        // Extract siblings (from siblings map if available)
+        final siblings = <String>[];
+        if (profile.siblings != null) {
+          // Assuming siblings is a map, extract names or codes
+          // Adjust based on actual structure
+          siblings.addAll([]); // TODO: Extract from siblings map structure
+        }
+        
+        // Extract legal custodians
+        final legalCustodians = <String>[];
+        if (profile.legalCustodians.isNotEmpty) {
+          for (final custodian in profile.legalCustodians) {
+            if (custodian is String) {
+              legalCustodians.add(custodian);
+            } else if (custodian is Map) {
+              // Extract name or code from map
+              final name = custodian['name']?.toString() ?? custodian['code']?.toString() ?? '';
+              if (name.isNotEmpty) legalCustodians.add(name);
+            }
+          }
+        }
+        
+        ClassroomCubit? classroomCubit;
+        try {
+          classroomCubit = context.read<ClassroomCubit>();
+        } catch (_) {
+          classroomCubit = null;
+        }
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const EditStudentProfileDetailsScreen(
-              initialFirstName: 'Jessica',
-              initialLastName: 'Rhodes',
-              initialStatus: 'Active',
-              initialClassroom: '1-Blue D X',
-              initialBirthDate: null,
-              initialNotes: '',
-              initialFTE: '80',
-              initialStreet: '',
-              initialCity: '',
-              initialState: 'New Hampshire',
-              initialCountry: 'United States',
-              initialZipCode: '',
-            ),
+            builder: (context) {
+              final screen = EditStudentProfileDetailsScreen(
+                studentCode: profile.code,
+                initialFirstName: profile.firstName,
+                initialLastName: profile.lastName,
+                initialStatus: statusDisplay,
+                initialClassroom: profile.classroom ?? '',
+                initialBirthDate: birthDate,
+                initialNotes: profile.notes ?? '',
+                initialFTE: profile.fte ?? '',
+                initialStreet: street,
+                initialCity: city,
+                initialState: state,
+                initialCountry: country,
+                initialZipCode: zipCode,
+                initialTags: tags,
+                initialSiblings: siblings,
+                initialLegalCustodians: legalCustodians,
+                initialSubsidy: profile.subsidy,
+              );
+
+              // Preserve already-loaded classrooms when available; otherwise load fresh.
+              if (classroomCubit != null) {
+                return BlocProvider.value(value: classroomCubit, child: screen);
+              }
+              return BlocProvider(
+                create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+                child: screen,
+              );
+            },
           ),
-        );
+        ).then((result) async {
+          // If profile was updated, refresh from API (like staff implementation).
+          if (result == true) {
+            await widget.onRefresh?.call();
+          }
+        });
       },
       children: [
 
         ProfileField(
           label: 'Status',
-          valueWidget: _buildStatusChip('A'),
+          valueWidget: _buildStatusChip(
+            widget.studentProfile?.status ?? 'A',
+          ),
           isStudentStyle: true,
         ),
 
         ProfileField(
           label: 'Classroom',
-          value: widget.classroom,
+          value: _getValueOrDash(
+            widget.studentProfile?.classroom ?? widget.classroom,
+          ),
           isStudentStyle: true,
         ),
 
         ProfileField(
           label: 'Tags',
-          valueWidget: _tags(tags: widget.tags),
+          valueWidget: _hasTags()
+              ? _tags(tags: _getTagsList())
+              : Text(
+                  '-',
+                  style: AppTextStyles.value.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.03 * 15,
+                  ),
+                ),
           isStudentStyle: true,
         ),
 
         ProfileField(
           label: 'Gender',
-          value: 'Male/Female',
+          value: '-',
           isStudentStyle: true,
         ),
 
         ProfileField(
           label: 'Birth Date',
-          value: 'Oct 29, 2001',
+          value: _formatDate(widget.studentProfile?.dob),
           isStudentStyle: true,
         ),
 
-        ProfileField(label: 'Notes', value: "- -", isStudentStyle: true),
+        ProfileField(
+          label: 'Notes',
+          value: _getValueOrDash(widget.studentProfile?.notes),
+          isStudentStyle: true,
+        ),
 
         ProfileField(
           label: 'Child Custody',
@@ -107,7 +318,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'State Subsidy',
-          value: "No state subsidy",
+          value: widget.studentProfile != null
+              ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
+              : '-',
           isStudentStyle: true,
         ),
 
@@ -176,7 +389,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'Address',
-          value: '12, East Dunstable road, Nashua, NH, USA,\n03062',
+          value: widget.studentProfile?.address != null
+              ? _formatAddress(widget.studentProfile!.address!)
+              : '-',
           isStudentStyle: true,
         ),
 
@@ -241,17 +456,15 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'School leaving Date',
-          value: 'Oct 29, 2001',
+          value: _formatDate(
+            widget.studentProfile?.importantDates?.schoolLeavingDate,
+          ),
           isStudentStyle: true,
         ),
 
-        const UpcomingMoveWidget(
-          month: 'Oct',
-          day: '29',
-          currentClass: '1-Blue-D',
-          nextClass: '2-Green-D',
-        ),
+        _buildUpcomingMove(),
       ],
+      ),
     );
     // this was before using the reusable widget
     // return SingleChildScrollView(
@@ -488,24 +701,25 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 
   Widget _buildStatusChip(String status) {
-    final label = status == 'A'
+    final upperStatus = status.toUpperCase();
+    final label = upperStatus == 'ACTIVE' || status == 'A'
         ? 'Active'
-        : status == 'I'
+        : upperStatus == 'INACTIVE' || status == 'I'
         ? 'Inactive'
         : status == 'Upcoming'
         ? 'Upcoming'
         : 'Active';
-    final labelColor = status == 'A'
+    final labelColor = upperStatus == 'ACTIVE' || status == 'A'
         ? const Color.fromRGBO(56, 200, 32, 1)
         : status == 'Upcoming'
         ? const Color.fromARGB(255, 238, 223, 8)
         : const Color.fromRGBO(250, 65, 65, 1);
-    final bgColor = status == 'A'
+    final bgColor = upperStatus == 'ACTIVE' || status == 'A'
         ? const Color.fromRGBO(56, 200, 32, 0.1)
         : status == 'Upcoming'
         ? const Color.fromARGB(255, 242, 238, 176)
         : const Color.fromRGBO(250, 65, 65, 0.1);
-    final icon = status == 'A'
+    final icon = upperStatus == 'ACTIVE' || status == 'A'
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 
@@ -561,9 +775,8 @@ class _tags extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tagList = tags.isEmpty
-        ? ['5 days', 'Full day', 'Allergies', 'Medication']
-        : tags;
+    // Use actual tags, don't show placeholder if empty
+    final tagList = tags;
     return Wrap(
       spacing: 4,
       runSpacing: 4,

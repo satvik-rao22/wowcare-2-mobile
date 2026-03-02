@@ -125,7 +125,17 @@ class StaffPageModel extends Equatable {
         .map((e) => StaffListItemModel.fromJson(e as Map<String, dynamic>))
         .toList();
 
-    final hasMore = pageNumber + 1 < totalPages;
+    // Prefer totalPages; fallback to totalElements when totalPages is 0 or missing
+    final hasMore = totalPages > 0
+        ? (pageNumber + 1 < totalPages)
+        : (totalElements > 0 &&
+            pageSize > 0 &&
+            (pageNumber + 1) * pageSize < totalElements);
+
+    // ignore: avoid_print
+    print('[StaffPageModel] fromJson: page=$pageNumber, size=$pageSize, '
+        'totalPages=$totalPages, totalElements=$totalElements, '
+        'itemsOnPage=${items.length}, hasMore=$hasMore');
 
     return StaffPageModel(
       items: items,

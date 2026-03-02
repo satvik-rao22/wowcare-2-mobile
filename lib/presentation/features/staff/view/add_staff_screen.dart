@@ -88,7 +88,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   ];
 
   // Phone number validation regex - now requires exactly 10 digits
-  static final RegExp _phoneRegex = RegExp(r'^\\(\\d{3}\\)\\s\\d{3}-\\d{4}$');
+  static final RegExp _phoneRegex = RegExp(r'^\(\d{3}\)\s\d{3}-\d{4}$');
+  // First/Last name: first character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   // Email validation regex
   // Email validation regexes: strict and permissive; accept if any matches
   static final RegExp _emailRegexStrict = RegExp(
@@ -127,30 +129,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Default role when creating new entry
     _selectedRole ??= widget.initialRole ?? 'Staff';
 
-    // If classrooms were prefetched by a parent screen (e.g. StaffScreen),
-    // hydrate local caches from those and avoid hitting the classrooms API again.
-    if (widget.initialClassroomNames != null &&
-        widget.initialClassroomNames!.isNotEmpty) {
-      _classrooms
-        ..clear()
-        ..addAll(widget.initialClassroomNames!);
-      _classroomCodeByName
-        ..clear()
-        ..addAll(widget.initialClassroomCodeByName ?? {});
-
-      // For admin, all classrooms are auto-allowed and primary defaults to first.
-      if (_isAdminSelected) {
-        _selectedAllowedClassroomNames = List<String>.from(_classrooms);
-        if (_classrooms.isNotEmpty &&
-            _selectedPrimaryClassroomName == null) {
-          _selectedPrimaryClassroomName = _classrooms.first;
-        }
-        _selectedStatus ??= 'Active';
-      }
-    } else {
-      // No prefetched classrooms available – fall back to API call.
-      _loadClassrooms();
-    }
+    
+    _loadClassrooms();
   }
 
   @override
@@ -169,7 +149,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
   void _addStaff() {
     _trimAllInputs();
-    if (_firstNameController.text.isEmpty) {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+
+    if (firstName.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'First name is required',
@@ -177,10 +160,26 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       );
       return;
     }
-    if (_lastNameController.text.isEmpty) {
+    if (firstName.length > 50 || !_nameRegex.hasMatch(firstName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (lastName.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last name is required',
+        isError: true,
+      );
+      return;
+    }
+    if (lastName.length > 50 || !_nameRegex.hasMatch(lastName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -282,8 +281,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       }
     }
 
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
+    // firstName / lastName already trimmed and validated above
     final displayName = _composeStaffName();
     final email = _emailController.text.trim();
     final mobileDigits = _phoneController.text.trim().replaceAll(
@@ -296,11 +294,35 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
     final primaryClassroomCode = _selectedPrimaryClassroomName == null
         ? ''
-        : (_classroomCodeByName[_selectedPrimaryClassroomName!] ?? '');
-    final allowedClassroomCodes = _selectedAllowedClassroomNames
+        : (_classroomCodeByName[_selectedPrimaryClassroomName!] ?? '').trim();
+    var allowedClassroomCodes = _selectedAllowedClassroomNames
         .map((name) => _classroomCodeByName[name])
         .whereType<String>()
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
         .toList();
+
+    // Block submit if classroom codes could not be resolved (API needs valid codes)
+    if (primaryClassroomCode.isEmpty) {
+      if (!_isAdminSelected) {
+        setState(() => _primaryClassroomError = 'Please select a primary classroom');
+      }
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not resolve classroom code. Please refresh the page and try again.',
+        isError: true,
+      );
+      return;
+    }
+    if (!_isAdminSelected && allowedClassroomCodes.isEmpty && _selectedAllowedClassroomNames.isNotEmpty) {
+      setState(() => _allowedClassroomsError = 'Could not resolve classroom codes');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not resolve classroom codes. Please refresh the page and try again.',
+        isError: true,
+      );
+      return;
+    }
 
     _createSchoolUserCubit.create(
       isAdmin: isAdmin,
@@ -325,18 +347,17 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   }
 
   Future<void> _loadClassrooms() async {
-    // Load classrooms via cubit
-    _classroomCubit!.loadActiveClassrooms();
+    // Load classrooms via cubit using the classroom-only API
+    // (maps to type=CLASSROOM in the backend URL for all roles).
+    _classroomCubit!.loadActiveClassrooms(
+      onlyTypeClassroom: true,
+    );
   }
 
   void _updateClassroomsFromCubitState(ClassroomState state) {
     if (state.classrooms.isEmpty) {
       if (state.errorMessage != null) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: state.errorMessage!,
-          isError: true,
-        );
+        CoreUtils.logApiError(state.errorMessage!);
       } else if (!state.isLoading) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -492,11 +513,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         value: _createSchoolUserCubit,
         child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, classroomState) {
-          // Update local state when classrooms are loaded from cubit
-          if (!classroomState.isLoading && 
-              classroomState.classrooms.isNotEmpty && 
-              _classrooms.isEmpty &&
-              (widget.initialClassroomNames == null || widget.initialClassroomNames!.isEmpty)) {
+          // Update local caches once classrooms are loaded from cubit.
+          // We no longer rely on any prefetched classroom list for this screen.
+          if (!classroomState.isLoading &&
+              classroomState.classrooms.isNotEmpty &&
+              _classrooms.isEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _updateClassroomsFromCubitState(classroomState);
             });
@@ -511,6 +532,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               if (!mounted) return;
 
               if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+                CoreUtils.logApiError(state.errorMessage!);
                 CoreUtils.showTopSnackBar(
                   context: context,
                   message: state.errorMessage!,
@@ -529,10 +551,23 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       : 'User created successfully',
                   isSuccess: true,
                 );
+                // Prefill from API response so edit profile shows exactly what was saved
+                final u = result.user;
                 Navigator.pop(context, {
                   'showPostAddPrompt': true,
                   'staffName': staffName,
-                  'userCode': result.user.userCode,
+                  'userCode': u.userCode,
+                  'staffCode': u.staffCode ?? u.userCode,
+                  'initialFirstName': u.firstName,
+                  'initialLastName': u.lastName,
+                  'initialEmail': u.email,
+                  'initialDesignation': u.designation,
+                  'initialPhoneNumber': u.mobile,
+                  'initialPrimaryClassroom': _selectedPrimaryClassroomName,
+                  'initialAllowedClassrooms': List<String>.from(_selectedAllowedClassroomNames),
+                  'initialClassroomNames': List<String>.from(_classrooms),
+                  'initialClassroomCodeByName': Map<String, String>.from(_classroomCodeByName),
+                  'initialStatus': u.status ?? _selectedStatus,
                 });
               }
             },
@@ -667,6 +702,14 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                   _selectedPrimaryClassroomName = null;
                                 }
                               });
+                              // Reload classrooms for the selected role.
+                              // For both Admin and Staff, use type=CLASSROOM
+                              // so the dropdown is populated only with classrooms.
+                              final classroomCubit = context.read<ClassroomCubit>();
+                              classroomCubit.loadActiveClassrooms(
+                                force: true,
+                                onlyTypeClassroom: true,
+                              );
                             },
                           ),
                                 SizedBox(height: responsive.verticalSpacing),
@@ -838,6 +881,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       ),
                       ),
                     ),
+                    const SizedBox(height: 12),
                   ],
                 ),
                   ],
@@ -891,7 +935,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             "E.g. John",
             _firstNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+              LengthLimitingTextInputFormatter(50),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -904,7 +949,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             "E.g. Smith",
             _lastNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+              LengthLimitingTextInputFormatter(50),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],

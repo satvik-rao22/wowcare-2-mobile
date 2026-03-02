@@ -1,101 +1,257 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
-
 
 class StudentFamilyTabCard extends StatefulWidget {
   const StudentFamilyTabCard({
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.studentCode,
+    this.schoolCode,
+    this.onRefresh,
     super.key,
   });
 
   final ScrollController scrollController;
   final String name;
   final String classroom;
-
+  final String? studentCode;
+  final String? schoolCode;
+  final Future<void> Function()? onRefresh;
 
   @override
-  State<StudentFamilyTabCard> createState() =>
-      _StudentFamilyTabCardState();
+  State<StudentFamilyTabCard> createState() => _StudentFamilyTabCardState();
 }
 
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
+  late Future<List<Map<String, dynamic>>> _guardiansFuture;
 
   @override
   void initState() {
     super.initState();
+    _guardiansFuture = _loadGuardians();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadGuardians() async {
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isEmpty) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    try {
+      final repo = serviceLocator<StudentRepository>();
+      final models = await (repo as StudentRepositoryImpl)
+          .getStudentGuardians(studentCode: studentCode);
+      return models.map((e) => e.toJson()).toList(growable: false);
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
+    }
+  }
+  Future<void> _onAddParent() async {
+    final studentCode = widget.studentCode ?? '';
+    final schoolCode = widget.schoolCode ?? '';
+    if (studentCode.isEmpty || schoolCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Student details not loaded yet. Please try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddStudentStep2Screen(
+          studentCode: studentCode,
+          schoolCode: schoolCode,
+          createGuardianDirectly: true,
+        ),
+      ),
+    );
+
+    if (!mounted || result != true) return;
+
+    setState(() {
+      _guardiansFuture = _loadGuardians();
+    });
+    await widget.onRefresh?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      child: Column(
-        children: [
-          _FamilyCard(name: "Parent name", relation: 'Father', email: "father@mail.com",),
-          SizedBox(height: 20,),
-          _FamilyCard(name: "Parent name", relation: 'Mother', email: "mother@mail.com",)
-        ],
-      ),
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _guardiansFuture = _loadGuardians();
+        });
+        await widget.onRefresh?.call();
+      },
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Parents & guardians',
+                      style: AppTextStyles.value.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                    GradientAddButton(
+                      onTap: _onAddParent,
+                      wantedButtonSize: 40,
+                      iconSize: 22,
+                      borderRadius: 10,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: _guardiansFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: PrimaryCircularLoader(
+                        size: 28,
+                        strokeWidth: 2.5,
+                      ),
+                    );
+                  }
 
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        'Failed to load parents',
+                        style: AppTextStyles.value.copyWith(
+                          fontSize: 14,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    );
+                  }
+
+                  final data = snapshot.data ?? const [];
+                  if (data.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'No parents added yet',
+                        style: AppTextStyles.value.copyWith(fontSize: 14),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      for (int i = 0; i < data.length; i++) ...[
+                        _FamilyCard(
+                          name:
+                              '${data[i]['firstName'] ?? ''} ${data[i]['lastName'] ?? ''}'
+                                  .trim(),
+                          relation:
+                              (data[i]['relationToStudent'] ?? '').toString(),
+                          email: (data[i]['email'] ?? '').toString(),
+                          phone: (data[i]['mobile'] ?? '').toString(),
+                          pin: '—',
+                        ),
+                        if (i != data.length - 1)
+                          const SizedBox(height: 12),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
-
 }
 
-class _FamilyCard extends StatelessWidget{
-  const _FamilyCard({required this.name, this.relation, this.email});
+class _FamilyCard extends StatelessWidget {
+  const _FamilyCard({
+    required this.name,
+    required this.relation,
+    required this.email,
+    required this.phone,
+    required this.pin,
+  });
+
   final String name;
-  final String? relation;
-  final String? email;
+  final String relation;
+  final String email;
+  final String phone;
+  final String pin;
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          // Match staff card styling: radius 12, 1px border.
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-          Container(
-          // Match staff card header height.
-          height: 60,
-          padding: EdgeInsets.symmetric(
-            horizontal: isTablet ? 24 : 16,
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              DocumentImageWidget(
-                fileUuid: '',
-                name: name,
-                size: 45,
+            Container(
+              height: 60,
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 24 : 16,
               ),
-              SizedBox(width: isTablet ? 16 : 9),
-            Flexible(
-              child: Text(
-                name,
-                style: AppTextStyles.value.copyWith(
-                  fontSize: isTablet ? 16 : 14,
-                ),
-                overflow: TextOverflow.ellipsis,
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  DocumentImageWidget(
+                    fileUuid: '',
+                    name: name,
+                    size: 45,
+                  ),
+                  SizedBox(width: isTablet ? 16 : 9),
+                  Flexible(
+                    child: Text(
+                      name,
+                      style: AppTextStyles.value.copyWith(
+                        fontSize: isTablet ? 16 : 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            )
-            ],
-          ),
-        ),
+            ),
             Divider(
               height: 1,
               thickness: 1,
@@ -121,7 +277,7 @@ class _FamilyCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        relation!,
+                        relation,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 15,
                         ),
@@ -142,7 +298,7 @@ class _FamilyCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        email!,
+                        email,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 15,
                         ),
@@ -163,7 +319,7 @@ class _FamilyCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        "(986) 027-1627",
+                        phone,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 15,
                         ),
@@ -184,7 +340,7 @@ class _FamilyCard extends StatelessWidget{
                         ),
                       ),
                       Text(
-                        '263630',
+                        pin,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 15,
                         ),
@@ -192,68 +348,42 @@ class _FamilyCard extends StatelessWidget{
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 40,
-                          child: OutlinedButton(
-                            onPressed: () {},
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(0xFF6C7FD8),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  8,
-                                ),
-                              ),
-                              padding: EdgeInsets.zero,
-                            ),
-                            child: Text(
-                              'Delete',
-                              style: AppTextStyles.button(color: const Color(0xFF6C7FD8)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            gradient:
-                            AppColors.buildPrimaryGradient(),
-                          ),
-                          child: TextButton(
-                            onPressed: () {
-
-                            },
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                            ),
-                            child: Text(
-                              'Edit',
-                              style: AppTextStyles.button(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  CustomButtonLayout(
+                    confirmButtonLabel: 'Edit',
+                    cancelButtonLabel: 'Delete',
+                    onPressedConfirm: () {
+                      // TODO: hook up Edit parent
+                    },
+                    onPressedCancel: () {
+                      // TODO: hook up Delete parent
+                    },
+                    isForm: false,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
           ],
-
         ),
       ),
     );
-
   }
+}
 
+class _FamilyInfoRow extends StatelessWidget {
+  const _FamilyInfoRow({
+    required this.label,
+    required this.valueKey,
+  });
+
+  final String label;
+  final String valueKey;
+
+  @override
+  Widget build(BuildContext context) {
+    // No longer used; kept for compatibility if needed later.
+    return const SizedBox.shrink();
+  }
 }
 
 

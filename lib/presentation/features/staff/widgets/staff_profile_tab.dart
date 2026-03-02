@@ -19,6 +19,7 @@ class StaffProfileTab extends StatefulWidget {
     required this.staffCode,
     this.classroomNames,
     this.classroomNameByCode,
+    this.onProfileSummaryChanged,
   });
 
   final String staffCode;
@@ -26,6 +27,10 @@ class StaffProfileTab extends StatefulWidget {
   final List<String>? classroomNames;
   /// Optional mapping from classroom code -> display name (from StaffScreen).
   final Map<String, String>? classroomNameByCode;
+  /// Optional callback so parent (StaffProfileScreen) can update
+  /// the header card when core profile info changes.
+  final void Function(String name, String classroom, String designation)?
+      onProfileSummaryChanged;
 
   @override
   State<StaffProfileTab> createState() => _StaffProfileTabState();
@@ -137,6 +142,30 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                   style: const TextStyle(color: Colors.redAccent),
                 ),
               );
+            }
+
+            // Notify parent about updated summary info (name, classroom, role)
+            // so the header card stays in sync with this tab.
+            if (widget.onProfileSummaryChanged != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                final displayName =
+                    profile.fullName.isEmpty ? '-' : profile.fullName;
+                final primaryClassroomName =
+                    profile.primaryClassroomCode.isEmpty
+                        ? '-'
+                        : (widget.classroomNameByCode?[
+                                profile.primaryClassroomCode] ??
+                            profile.primaryClassroomCode);
+                final designation = profile.designation.isEmpty
+                    ? '-'
+                    : profile.designation;
+                widget.onProfileSummaryChanged!(
+                  displayName,
+                  primaryClassroomName,
+                  designation,
+                );
+              });
             }
 
             // Build work and break times maps

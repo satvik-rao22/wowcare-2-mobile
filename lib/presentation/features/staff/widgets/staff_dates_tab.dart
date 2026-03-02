@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class StaffDatesTab extends StatefulWidget {
   const StaffDatesTab({super.key, required this.staffCode});
@@ -19,10 +24,13 @@ class StaffDatesTab extends StatefulWidget {
 
 class _StaffDatesTabState extends State<StaffDatesTab> {
   final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
+  final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
   bool _isLoading = true;
   String? _errorMessage;
   final Map<String, String> _datesByType = {};
+  /// Full list from API/cache for passing to edit screen and Physical Checkup display.
+  List<Map<String, String>> _importantDatesList = [];
 
   @override
   void initState() {
@@ -46,6 +54,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
           if (cached != null && mounted) {
             _datesByType.clear();
+            _importantDatesList = List.from(cached);
             for (final date in cached) {
               final type = (date['importantDateType'] ?? '').toUpperCase();
               final dueDate = date['dueDate'] ?? '';
@@ -76,10 +85,12 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
             _isLoading = false;
             _errorMessage = failure.message ?? 'Failed to load important dates';
             _datesByType.clear();
+            _importantDatesList = [];
           });
         },
         (dates) {
           _datesByType.clear();
+          _importantDatesList = List.from(dates);
           for (final date in dates) {
             final type = (date['importantDateType'] ?? '').toUpperCase();
             final dueDate = date['dueDate'] ?? '';
@@ -99,6 +110,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
         _isLoading = false;
         _errorMessage = 'Failed to load important dates';
         _datesByType.clear();
+        _importantDatesList = [];
       });
     }
   }
@@ -114,6 +126,360 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
   String _getDateForType(String type) {
     return _datesByType[type.toUpperCase()] ?? '';
+  }
+
+  Map<String, String>? _getEntryByType(String type) {
+    final key = type.toUpperCase();
+    for (final e in _importantDatesList) {
+      if ((e['importantDateType'] ?? '').toUpperCase() == key) return e;
+    }
+    return null;
+  }
+
+  DateTime? _parseIsoDate(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    try {
+      return DateTime.parse(iso);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Maps API status (OVERDUE, SCHEDULED, COMPLETED) to edit-screen dropdown value.
+  String? _apiStatusToDropdown(String? apiStatus) {
+    if (apiStatus == null) return null;
+    switch (apiStatus.toUpperCase()) {
+      case 'COMPLETED':
+        return 'Completed';
+      case 'OVERDUE':
+      case 'SCHEDULED':
+        return 'Scheduled';
+      default:
+        return 'Scheduled';
+    }
+  }
+
+  Widget _buildPhysicalCheckupSection() {
+    final physical = _getEntryByType('PHYSICAL_CHECKUP');
+    const completedColor = Color.fromRGBO(56, 200, 32, 1);
+    const completedBg = Color.fromRGBO(56, 200, 32, 0.1);
+    const dueColor = Color.fromRGBO(234, 186, 0, 1);
+    const dueBg = Color.fromRGBO(234, 186, 0, 0.12);
+    const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
+    const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
+
+    String statusLabel;
+    Color statusColor;
+    Color statusBg;
+    String statusUpper = '';
+    if (physical == null) {
+      statusLabel = '-';
+      statusColor = AppColors.primaryColor.withOpacity(0.5);
+      statusBg = AppColors.primaryColor.withOpacity(0.1);
+    } else {
+      statusUpper = (physical['status'] ?? '').toUpperCase();
+      switch (statusUpper) {
+        case 'COMPLETED':
+          statusLabel = 'Completed';
+          statusColor = completedColor;
+          statusBg = completedBg;
+          break;
+        case 'DUE':
+        case 'OVERDUE':
+          statusLabel = 'Due';
+          statusColor = dueColor;
+          statusBg = dueBg;
+          break;
+        case 'SCHEDULED':
+          statusLabel = 'Scheduled';
+          statusColor = scheduledColor;
+          statusBg = scheduledBg;
+          break;
+        default:
+          statusLabel = physical['status']?.isNotEmpty == true ? physical['status']! : 'Scheduled';
+          statusColor = scheduledColor;
+          statusBg = scheduledBg;
+      }
+    }
+    final bool isCompleted = statusUpper == 'COMPLETED';
+    final dateIso = physical != null
+        ? (isCompleted ? (physical['completedDate'] ?? physical['dueDate']) : physical['dueDate'])
+        : null;
+    final dateStr = (dateIso ?? '').isNotEmpty ? _formatDate(dateIso!) : '-';
+    final bool showMore = physical != null && !isCompleted;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Physical Checkup',
+          style: TextStyle(
+            color: AppColors.primaryColor.withOpacity(0.5),
+            fontSize: 16,
+            letterSpacing: 14 * (-3 / 100),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _PhysicalCard(
+          statusLabel: statusLabel,
+          statusColor: statusColor,
+          statusBg: statusBg,
+          date: dateStr,
+          showMore: showMore,
+          onMore: showMore
+              ? () => _openEditPhysicalDialog(
+                    initialDateIso: physical['dueDate'] ?? '',
+                    initialStatusUi: statusLabel,
+                  )
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openEditPhysicalDialog({
+    required String initialDateIso,
+    required String initialStatusUi,
+  }) async {
+    if (!mounted) return;
+
+    DateTime? selectedDate;
+    try {
+      selectedDate = initialDateIso.isNotEmpty ? DateTime.parse(initialDateIso) : null;
+    } catch (_) {
+      selectedDate = null;
+    }
+    String statusUi = initialStatusUi.isNotEmpty ? initialStatusUi : 'Scheduled';
+
+    bool isSaving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isTablet = screenWidth > 600;
+        final isLargeTablet = screenWidth > 900;
+        final bottomSafe = MediaQuery.of(context).padding.bottom;
+
+        final horizontalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
+        final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
+
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isLargeTablet ? 1200.0 : double.infinity,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.only(
+                    left: horizontalPadding,
+                    right: horizontalPadding,
+                    top: verticalPadding,
+                    bottom: verticalPadding + bottomSafe,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(borderRadius),
+                      topRight: Radius.circular(borderRadius),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Edit Physical Examination',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff573353),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: AppColors.primaryColor),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: verticalPadding),
+                      if (isTablet)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _DialogField(
+                                label: 'Physical Checkup Date *',
+                                value: selectedDate != null
+                                    ? _apiFormatter.format(selectedDate!)
+                                    : '',
+                                suffix: SvgPicture.asset(
+                                  MediaRes.calender_icon,
+                                  height: 20.0,
+                                  colorFilter: const ColorFilter.mode(
+                                    AppColors.primaryColor,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                                onTap: () async {
+                                  final result = await showDialog<Map<String, dynamic>>(
+                                    context: context,
+                                    builder: (context) => CalendarDialog(
+                                      isRangePicker: false,
+                                      isTimePicker: false,
+                                      initialDate: selectedDate,
+                                      firstDate: (() {
+                                        final now = DateTime.now();
+                                        return DateTime(now.year, now.month, now.day);
+                                      })(),
+                                    ),
+                                  );
+                                  if (result == null || result['date'] == null) return;
+                                  final picked = result['date'] as DateTime;
+                                  setLocalState(() => selectedDate = picked);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _DialogDropdown(
+                                label: 'Status *',
+                                value: statusUi,
+                                options: const ['Due', 'Scheduled', 'Completed'],
+                                onChanged: (v) => setLocalState(() => statusUi = v),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            _DialogField(
+                              label: 'Physical Checkup Date *',
+                              value: selectedDate != null
+                                  ? _apiFormatter.format(selectedDate!)
+                                  : '',
+                              suffix: SvgPicture.asset(
+                                MediaRes.calender_icon,
+                                height: 20.0,
+                                colorFilter: const ColorFilter.mode(
+                                  AppColors.primaryColor,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                              onTap: () async {
+                                final result = await showDialog<Map<String, dynamic>>(
+                                  context: context,
+                                  builder: (context) => CalendarDialog(
+                                    isRangePicker: false,
+                                    isTimePicker: false,
+                                    initialDate: selectedDate,
+                                    firstDate: (() {
+                                      final now = DateTime.now();
+                                      return DateTime(now.year, now.month, now.day);
+                                    })(),
+                                  ),
+                                );
+                                if (result == null || result['date'] == null) return;
+                                final picked = result['date'] as DateTime;
+                                setLocalState(() => selectedDate = picked);
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _DialogDropdown(
+                              label: 'Status *',
+                              value: statusUi,
+                              options: const ['Due', 'Scheduled', 'Completed'],
+                              onChanged: (v) => setLocalState(() => statusUi = v),
+                            ),
+                          ],
+                        ),
+                      SizedBox(height: verticalPadding),
+                      Builder(
+                        builder: (_) {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          final canSave =
+                              selectedDate != null && !selectedDate!.isBefore(today);
+
+                          return CustomButtonLayout(
+                            confirmButtonLabel: 'Save',
+                            cancelButtonLabel: 'Cancel',
+                            isForm: false,
+                            isLoading: isSaving,
+                            onPressedCancel: () => Navigator.of(context).pop(),
+                            onPressedConfirm: canSave
+                                ? () async {
+
+                          final dueIso = _apiFormatter.format(selectedDate!);
+                          final statusApi = statusUi == 'Completed'
+                              ? 'COMPLETED'
+                              : statusUi == 'Scheduled'
+                                  ? 'SCHEDULED'
+                                  : 'DUE';
+
+                          final payload = <String, String>{
+                            'importantDateType': 'PHYSICAL_CHECKUP',
+                            'dueDate': dueIso,
+                            'status': statusApi,
+                            if (statusApi == 'COMPLETED') 'completedDate': dueIso,
+                          };
+
+                          setLocalState(() => isSaving = true);
+                          try {
+                            final repo = serviceLocator<StaffRepository>();
+                            final msg = await repo.updateImportantDates(
+                              staffCode: widget.staffCode,
+                              dates: [payload],
+                            );
+                            if (!context.mounted) return;
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message: msg.isNotEmpty ? msg : 'Updated successfully',
+                              isSuccess: true,
+                            );
+                            Navigator.of(context).pop();
+                            await _loadDates(useCache: false);
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            CoreUtils.logApiError(e.toString());
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message:
+                                  'Failed to update physical checkup. Please try again.',
+                              isError: true,
+                            );
+                          } finally {
+                            // `setLocalState` belongs to the bottom sheet; guard with sheet context.
+                            if (context.mounted) {
+                              setLocalState(() => isSaving = false);
+                            }
+                          }
+                        }
+                                : null,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -156,18 +522,27 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     ),
                     GestureDetector(
                       onTap: () {
+                        final hire = _getEntryByType('HIRE_DATE');
+                        final cda = _getEntryByType('CDA');
+                        final firstAid = _getEntryByType('FIRST_AID_CPR');
+                        final brc = _getEntryByType('BRC');
+                        final physical = _getEntryByType('PHYSICAL_CHECKUP');
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => EditImportantDatesScreen(
                               staffCode: widget.staffCode,
-                              initialHireDate: null, // You can pass actual dates here
-                              initialCdaExaminationDate: null,
-                              initialFirstAidCprExpirationDate: null,
-                              initialBackgroundRecordCheckExpirationDate: null,
+                              initialHireDate: _parseIsoDate(hire?['dueDate']),
+                              initialCdaExaminationDate: _parseIsoDate(cda?['dueDate']),
+                              initialFirstAidCprExpirationDate: _parseIsoDate(firstAid?['dueDate']),
+                              initialBackgroundRecordCheckExpirationDate: _parseIsoDate(brc?['dueDate']),
+                              initialPhysicalCheckupDate: _parseIsoDate(physical?['dueDate']),
+                              initialPhysicalCheckupStatus: _apiStatusToDropdown(physical?['status']),
                             ),
                           ),
-                        );
+                        ).then((_) {
+                          if (mounted) _loadDates(useCache: false);
+                        });
                       },
                       child: Container(
                         width: 38,
@@ -225,34 +600,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     showInfo: false,
                   ),
                   const SizedBox(height: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Physical Checkup',
-                        style: TextStyle(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 16,
-                          letterSpacing: 14 * (-3 / 100),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Completed card
-                      const _PhysicalCard(
-                        statusLabel: 'Completed',
-                        statusColor: Color.fromRGBO(56, 200, 32, 1),
-                        statusBg: Color.fromRGBO(56, 200, 32, 0.1),
-                        date: 'Dec 09 ,2023',
-                      ),
-                      // Due/Overdue card
-                      const _PhysicalCard(
-                        statusLabel: 'Due',
-                        statusColor: Color.fromRGBO(234, 186, 0, 1),
-                        statusBg: Color.fromRGBO(234, 186, 0, 0.1),
-                        date: 'Dec 09 ,2023',
-                      ),
-                    ],
-                  ),
+                  _buildPhysicalCheckupSection(),
                 ],
               ],
             ),
@@ -348,12 +696,16 @@ class _PhysicalCard extends StatelessWidget {
     required this.statusColor,
     required this.statusBg,
     required this.date,
+    this.showMore = false,
+    this.onMore,
   });
 
   final String statusLabel;
   final Color statusColor;
   final Color statusBg;
   final String date;
+  final bool showMore;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -367,20 +719,34 @@ class _PhysicalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusBg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              statusLabel,
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontFamily: 'Manrope',
+                  ),
+                ),
               ),
-            ),
+              const Spacer(),
+              if (showMore)
+                IconButton(
+                  onPressed: onMore,
+                  icon: const Icon(Icons.more_horiz, color: AppColors.primaryColor),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                ),
+            ],
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -404,6 +770,135 @@ class _PhysicalCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DialogField extends StatelessWidget {
+  const _DialogField({
+    required this.label,
+    required this.value,
+    required this.suffix,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final Widget suffix;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.primaryColor.withOpacity(0.6),
+            fontFamily: 'Manrope',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F4FB),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+                suffix,
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogDropdown extends StatelessWidget {
+  const _DialogDropdown({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.primaryColor.withOpacity(0.6),
+            fontFamily: 'Manrope',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F4FB),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primaryColor),
+              items: options
+                  .map(
+                    (o) => DropdownMenuItem<String>(
+                      value: o,
+                      child: Text(
+                        o,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                onChanged(v);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

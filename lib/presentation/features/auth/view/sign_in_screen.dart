@@ -179,15 +179,19 @@ class _SignInScreenState extends State<SignInScreen>
       listener: _handleAuthState,
       builder: (context, state) {
         return Scaffold(
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-            ),
-            child: Stack(
-              children: [
-                _buildLottieAnimation(),
-                _buildBottomMenu(context, state),
-              ],
+          body: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+              ),
+              child: Stack(
+                children: [
+                  _buildLottieAnimation(),
+                  _buildBottomMenu(context, state),
+                ],
+              ),
             ),
           ),
         );

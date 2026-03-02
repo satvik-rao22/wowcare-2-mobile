@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/widgets/multi_selection_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/constants/location_constants.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
-
-import '../../../../shared/common/widgets/profile_show_widget.dart';
-import '../../../../shared/common/widgets/schedule_picker.dart';
-import '../../../../shared/common/widgets/multi_selection_widget.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
     super.key,
+    required this.studentCode,
     this.initialFirstName,
     this.initialLastName,
     this.initialStatus,
@@ -28,23 +35,30 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialState,
     this.initialCountry,
     this.initialZipCode,
+    this.initialTags = const [],
+    this.initialSiblings = const [],
+    this.initialLegalCustodians = const [],
+    this.initialSubsidy = false,
   });
   static const String routeName = '/edit-student-profile-details-screen';
 
+  final String studentCode;
   final String? initialFirstName;
   final String? initialLastName;
   final String? initialStatus;
   final String? initialNotes;
-
   final String? initialClassroom;
   final DateTime? initialBirthDate;
-
   final String? initialFTE;
   final String? initialStreet;
   final String? initialCity;
   final String? initialState;
   final String? initialCountry;
   final String? initialZipCode;
+  final List<String> initialTags;
+  final List<String> initialSiblings;
+  final List<String> initialLegalCustodians;
+  final bool initialSubsidy;
 
   @override
   _EditStudentProfileDetailsScreenState createState() => _EditStudentProfileDetailsScreenState();
@@ -60,19 +74,18 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
 
   String? _selectedStatus;
-  String? _selectedStateSubsidyOption ;
+  String? _selectedStateSubsidyOption;
   List<String> _selectedSiblings = [];
-  List<String> _selectedTags = ['Full Day'];
+  List<String> _selectedTags = [];
   String? _selectedClassroom;
   DateTime? _selectedBirthDate;
-  DateTime? _selectedUpcomingMoveDate;
-  List<String> _selectedChildCustody = ['Mother'];
+  List<String> _selectedChildCustody = [];
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
+  DateTime? _selectedUpcomingMoveDate;
 
   final List<String> _allTags = [
     '5 Days',
@@ -93,31 +106,59 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   ];
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
-  final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
   final List<String> _childCustodyOptions = ['Mother', 'Father', 'Both Mother and Father'];
-  final List<String> _stateOptions = ['New Hampshire', 'Massachusetts', 'Vermont', 'Maine', 'Connecticut'];
-  final List<String> _countryOptions = ['United States', 'Canada', 'Mexico'];
+  final List<String> _stateOptions =
+      US_STATES.map((s) => s.name).toList(growable: false);
+  final List<String> _countryOptions =
+      COUNTRY_LIST.map((c) => c.name).toList(growable: false);
 
+  // Simple validators (align with Add Staff)
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
   static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
 
   @override
   void initState() {
     super.initState();
-    // Prefill when editing
-    _firstNameController.text = widget.initialFirstName ?? 'Jessica';
-    _lastNameController.text = widget.initialLastName ?? 'Rhodes';
+    // Prefill when editing (use existing profile values; no mock defaults).
+    _firstNameController.text = widget.initialFirstName ?? '';
+    _lastNameController.text = widget.initialLastName ?? '';
     _notesController.text = widget.initialNotes ?? '';
     _FTEController.text = widget.initialFTE ?? '';
-    _selectedStatus = widget.initialStatus ?? 'Active';
-    _selectedStateSubsidyOption ='No';
-    _selectedClassroom = widget.initialClassroom ?? '1-Blue D';
+    _selectedStatus = widget.initialStatus;
+    _selectedStateSubsidyOption = widget.initialSubsidy ? 'Yes' : 'No';
+    _selectedClassroom = widget.initialClassroom;
     _selectedBirthDate = widget.initialBirthDate;
+    _selectedTags = List<String>.from(widget.initialTags);
+    _selectedSiblings = List<String>.from(widget.initialSiblings);
+    _selectedChildCustody = List<String>.from(widget.initialLegalCustodians);
     _streetController.text = widget.initialStreet ?? '';
     _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
-    _selectedState = widget.initialState ?? 'New Hampshire';
-    _selectedCountry = widget.initialCountry ?? 'United States';
+
+    // Map initial state (name or abbreviation) to display name from US_STATES.
+    if (widget.initialState != null && widget.initialState!.isNotEmpty) {
+      final raw = widget.initialState!;
+      final match = US_STATES.firstWhere(
+        (s) =>
+            s.name.toLowerCase() == raw.toLowerCase() ||
+            s.abbreviation.toLowerCase() == raw.toLowerCase(),
+        orElse: () => US_STATES.first,
+      );
+      _selectedState = match.name;
+    }
+
+    // Map initial country (name or code) to display name from COUNTRY_LIST.
+    if (widget.initialCountry != null && widget.initialCountry!.isNotEmpty) {
+      final raw = widget.initialCountry!;
+      final match = COUNTRY_LIST.firstWhere(
+        (c) =>
+            c.name.toLowerCase() == raw.toLowerCase() ||
+            c.code.toLowerCase() == raw.toLowerCase(),
+        orElse: () => COUNTRY_LIST.first,
+      );
+      _selectedCountry = match.name;
+    }
+
     _zipCodeController.text = widget.initialZipCode ?? '';
   }
 
@@ -134,57 +175,66 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     super.dispose();
   }
 
-  Future<void> _pickProfileImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
-      // TODO: wire this to upload/update avatar in your backend/state
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selected profile image')));
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
-    }
-  }
-
-  void _saveProfileDetails() {
+  Future<void> _saveProfileDetails() async {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
     final fte = _FTEController.text.trim();
 
     if (first.isEmpty || !_nameRegex.hasMatch(first)) {
-      _showWarningMessage('First Name is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First Name is required',
+        isError: true,
+      );
       return;
     }
     if (last.isEmpty || !_nameRegex.hasMatch(last)) {
-      _showWarningMessage('Last Name is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name is required',
+        isError: true,
+      );
       return;
     }
     if (_selectedClassroom == null) {
-      _showWarningMessage('Classroom is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Classroom is required',
+        isError: true,
+      );
       return;
     }
-    if (fte.isEmpty) {
-      _showWarningMessage('FTE is required');
-      return;
-    }
-    if (!_fteRegex.hasMatch(fte)) {
-      _showWarningMessage('FTE must be a number between 0 and 100.');
+    if (fte.isNotEmpty && !_fteRegex.hasMatch(fte)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'FTE must be a number between 0 and 100.',
+        isError: true,
+      );
       return;
     }
 
     if (_streetController.text.isEmpty) {
-      _showWarningMessage('Street is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street is required',
+        isError: true,
+      );
       return;
     }
     if (_cityController.text.isEmpty) {
-      _showWarningMessage('City is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City is required',
+        isError: true,
+      );
       return;
     }
     if (_zipCodeController.text.trim().isEmpty) {
-      _showWarningMessage('Zip Code is required');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code is required',
+        isError: true,
+      );
       return;
     }
 
@@ -192,41 +242,134 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       _isSubmitting = true;
     });
 
-    // Mock API call
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      // Map status display name to API value (e.g., "Active" -> "ACTIVE")
+      String statusApi = _selectedStatus ?? '';
+      if (statusApi.isNotEmpty) {
+        final statusMap = {
+          'Active': 'ACTIVE',
+          'Inactive': 'INACTIVE',
+          'Upcoming': 'UPCOMING',
+          'Waitlist': 'WAITLIST',
+          'Graduated': 'GRADUATED',
+        };
+        statusApi = statusMap[statusApi] ?? statusApi.toUpperCase();
+      }
+
+      // Map classroom display name -> classroom code for API (falls back to raw value).
+      ClassroomCubit? classroomCubit;
+      try {
+        classroomCubit = context.read<ClassroomCubit>();
+      } catch (_) {
+        classroomCubit = null;
+      }
+
+      final classrooms = classroomCubit?.state.classrooms ?? const <Classroom>[];
+      final classroomCodeByName = <String, String>{
+        for (final c in classrooms) c.name: c.code,
+      };
+      final selectedClassroomName = _selectedClassroom ?? '';
+      final classroomCode =
+          classroomCodeByName[selectedClassroomName] ?? selectedClassroomName;
+
+      // Map state/country display names back to codes for API
+      String stateCode = '';
+      if (_selectedState != null && _selectedState!.isNotEmpty) {
+        final match = US_STATES.firstWhere(
+          (s) => s.name.toLowerCase() == _selectedState!.toLowerCase(),
+          orElse: () => US_STATES.first,
+        );
+        stateCode = match.abbreviation;
+      }
+
+      String countryCode = '';
+      if (_selectedCountry != null && _selectedCountry!.isNotEmpty) {
+        final match = COUNTRY_LIST.firstWhere(
+          (c) => c.name.toLowerCase() == _selectedCountry!.toLowerCase(),
+          orElse: () => COUNTRY_LIST.first,
+        );
+        countryCode = match.code;
+      }
+
+      // Format dates as yyyy-MM-dd for API
+      final dateFormatter = DateFormat('yyyy-MM-dd');
+      String? dobFormatted;
+      if (_selectedBirthDate != null) {
+        dobFormatted = dateFormatter.format(_selectedBirthDate!);
+      }
+
+      String? upcomingMovesFormatted;
+      if (_selectedUpcomingMoveDate != null) {
+        upcomingMovesFormatted = dateFormatter.format(_selectedUpcomingMoveDate!);
+      }
+
+      // Map subsidy
+      final subsidy = _selectedStateSubsidyOption == 'Yes';
+
+      // Map FTE to number
+      int? fteNumber;
+      if (fte.isNotEmpty) {
+        fteNumber = int.tryParse(fte);
+      }
+
+      // Build payload according to API contract
+      final payload = <String, dynamic>{
+        'firstName': first,
+        'lastName': last,
+        'status': statusApi,
+        'classroom': classroomCode,
+        'tags': _selectedTags,
+        if (dobFormatted != null) 'dob': dobFormatted,
+        'notes': _notesController.text.trim(),
+        'subsidy': subsidy,
+        'legalCustodians': _selectedChildCustody,
+        'siblings': _selectedSiblings,
+        if (fteNumber != null) 'fte': fteNumber,
+        if (upcomingMovesFormatted != null) 'upcomingMoves': upcomingMovesFormatted,
+        // Address fields
+        'line1': _streetController.text.trim(),
+        'line2': _street2Controller.text.trim(),
+        'street': _streetController.text.trim(), // Some APIs use 'street' instead
+        'city': _cityController.text.trim(),
+        'state': stateCode,
+        'country': countryCode,
+        'postalCode': _zipCodeController.text.trim(),
+        // Optional address fields (set to empty if not used)
+        'room': '',
+        'building': '',
+        'apartment': '',
+      };
+
+      final repository = serviceLocator<StudentRepository>();
+
+      final message = await repository.updateStudentProfile(
+        code: widget.studentCode,
+        fields: payload,
+      );
+
+      if (!mounted) return;
       setState(() {
         _isSubmitting = false;
       });
-      Navigator.pop(context);
-    });
-  }
 
-  void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
+    }
   }
 
   Future<void> _selectBirthDate() async {
@@ -241,29 +384,22 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
 
       if (result != null && result['date'] != null) {
-        setState(() {
-          _selectedBirthDate = result['date'] as DateTime;
-        });
-      }
-    } catch (e) {
-      print('Error opening calendar dialog: $e');
-    }
-  }
+        final selectedDate = result['date'] as DateTime;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
 
-  Future<void> _selectUpcomingMoveDate() async {
-    try {
-      final result = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder: (context) => CalendarDialog(
-          isRangePicker: false,
-          isTimePicker: false,
-          initialDate: _selectedUpcomingMoveDate,
-        ),
-      );
+        // Birthdate must be a past date (not today or future)
+        if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Birthdate must be a past date',
+            isError: true,
+          );
+          return;
+        }
 
-      if (result != null && result['date'] != null) {
         setState(() {
-          _selectedUpcomingMoveDate = result['date'] as DateTime;
+          _selectedBirthDate = selectedDate;
         });
       }
     } catch (e) {
@@ -273,14 +409,57 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
   @override
   Widget build(BuildContext context) {
+    // Ensure classrooms are available for the Classroom dropdown.
+    // If a ClassroomCubit is already provided (e.g. from Students flow), reuse it (no refetch).
+    // Otherwise, create it here and load once.
+    final hasClassroomCubit = (() {
+      try {
+        context.read<ClassroomCubit>();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    if (!hasClassroomCubit) {
+      return BlocProvider<ClassroomCubit>(
+        create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+        child: Builder(
+          builder: (context) => _buildScreen(context),
+        ),
+      );
+    }
+
+    return _buildScreen(context);
+  }
+
+  Widget _buildScreen(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
+    ClassroomState classroomState;
+    try {
+      classroomState = context.watch<ClassroomCubit>().state;
+    } catch (_) {
+      classroomState = const ClassroomState.initial();
+    }
+    final classroomOptions =
+        classroomState.classrooms.map((c) => c.name).toList(growable: false);
+
+    // Keep selected classroom as display name in UI, even if initial value is a code.
+    String? selectedClassroomName = _selectedClassroom;
+    if (selectedClassroomName != null && selectedClassroomName.isNotEmpty) {
+      final byCode = <String, String>{
+        for (final c in classroomState.classrooms) c.code: c.name,
+      };
+      selectedClassroomName =
+          byCode[selectedClassroomName] ?? selectedClassroomName;
+    }
+
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold
-        (
+      child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: Colors.white,
         appBar: const CustomAppBar(hasBackButton: true),
@@ -306,7 +485,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Edit Student Details',
+                      'Edit Student',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: responsive.titleFontSize,
@@ -339,151 +518,34 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         Row(
                           children: [
                             Expanded(
-                              child: Column(
-                                children: [
-                                  RichText(
-                                    text: TextSpan(
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
-                                      ),
-                                      children: [
-                                        TextSpan(text: 'Change Profile Photo'),
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  GestureDetector(
-                                  onTap: _pickProfileImage,
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      DocumentImageWidget(
-                                        fileUuid: 'cd',
-                                        name: 'cd',
-                                        size: 110,
-                                        fontSize: 40,
-                                      ),
-                                      Positioned(
-                                        right: -4,
-                                        bottom: -4,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.08),
-                                                blurRadius: 4,
-                                                //offset: const Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              gradient:
-                                              AppColors.buildPrimaryGradient(),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.camera_alt,
-                                              color: Colors.white,
-                                              size: 20,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),],
+                              child: _buildInputField(
+                                "First Name",
+                                "E.g. John",
+                                _firstNameController,
                               ),
                             ),
                             SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                             Expanded(
-                              child: Column(
-                                children: [
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  _buildInputField(
-                                    "First Name",
-                                    "E.g. John",
-                                    _firstNameController,
-                                    isRequired: true
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  _buildInputField(
-                                    "Last Name",
-                                    "E.g. Smith",
-                                    _lastNameController,
-                                    isRequired: true
-                                  ),
-
-                                ],
+                              child: _buildInputField(
+                                "Last Name",
+                                "E.g. Smith",
+                                _lastNameController,
                               ),
                             ),
                           ],
                         ),
-                        // Row(
-                        //   children: [
-                        //     Expanded(
-                        //       child: _buildInputField(
-                        //         "First Name",
-                        //         "E.g. John",
-                        //         _firstNameController,
-                        //       ),
-                        //     ),
-                        //     SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-                        //     Expanded(
-                        //       child: _buildInputField(
-                        //         "Last Name",
-                        //         "E.g. Smith",
-                        //         _lastNameController,
-                        //       ),
-                        //     ),
-                        //   ],
-                        // ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        Stack(
-                          children: [
-                            CustomDropdown(
-                              label: "Classroom",
-                              hintText: 'Select',
-                              items: _classroomOptions,
-                              selectedItem: _selectedClassroom,
-                              labelStyle: TextStyle(
-                                fontSize: responsive.labelFontSize,
-                                fontFamily: "Manrope",
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
-                              ),
-                              showAsterisk: true,
-                              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                              fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-                              selectedTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: responsive.inputFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
-                                height: 19 / 14,
-                              ),
-                              popupItemTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: responsive.inputFontSize,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: responsive.isTablet ? 16.0 : 12.0,
-                                vertical: responsive.isTablet ? 16.0 : 12.0,
-                              ),
-                              onSelect: (val) => setState(() => _selectedClassroom = val),
-                            ),
-                          ],
+                        _buildCustomDropdown(
+                          "Classroom",
+                          (classroomState.isLoading && classroomOptions.isEmpty)
+                              ? "Loading..."
+                              : "Select",
+                          classroomOptions,
+                          selectedClassroomName,
+                          (v) => setState(() => _selectedClassroom = v),
+                          isRequired: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         MultiSelectWidget(
@@ -497,25 +559,12 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           clearSelectionText: "Select Tags",
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        Text(
-                            "Schedule",
-                            style: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
-                            )
-                        ),
-                        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-                        SchedulePicker(),
-                        SizedBox(height: responsive.verticalSpacing),
-
-                        _buildDateField("Birthdate", _selectedBirthDate, _selectBirthDate, true),
+                        _buildDateField("Birthdate", _selectedBirthDate),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                            "Notes",
-                            "",
-                            _notesController,
+                          "Notes",
+                          "",
+                          _notesController,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         MultiSelectWidget(
@@ -543,85 +592,48 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           label: "Child Custody",
                           hintText: 'Select guardian',
                         ),
-                        //_buildCustomDropdown("Child Custody", "Select Parent", _childCustodyOptions, _selectedChildCustody, (v) => setState(() => _selectedChildCustody = v)),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("State Subsidy", "", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
+                        _buildCustomDropdown("State Subsidy", "Select", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
                         SizedBox(height: responsive.verticalSpacing),
-                        // _buildInputField("FTE", "E.g. 60", _FTEController, isRequired: true),
-                        // SizedBox(height: responsive.verticalSpacing),
-                        // _buildDateField("Upcoming Move", _selectedUpcomingMoveDate, _selectUpcomingMoveDate, false),
-                        // SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
+                        _buildInputField(
+                          "Street",
+                          "Eg. Street no",
+                          _streetController,
+                          isRequired: true,
+                          textCapitalization: TextCapitalization.words,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Address line 2", "(Optional)", _street2Controller, isRequired: false),
+                        _buildInputField(
+                          "Address line 2",
+                          "(Optional)",
+                          _street2Controller,
+                          isRequired: false,
+                          textCapitalization: TextCapitalization.words,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("City", "Eg. Nashua", _cityController, isRequired: true),
+                        _buildInputField(
+                          "City",
+                          "Eg. Nashua",
+                          _cityController,
+                          isRequired: true,
+                          textCapitalization: TextCapitalization.words,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            RichText(
-                              text: TextSpan(
-                              style: TextStyle(
-                              color: AppColors.primaryColor,
-                              fontSize:  13,
-                              fontWeight: FontWeight.w400,
-                              fontFamily: 'Manrope',
-                              ),
-                              children: [
-                                TextSpan(text: 'Country'),
-                                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-                              ],
-                              ),
-                            ),
-                            SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
-                            InkWell(
-                              onTap: (){
-                                _showWarningMessage("Can not be edited.");
-                              },
-                              child: Container(
-                                constraints: BoxConstraints(minHeight: responsive.isTablet ? 64.0 : 56.0 ),
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8F7FA),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child:Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: responsive.isTablet ? 16.0 : 12.0,
-                                    vertical: responsive.isTablet ? 16.0 : 12.0,
-                                    ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          "United States",
-                                          style: TextStyle(
-                                            fontFamily: 'Manrope',
-                                            fontSize: responsive.inputFontSize,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.grey.shade600,
-                                            height: 19 / 14,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.left,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-
-                                    ],
-                                  ),
-                                ),
-                                ),
-                            ),
+                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildInputField(
+                          "Zip Code",
+                          "Eg. 85001",
+                          _zipCodeController,
+                          isRequired: true,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
                           ],
                         ),
-                        //_buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
-                        SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
                       ],
                     ),
@@ -634,7 +646,10 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         ),
         bottomNavigationBar: Container(
           padding: EdgeInsets.only(
-            bottom: safeAreaBottom, left: 16, right: 16, top: 8,
+            bottom: safeAreaBottom,
+            left: 16,
+            right: 16,
+            top: 8,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -650,25 +665,12 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : _saveProfileDetails,
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+          child: CustomButtonLayout(
+            confirmButtonLabel: 'Save',
+            onPressedConfirm: _saveProfileDetails,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting,
           ),
         ),
       ),
@@ -676,11 +678,14 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   }
 
   Widget _buildInputField(
-      String label,
-      String hint,
-      TextEditingController controller, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hint,
+    TextEditingController controller, {
+    bool isRequired = false,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+  }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
@@ -711,6 +716,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
           ),
           child: TextField(
             controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
@@ -734,13 +742,13 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   }
 
   Widget _buildCustomDropdown(
-      String label,
-      String hintText,
-      List<String> items,
-      String? selectedItem,
-      ValueChanged<String?> onSelect, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hintText,
+    List<String> items,
+    String? selectedItem,
+    ValueChanged<String?> onSelect, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: label,
@@ -777,7 +785,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     );
   }
 
-  Widget _buildDateField(String label, DateTime? selectedDate, Future<void> Function() onTap, bool isRequired) {
+  Widget _buildDateField(String label, DateTime? selectedDate) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
@@ -789,18 +797,10 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              TextSpan(text: label),
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
+        Text(label, style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
-          onTap: onTap,
+          onTap: _selectBirthDate,
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
@@ -819,7 +819,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                 children: [
                   Flexible(
                     child: Text(
-                      selectedDate != null
+                      selectedDate != null 
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
@@ -846,5 +846,4 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       ],
     );
   }
-
 }

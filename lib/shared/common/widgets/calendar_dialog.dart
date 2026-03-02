@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
+import 'package:intl/intl.dart';
 
 class CalendarDialog extends StatefulWidget {
   final bool isRangePicker;
@@ -14,6 +14,8 @@ class CalendarDialog extends StatefulWidget {
   final DateTime? initialEndDate;
   final TimeOfDay? initialTime;
   final bool whiteBgColor;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
 
   const CalendarDialog({
     Key? key,
@@ -23,6 +25,8 @@ class CalendarDialog extends StatefulWidget {
     this.initialEndDate,
     this.initialTime,
     this.whiteBgColor = false,
+    this.firstDate,
+    this.lastDate,
   }) : super(key: key);
 
   @override
@@ -75,13 +79,13 @@ class _CalendarDialogState extends State<CalendarDialog> {
     if (!widget.isRangePicker) {
       return _selectedDate == null
           ? 'Select Date'
-          : DateUtilsNew.formatToShortReadableDate(_selectedDate!);
+          : DateFormat('MMM dd, yyyy').format(_selectedDate!);
     }
     if (_rangeEndDate == null) {
-      return DateUtilsNew.formatToShortReadableDate(_rangeStartDate!);
+      return DateFormat('MMM dd, yyyy').format(_rangeStartDate!);
     }
-    return '${DateUtilsNew.formatToShortReadableDate(_rangeStartDate!)} -\n'
-        '${DateUtilsNew.formatToShortReadableDate(_rangeEndDate!)}';
+    return '${DateFormat('MMM dd, yyyy').format(_rangeStartDate!)} -\n'
+        '${DateFormat('MMM dd, yyyy').format(_rangeEndDate!)}';
   }
 
   @override
@@ -175,8 +179,8 @@ class _CalendarDialogState extends State<CalendarDialog> {
                         selectedDayHighlightColor:
                             AppColors.primaryGradientColors.first,
                         centerAlignModePicker: true,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
+                        firstDate: widget.firstDate ?? DateTime(2000),
+                        lastDate: widget.lastDate ?? DateTime(2100),
                         controlsHeight: controlsHeight,
                         controlsTextStyle: TextStyle(
                           fontSize: controlsFontSize,

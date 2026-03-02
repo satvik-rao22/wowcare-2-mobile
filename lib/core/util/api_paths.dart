@@ -19,6 +19,11 @@ class ApiPaths {
   static const String staffList = '/api/v1/staff';
   static const String staffCount = '/api/v1/staff/count';
   static const String staffProfile = '/api/v1/staff';
+  /// My-profile controller: `PATCH /api/v1/staff/my-profile/{staffCode}`
+  /// Used for updating the logged-in staff member's basic profile + address.
+  static const String staffMyProfile = '/api/v1/staff/my-profile';
+  /// Resolve staffCode from userCode + org + school.
+  static const String staffCodeByUser = '/api/v1/staff/code';
   static const String staffDocuments = '/api/v1/staff-documents';
   static const String staffDocumentAdd = '/api/v1/staff-documents';
   static const String staffDocumentUpdate = '/api/v1/staff-documents';
@@ -34,6 +39,20 @@ class ApiPaths {
 
   // Student
   static const String studentList = '/api/v1/student';
+  static const String studentDocuments = '/api/v1/student-documents';
+  static String studentProfile(String code) => '/api/v1/student/$code';
+  static String studentProfileUpdate(String code) => '/api/v1/student/$code/profile';
+  static String studentDeactivate(String code) => '/api/v1/student/$code/deactivate';
+  static String studentReactivate(String code) => '/api/v1/student/$code/reactivate';
+  static String studentImportantDates(String code) =>
+      '/api/v1/student/$code/important-dates';
+
+  // Physicians
+  static const String physicians = '/api/v1/physicians';
+
+  // Guardian / Parent users
+  static const String guardianUser = '/api/v1/guardian-user';
+  static const String guardian = '/api/v1/guardian';
 
   // Attendance
   static const String studentAttendanceDailyView = '/api/v1/student-attendance/view/daily';
@@ -41,6 +60,9 @@ class ApiPaths {
 
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';
+
+  // Pickup
+  static const String pickup = '/api/v1/pickup';
 
   /// Helper to build a full URL from a relative path.
   static String url(String path) => '${ApiConstants.baseUrl}$path';
