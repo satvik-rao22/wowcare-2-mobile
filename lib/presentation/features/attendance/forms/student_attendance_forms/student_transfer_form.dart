@@ -4,6 +4,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -115,152 +117,116 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return StaffFormLayout(
+      title: 'Transfer',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                childAspectRatio: 3.5,
+              ),
+              itemCount: currentStudents.length,
+              itemBuilder: (context, index) => RemoveStudentTile(
+                student: currentStudents[index],
+                onRemove: () => _removeStudent(currentStudents[index]),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
               children: [
-                const Text(
-                  'Transfer',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: Color.fromRGBO(87, 51, 82, 1),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 3.5,
-                  ),
-                  itemCount: currentStudents.length,
-                  itemBuilder: (context, index) => RemoveStudentTile(
-                    student: currentStudents[index],
-                    onRemove: () => _removeStudent(currentStudents[index]),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Current Classroom'),
+                      const SizedBox(height: 8),
+                      Row(
                         children: [
-                          const Text(
-                            'Current Classroom',
-                            style: TextStyle(
-                              color: Color.fromRGBO(87, 51, 83, 0.5),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border:
-                                        Border.all(color: Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: const Color.fromRGBO(
-                                        177, 175, 233, 0.1),
-                                  ),
-                                  child: Text(
-                                    currentClassroom,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.primaryColor
-                                          .withValues(alpha: 0.5),
-                                    ),
-                                  ),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                                color:
+                                    const Color.fromRGBO(177, 175, 233, 0.1),
+                              ),
+                              child: AppText.value(
+                                currentClassroom,
+                                style: TextStyle(
+                                  color: AppColors.primaryColor
+                                      .withValues(alpha: 0.5),
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Transfer to Classroom',
-                            style: TextStyle(
-                              color: AppColors.primaryColor
-                                  .withValues(alpha: 0.5),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 0,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
-                              color: const Color.fromRGBO(177, 175, 233, 0.1),
-                            ),
-                            child: DropdownButton<String>(
-                              value: selectedClassroom,
-                              hint: const Text('Select classroom'),
-                              style: TextStyle(
-                                color: AppColors.primaryColor
-                                    .withValues(alpha: 0.5),
-                                fontSize: 15,
-                              ),
-                              isExpanded: true,
-                              icon: SvgPicture.asset(MediaRes.arrow_drop_down),
-                              underline: Container(),
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  selectedClassroom = newValue!;
-                                });
-                              },
-                              items: availableClassrooms.map((String classroom) {
-                                return DropdownMenuItem<String>(
-                                  value: classroom,
-                                  child: Text(classroom),
-                                );
-                              }).toList(),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 80),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Transfer to Classroom'),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 0,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: const Color.fromRGBO(177, 175, 233, 0.1),
+                        ),
+                        child: DropdownButton<String>(
+                          value: selectedClassroom,
+                          hint: const Text('Select classroom'),
+                          style: TextStyle(
+                            color: AppColors.primaryColor
+                                .withValues(alpha: 0.5),
+                            fontSize: 15,
+                          ),
+                          isExpanded: true,
+                          icon: SvgPicture.asset(MediaRes.arrow_drop_down),
+                          underline: Container(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              selectedClassroom = newValue!;
+                            });
+                          },
+                          items: availableClassrooms.map((String classroom) {
+                            return DropdownMenuItem<String>(
+                              value: classroom,
+                              child: Text(classroom),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
+            const SizedBox(height: 80),
+          ],
         ),
       ),
-      bottomNavigationBar: CustomButtonLayout(
+      bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Submit',
         onPressedConfirm: _handleSubmit,
         showCancelButton: false,

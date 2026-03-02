@@ -5,6 +5,8 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -127,240 +129,159 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final safeAreaBottom = mediaQuery.padding.bottom;
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 8),
-            child: Text(
-              'Mark Absent',
-              style: TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 17 * (-3 / 100),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: SizedBox(
-              width: double.infinity,
-              child: Card(
-                elevation: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Start Date',
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(87, 51, 83, 0.5),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  InkWell(
-                                    onTap: () => _selectDate(context, true),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: Colors.grey.shade200),
-                                        borderRadius: BorderRadius.circular(8),
-                                        color:
-                                            const Color.fromRGBO(249, 245, 250, 1),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            DateUtilsNew.formatToReadableDate(
-                                                startDate),
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          SvgPicture.asset(
-                                              MediaRes.calender_icon)
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+    return StaffFormLayout(
+      title: 'Mark Absent',
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Start Date'),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () => _selectDate(context, true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border:
+                                Border.all(color: Colors.grey.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                            color: const Color.fromRGBO(249, 245, 250, 1),
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              AppText.value(
+                                DateUtilsNew.formatToReadableDate(
+                                    startDate),
                               ),
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'End Date',
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(87, 51, 83, 0.5),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  InkWell(
-                                    onTap: () => _selectDate(context, false),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: Colors.grey.shade200),
-                                        borderRadius: BorderRadius.circular(8),
-                                        color:
-                                            const Color.fromRGBO(249, 245, 250, 1),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            DateUtilsNew.formatToReadableDate(
-                                                endDate),
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          SvgPicture.asset(
-                                              MediaRes.calender_icon)
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                              SvgPicture.asset(MediaRes.calender_icon),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 28),
-                        ListView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          shrinkWrap: true,
-                          itemCount: currentStudents.length,
-                          itemBuilder: (context, index) {
-                            final student = currentStudents[index];
-
-                            return Column(
-                              children: [
-                                RemoveStudentTile(
-                                  student: student,
-                                  onRemove: () => _removeStudent(student),
-                                ),
-                                const SizedBox(height: 20),
-                                TextField(
-                                  controller: notesControllers[student.id],
-                                  decoration: InputDecoration(
-                                    hintText: 'Enter Absent Notes',
-                                    hintStyle: const TextStyle(
-                                      color: Color.fromRGBO(87, 51, 83, 0.5),
-                                      fontSize: 15,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(
-                                          color: Color.fromRGBO(87, 51, 83, 0.4)),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(
-                                        color: Color.fromRGBO(87, 51, 83, 0.4),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(
-                                        color: Color.fromRGBO(87, 51, 83, 0.4),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(
-                                        color: Colors.red,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(
-                                        color: Colors.red,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: AppColors.cardColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('End Date'),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () => _selectDate(context, false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border:
+                                Border.all(color: Colors.grey.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                            color: const Color.fromRGBO(249, 245, 250, 1),
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              AppText.value(
+                                DateUtilsNew.formatToReadableDate(
+                                    endDate),
+                              ),
+                              SvgPicture.asset(MediaRes.calender_icon),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
+            const SizedBox(height: 28),
+            ListView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              itemCount: currentStudents.length,
+              itemBuilder: (context, index) {
+                final student = currentStudents[index];
+
+                return Column(
+                  children: [
+                    RemoveStudentTile(
+                      student: student,
+                      onRemove: () => _removeStudent(student),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: notesControllers[student.id],
+                      decoration: InputDecoration(
+                        hintText: 'Enter Absent Notes',
+                        hintStyle: AppTextStyles.body.copyWith(
+                          color: const Color.fromRGBO(87, 51, 83, 0.5),
+                          fontSize: 15,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: Color.fromRGBO(87, 51, 83, 0.4)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color.fromRGBO(87, 51, 83, 0.4),
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color.fromRGBO(87, 51, 83, 0.4),
+                            width: 2,
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 1,
+                          ),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.cardColor,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              },
             ),
           ],
         ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Submit',
-          onPressedConfirm: _handleSubmit,
-          showCancelButton: false,
-        ),
+      ),
+      bottomBar: CustomButtonLayout(
+        confirmButtonLabel: 'Submit',
+        onPressedConfirm: _handleSubmit,
+        showCancelButton: false,
       ),
     );
   }

@@ -4,7 +4,10 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -69,25 +72,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     });
   }
 
-  Future<void> _selectTime() async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: selectedTime,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null && picked != selectedTime) {
-      setState(() {
-        selectedTime = picked;
-      });
-    }
-  }
-
   void _removeStudent(StudentEntity student) {
     setState(() {
       currentStudents.remove(student);
@@ -97,15 +81,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     });
   }
 
-  String _formatTimeForValidation() {
-    final period = selectedTime.hour < 12 ? 'AM' : 'PM';
-    int hour = selectedTime.hourOfPeriod;
-    if (hour == 0) hour = 12; // Handle midnight and noon
-    String hourString = hour.toString().padLeft(2, '0');
-    String minuteString = selectedTime.minute.toString().padLeft(2, '0');
-    return '$hourString:$minuteString:00 $period';
-  }
-
   @override
   Widget build(BuildContext context) {
     if (currentStudents.isEmpty) {
@@ -113,148 +88,90 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       currentStudents = List.from(widget.students);
     }
 
-    return GlobalScaffold(
-      body: Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return StaffFormLayout(
+      title: 'Sign-In',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                childAspectRatio: 3.5,
+              ),
+              itemCount: currentStudents.length,
+              itemBuilder: (context, index) => RemoveStudentTile(
+                student: currentStudents[index],
+                onRemove: () => _removeStudent(currentStudents[index]),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
               children: [
-                const Text(
-                  'Sign-In',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: Color.fromRGBO(87, 51, 82, 1),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Date'),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade100,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            AppText.value(
+                              DateUtilsNew.formatToReadableDate(selectedDate),
+                            ),
+                            SvgPicture.asset(
+                              MediaRes.calender_icon,
+                              colorFilter: ColorFilter.mode(
+                                Colors.grey.shade600,
+                                BlendMode.srcIn,
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 30),
-                GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 3.5,
-                  ),
-                  itemCount: currentStudents.length,
-                  itemBuilder: (context, index) => RemoveStudentTile(
-                    student: currentStudents[index],
-                    onRemove: () => _removeStudent(currentStudents[index]),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Date',
-                            style: TextStyle(
-                              color: Color.fromRGBO(87, 51, 83, 0.5),
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
-                              color: Colors.grey.shade100,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  DateUtilsNew.formatToReadableDate(selectedDate),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                SvgPicture.asset(
-                                  MediaRes.calender_icon,
-                                  colorFilter: ColorFilter.mode(
-                                    Colors.grey.shade600,
-                                    BlendMode.srcIn,
-                                  ),
-                                )
-                              ],
-                            ),
-                          ),
-                        ],
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Time'),
+                      const SizedBox(height: 8),
+                      SimpleTimePickerField(
+                        time: selectedTime,
+                        onTimeSelected: (t) {
+                          setState(() {
+                            selectedTime = t;
+                          });
+                        },
                       ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Time',
-                            style: TextStyle(
-                              color: Color.fromRGBO(87, 51, 83, 0.5),
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: () {
-                              _selectTime();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                color: const Color.fromRGBO(249, 245, 250, 1),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    selectedTime.format(context),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  SvgPicture.asset(MediaRes.clock_icon)
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
-      hasBackButton: true,
-      showCustomNavigationBar: false,
-      customButtonLayout: CustomButtonLayout(
+      bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-In',
         onPressedConfirm: () {
           // UI-only: Just show success and navigate back
@@ -304,33 +221,18 @@ class RemoveStudentTile extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                // Simple avatar placeholder
-                CircleAvatar(
-                  radius: 15,
-                  backgroundColor: AppColors.themeColor.withOpacity(0.1),
-                  child: Text(
-                    student.fullName.isNotEmpty
-                        ? student.fullName[0].toUpperCase()
-                        : 'S',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                DocumentImageWidget(
+                  fileUuid: student.photoUuid ?? '',
+                  name: student.fullName,
+                  size: 30,
+                  fontSize: 12,
                 ),
                 const SizedBox(width: 6),
                 Flexible(
-                  child: Text(
+                  child: AppText.value(
                     student.fullName.split(' ').first,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
-                    softWrap: false,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
                   ),
                 ),
               ],

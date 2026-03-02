@@ -6,7 +6,9 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 
 class StaffSignOutForm extends StatefulWidget {
@@ -83,19 +85,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   @override
   Widget build(BuildContext context) {
     final isTablet = ResponsiveSizing.isTablet(context);
-    final mediaQuery = MediaQuery.of(context);
-    final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: SingleChildScrollView(
+    return StaffFormLayout(
+      title: 'Sign-Out',
+      child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
           horizontal: isTablet ? 24 : 16,
           vertical: 16,
@@ -103,8 +96,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppText.title('Sign-Out'),
-            const SizedBox(height: 24),
             if (currentStaff != null)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
@@ -130,36 +121,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                 ),
               ],
             ),
-            SizedBox(height: safeAreaBottom + 100), // Space for bottom button
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: isTablet ? 24 : 16,
-          right: isTablet ? 24 : 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Sign-Out',
-          onPressedConfirm: _handleSubmit,
-          showCancelButton: false,
-        ),
+      bottomBar: CustomButtonLayout(
+        confirmButtonLabel: 'Sign-Out',
+        onPressedConfirm: _handleSubmit,
+        showCancelButton: false,
       ),
     );
   }
@@ -169,17 +137,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 15,
-            backgroundColor: AppColors.themeColor,
-            child: Text(
-              _getInitials(staff.name),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
+          const SizedBox(width: 4),
+          DocumentImageWidget(
+            fileUuid: '',
+            name: staff.name,
+            size: 30,
+            fontSize: 12,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -192,13 +155,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ],
       ),
     );
-  }
-
-  String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.isEmpty) return '';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
   }
 
   Widget _buildDateField(bool isTablet) {
