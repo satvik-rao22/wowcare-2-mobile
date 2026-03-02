@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -191,43 +190,6 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     }
   }
 
-  List<_AbsentStaffModel> _buildDummyAbsentStaffData() {
-    final rooms = classrooms.where((e) => e != 'All').toList();
-    if (rooms.isEmpty) {
-      rooms.addAll(['Room 1', 'Room 2', 'Room 3']);
-    }
-
-    return List<_AbsentStaffModel>.generate(
-      _pageSize,
-      (i) {
-        final idx = i + 1;
-        final room = rooms[i % rooms.length];
-        final now = DateTime.now();
-        final startDate = now.subtract(Duration(days: idx % 30));
-        final endDate = startDate.add(Duration(days: idx % 5));
-
-        return _AbsentStaffModel(
-          id: 'absent_staff_$idx',
-          name: 'Absent Staff $idx',
-          photoUuid: null,
-          roomName: room,
-          absentDays: (idx % 10) + 1,
-          startDate: startDate,
-          endDate: endDate,
-          absentTime: '09:${(idx * 5) % 60}:00 AM',
-          absentBy: 'Admin',
-          note: idx % 3 == 0 ? 'Staff is on leave' : null,
-          staffId: 100 + idx,
-          roomId: (i % 3) + 1,
-          schoolId: 1,
-          status: 'A',
-          hasSignIn: false,
-          expectedToday: true,
-        );
-      },
-    );
-  }
-
   void _updateClassroomsList() {
     final Set<String> uniqueClassrooms = {'All'};
     for (final staff in _absentStaff) {
@@ -384,11 +346,17 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                         CustomDateTimeField(
                           hasLabel: false,
                           isRangePicker: true,
-                          initialDate: _rangeStart,
+                          initialDate: _rangeStart ?? DateTime.now(),
                           onRangeSelected: (start, end) {
-                            if (start != null &&
-                                end != null &&
-                                start.isAfter(end)) {
+                            if (end == null) {
+                              setState(() {
+                                _rangeStart = start;
+                                _rangeEnd = null;
+                              });
+                              return;
+                            }
+
+                            if (start.isAfter(end)) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: const Text(

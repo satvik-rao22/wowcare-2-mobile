@@ -3,7 +3,8 @@ import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
-import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
+    as staff_absent;
 import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../datasources/attendance_remote_datasource.dart';
 import '../models/student_attendance_models.dart';
@@ -367,7 +368,7 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<StaffAttendanceAbsentPage> getStaffAttendanceAbsent({
+  Future<staff_absent.StaffAttendanceAbsentPage> getStaffAttendanceAbsent({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -389,10 +390,10 @@ class AttendanceRepositoryImpl
     return _mapStaffAbsentPageModelToEntity(pageModel);
   }
 
-  StaffAttendanceAbsentPage _mapStaffAbsentPageModelToEntity(
+  staff_absent.StaffAttendanceAbsentPage _mapStaffAbsentPageModelToEntity(
     StaffAttendanceAbsentPageModel model,
   ) {
-    return StaffAttendanceAbsentPage(
+    return staff_absent.StaffAttendanceAbsentPage(
       items: model.items.map(_mapStaffAbsentItemModelToEntity).toList(),
       page: model.page,
       size: model.size,
@@ -402,17 +403,17 @@ class AttendanceRepositoryImpl
     );
   }
 
-  StaffAttendanceAbsentItem _mapStaffAbsentItemModelToEntity(
+  staff_absent.StaffAttendanceAbsentItem _mapStaffAbsentItemModelToEntity(
     StaffAttendanceAbsentItemModel model,
   ) {
-    return StaffAttendanceAbsentItem(
+    return staff_absent.StaffAttendanceAbsentItem(
       staffCode: model.staffCode,
       staffName: model.staffName,
       classroomCode: model.classroomCode,
       classroomName: model.classroomName,
       absenceDate: model.absenceDate,
       markedAbsentTime: model.markedAbsentTime != null
-          ? StaffAttendanceTime(
+          ? staff_absent.StaffAttendanceTime(
               hour: model.markedAbsentTime!.hour,
               minute: model.markedAbsentTime!.minute,
               second: model.markedAbsentTime!.second,
