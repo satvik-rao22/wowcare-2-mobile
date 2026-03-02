@@ -210,6 +210,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStudentAttendanceCustomUseCase>(
     () => GetStudentAttendanceCustomUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
     () => GetStudentDocumentsUseCase(serviceLocator()),
   );
@@ -298,6 +299,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentAttendanceCustomCubit(
       getStudentAttendanceCustomUseCase: serviceLocator(),
       repository: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<StudentDocumentsListCubit>(
     () => StudentDocumentsListCubit(
       getStudentDocumentsUseCase: serviceLocator(),

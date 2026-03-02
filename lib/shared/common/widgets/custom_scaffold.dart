@@ -262,10 +262,6 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
           ),
         ),
         extendBody: true,
-        floatingActionButton: floatingActionButton,
-        bottomNavigationBar: showCustomNavigationBar
-            ? const CustomNavigationBar()
-            : customButtonLayout,
         floatingActionButton: widget.floatingActionButton,
         bottomNavigationBar: widget.showCustomNavigationBar
             ? AnimatedContainer(
