@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
@@ -7,9 +8,21 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
+import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -37,20 +50,32 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
 
-  bool _isLoading = true;
-  bool _hasError = false;
-  String _errorMessage = '';
-
-  final List<_CustomAttendanceRow> _attendanceList = <_CustomAttendanceRow>[];
   List<String> _classrooms = <String>['All'];
 
   // Optional: show a small spinner on "View" action (UI-only)
   final Map<String, bool> _loadingButtons = <String, bool>{};
 
+  late final StudentAttendanceCustomCubit _cubit;
+
   @override
   void initState() {
     super.initState();
     _customSelectedClassroom = 'All';
+    // Resolve cubit from DI with safe fallback (for hot-reload scenarios)
+    if (serviceLocator.isRegistered<StudentAttendanceCustomCubit>()) {
+      _cubit = serviceLocator<StudentAttendanceCustomCubit>();
+    } else {
+      final apiClient = serviceLocator<ApiClient>();
+      final storageService = serviceLocator<StorageService>();
+      final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
+      final repo = AttendanceRepositoryImpl(remote, storageService);
+      _cubit = StudentAttendanceCustomCubit(
+        getStudentAttendanceCustomUseCase:
+            GetStudentAttendanceCustomUseCase(repo),
+        repository: repo,
+      );
+    }
+
     _customSearchController.addListener(_onSearchChanged);
     _initializeClassrooms();
     _initializeDefaultRange();
@@ -62,19 +87,26 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _customSearchController.removeListener(_onSearchChanged);
     _customSearchController.dispose();
     _scrollController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
-      return _buildContent();
+      return BlocProvider.value(
+        value: _cubit,
+        child: _buildContent(),
+      );
     }
 
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
+    return BlocProvider.value(
+      value: _cubit,
+      child: GlobalScaffold(
+        hasBackButton: true,
+        showCustomNavigationBar: true,
+        body: _buildContent(),
+      ),
     );
   }
 
@@ -82,35 +114,65 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        _loadAttendanceData(reset: true);
+    return BlocBuilder<StudentAttendanceCustomCubit,
+        StudentAttendanceCustomState>(
+      builder: (context, state) {
+        return CustomRefreshIndicator(
+          onRefresh: () async {
+            _loadAttendanceData(reset: true);
+          },
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollUpdateNotification) {
+                if (notification.metrics.pixels >=
+                    notification.metrics.maxScrollExtent - 200) {
+                  if (!state.isLoading &&
+                      !state.isLoadingMore &&
+                      state.hasMore) {
+                    _cubit.loadNextPage();
+                  }
+                }
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(
+                horizontal: contentPadding.left,
+                vertical: responsive.verticalSpacing / 2,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: responsive.verticalSpacing),
+                  if (!widget.contentOnly) ...[
+                    _buildHeaderTabsRow(),
+                    const SizedBox(height: 10),
+                    _buildTabIndicator(selectedTab: 1),
+                    SizedBox(height: responsive.verticalSpacing),
+                  ],
+                  _buildFilterSection(),
+                  SizedBox(height: responsive.verticalSpacing),
+                  _buildContentSection(
+                    state,
+                    _getFilteredAttendance(state.items),
+                  ),
+                  if (state.isLoadingMore)
+                    Padding(
+                      padding:
+                          EdgeInsets.all(responsive.verticalSpacing),
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  SizedBox(height: responsive.verticalSpacing),
+                ],
+              ),
+            ),
+          ),
+        );
       },
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.symmetric(
-          horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 2,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: responsive.verticalSpacing),
-            // Tabs row + popup (only meaningful in non-embedded mode, but safe in embedded too)
-            if (!widget.contentOnly) ...[
-              _buildHeaderTabsRow(),
-              const SizedBox(height: 10),
-              _buildTabIndicator(selectedTab: 1),
-              SizedBox(height: responsive.verticalSpacing),
-            ],
-            _buildFilterSection(),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildContentSection(_getFilteredAttendance()),
-            SizedBox(height: responsive.verticalSpacing),
-          ],
-        ),
-      ),
     );
   }
 
@@ -141,79 +203,91 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     setState(() {
       _searchQuery = _customSearchController.text;
     });
+     _loadAttendanceData(reset: true);
   }
 
-  // Method to load attendance data (UI-only, backend removed)
   void _loadAttendanceData({bool reset = false}) {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-      _errorMessage = '';
-      if (reset) {
-        _attendanceList.clear();
-        _customExpandedStudentIndex = null;
-      }
-    });
+    final fromDate = _customRangeStart ?? DateTime.now();
+    final toDate = _customRangeEnd ?? DateTime.now();
 
-    // Simulate loading + populate dummy data
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
+    final classroomCodes = (_customSelectedClassroom != null &&
+            _customSelectedClassroom != 'All')
+        ? <String>[_customSelectedClassroom!]
+        : null;
 
-      // Keep dummy data stable once loaded unless reset requested
-      final next = reset || _attendanceList.isEmpty
-          ? _buildDummyAttendanceData()
-          : _attendanceList;
+    final search = _searchQuery.trim().isNotEmpty ? _searchQuery.trim() : null;
 
-      setState(() {
-        _attendanceList
-          ..clear()
-          ..addAll(next);
-        _isLoading = false;
-      });
-    });
-  }
-
-  List<_CustomAttendanceRow> _buildDummyAttendanceData() {
-    final rooms = _classrooms.where((e) => e != 'All').toList();
-    if (rooms.isEmpty) {
-      rooms.addAll(<String>['Room 1', 'Room 2', 'Room 3']);
-    }
-
-    return List<_CustomAttendanceRow>.generate(18, (i) {
-      final idx = i + 1;
-      final room = rooms[i % rooms.length];
-      final expectedToday = idx % 6 != 0; // some are not expected
-      final signedIn = expectedToday && idx % 4 != 0;
-      final signedOut = signedIn && idx % 5 == 0;
-
-      return _CustomAttendanceRow(
-        id: 'custom_student_$idx',
-        studentId: idx,
-        studentName: 'Student $idx',
-        roomName: room,
-        daysAttended: '${(idx % 22) + 1}',
-        totalHours: '${(idx % 6) + 1} Hrs ${(idx * 7) % 60} Mins',
-        expectedToday: expectedToday,
-        hasSignIn: signedIn,
-        signOutTime: signedOut ? '05:${(10 + idx) % 60} PM' : null,
-        studentPhotoUuid: '',
+    if (reset) {
+      _cubit.refresh(
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: null,
+        search: search,
       );
-    });
+    } else {
+      _cubit.loadInitial(
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: null,
+        search: search,
+      );
+    }
   }
 
-  List<_CustomAttendanceRow> _getFilteredAttendance() {
+  List<_CustomAttendanceRow> _getFilteredAttendance(
+    List<StudentAttendanceCustomItem> items,
+  ) {
     final q = _searchQuery.trim().toLowerCase();
     final selected = (_customSelectedClassroom ?? 'All').trim();
 
-    return _attendanceList.where((row) {
+    final filtered = <_CustomAttendanceRow>[];
+
+    for (final entry in items.asMap().entries) {
+      final index = entry.key;
+      final item = entry.value;
+
       final matchesSearch =
-          q.isEmpty || row.studentName.toLowerCase().contains(q);
+          q.isEmpty || item.studentName.toLowerCase().contains(q);
 
-      final matchesClassroom =
-          selected == 'All' || selected.isEmpty || row.roomName == selected;
+      final matchesClassroom = selected == 'All' ||
+          selected.isEmpty ||
+          item.classroomName == selected;
 
-      return matchesSearch && matchesClassroom;
-    }).toList();
+      if (matchesSearch && matchesClassroom) {
+        filtered.add(
+          _mapEntityToRow(item, index),
+        );
+      }
+    }
+
+    return filtered;
+  }
+
+  _CustomAttendanceRow _mapEntityToRow(
+    StudentAttendanceCustomItem item,
+    int index,
+  ) {
+    final daysAttended = item.attendedDays.toString();
+    final totalHours = item.attendedTime.isNotEmpty
+        ? item.attendedTime
+        : '${item.attendedHours} Hrs ${item.attendedMinutes} Mins';
+
+    return _CustomAttendanceRow(
+      id: item.studentCode.isNotEmpty
+          ? item.studentCode
+          : '${item.studentName}_${item.classroomCode}_$index',
+      studentId: index,
+      studentName: item.studentName,
+      roomName: item.classroomName,
+      daysAttended: daysAttended,
+      totalHours: totalHours,
+      expectedToday: item.isExpectedToday,
+      hasSignIn: item.hasSignIn,
+      signOutTime: item.signedOutTime,
+      studentPhotoUuid: '',
+    );
   }
 
   Widget _buildHeaderTabsRow() {
@@ -269,20 +343,8 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final responsive = ResponsiveHelper(context);
     final spacing = responsive.horizontalSpacing / 2;
 
-    return Container(
+    return CustomSectionCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         children: [
           LayoutBuilder(
@@ -304,6 +366,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                         setState(() {
                           _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
                         });
+                        _loadAttendanceData(reset: true);
                       },
                     ),
                   ],
@@ -330,6 +393,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                         setState(() {
                           _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
                         });
+                        _loadAttendanceData(reset: true);
                       },
                     ),
                   ),
@@ -348,6 +412,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                 _customRangeStart = start;
                 _customRangeEnd = end;
               });
+              _loadAttendanceData(reset: true);
             },
           ),
         ],
@@ -355,13 +420,16 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
-  Widget _buildContentSection(List<_CustomAttendanceRow> filtered) {
-    if (_isLoading) {
+  Widget _buildContentSection(
+    StudentAttendanceCustomState state,
+    List<_CustomAttendanceRow> filtered,
+  ) {
+    if (state.isLoading && state.items.isEmpty) {
       return _buildLoadingShimmer();
     }
 
-    if (_hasError) {
-      return _buildErrorWidget();
+    if (state.errorMessage != null) {
+      return _buildErrorWidget(state.errorMessage!);
     }
 
     if (filtered.isEmpty) {
@@ -389,42 +457,30 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
-  Widget _buildErrorWidget() {
+  Widget _buildErrorWidget(String message) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const Icon(Icons.error_outline, color: AppColors.errorColor, size: 48),
             const SizedBox(height: 16),
-            const Text(
+            AppText.title(
               'Error loading attendance data',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                color: Colors.red,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                height: 22 / 18,
-              ),
+              style: TextStyle(color: AppColors.errorColor, fontSize: 18),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            Text(
-              _errorMessage.isNotEmpty ? _errorMessage : 'Please try again.',
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.secondaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 19 / 14,
-              ),
+            AppText.body(
+              message.isNotEmpty ? message : 'Please try again.',
+              style: TextStyle(color: AppColors.secondaryColor),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => _loadAttendanceData(reset: true),
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: AppText.body('Retry', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
                 foregroundColor: Colors.white,
@@ -447,27 +503,15 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
             const Icon(Icons.inbox_outlined,
                 color: AppColors.secondaryColor, size: 48),
             const SizedBox(height: 16),
-            const Text(
+            AppText.title(
               'No attendance data found',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.secondaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                height: 22 / 18,
-              ),
+              style: TextStyle(color: AppColors.secondaryColor, fontSize: 18),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
+            AppText.body(
               'Try adjusting your search criteria or date range',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.secondaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 19 / 14,
-              ),
+              style: TextStyle(color: AppColors.secondaryColor),
               textAlign: TextAlign.center,
             ),
           ],
@@ -481,14 +525,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final bool isSelected = selectedTab == index;
     return GestureDetector(
       onTap: () => onTap(index),
-      child: Text(
+      child: AppText.body(
         label,
         style: TextStyle(
-          fontFamily: 'Manrope',
           fontSize: 16,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
           color: isSelected ? const Color(0xFF222B45) : const Color(0xFF8F9BB3),
-          height: 19 / 16,
         ),
       ),
     );
@@ -586,28 +628,23 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
+                  child: AppText.body(
                     studentName,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
-                      height: 19 / 16,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
+                AppText.body(
                   'Attended Days : $daysAttended',
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 15,
                     color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w500,
-                    height: 19 / 15,
                   ),
                 ),
               ],
@@ -618,27 +655,14 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Text(
+                  AppText.small(
                     'Classroom',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      color: AppColors.secondaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 16 / 12,
-                    ),
+                    style: TextStyle(color: AppColors.secondaryColor),
                   ),
                   const Spacer(),
                   Flexible(
-                    child: Text(
+                    child: AppText.value(
                       roomName,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 19 / 14,
-                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.end,
@@ -649,27 +673,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Text(
+                  AppText.small(
                     'Attended Time',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      color: AppColors.secondaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 16 / 12,
-                    ),
+                    style: TextStyle(color: AppColors.secondaryColor),
                   ),
                   const Spacer(),
-                  Text(
-                    totalHours,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 19 / 14,
-                    ),
-                  ),
+                  AppText.value(totalHours),
                 ],
               ),
               SizedBox(height: responsive.verticalSpacing / 1.2),
@@ -708,6 +717,22 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                             await Future.delayed(const Duration(milliseconds: 300));
                             if (!mounted) return;
                             setState(() => _loadingButtons[attendance.id] = false);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => StudentAttendanceProfile(
+                                  studentId: attendance.studentId,
+                                  studentName: attendance.studentName,
+                                  studentPhotoUuid: attendance.studentPhotoUuid,
+                                  roomName: attendance.roomName,
+                                  isSignedIn: attendance.hasSignIn,
+                                  isAbsent: !attendance.hasSignIn && attendance.expectedToday,
+                                  isExpectedToday: attendance.expectedToday,
+                                  isPresentToday: attendance.hasSignIn,
+                                  profileStatus: 'A',
+                                ),
+                              ),
+                            );
                           },
                         ),
                 ),

@@ -1,0 +1,444 @@
+import 'package:equatable/equatable.dart';
+
+class StudentAttendanceDailyItemModel extends Equatable {
+  const StudentAttendanceDailyItemModel({
+    required this.studentName,
+    required this.isExpectedToday,
+    required this.classroomName,
+    this.signedInAt,
+    this.signedInTime,
+    this.signedOutAt,
+    this.signedOutTime,
+    required this.classroomCode,
+    required this.tagCodes,
+    required this.tagNames,
+    this.duration,
+  });
+
+  final String studentName;
+  final bool isExpectedToday;
+  final String classroomName;
+  final String? signedInAt;
+  final StudentAttendanceTimeModel? signedInTime;
+  final String? signedOutAt;
+  final StudentAttendanceTimeModel? signedOutTime;
+  final String classroomCode;
+  final List<String> tagCodes;
+  final List<String> tagNames;
+  final String? duration;
+
+  factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
+    return StudentAttendanceDailyItemModel(
+      studentName: json['studentName'] as String? ?? '',
+      isExpectedToday: json['isExpectedToday'] as bool? ?? false,
+      classroomName: json['classroomName'] as String? ?? '',
+      signedInAt: json['signedInAt'] as String?,
+      signedInTime: json['signedInTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['signedInTime'])
+          : null,
+      signedOutAt: json['signedOutAt'] as String?,
+      signedOutTime: json['signedOutTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
+          : null,
+      classroomCode: json['classroomCode'] as String? ?? '',
+      tagCodes: (json['tagCodes'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      tagNames: (json['tagNames'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      duration: json['duration'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'studentName': studentName,
+      'isExpectedToday': isExpectedToday,
+      'classroomName': classroomName,
+      'signedInAt': signedInAt,
+      'signedInTime': signedInTime?.toJson(),
+      'signedOutAt': signedOutAt,
+      'signedOutTime': signedOutTime?.toJson(),
+      'classroomCode': classroomCode,
+      'tagCodes': tagCodes,
+      'tagNames': tagNames,
+      'duration': duration,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        studentName,
+        isExpectedToday,
+        classroomName,
+        signedInAt,
+        signedInTime,
+        signedOutAt,
+        signedOutTime,
+        classroomCode,
+        tagCodes,
+        tagNames,
+        duration,
+      ];
+}
+
+class StudentAttendanceTimeModel extends Equatable {
+  const StudentAttendanceTimeModel({
+    required this.hour,
+    required this.minute,
+    this.second = 0,
+    this.nano = 0,
+  });
+
+  final int hour;
+  final int minute;
+  final int second;
+  final int nano;
+
+  factory StudentAttendanceTimeModel.fromJson(dynamic json) {
+    // Backend may return time either as an object {hour,minute,second,nano}
+    // or as a string \"HH:mm:ss\" / \"HH:mm:ss.SSS\". Support both.
+    if (json is Map<String, dynamic>) {
+      return StudentAttendanceTimeModel(
+        hour: json['hour'] as int? ?? 0,
+        minute: json['minute'] as int? ?? 0,
+        second: json['second'] as int? ?? 0,
+        nano: json['nano'] as int? ?? 0,
+      );
+    }
+
+    if (json is String) {
+      try {
+        final parts = json.split(':');
+        if (parts.length >= 2) {
+          final hour = int.tryParse(parts[0]) ?? 0;
+          final minute = int.tryParse(parts[1]) ?? 0;
+          int second = 0;
+          int nano = 0;
+
+          if (parts.length >= 3) {
+            final secPart = parts[2];
+            if (secPart.contains('.')) {
+              final secSplit = secPart.split('.');
+              second = int.tryParse(secSplit.first) ?? 0;
+              nano = int.tryParse(
+                        secSplit.last.padRight(9, '0').substring(0, 9)) ??
+                  0;
+            } else {
+              second = int.tryParse(secPart) ?? 0;
+            }
+          }
+
+          return StudentAttendanceTimeModel(
+            hour: hour,
+            minute: minute,
+            second: second,
+            nano: nano,
+          );
+        }
+      } catch (_) {
+        // fall-through to default
+      }
+    }
+
+    return const StudentAttendanceTimeModel(hour: 0, minute: 0);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'hour': hour,
+      'minute': minute,
+      'second': second,
+      'nano': nano,
+    };
+  }
+
+  /// Formats time as "HH:mm AM/PM"
+  String get formattedTime {
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    final displayMinute = minute.toString().padLeft(2, '0');
+    return '$displayHour:$displayMinute $period';
+  }
+
+  @override
+  List<Object?> get props => [hour, minute, second, nano];
+}
+
+class StudentAttendanceDailyPageModel extends Equatable {
+  const StudentAttendanceDailyPageModel({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalPages,
+    required this.totalElements,
+    required this.hasMore,
+  });
+
+  final List<StudentAttendanceDailyItemModel> items;
+  final int page;
+  final int size;
+  final int totalPages;
+  final int totalElements;
+  final bool hasMore;
+
+  @override
+  List<Object?> get props =>
+      [items, page, size, totalPages, totalElements, hasMore];
+
+  factory StudentAttendanceDailyPageModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    final content = data['content'] as List<dynamic>? ?? const [];
+    final pageNumber = data['number'] as int? ?? 0;
+    final pageSize = data['size'] as int? ?? content.length;
+    final totalPages = data['totalPages'] as int? ?? 0;
+    final totalElements = data['totalElements'] as int? ?? content.length;
+
+    final items = content
+        .map((e) =>
+            StudentAttendanceDailyItemModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final hasMore = pageNumber + 1 < totalPages;
+
+    return StudentAttendanceDailyPageModel(
+      items: items,
+      page: pageNumber,
+      size: pageSize,
+      totalPages: totalPages,
+      totalElements: totalElements,
+      hasMore: hasMore,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': items.map((e) => e.toJson()).toList(),
+      'number': page,
+      'size': size,
+      'totalPages': totalPages,
+      'totalElements': totalElements,
+      'last': !hasMore,
+    };
+  }
+
+  factory StudentAttendanceDailyPageModel.fromCacheJson(
+      Map<String, dynamic> json) {
+    final itemsJson = json['content'] as List<dynamic>? ?? const [];
+    return StudentAttendanceDailyPageModel(
+      items: itemsJson
+          .map((e) =>
+              StudentAttendanceDailyItemModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      page: json['number'] as int? ?? 0,
+      size: json['size'] as int? ?? itemsJson.length,
+      totalPages: json['totalPages'] as int? ?? 1,
+      totalElements: json['totalElements'] as int? ?? itemsJson.length,
+      hasMore: json['hasMore'] as bool? ?? false,
+    );
+  }
+}
+
+class StudentAttendanceCustomItemModel extends Equatable {
+  const StudentAttendanceCustomItemModel({
+    required this.studentCode,
+    required this.studentName,
+    required this.isExpectedToday,
+    required this.classroomName,
+    required this.classroomCode,
+    required this.attendedDays,
+    required this.attendedTime,
+    required this.attendedHours,
+    required this.attendedMinutes,
+    this.signedInBy,
+    this.signedInTime,
+    this.signedOutBy,
+    this.signedOutTime,
+    required this.tagCodes,
+    required this.tagNames,
+  });
+
+  final String studentCode;
+  final String studentName;
+  final bool isExpectedToday;
+  final String classroomName;
+  final String classroomCode;
+  final int attendedDays;
+  final String attendedTime;
+  final int attendedHours;
+  final int attendedMinutes;
+  final String? signedInBy;
+  final String? signedInTime;
+  final String? signedOutBy;
+  final String? signedOutTime;
+  final List<String> tagCodes;
+  final List<String> tagNames;
+
+  factory StudentAttendanceCustomItemModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    String? _parseTime(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      if (value is Map<String, dynamic>) {
+        final hour = value['hour'] as int? ?? 0;
+        final minute = value['minute'] as int? ?? 0;
+        final second = value['second'] as int? ?? 0;
+        final h = hour.toString().padLeft(2, '0');
+        final m = minute.toString().padLeft(2, '0');
+        final s = second.toString().padLeft(2, '0');
+        return '$h:$m:$s';
+      }
+      return value.toString();
+    }
+
+    return StudentAttendanceCustomItemModel(
+      studentCode: json['studentCode'] as String? ?? '',
+      studentName: json['studentName'] as String? ?? '',
+      isExpectedToday: json['isExpectedToday'] as bool? ?? false,
+      classroomName: json['classroomName'] as String? ?? '',
+      classroomCode: json['classroomCode'] as String? ?? '',
+      attendedDays: json['attendedDays'] as int? ?? 0,
+      signedInBy: json['signedInBy'] as String?,
+      signedInTime: _parseTime(json['signedInTime']),
+      signedOutBy: json['signedOutBy'] as String?,
+      signedOutTime: _parseTime(json['signedOutTime']),
+      tagCodes: (json['tagCodes'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      tagNames: (json['tagNames'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      attendedTime: json['attendedTime'] as String? ?? '',
+      attendedHours: json['attendedHours'] as int? ?? 0,
+      attendedMinutes: json['attendedMinutes'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'studentCode': studentCode,
+      'studentName': studentName,
+      'isExpectedToday': isExpectedToday,
+      'classroomName': classroomName,
+      'classroomCode': classroomCode,
+      'attendedDays': attendedDays,
+      'signedInBy': signedInBy,
+      'signedInTime': signedInTime,
+      'signedOutBy': signedOutBy,
+      'signedOutTime': signedOutTime,
+      'tagCodes': tagCodes,
+      'tagNames': tagNames,
+      'attendedTime': attendedTime,
+      'attendedHours': attendedHours,
+      'attendedMinutes': attendedMinutes,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        studentCode,
+        studentName,
+        isExpectedToday,
+        classroomName,
+        classroomCode,
+        attendedDays,
+        attendedTime,
+        attendedHours,
+        attendedMinutes,
+        signedInBy,
+        signedInTime,
+        signedOutBy,
+        signedOutTime,
+        tagCodes,
+        tagNames,
+      ];
+}
+
+class StudentAttendanceCustomPageModel extends Equatable {
+  const StudentAttendanceCustomPageModel({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalPages,
+    required this.totalElements,
+    required this.hasMore,
+  });
+
+  final List<StudentAttendanceCustomItemModel> items;
+  final int page;
+  final int size;
+  final int totalPages;
+  final int totalElements;
+  final bool hasMore;
+
+  @override
+  List<Object?> get props =>
+      [items, page, size, totalPages, totalElements, hasMore];
+
+  factory StudentAttendanceCustomPageModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    final content = data['content'] as List<dynamic>? ?? const [];
+    final pageNumber = data['number'] as int? ?? 0;
+    final pageSize = data['size'] as int? ?? content.length;
+    final totalPages = data['totalPages'] as int? ?? 0;
+    final totalElements = data['totalElements'] as int? ?? content.length;
+
+    final items = content
+        .map(
+          (e) => StudentAttendanceCustomItemModel.fromJson(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+
+    final hasMore = pageNumber + 1 < totalPages;
+
+    return StudentAttendanceCustomPageModel(
+      items: items,
+      page: pageNumber,
+      size: pageSize,
+      totalPages: totalPages,
+      totalElements: totalElements,
+      hasMore: hasMore,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': items.map((e) => e.toJson()).toList(),
+      'number': page,
+      'size': size,
+      'totalPages': totalPages,
+      'totalElements': totalElements,
+      'last': !hasMore,
+    };
+  }
+
+  factory StudentAttendanceCustomPageModel.fromCacheJson(
+    Map<String, dynamic> json,
+  ) {
+    final itemsJson = json['content'] as List<dynamic>? ?? const [];
+    return StudentAttendanceCustomPageModel(
+      items: itemsJson
+          .map(
+            (e) => StudentAttendanceCustomItemModel.fromJson(
+              e as Map<String, dynamic>,
+            ),
+          )
+          .toList(),
+      page: json['number'] as int? ?? 0,
+      size: json['size'] as int? ?? itemsJson.length,
+      totalPages: json['totalPages'] as int? ?? 1,
+      totalElements: json['totalElements'] as int? ?? itemsJson.length,
+      hasMore: json['hasMore'] as bool? ?? false,
+    );
+  }
+}

@@ -11,6 +11,9 @@ class ApiConstants {
   static const String classroomBaseUrl = _host;
   static const String schoolMs = _host;
 
+  /// Attendance service base URL
+  static const String attendanceBaseUrl = 'http://fitten-vallie-forthrightly.ngrok-free.dev/attendance';
+
   // Legacy / alternate (for reference)
   // static const String baseUrlDev = 'https://242sq05v-8080.inc1.devtunnels.ms';
   // static const String Prathmesh = 'https://qs176zl8-8080.inc1.devtunnels.ms';

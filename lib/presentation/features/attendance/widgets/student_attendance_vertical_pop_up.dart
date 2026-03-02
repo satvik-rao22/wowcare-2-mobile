@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 
 class StudentAttendanceVerticalPopUp extends StatelessWidget {
   final List<dynamic> students;
@@ -23,18 +28,17 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 45,
-      width: 45,
-      child: Material(
-        color: AppColors.primaryColor,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => _showActionMenu(context),
-          child: const Icon(Icons.more_vert, color: Colors.white),
-        ),
-      ),
+    // Use the shared GradientAddButton for consistent FAB styling.
+    // Mirror the responsive sizing used in StaffScreen by deriving
+    // tablet breakpoints from the current screen width.
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 600;
+    final bool isLargeTablet = screenWidth >= 900;
+
+    return GradientAddButton(
+      onTap: () => _showActionMenu(context),
+      isTablet: isTablet,
+      isLargeTablet: isLargeTablet,
     );
   }
 
@@ -86,7 +90,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     return InkWell(
       onTap: () {
         Navigator.pop(context);
-        refreshCallback();
+        _navigateToForm(context, label);
       },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -106,5 +110,33 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _navigateToForm(BuildContext context, String label) {
+    Widget? form;
+    
+    switch (label) {
+      case 'Sign-in':
+        form = const StudentSelectionSignInForm();
+        break;
+      case 'Sign-Out':
+        form = const StudentSelectionSignOutForm();
+        break;
+      case 'Transfer':
+        form = const StudentSelectionTransferForm();
+        break;
+      case 'Absent':
+        form = const StudentSelectionMarkAbsentForm();
+        break;
+    }
+
+    if (form != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => form!),
+      );
+    }
+    
+    refreshCallback();
   }
 }

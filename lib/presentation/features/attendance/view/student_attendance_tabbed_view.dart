@@ -4,6 +4,7 @@ import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_daily_view.dart';
@@ -71,12 +72,23 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     super.build(context);
     final responsive = ResponsiveHelper(context);
     final mediaQuery = MediaQuery.of(context);
+    final contentPadding = ResponsiveSizing.contentPadding(context);
     final safeAreaTop = mediaQuery.padding.top;
-    final appBarHeight = AppBar().preferredSize.height;
-    final tabBarHeight = 48.0; // Approximate tab bar height
-    final floatingButtonTop = safeAreaTop + appBarHeight + tabBarHeight + 8;
-    final floatingButtonSize = responsive.isTablet ? 52.0 : 45.0;
-    final floatingButtonRight = responsive.horizontalSpacing;
+    final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
+
+    // Match GradientAddButton responsive sizes (as used in StaffScreen)
+    final double screenWidth = mediaQuery.size.width;
+    final bool isTablet = screenWidth >= 600;
+    final bool isLargeTablet = screenWidth >= 900;
+    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+
+    // Align the button with the TabBar headings row (Daily/Custom/Absent)
+    // by vertically centering it within the TabBar height.
+    final floatingButtonTop =
+        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+    // Align the floating button horizontally with the main content padding,
+    // similar to how GradientAddButton is aligned in StaffScreen.
+    final floatingButtonRight = contentPadding.right;
     
     return Stack(
       children: [
@@ -103,13 +115,13 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                 tabAlignment: TabAlignment.start,
                 isScrollable: true,
                 labelStyle: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   color: Colors.black,
                   fontSize: responsive.isTablet ? 18 : 16,
                   fontWeight: FontWeight.w600,
                 ),
                 unselectedLabelStyle: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   color: AppColors.primaryColor.withValues(alpha: 0.5),
                   fontSize: responsive.isTablet ? 18 : 16,
                   fontWeight: FontWeight.w400,
@@ -127,7 +139,14 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
               bottom: false,
               child: GradientBackground(
                 child: Padding(
-                  padding: EdgeInsets.all(responsive.isTablet ? 12 : 8),
+                  padding: EdgeInsets.fromLTRB(
+                    contentPadding.left,
+                    contentPadding.top,
+                    contentPadding.right,
+                    // Add extra bottom padding so tab content can scroll
+                    // fully above the bottom navigation bar.
+                    mediaQuery.padding.bottom + 80,
+                  ),
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -174,15 +193,11 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                 ),
               ],
             ),
-            child: SizedBox(
-              width: floatingButtonSize,
-              height: floatingButtonSize,
-              child: StudentAttendanceVerticalPopUp(
-                students: const [],
-                refreshCallback: _refreshCurrentTab,
-                topPosition: floatingButtonTop,
-                rightPosition: floatingButtonRight,
-              ),
+            child: StudentAttendanceVerticalPopUp(
+              students: const [],
+              refreshCallback: _refreshCurrentTab,
+              topPosition: floatingButtonTop,
+              rightPosition: floatingButtonRight,
             ),
           ),
         ),

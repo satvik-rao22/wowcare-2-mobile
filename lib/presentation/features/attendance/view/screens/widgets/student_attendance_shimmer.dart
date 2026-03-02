@@ -22,8 +22,9 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
+          border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -38,8 +39,8 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
             Container(
               width: avatarSize,
               height: avatarSize,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: AppColors.cardColor,
                 shape: BoxShape.circle,
               ),
             ),
@@ -53,7 +54,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
                     height: responsive.isTablet ? 18 : 16,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -62,7 +63,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
                     height: responsive.isTablet ? 16 : 14,
                     width: responsive.isTablet ? 140 : 120,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -107,8 +108,9 @@ class StudentAbsentCardShimmer extends StatelessWidget {
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
+          border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -123,8 +125,8 @@ class StudentAbsentCardShimmer extends StatelessWidget {
             Container(
               width: avatarSize,
               height: avatarSize,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: AppColors.cardColor,
                 shape: BoxShape.circle,
               ),
             ),
@@ -138,7 +140,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                     height: responsive.isTablet ? 18 : 16,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -147,7 +149,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                     height: responsive.isTablet ? 16 : 14,
                     width: responsive.isTablet ? 140 : 120,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -156,7 +158,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                     height: responsive.isTablet ? 16 : 14,
                     width: responsive.isTablet ? 110 : 100,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),

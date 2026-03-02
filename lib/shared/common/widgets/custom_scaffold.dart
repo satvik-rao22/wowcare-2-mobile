@@ -180,6 +180,7 @@ class GlobalScaffold extends StatefulWidget {
     this.showCustomNavigationBar = true,
     this.isParent = false,
     this.studentList,
+    this.customButtonLayout,
     super.key,
   });
 
@@ -189,6 +190,7 @@ class GlobalScaffold extends StatefulWidget {
   final bool showCustomNavigationBar;
   final bool isParent;
   final List<String>? studentList;
+  final Widget? customButtonLayout;
 
   @override
   State<GlobalScaffold> createState() => _GlobalScaffoldState();
@@ -260,6 +262,10 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
           ),
         ),
         extendBody: true,
+        floatingActionButton: floatingActionButton,
+        bottomNavigationBar: showCustomNavigationBar
+            ? const CustomNavigationBar()
+            : customButtonLayout,
         floatingActionButton: widget.floatingActionButton,
         bottomNavigationBar: widget.showCustomNavigationBar
             ? AnimatedContainer(
