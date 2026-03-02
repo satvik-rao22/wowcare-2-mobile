@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'student_sign_out_form.dart';
 
 class StudentSelectionSignOutForm extends StatefulWidget {
@@ -132,161 +134,112 @@ class _StudentSelectionSignOutFormState
     final isTablet = ResponsiveSizing.isTablet(context);
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
-    final screenSize = mediaQuery.size;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Container(
-        height: screenSize.height * 0.8,
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.all(5),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(16),
+    return StaffFormLayout(
+      title: 'Sign-Out',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const AppText.subtitle('Select Students'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F7FA),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.grey),
+            ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search Students',
+                hintStyle: AppTextStyles.body.copyWith(
+                  color: Colors.grey[700],
+                ),
+                border: InputBorder.none,
+                icon: const Icon(Icons.search, color: Colors.grey),
+              ),
+              onChanged: (_) => _filterStudents(),
+            ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Sign Out',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Select Students',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F7FA),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.grey),
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search Students',
-                  hintStyle: TextStyle(color: Colors.grey[700]),
-                  border: InputBorder.none,
-                  icon: const Icon(Icons.search, color: Colors.grey),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDropdown(
+                  hintText: 'Classroom',
+                  items: _classrooms,
+                  selectedItem: _selectedClassroom,
+                  onSelect: (value) {
+                    setState(() {
+                      _selectedClassroom = value;
+                      _filterStudents();
+                    });
+                  },
                 ),
-                onChanged: (_) => _filterStudents(),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: CustomDropdown(
-                    hintText: 'Classroom',
-                    items: _classrooms,
-                    selectedItem: _selectedClassroom,
-                    onSelect: (value) {
-                      setState(() {
-                        _selectedClassroom = value;
-                        _filterStudents();
-                      });
-                    },
-                  ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CustomMultiSelectDropdown(
+                  hintText: 'Tags',
+                  items: _tags,
+                  selectedItems: _selectedTag,
+                  onChanged: (selectedItems) {
+                    setState(() {
+                      _selectedTag = selectedItems;
+                      _filterStudents();
+                    });
+                  },
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CustomMultiSelectDropdown(
-                    hintText: 'Tags',
-                    items: _tags,
-                    selectedItems: _selectedTag,
-                    onChanged: (selectedItems) {
-                      setState(() {
-                        _selectedTag = selectedItems;
-                        _filterStudents();
-                      });
-                    },
-                  ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: CustomCheckbox(
+                  value: isSelectAllChecked,
+                  onChanged: _toggleSelectAll,
+                  borderColor: AppColors.themeColor,
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: CustomCheckbox(
-                    value: isSelectAllChecked,
-                    onChanged: _toggleSelectAll,
-                    borderColor: AppColors.themeColor,
-                  ),
-                ),
-                const Text('Select All'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: _filteredStudents.isEmpty
-                  ? const Center(child: Text("No students found"))
-                  : GridView.builder(
-                      shrinkWrap: false,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: isTablet ? 16 : 12,
-                        mainAxisSpacing: isTablet ? 16 : 12,
-                        mainAxisExtent: 52,
-                      ),
-                      itemCount: _filteredStudents.length,
-                      itemBuilder: (context, index) {
-                        final student = _filteredStudents[index];
-                        final isSelected = selectedStudents.contains(student);
-
-                        return StudentListItem(
-                          student: student,
-                          isSelected: isSelected,
-                          onSelectionChanged: (value) =>
-                              _toggleStudentSelection(student, value),
-                        );
-                      },
+              ),
+              const AppText.body('Select All'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _filteredStudents.isEmpty
+                ? const Center(child: AppText.body('No students found'))
+                : GridView.builder(
+                    shrinkWrap: false,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: isTablet ? 16 : 12,
+                      mainAxisSpacing: isTablet ? 16 : 12,
+                      mainAxisExtent: 52,
                     ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: isTablet ? 24 : 16,
-          right: isTablet ? 24 : 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(isTablet ? 40.0 : 24.0),
+                    itemCount: _filteredStudents.length,
+                    itemBuilder: (context, index) {
+                      final student = _filteredStudents[index];
+                      final isSelected =
+                          selectedStudents.contains(student);
+
+                      return StudentListItem(
+                        student: student,
+                        isSelected: isSelected,
+                        onSelectionChanged: (value) =>
+                            _toggleStudentSelection(student, value),
+                      );
+                    },
+                  ),
           ),
-        ),
+        ],
+      ),
+      bottomBar: Padding(
+        padding: EdgeInsets.only(bottom: safeAreaBottom),
         child: CustomButtonLayout(
           confirmButtonLabel: 'Next',
           onPressedConfirm: _handleNext,

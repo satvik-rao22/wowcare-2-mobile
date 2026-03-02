@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 import 'staff_sign_out_form.dart';
 
@@ -135,16 +136,9 @@ class _StaffSelectionSignOutFormState
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
+    return StaffFormLayout(
+      title: 'Sign-Out',
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
@@ -213,7 +207,7 @@ class _StaffSelectionSignOutFormState
           ),
           Expanded(
             child: _filteredStaff.isEmpty
-                ? const Center(child: Text("No staff found"))
+                ? const Center(child: AppText.body('No staff found'))
                 : GridView.builder(
                     padding: EdgeInsets.symmetric(
                       horizontal: isTablet ? 24 : 16,
@@ -235,27 +229,8 @@ class _StaffSelectionSignOutFormState
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: isTablet ? 24 : 16,
-          right: isTablet ? 24 : 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(isTablet ? 40.0 : 24.0),
-          ),
-        ),
+      bottomBar: Padding(
+        padding: EdgeInsets.only(bottom: safeAreaBottom),
         child: CustomButtonLayout(
           confirmButtonLabel: 'Next',
           onPressedConfirm: _handleNext,
