@@ -14,7 +14,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -37,7 +38,6 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   final ScrollController _scrollController = ScrollController();
   DateTime _selectedDate = DateTime.now();
   String _searchQuery = '';
-  bool _isLoading = false;
   bool _showAbsentOnly = false;
   String? _statusLegendFilter;
   FilterData? _staffFilters;
@@ -346,10 +346,39 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
             });
           },
           onEdit: () {
-            // Placeholder for edit action
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StaffEditAttendanceForm(
+                  staffAttendance: staff,
+                  attendanceDate: _selectedDate,
+                ),
+              ),
+            );
           },
           onDelete: () {
-            // Placeholder for delete action
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (ctx) {
+                return DeleteConfirmationBottomSheet(
+                  name: staff.staffName,
+                  type: 'attendance',
+                  onDelete: () {
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Attendance deleted'),
+                      ),
+                    );
+                  },
+                  onCancel: () {
+                    Navigator.of(ctx).pop();
+                  },
+                );
+              },
+            );
           },
           onView: () {
             Navigator.push(
