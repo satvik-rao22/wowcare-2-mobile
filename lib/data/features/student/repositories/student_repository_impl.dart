@@ -497,6 +497,27 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     return sorted;
   }
 
+  @override
+  Future<List<String>> getTagNamesForSchool({
+    required String schoolCode,
+  }) async {
+    final raw = await _remoteDataSource.getTagsBySchool(
+      schoolCode: schoolCode,
+    );
+
+    final names = <String>{};
+
+    for (final item in raw) {
+      final name = (item['name'] ?? '').toString().trim();
+      if (name.isNotEmpty) {
+        names.add(name);
+      }
+    }
+
+    final sorted = names.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sorted;
+  }
+
   Future<List<StudentGuardianModel>> getStudentGuardians({
     required String studentCode,
   }) async {

@@ -119,6 +119,14 @@ abstract class StudentRepository {
   Future<List<String>> getGuardianNamesForSchool({
     required String schoolCode,
   });
+
+  /// Fetches all tag names for a school via `GET /api/v1/tags`.
+  ///
+  /// Returns a list of tag display names (e.g. "5 Days", "Vegetarian") suitable
+  /// for dropdowns.
+  Future<List<String>> getTagNamesForSchool({
+    required String schoolCode,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

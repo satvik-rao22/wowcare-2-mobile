@@ -54,6 +54,9 @@ class ApiPaths {
   static const String guardianUser = '/api/v1/guardian-user';
   static const String guardian = '/api/v1/guardian';
 
+  // Tags
+  static const String tags = '/api/v1/tags';
+
   // Attendance
   static const String studentAttendanceDailyView = '/api/v1/student-attendance/view/daily';
   static const String studentAttendanceCustomView = '/api/v1/student-attendance/view/custom';

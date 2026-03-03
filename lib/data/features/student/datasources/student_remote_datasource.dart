@@ -181,6 +181,14 @@ abstract class StudentRemoteDataSource {
     required String schoolCode,
   });
 
+  /// Fetches tags for a school via `GET /api/v1/tags`.
+  ///
+  /// Returns the `content` list from the paginated `data` payload, each item
+  /// being a map with keys like `code`, `name`, `status`, etc.
+  Future<List<Map<String, dynamic>>> getTagsBySchool({
+    required String schoolCode,
+  });
+
   /// Fetches student important dates via
   /// `GET /api/v1/student/{code}/important-dates`.
   Future<StudentImportantDatesModel> getStudentImportantDates({
@@ -827,6 +835,45 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     return data
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTagsBySchool({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.tags,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        // Load first page with a reasonable size; tags list is usually small.
+        'pageable.page': 0,
+        'pageable.size': 100,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected tags API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    final content = data['content'];
+    if (content is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return content
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
   }

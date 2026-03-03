@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -38,15 +39,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   // Options
   List<String> _classroomList = [];
   final List<String> _statusList = const ['Active', 'Inactive', 'Upcoming'];
-  final List<String> _tagsList = const [
-    '5 Days',
-    'Full Day',
-    'Photo Permission',
-    'Vegetarian',
-    'First Aid',
-    'Allergy',
-    'Pickup Authorized',
-  ];
+  List<String> _tagsList = const [];
   List<String> _parentsList = const [];
   final List<String> _attendanceList = const ['Expected', 'Present', 'Absent'];
 
@@ -58,6 +51,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   List<String> _selectedAttendanceList = [];
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
+  late final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase;
   late final StorageService _storageService;
 
   @override
@@ -66,6 +60,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
 
     _getGuardianNamesForSchoolUseCase =
         serviceLocator<GetGuardianNamesForSchoolUseCase>();
+    _getTagNamesForSchoolUseCase =
+        serviceLocator<GetTagNamesForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
 
     final initial = widget.initialFilters ?? const {};
@@ -82,11 +78,32 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     }
 
     _fetchFilterData();
+    _loadTags();
     _loadParents();
   }
 
   void _fetchFilterData() {
     context.read<ClassroomCubit>().loadActiveClassrooms();
+  }
+
+  Future<void> _loadTags() async {
+    try {
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final names =
+          await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _tagsList = names;
+        _selectedTagsList
+            .removeWhere((tag) => !_tagsList.contains(tag));
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
   }
 
   Future<void> _loadParents() async {
