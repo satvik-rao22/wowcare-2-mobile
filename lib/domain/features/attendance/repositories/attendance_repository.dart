@@ -3,6 +3,7 @@ import '../entities/student_attendance_custom.dart';
 import '../entities/staff_attendance_daily.dart';
 import '../entities/staff_attendance_absent.dart';
 import '../entities/student_attendance_absent_form.dart';
+import '../entities/student_attendance_expected_summary.dart';
 
 abstract class AttendanceRepository {
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
@@ -13,6 +14,10 @@ abstract class AttendanceRepository {
     int page,
     int size,
   });
+
+  /// Expected attendance summary for the daily "Expected Students" card.
+  Future<StudentAttendanceExpectedSummary>
+      getStudentAttendanceExpectedSummary();
 
   Future<StudentAttendanceCustomPage> getStudentAttendanceCustom({
     required String fromAttendanceDate,
@@ -79,6 +84,17 @@ abstract class AttendanceRepository {
     required String classroomCode,
   });
 
+  /// Creates staff absence records (Mark Absent).
+  Future<String> markStaffAbsent({
+    required String staffCode,
+    required List<String> staffCodes,
+    required String absenceFromDate,
+    required String absenceToDate,
+    required String absenceReason,
+    required String absenceType,
+    required Map<String, String> absenceNotes,
+  });
+
   /// Student Absent toggle view - absent students for daily screen toggle.
   ///
   /// Response shape matches [StudentAttendanceAbsentFormPage].
@@ -102,6 +118,10 @@ abstract class AttendanceRepository {
     int size,
   });
 
+  /// Staff expected attendance summary for the daily "Expected Staff" card.
+  Future<StudentAttendanceExpectedSummary>
+      getStaffAttendanceExpectedSummary();
+
   Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({
     required String fromAttendanceDate,
     required String toAttendanceDate,
@@ -113,6 +133,19 @@ abstract class AttendanceRepository {
   });
 
   Future<StaffAttendanceAbsentPage> getStaffAttendanceAbsent({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
+
+  /// Staff Absent toggle view - absent staff for daily screen toggle.
+  ///
+  /// Response shape matches [StaffAttendanceAbsentPage].
+  Future<StaffAttendanceAbsentPage> getStaffAttendanceAbsentToggleView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -154,6 +187,18 @@ abstract class AttendanceRepository {
     int page,
     int size,
   });
+
+  /// Current-day sign-in status for a single staff member.
+  ///
+  /// Returns a status string such as `SIGNED_IN` or `ABSENT`, or `null`
+  /// if the backend did not return a status for this code.
+  Future<String?> getStaffTodaySignInStatus(String staffCode);
+
+  /// Current-day sign-in status for a single student.
+  ///
+  /// Returns a status string such as `SIGNED_IN` or `ABSENT`, or `null`
+  /// if the backend did not return a status for this code.
+  Future<String?> getStudentTodaySignInStatus(String studentCode);
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

@@ -600,41 +600,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             Row(
               children: [
                 const SizedBox(width: 5),
-                Stack(
-                  children: [
-                    DocumentImageWidget(
-                      fileUuid: currentStaff.photoUuid ?? '',
-                      size: 80,
-                      name: currentStaff.name,
-                      fontSize: 24,
-                    ),
-                    // Status dot logic
-                    if (currentStaff.isSignedIn ||
-                        currentStaff.isAbsent ||
-                        currentStaff.profileStatus == 'Upcoming')
-                      Positioned(
-                        right: 4,
-                        top: 4,
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: currentStaff.profileStatus == 'Upcoming'
-                                ? const Color.fromARGB(255, 253, 205, 22) // Yellow for upcoming
-                                : currentStaff.isSignedIn
-                                    ? const Color.fromRGBO(0, 177, 21, 1) // Green when signed in
-                                    : currentStaff.isAbsent
-                                        ? const Color.fromRGBO(200, 32, 32, 1) // Red when absent
-                                        : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                DocumentImageWidget(
+                  fileUuid: currentStaff.photoUuid ?? '',
+                  size: 80,
+                  name: currentStaff.name,
+                  fontSize: 24,
+                  // Drive status dot purely from attendance API using staffCode.
+                  staffCode: widget.staffCode,
                 ),
                 const SizedBox(width: 16),
                 Expanded(

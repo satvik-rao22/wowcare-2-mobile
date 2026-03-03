@@ -32,6 +32,7 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -75,11 +76,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   int enrolled = 120;
   int active = 100;
   int upcoming = 20;
-  int expected = 95;
-  int present = 85;
-  int absent = 10;
-  int signedOut = 5;
-  int notMarked = 5;
+  int expected = 0;
+  int present = 0;
+  int absent = 0;
+  int signedOut = 0;
+  int notMarked = 0;
 
   // Dummy absent students (will be replaced with API later)
   final List<StudentAbsentCardData> _absentStudents = [];
@@ -104,6 +105,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
       _cubit = StudentAttendanceDailyCubit(
         getStudentAttendanceDailyUseCase: GetStudentAttendanceDailyUseCase(repo),
+        getStudentAttendanceExpectedSummaryUseCase:
+            GetStudentAttendanceExpectedSummaryUseCase(repo),
         repository: repo,
       );
     }
@@ -348,12 +351,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     enrolled: enrolled,
                     active: active,
                     upcoming: upcoming,
-                    expected: expected,
-                    present: present,
-                    absent: absent,
-                    signedOut: signedOut,
-                    notMarked: notMarked,
-                    isLoading: state.isLoading || state.isRefreshing,
+                    expected: state.expectedCount ?? expected,
+                    present: state.presentCount ?? present,
+                    absent: state.absentCount ?? absent,
+                    signedOut: state.signedOutCount ?? signedOut,
+                    notMarked: state.notMarkedCount ?? notMarked,
+                    isLoading: state.isLoading ||
+                        state.isRefreshing ||
+                        state.isSummaryLoading,
                     onLegendTap: (status) {
                       setState(() {
                         if (_statusLegendFilter == status) {

@@ -911,3 +911,95 @@ class StudentAttendanceAbsentFormPageModel extends Equatable {
     };
   }
 }
+
+/// Expected attendance summary for the daily view "Expected Students" card.
+class StudentAttendanceExpectedSummaryModel extends Equatable {
+  const StudentAttendanceExpectedSummaryModel({
+    required this.expected,
+    required this.present,
+    required this.absent,
+    required this.signOut,
+    required this.notMarked,
+  });
+
+  final int expected;
+  final int present;
+  final int absent;
+  final int signOut;
+  final int notMarked;
+
+  /// Parses the wrapped API response:
+  /// {
+  ///   "success": true,
+  ///   "message": "...",
+  ///   "data": {
+  ///     "expected": 10,
+  ///     "present": 0,
+  ///     "absent": 4,
+  ///     "signout": 0,
+  ///     "notMarked": 6
+  ///   },
+  ///   ...
+  /// }
+  factory StudentAttendanceExpectedSummaryModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    return StudentAttendanceExpectedSummaryModel(
+      expected: data['expected'] as int? ?? 0,
+      present: data['present'] as int? ?? 0,
+      absent: data['absent'] as int? ?? 0,
+      signOut: data['signout'] as int? ?? 0,
+      notMarked: data['notMarked'] as int? ?? 0,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        expected,
+        present,
+        absent,
+        signOut,
+        notMarked,
+      ];
+}
+
+/// Staff expected attendance summary for the daily view "Expected Staff" card.
+class StaffAttendanceExpectedSummaryModel extends Equatable {
+  const StaffAttendanceExpectedSummaryModel({
+    required this.expected,
+    required this.present,
+    required this.absent,
+    required this.signOut,
+    required this.notMarked,
+  });
+
+  final int expected;
+  final int present;
+  final int absent;
+  final int signOut;
+  final int notMarked;
+
+  factory StaffAttendanceExpectedSummaryModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    return StaffAttendanceExpectedSummaryModel(
+      expected: data['expected'] as int? ?? 0,
+      present: data['present'] as int? ?? 0,
+      absent: data['absent'] as int? ?? 0,
+      signOut: data['signout'] as int? ?? 0,
+      notMarked: data['notMarked'] as int? ?? 0,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        expected,
+        present,
+        absent,
+        signOut,
+        notMarked,
+      ];
+}
+
