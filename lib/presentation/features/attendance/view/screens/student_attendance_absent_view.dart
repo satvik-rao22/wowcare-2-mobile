@@ -657,6 +657,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
+                                  studentCode: student.id,
                                   studentId: student.studentId,
                                   studentName: student.name,
                                   studentPhotoUuid: student.photoUuid,

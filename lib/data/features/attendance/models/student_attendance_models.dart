@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 class StudentAttendanceDailyItemModel extends Equatable {
   const StudentAttendanceDailyItemModel({
+    this.studentCode,
     required this.studentName,
     required this.isExpectedToday,
     required this.classroomName,
@@ -18,6 +19,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final String studentName;
   final bool isExpectedToday;
   final String classroomName;
+  final String? studentCode;
   final String? signedInAt;
   final StudentAttendanceTimeModel? signedInTime;
   final String? signedOutAt;
@@ -29,6 +31,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
+      studentCode: json['studentCode'] as String?,
       studentName: json['studentName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
       classroomName: json['classroomName'] as String? ?? '',
@@ -55,6 +58,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   Map<String, dynamic> toJson() {
     return {
+      'studentCode': studentCode,
       'studentName': studentName,
       'isExpectedToday': isExpectedToday,
       'classroomName': classroomName,
@@ -71,6 +75,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
+        studentCode,
         studentName,
         isExpectedToday,
         classroomName,

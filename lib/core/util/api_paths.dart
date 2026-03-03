@@ -58,6 +58,7 @@ class ApiPaths {
   static const String studentAttendanceDailyView = '/api/v1/student-attendance/view/daily';
   static const String studentAttendanceCustomView = '/api/v1/student-attendance/view/custom';
   static const String studentAttendanceAbsentView = '/api/v1/student-attendance/view/absent';
+  static const String studentAttendanceProfile = '/api/v1/student-attendance/profile';
   static const String staffAttendanceDailyView = '/api/v1/staff-attendance/view/daily';
   static const String staffAttendanceProfile = '/api/v1/staff-attendance/profile';
   static const String staffAttendanceAbsentView = '/api/v1/staff-attendance/view/absent';
