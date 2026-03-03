@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 class StudentAttendanceDailyItem extends Equatable {
   const StudentAttendanceDailyItem({
+    this.attendanceRecordCode,
     this.studentCode,
     required this.studentName,
     required this.isExpectedToday,
@@ -16,6 +17,7 @@ class StudentAttendanceDailyItem extends Equatable {
     this.duration,
   });
 
+  final String? attendanceRecordCode;
   final String? studentCode;
   final String studentName;
   final bool isExpectedToday;
@@ -40,6 +42,7 @@ class StudentAttendanceDailyItem extends Equatable {
 
   @override
   List<Object?> get props => [
+        attendanceRecordCode,
         studentCode,
         studentName,
         isExpectedToday,

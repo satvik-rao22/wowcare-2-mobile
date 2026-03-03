@@ -8,6 +8,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'student_sign_out_form.dart';
 
 class StudentSelectionSignOutForm extends StatefulWidget {
@@ -28,27 +30,26 @@ class _StudentSelectionSignOutFormState
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
 
-  // Mock data for UI-only implementation
-  final List<StudentEntity> _allStudents = List.generate(
-    15,
-    (index) => StudentEntity(
-      id: index + 1,
-      fullName: 'Student ${index + 1}',
-      roomId: (index % 4) + 1,
-      roomName: 'Classroom ${String.fromCharCode(65 + (index % 4))}',
-      photoUuid: '', // Empty string for mock data - will show initials avatar
-    ),
-  );
+  // Backing list populated from the Sign-Out form API.
+  List<StudentEntity> _allStudents = [];
 
   final List<String> _classrooms = ['Classroom A', 'Classroom B', 'Classroom C', 'Classroom D'];
   final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
 
   List<StudentEntity> _filteredStudents = [];
 
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  late final GetStudentSignOutFormListUseCase
+      _getStudentSignOutFormListUseCase;
+
   @override
   void initState() {
     super.initState();
-    _filteredStudents = List.from(_allStudents);
+    _getStudentSignOutFormListUseCase =
+        serviceLocator<GetStudentSignOutFormListUseCase>();
+    _loadStudents();
   }
 
   @override
@@ -57,26 +58,65 @@ class _StudentSelectionSignOutFormState
     super.dispose();
   }
 
-  void _filterStudents() {
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadStudents() async {
     setState(() {
-      _filteredStudents = _allStudents.where((student) {
-        bool matchesSearch = true;
-        bool matchesRoom = true;
-        bool matchesTag = true;
-
-        if (_searchController.text.isNotEmpty) {
-          matchesSearch = student.fullName
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase());
-        }
-
-        if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
-          matchesRoom = _selectedClassroom == student.roomName;
-        }
-
-        return matchesSearch && matchesRoom && matchesTag;
-      }).toList();
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final today = DateTime.now();
+      final dateString = _formatDate(today);
+
+      final classroomCodes =
+          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
+              ? <String>[_selectedClassroom!]
+              : null;
+
+      final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
+
+      final searchText =
+          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+
+      final page = await _getStudentSignOutFormListUseCase(
+        fromAttendanceDate: dateString,
+        toAttendanceDate: dateString,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: searchText,
+        page: 0,
+        size: 100,
+      );
+
+      final students = page.items.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
+        return StudentEntity(
+          id: index + 1,
+          fullName: item.studentName,
+          roomId: 0,
+          roomName: item.classroomName,
+          photoUuid: '', // API does not supply image here
+        );
+      }).toList();
+
+      setState(() {
+        _allStudents = students;
+        _filteredStudents = List.from(students);
+        _isLoading = false;
+        isSelectAllChecked = _filteredStudents.isNotEmpty &&
+            _filteredStudents.every((s) => selectedStudents.contains(s));
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
   }
 
   void _toggleSelectAll(bool? value) {
@@ -159,7 +199,7 @@ class _StudentSelectionSignOutFormState
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
-              onChanged: (_) => _filterStudents(),
+              onChanged: (_) => _loadStudents(),
             ),
           ),
           const SizedBox(height: 12),
@@ -173,8 +213,8 @@ class _StudentSelectionSignOutFormState
                   onSelect: (value) {
                     setState(() {
                       _selectedClassroom = value;
-                      _filterStudents();
                     });
+                    _loadStudents();
                   },
                 ),
               ),
@@ -187,8 +227,8 @@ class _StudentSelectionSignOutFormState
                   onChanged: (selectedItems) {
                     setState(() {
                       _selectedTag = selectedItems;
-                      _filterStudents();
                     });
+                    _loadStudents();
                   },
                 ),
               ),
@@ -210,31 +250,51 @@ class _StudentSelectionSignOutFormState
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: _filteredStudents.isEmpty
-                ? const Center(child: AppText.body('No students found'))
-                : GridView.builder(
-                    shrinkWrap: false,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisExtent: 52,
-                    ),
-                    itemCount: _filteredStudents.length,
-                    itemBuilder: (context, index) {
-                      final student = _filteredStudents[index];
-                      final isSelected =
-                          selectedStudents.contains(student);
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppText.body(
+                              _errorMessage ?? 'Failed to load students',
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _loadStudents,
+                              child: const AppText.body('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _filteredStudents.isEmpty
+                        ? const Center(child: AppText.body('No students found'))
+                        : GridView.builder(
+                            shrinkWrap: false,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: isTablet ? 16 : 12,
+                              mainAxisSpacing: isTablet ? 16 : 12,
+                              mainAxisExtent: 52,
+                            ),
+                            itemCount: _filteredStudents.length,
+                            itemBuilder: (context, index) {
+                              final student = _filteredStudents[index];
+                              final isSelected =
+                                  selectedStudents.contains(student);
 
-                      return StudentListItem(
-                        student: student,
-                        isSelected: isSelected,
-                        onSelectionChanged: (value) =>
-                            _toggleStudentSelection(student, value),
-                      );
-                    },
-                  ),
+                              return StudentListItem(
+                                student: student,
+                                isSelected: isSelected,
+                                onSelectionChanged: (value) =>
+                                    _toggleStudentSelection(student, value),
+                              );
+                            },
+                          ),
           ),
         ],
       ),

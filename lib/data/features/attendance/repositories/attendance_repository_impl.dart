@@ -5,8 +5,11 @@ import '../../../../domain/features/attendance/entities/student_attendance_custo
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
     as staff_absent;
+import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
+    as student_absent;
 import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../datasources/attendance_remote_datasource.dart';
+import '../models/student_absence_record_models.dart';
 import '../models/student_attendance_models.dart';
 
 class AttendanceRepositoryImpl
@@ -151,6 +154,7 @@ class AttendanceRepositoryImpl
   StudentAttendanceDailyItem _mapItemModelToEntity(
       StudentAttendanceDailyItemModel model) {
     return StudentAttendanceDailyItem(
+      attendanceRecordCode: model.attendanceRecordCode,
       studentCode: model.studentCode,
       studentName: model.studentName,
       isExpectedToday: model.isExpectedToday,
@@ -272,6 +276,78 @@ class AttendanceRepositoryImpl
       tagCodes: model.tagCodes,
       tagNames: model.tagNames,
     );
+  }
+
+  @override
+  Future<StudentAttendanceCustomPage> getStudentSignInFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStudentSignInFormList(
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    // For now we don't cache this list; it's a transient sign-in selection.
+    return _mapCustomPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<StudentAttendanceCustomPage> getStudentSignOutFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStudentSignOutFormList(
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    // No caching for this transient selection list.
+    return _mapCustomPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<StudentAttendanceCustomPage> getStudentTransferFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStudentTransferFormList(
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    // No caching for this transient selection list.
+    return _mapCustomPageModelToEntity(pageModel);
   }
 
   @override
@@ -425,5 +501,119 @@ class AttendanceRepositoryImpl
       absenceNote: model.absenceNote,
       absentDays: model.absentDays,
     );
+  }
+
+  student_absent.StudentAttendanceAbsentFormPage
+      _mapStudentAbsentFormPageModelToEntity(
+    StudentAttendanceAbsentFormPageModel model,
+  ) {
+    return student_absent.StudentAttendanceAbsentFormPage(
+      items: model.items.map(_mapStudentAbsentFormItemModelToEntity).toList(),
+      page: model.page,
+      size: model.size,
+      totalPages: model.totalPages,
+      totalElements: model.totalElements,
+      hasMore: model.hasMore,
+    );
+  }
+
+  student_absent.StudentAttendanceAbsentFormItem
+      _mapStudentAbsentFormItemModelToEntity(
+    StudentAttendanceAbsentFormItemModel model,
+  ) {
+    return student_absent.StudentAttendanceAbsentFormItem(
+      studentCode: model.studentCode,
+      studentName: model.studentName,
+      classroomCode: model.classroomCode,
+      classroomName: model.classroomName,
+      absenceDate: model.absenceDate,
+      markedAbsentTime: model.markedAbsentTime != null
+          ? student_absent.StudentAttendanceTime(
+              hour: model.markedAbsentTime!.hour,
+              minute: model.markedAbsentTime!.minute,
+              second: model.markedAbsentTime!.second,
+              nano: model.markedAbsentTime!.nano,
+            )
+          : null,
+      markedAbsentByName: model.markedAbsentByName,
+      absenceNote: model.absenceNote,
+      absentDays: model.absentDays,
+    );
+  }
+
+  @override
+  Future<student_absent.StudentAttendanceAbsentFormPage>
+      getStudentAbsentFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStudentAbsentFormList(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStudentAbsentFormPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<String> markStudentsAbsent({
+    required String staffCode,
+    required List<String> studentCodes,
+    required String absenceFromDate,
+    required String absenceToDate,
+    required String absenceReason,
+    required Map<String, String> absenceNotes,
+    required String classroomCode,
+  }) async {
+    final response = await _remoteDataSource.markStudentsAbsent(
+      request: MarkAbsentRequestModel(
+        staffCode: staffCode,
+        studentCodes: studentCodes,
+        absenceFromDate: absenceFromDate,
+        absenceToDate: absenceToDate,
+        absenceReason: absenceReason,
+        absenceNotes: absenceNotes,
+        classroomCode: classroomCode,
+      ),
+    );
+
+    return response.message.isNotEmpty
+        ? response.message
+        : 'Marked absent successfully';
+  }
+
+  @override
+  Future<student_absent.StudentAttendanceAbsentFormPage>
+      getStudentAttendanceAbsentToggleView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel =
+        await _remoteDataSource.getStudentAttendanceAbsentToggleView(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStudentAbsentFormPageModelToEntity(pageModel);
   }
 }

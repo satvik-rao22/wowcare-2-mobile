@@ -265,33 +265,33 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     return filtered;
   }
 
-_CustomAttendanceRow _mapEntityToRow(
-  StudentAttendanceCustomItem item,
-  int index,
-) {
-  final daysAttended = item.attendedDays.toString();
-  final totalHours = item.attendedTime.isNotEmpty
-      ? item.attendedTime
-      : '${item.attendedHours} Hrs ${item.attendedMinutes} Mins';
+  _CustomAttendanceRow _mapEntityToRow(
+    StudentAttendanceCustomItem item,
+    int index,
+  ) {
+    final daysAttended = item.attendedDays.toString();
+    final totalHours = item.attendedTime.isNotEmpty
+        ? item.attendedTime
+        : '${item.attendedHours} Hrs ${item.attendedMinutes} Mins';
 
   final id = item.studentCode.isNotEmpty
       ? item.studentCode
       : '${item.studentName}_${item.classroomCode}_$index';
 
-  return _CustomAttendanceRow(
+    return _CustomAttendanceRow(
     id: id,
     studentCode: item.studentCode,
-    studentId: index,
-    studentName: item.studentName,
-    roomName: item.classroomName,
-    daysAttended: daysAttended,
-    totalHours: totalHours,
-    expectedToday: item.isExpectedToday,
-    hasSignIn: item.hasSignIn,
-    signOutTime: item.signedOutTime,
-    studentPhotoUuid: '',
-  );
-}
+      studentId: index,
+      studentName: item.studentName,
+      roomName: item.classroomName,
+      daysAttended: daysAttended,
+      totalHours: totalHours,
+      expectedToday: item.isExpectedToday,
+      hasSignIn: item.hasSignIn,
+      signOutTime: item.signedOutTime,
+      studentPhotoUuid: '',
+    );
+  }
 
   Widget _buildHeaderTabsRow() {
     // This matches the reference UI layout; navigation is intentionally disabled (UI-only).

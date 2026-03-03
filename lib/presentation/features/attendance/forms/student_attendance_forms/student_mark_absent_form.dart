@@ -7,21 +7,30 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
   final int id;
+  final String studentCode;
   final String fullName;
   final int roomId;
   final String roomName;
+  final String classroomCode;
   final String photoUuid;
   final List<TagEntity> tags;
 
   StudentEntity({
     required this.id,
+    required this.studentCode,
     required this.fullName,
     required this.roomId,
     required this.roomName,
+    required this.classroomCode,
     this.photoUuid = '',
     this.tags = const [],
   });
@@ -31,10 +40,10 @@ class StudentEntity {
       identical(this, other) ||
       other is StudentEntity &&
           runtimeType == other.runtimeType &&
-          id == other.id;
+          studentCode == other.studentCode;
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => studentCode.hashCode;
 }
 
 // Mock tag entity for UI-only implementation
@@ -61,14 +70,19 @@ class StudentMarkAbsentForm extends StatefulWidget {
 class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
-  Map<int, TextEditingController> notesControllers = {};
+  final TextEditingController _reasonController = TextEditingController();
+  Map<String, TextEditingController> notesControllers = {};
   List<StudentEntity> currentStudents = [];
+  bool _isSubmitting = false;
+
+  late final MarkStudentsAbsentUseCase _markStudentsAbsentUseCase;
 
   @override
   void initState() {
     super.initState();
+    _markStudentsAbsentUseCase = serviceLocator<MarkStudentsAbsentUseCase>();
     for (var student in widget.students) {
-      notesControllers[student.id] = TextEditingController();
+      notesControllers[student.studentCode] = TextEditingController();
     }
 
     currentStudents = List.from(widget.students);
@@ -77,8 +91,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   void _removeStudent(StudentEntity student) {
     setState(() {
       currentStudents.remove(student);
-      notesControllers[student.id]?.dispose();
-      notesControllers.remove(student.id);
+      notesControllers[student.studentCode]?.dispose();
+      notesControllers.remove(student.studentCode);
 
       if (currentStudents.isEmpty) {
         Navigator.pop(context);
@@ -91,7 +105,12 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     for (var controller in notesControllers.values) {
       controller.dispose();
     }
+    _reasonController.dispose();
     super.dispose();
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -115,16 +134,119 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     }
   }
 
-  void _handleSubmit() {
-    // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Marked Absent successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
+  Future<String> _resolveStaffCode() async {
+    // TEMP: Hardcoded for testing as requested.
+    return 'STAFF_001';
+  }
+
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+
+    if (currentStudents.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one student'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    // classroomCode is required by API; enforce single classroom selection.
+    final classroomCode = currentStudents.first.classroomCode.trim();
+    final hasMixedClassrooms = currentStudents.any(
+      (s) => s.classroomCode.trim() != classroomCode,
     );
-    Navigator.pop(context);
-    widget.refreshCallback?.call();
+    if (classroomCode.isEmpty || hasMixedClassrooms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select students from the same classroom'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final absenceFromDate = _formatDate(startDate);
+    final absenceToDate = _formatDate(endDate);
+    final absenceReason = _reasonController.text.trim().isNotEmpty
+        ? _reasonController.text.trim()
+        : 'Marked Absent';
+
+    final studentCodes = currentStudents
+        .map((s) => s.studentCode.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (studentCodes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Student code missing for selected students'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final absenceNotes = <String, String>{};
+    for (final s in currentStudents) {
+      final code = s.studentCode.trim();
+      if (code.isEmpty) continue;
+      final note = (notesControllers[code]?.text ?? '').trim();
+      if (note.isNotEmpty) {
+        absenceNotes[code] = note;
+      }
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final message = await _markStudentsAbsentUseCase(
+        staffCode: staffCode,
+        studentCodes: studentCodes,
+        absenceFromDate: absenceFromDate,
+        absenceToDate: absenceToDate,
+        absenceReason: absenceReason,
+        absenceNotes: absenceNotes,
+        classroomCode: classroomCode,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message.isNotEmpty ? message : 'Marked Absent successfully'),
+          backgroundColor: AppColors.successColor,
+        ),
+      );
+      Navigator.pop(context);
+      widget.refreshCallback?.call();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 
   @override
@@ -135,6 +257,41 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const AppText.label('Reason'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reasonController,
+              decoration: InputDecoration(
+                hintText: 'Enter absence reason',
+                hintStyle: AppTextStyles.body.copyWith(
+                  color: const Color.fromRGBO(87, 51, 83, 0.5),
+                  fontSize: 15,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: AppColors.cardColor,
+              ),
+            ),
+            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
@@ -226,7 +383,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                     ),
                     const SizedBox(height: 20),
                     TextField(
-                      controller: notesControllers[student.id],
+                      controller: notesControllers[student.studentCode],
                       decoration: InputDecoration(
                         hintText: 'Enter Absent Notes',
                         hintStyle: AppTextStyles.body.copyWith(
@@ -282,6 +439,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         confirmButtonLabel: 'Submit',
         onPressedConfirm: _handleSubmit,
         showCancelButton: false,
+        isLoading: _isSubmitting,
       ),
     );
   }

@@ -155,7 +155,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   void _triggerSearchReload() {
-    _loadAbsentStudents(reset: true);
+      _loadAbsentStudents(reset: true);
   }
 
   void _onScroll() {
@@ -170,7 +170,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _studentsHasMore &&
         position.pixels >= threshold) {
       setState(() => _isBackgroundFetchingStudents = true);
-      _loadAbsentStudents(fromBackground: true);
+        _loadAbsentStudents(fromBackground: true);
     }
   }
 
@@ -195,11 +195,11 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
       if (reset || _studentsPage == 0) {
         if (reset || !fromBackground) {
-          _isInitialLoadingStudents = true;
+        _isInitialLoadingStudents = true;
         }
         _isBackgroundFetchingStudents = false;
         if (reset) {
-          _absentStudents.clear();
+        _absentStudents.clear();
         }
       }
 
@@ -239,7 +239,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final trimmedSearch = _searchQuery.trim();
     if (trimmedSearch.isNotEmpty) {
       queryParameters['search'] = trimmedSearch;
-    }
+      }
 
     debugPrint(
       'StudentAbsent API → GET $endpoint query=$queryParameters',
@@ -363,7 +363,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   Future<void> _handleRefresh() async {
-    await _loadAbsentStudents(reset: true);
+      await _loadAbsentStudents(reset: true);
   }
 
 
@@ -423,7 +423,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                             setState(() {
                               _selectedClassroom = val;
                             });
-                            _loadAbsentStudents(reset: true);
+                              _loadAbsentStudents(reset: true);
                           },
                         ),
                       ),
@@ -440,7 +440,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                         _rangeStart = start;
                         _rangeEnd = end;
                       });
-                      _loadAbsentStudents(reset: true);
+                        _loadAbsentStudents(reset: true);
                     },
                   ),
                 ],
@@ -613,14 +613,14 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
               _buildDetailRow(responsive, 'Absent Time', student.absentTime),
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(responsive, 'Marked By', student.absentBy),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
+                SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(
                 responsive,
                 'Absent Note',
                 (student.note != null && student.note!.trim().isNotEmpty)
                     ? student.note!.trim()
                     : '-',
-              ),
+                      ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),

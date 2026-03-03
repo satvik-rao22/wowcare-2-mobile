@@ -15,6 +15,7 @@ enum SignMethod {
 
 class StudentAttendanceCardData {
   final String id;
+  final String? attendanceRecordCode;
   final String? studentCode;
   final String studentName;
   final String? studentPhotoUuid;
@@ -34,6 +35,7 @@ class StudentAttendanceCardData {
 
   StudentAttendanceCardData({
     required this.id,
+    this.attendanceRecordCode,
     this.studentCode,
     required this.studentName,
     this.studentPhotoUuid,

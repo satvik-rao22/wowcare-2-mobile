@@ -44,6 +44,12 @@ import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
+import '../../domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_attendance_daily_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_attendance_custom_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_attendance_absent_usecase.dart';
@@ -64,6 +70,7 @@ import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
+import '../../presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
 import '../../presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
 import '../../presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
 import '../../presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
@@ -217,6 +224,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentAttendanceCustomUseCase>(
     () => GetStudentAttendanceCustomUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentSignInFormListUseCase>(
+    () => GetStudentSignInFormListUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentSignOutFormListUseCase>(
+    () => GetStudentSignOutFormListUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentTransferFormListUseCase>(
+    () => GetStudentTransferFormListUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAbsentFormListUseCase>(
+    () => GetStudentAbsentFormListUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAttendanceAbsentToggleViewUseCase>(
+    () => GetStudentAttendanceAbsentToggleViewUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkStudentsAbsentUseCase>(
+    () => MarkStudentsAbsentUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStaffAttendanceDailyUseCase>(
     () => GetStaffAttendanceDailyUseCase(serviceLocator()),
   );
@@ -308,6 +333,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentAttendanceDailyCubit(
       getStudentAttendanceDailyUseCase: serviceLocator(),
       repository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentAttendanceAbsentToggleCubit>(
+    () => StudentAttendanceAbsentToggleCubit(
+      getStudentAttendanceAbsentToggleViewUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentAttendanceCustomCubit>(

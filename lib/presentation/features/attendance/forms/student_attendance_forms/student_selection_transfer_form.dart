@@ -8,6 +8,8 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'student_transfer_form.dart';
 
 class StudentSelectionTransferForm extends StatefulWidget {
@@ -29,21 +31,13 @@ class _StudentSelectionTransferFormState
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
+  String? _errorMessage;
 
-  // Mock data for UI-only implementation
-  final List<StudentEntity> _allStudents = List.generate(
-    15,
-    (index) => StudentEntity(
-      id: index + 1,
-      fullName: 'Student ${index + 1}',
-      roomId: (index % 4) + 1,
-      roomName: 'Classroom ${String.fromCharCode(65 + (index % 4))}',
-      photoUuid: '',
-      tags: [
-        TagEntity(name: 'Tag ${(index % 3) + 1}'),
-      ],
-    ),
-  );
+  late final GetStudentTransferFormListUseCase
+      _getStudentTransferFormListUseCase;
+
+  // Backing list populated from the Transfer form API.
+  List<StudentEntity> _allStudents = [];
 
   final List<String> _classrooms = [
     'Classroom A',
@@ -51,21 +45,15 @@ class _StudentSelectionTransferFormState
     'Classroom C',
     'Classroom D'
   ];
-  final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
+  List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
 
   @override
   void initState() {
     super.initState();
+    _getStudentTransferFormListUseCase =
+        serviceLocator<GetStudentTransferFormListUseCase>();
     _searchController.addListener(_onSearchChanged);
-    // Simulate loading delay
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _filteredStudents = List.from(_allStudents);
-        });
-      }
-    });
+    _loadStudents();
   }
 
   @override
@@ -77,6 +65,75 @@ class _StudentSelectionTransferFormState
 
   void _onSearchChanged() {
     _filterStudents();
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadStudents() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final today = DateTime.now();
+      final dateString = _formatDate(today);
+
+      final classroomCodes =
+          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
+              ? <String>[_selectedClassroom!]
+              : null;
+
+      final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
+
+      final searchText =
+          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+
+      final page = await _getStudentTransferFormListUseCase(
+        fromAttendanceDate: dateString,
+        toAttendanceDate: dateString,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: searchText,
+        page: 0,
+        size: 100,
+      );
+
+      final students = page.items.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
+        return StudentEntity(
+          id: index + 1,
+          fullName: item.studentName,
+          roomId: 0,
+          roomName: item.classroomName,
+          photoUuid: '',
+          tags: item.tagNames
+              .map((name) => TagEntity(name: name))
+              .toList(),
+        );
+      }).toList();
+
+      // Build tag list from API data if available
+      final tagSet = <String>{};
+      for (final item in page.items) {
+        tagSet.addAll(item.tagNames);
+      }
+
+      setState(() {
+        _allStudents = students;
+        _isLoading = false;
+        _tags = tagSet.isNotEmpty ? tagSet.toList() : _tags;
+        _filterStudents();
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
   }
 
   void _filterStudents() {
@@ -221,6 +278,7 @@ class _StudentSelectionTransferFormState
                       _selectedClassroom = value;
                       _filterStudents();
                     });
+                    _loadStudents();
                   },
                   hintText: 'Classroom',
                   items: _classrooms,
@@ -240,6 +298,7 @@ class _StudentSelectionTransferFormState
                       _selectedTag = selectedItems;
                       _filterStudents();
                     });
+                    _loadStudents();
                   },
                 ),
               ),
@@ -263,33 +322,51 @@ class _StudentSelectionTransferFormState
           Expanded(
             child: _isLoading
                 ? _buildShimmerGrid()
-                : _filteredStudents.isEmpty
-                    ? const Center(child: AppText.body('No students found'))
-                    : GridView.builder(
-                        shrinkWrap: false,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          mainAxisExtent: 52,
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppText.body(
+                              _errorMessage ?? 'Failed to load students',
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _loadStudents,
+                              child: const AppText.body('Retry'),
+                            ),
+                          ],
                         ),
-                        itemCount: _filteredStudents.length,
-                        itemBuilder: (context, index) {
-                          final student = _filteredStudents[index];
-                          final isSelected =
-                              selectedStudents.contains(student);
+                      )
+                    : _filteredStudents.isEmpty
+                        ? const Center(child: AppText.body('No students found'))
+                        : GridView.builder(
+                            shrinkWrap: false,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              mainAxisExtent: 52,
+                            ),
+                            itemCount: _filteredStudents.length,
+                            itemBuilder: (context, index) {
+                              final student = _filteredStudents[index];
+                              final isSelected =
+                                  selectedStudents.contains(student);
 
-                          return StudentListItem(
-                            student: student,
-                            isSelected: isSelected,
-                            onSelectionChanged: (value) {
-                              _toggleStudentSelection(student, value);
+                              return StudentListItem(
+                                student: student,
+                                isSelected: isSelected,
+                                onSelectionChanged: (value) {
+                                  _toggleStudentSelection(student, value);
+                                },
+                              );
                             },
-                          );
-                        },
-                      ),
+                          ),
           ),
         ],
       ),

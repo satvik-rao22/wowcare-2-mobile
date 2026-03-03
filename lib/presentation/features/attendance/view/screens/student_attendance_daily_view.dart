@@ -20,13 +20,19 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -79,6 +85,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   final List<StudentAbsentCardData> _absentStudents = [];
 
   late final StudentAttendanceDailyCubit _cubit;
+  late final StudentAttendanceAbsentToggleCubit _absentToggleCubit;
 
   @override
   void initState() {
@@ -98,6 +105,24 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       _cubit = StudentAttendanceDailyCubit(
         getStudentAttendanceDailyUseCase: GetStudentAttendanceDailyUseCase(repo),
         repository: repo,
+      );
+    }
+
+    if (serviceLocator.isRegistered<StudentAttendanceAbsentToggleCubit>()) {
+      _absentToggleCubit = serviceLocator<StudentAttendanceAbsentToggleCubit>();
+    } else {
+      final repo = serviceLocator.isRegistered<AttendanceRepositoryImpl>()
+          ? serviceLocator<AttendanceRepositoryImpl>()
+          : (() {
+              final apiClient = serviceLocator<ApiClient>();
+              final storageService = serviceLocator<StorageService>();
+              final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
+              return AttendanceRepositoryImpl(remote, storageService);
+            })();
+
+      _absentToggleCubit = StudentAttendanceAbsentToggleCubit(
+        getStudentAttendanceAbsentToggleViewUseCase:
+            GetStudentAttendanceAbsentToggleViewUseCase(repo),
       );
     }
     _searchController.addListener(_onSearchChanged);
@@ -126,6 +151,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
+    _absentToggleCubit.close();
     super.dispose();
   }
 
@@ -134,27 +160,88 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   }
 
   void _loadAttendanceData({bool reset = false}) {
+    final classroomCodes =
+        _selectedClassrooms.isNotEmpty ? _selectedClassrooms : null;
+    final tagCodes = _selectedTags.isNotEmpty ? _selectedTags : null;
+    final search = _searchController.text.trim().isNotEmpty
+        ? _searchController.text.trim()
+        : null;
+
+    if (_showAbsentOnly) {
+      if (reset) {
+        _absentToggleCubit.refresh(
+          absenceDate: _selectedDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        );
+      } else {
+        _absentToggleCubit.loadInitial(
+          absenceDate: _selectedDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        );
+      }
+      return;
+    }
+
     if (reset) {
       _cubit.refresh(
         attendanceDate: _selectedDate,
-        classroomCodes: _selectedClassrooms.isNotEmpty ? _selectedClassrooms : null,
-        tagCodes: _selectedTags.isNotEmpty ? _selectedTags : null,
-        search: _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: search,
       );
     } else {
       _cubit.loadInitial(
         attendanceDate: _selectedDate,
-        classroomCodes: _selectedClassrooms.isNotEmpty ? _selectedClassrooms : null,
-        tagCodes: _selectedTags.isNotEmpty ? _selectedTags : null,
-        search: _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: search,
       );
     }
+  }
+
+  StudentAbsentCardData _absentEntityToCard(
+    StudentAttendanceAbsentFormItem item,
+    int index,
+  ) {
+    final roomName = item.classroomName.isNotEmpty
+        ? item.classroomName
+        : item.classroomCode;
+
+    final absenceDate = item.absenceDate.isNotEmpty
+        ? item.absenceDate
+        : DateTime.now().toIso8601String();
+
+    final absentTime = item.markedAbsentTime?.formattedHms ?? '';
+
+    return StudentAbsentCardData(
+      id: item.studentCode,
+      name: item.studentName,
+      photoUuid: null,
+      roomName: roomName,
+      absentTime: absentTime,
+      absentBy: item.markedAbsentByName ?? '',
+      note: item.absenceNote,
+      studentId: index,
+      roomId: 0,
+      schoolId: 0,
+      startDate: absenceDate,
+      endDate: absenceDate,
+      hasSignIn: false,
+      expectedToday: true,
+      signInTime: null,
+      signOutTime: null,
+    );
   }
 
   // Convert entity to card data
   StudentAttendanceCardData _entityToCardData(StudentAttendanceDailyItem item, int index) {
     return StudentAttendanceCardData(
       id: '${item.studentName}_${item.classroomCode}_$index',
+      attendanceRecordCode: item.attendanceRecordCode,
       studentCode: item.studentCode,
       studentName: item.studentName,
       studentPhotoUuid: null, // API doesn't provide this
@@ -177,14 +264,20 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
-      return BlocProvider.value(
-        value: _cubit,
+      return MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: _cubit),
+          BlocProvider.value(value: _absentToggleCubit),
+        ],
         child: _buildContent(),
       );
     }
 
-    return BlocProvider.value(
-      value: _cubit,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _cubit),
+        BlocProvider.value(value: _absentToggleCubit),
+      ],
       child: GlobalScaffold(
         hasBackButton: true,
         showCustomNavigationBar: true,
@@ -197,8 +290,28 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
     
-    return BlocBuilder<StudentAttendanceDailyCubit, StudentAttendanceDailyState>(
-      builder: (context, state) {
+    return BlocBuilder<StudentAttendanceAbsentToggleCubit,
+        StudentAttendanceAbsentToggleState>(
+      builder: (context, absentState) {
+        return BlocBuilder<StudentAttendanceDailyCubit,
+            StudentAttendanceDailyState>(
+          builder: (context, state) {
+            final isAbsentMode = _showAbsentOnly;
+            final isLoading = isAbsentMode ? absentState.isLoading : state.isLoading;
+            final isRefreshing =
+                isAbsentMode ? absentState.isRefreshing : state.isRefreshing;
+            final isLoadingMore =
+                isAbsentMode ? absentState.isLoadingMore : state.isLoadingMore;
+            final hasMore = isAbsentMode ? absentState.hasMore : state.hasMore;
+            final errorMessage =
+                isAbsentMode ? absentState.errorMessage : state.errorMessage;
+
+            final absentCards = absentState.items
+                .asMap()
+                .entries
+                .map((e) => _absentEntityToCard(e.value, e.key))
+                .toList();
+
         return CustomRefreshIndicator(
           onRefresh: () async {
             _loadAttendanceData(reset: true);
@@ -209,10 +322,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
               if (notification is ScrollUpdateNotification) {
                 if (notification.metrics.pixels >=
                     notification.metrics.maxScrollExtent - 200) {
-                  if (!state.isLoading &&
-                      !state.isLoadingMore &&
-                      state.hasMore) {
-                    _cubit.loadNextPage();
+                  if (!isLoading && !isLoadingMore && hasMore) {
+                    if (isAbsentMode) {
+                      _absentToggleCubit.loadNextPage();
+                    } else {
+                      _cubit.loadNextPage();
+                    }
                   }
                 }
               }
@@ -260,7 +375,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                   _buildFilterCard(responsive),
                   SizedBox(height: responsive.verticalSpacing),
                   // Error handling
-                  if (state.errorMessage != null)
+                  if (errorMessage != null)
                     CustomSectionCard(
                       margin: EdgeInsets.only(bottom: responsive.verticalSpacing),
                       padding: EdgeInsets.all(responsive.horizontalSpacing),
@@ -271,7 +386,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                           SizedBox(width: responsive.horizontalSpacing / 2),
                           Expanded(
                             child: AppText.body(
-                              state.errorMessage ?? 'Unable to load attendance. Retry.',
+                              errorMessage ?? 'Unable to load attendance. Retry.',
                               style: TextStyle(color: AppColors.errorColor),
                             ),
                           ),
@@ -287,10 +402,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     ),
                   // Content based on toggle state
                   if (_showAbsentOnly) ...[
-                    // Show absent students (API not integrated yet)
-                    if (state.isLoading && _absentStudents.isEmpty)
-                      ...List.generate(6, (index) => const StudentAbsentCardShimmer())
-                    else if (_absentStudents.isEmpty)
+                    if ((absentState.isLoading || absentState.isRefreshing) &&
+                        absentCards.isEmpty)
+                      ...List.generate(
+                          6, (index) => const StudentAbsentCardShimmer())
+                    else if (absentCards.isEmpty)
                       Center(
                         child: Padding(
                           padding: EdgeInsets.all(responsive.verticalSpacing),
@@ -302,7 +418,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                         ),
                       )
                     else
-                      ..._absentStudents.asMap().entries.map((entry) {
+                      ...absentCards.asMap().entries.map((entry) {
                         final index = entry.key;
                         final student = entry.value;
                         return StudentAbsentCard(
@@ -323,7 +439,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
-                                  studentCode: '',
+                                  studentCode: student.id,
                                   studentId: student.studentId,
                                   studentName: student.name,
                                   studentPhotoUuid: student.photoUuid,
@@ -339,6 +455,13 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                           },
                         );
                       }).toList(),
+                    if (absentState.isLoadingMore)
+                      Padding(
+                        padding: EdgeInsets.all(responsive.verticalSpacing),
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
                   ] else ...[
                     // Show regular attendance data from API
                     if (state.isLoading && state.items.isEmpty)
@@ -391,13 +514,74 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                 return DeleteConfirmationBottomSheet(
                                   name: student.studentName,
                                   type: 'attendance',
-                                  onDelete: () {
+                                  onDelete: () async {
                                     Navigator.of(ctx).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Attendance deleted'),
-                                      ),
-                                    );
+
+                                    if (student.attendanceRecordCode == null ||
+                                        student.attendanceRecordCode!.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Unable to delete: missing attendance record code.',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    try {
+                                      final storage =
+                                          serviceLocator<StorageService>();
+                                      final staffCode =
+                                          (await storage.getString(
+                                                  StorageKeys.staffCode) ??
+                                              '')
+                                              .trim();
+
+                                      if (staffCode.isEmpty) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Unable to delete: staffCode not available.',
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      final apiClient =
+                                          serviceLocator<ApiClient>().client;
+                                      final endpoint = ApiPaths.urlWithBase(
+                                        '/api/v1/student-attendance-records/${student.attendanceRecordCode}',
+                                        ApiConstants.attendanceBaseUrl,
+                                      );
+
+                                      await apiClient.delete<dynamic>(
+                                        endpoint,
+                                        queryParameters: {
+                                          'staffCode': staffCode,
+                                        },
+                                      );
+
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Attendance deleted'),
+                                        ),
+                                      );
+
+                                      _loadAttendanceData(reset: true);
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Failed to delete attendance: $e',
+                                          ),
+                                        ),
+                                      );
+                                    }
                                   },
                                   onCancel: () {
                                     Navigator.of(ctx).pop();
@@ -411,7 +595,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
-                                  studentCode: student.id,
+                                  studentCode: student.studentCode ?? '',
                                   studentId: student.studentId,
                                   studentName: student.studentName,
                                   studentPhotoUuid: student.studentPhotoUuid,
@@ -440,6 +624,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
               ),
             ),
           ),
+        );
+          },
         );
       },
     );
