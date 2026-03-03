@@ -266,6 +266,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               context,
               MaterialPageRoute(
                 builder: (_) => StudentAttendanceProfile(
+                  studentCode: '',
                   studentId: 0, // Staff profile - using placeholder ID
                   studentName: widget.name,
                   studentPhotoUuid: null,
@@ -284,6 +285,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               context,
               MaterialPageRoute(
                 builder: (_) => StudentAttendanceProfile(
+                  studentCode: '',
                   studentId: 0, // Staff profile - using placeholder ID
                   studentName: widget.name,
                   studentPhotoUuid: null,

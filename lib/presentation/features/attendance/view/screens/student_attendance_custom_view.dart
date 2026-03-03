@@ -265,30 +265,33 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     return filtered;
   }
 
-  _CustomAttendanceRow _mapEntityToRow(
-    StudentAttendanceCustomItem item,
-    int index,
-  ) {
-    final daysAttended = item.attendedDays.toString();
-    final totalHours = item.attendedTime.isNotEmpty
-        ? item.attendedTime
-        : '${item.attendedHours} Hrs ${item.attendedMinutes} Mins';
+_CustomAttendanceRow _mapEntityToRow(
+  StudentAttendanceCustomItem item,
+  int index,
+) {
+  final daysAttended = item.attendedDays.toString();
+  final totalHours = item.attendedTime.isNotEmpty
+      ? item.attendedTime
+      : '${item.attendedHours} Hrs ${item.attendedMinutes} Mins';
 
-    return _CustomAttendanceRow(
-      id: item.studentCode.isNotEmpty
-          ? item.studentCode
-          : '${item.studentName}_${item.classroomCode}_$index',
-      studentId: index,
-      studentName: item.studentName,
-      roomName: item.classroomName,
-      daysAttended: daysAttended,
-      totalHours: totalHours,
-      expectedToday: item.isExpectedToday,
-      hasSignIn: item.hasSignIn,
-      signOutTime: item.signedOutTime,
-      studentPhotoUuid: '',
-    );
-  }
+  final id = item.studentCode.isNotEmpty
+      ? item.studentCode
+      : '${item.studentName}_${item.classroomCode}_$index';
+
+  return _CustomAttendanceRow(
+    id: id,
+    studentCode: item.studentCode,
+    studentId: index,
+    studentName: item.studentName,
+    roomName: item.classroomName,
+    daysAttended: daysAttended,
+    totalHours: totalHours,
+    expectedToday: item.isExpectedToday,
+    hasSignIn: item.hasSignIn,
+    signOutTime: item.signedOutTime,
+    studentPhotoUuid: '',
+  );
+}
 
   Widget _buildHeaderTabsRow() {
     // This matches the reference UI layout; navigation is intentionally disabled (UI-only).
@@ -721,6 +724,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
+                                  studentCode: attendance.studentCode,
                                   studentId: attendance.studentId,
                                   studentName: attendance.studentName,
                                   studentPhotoUuid: attendance.studentPhotoUuid,
@@ -773,6 +777,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
 
 class _CustomAttendanceRow {
   final String id;
+  final String studentCode;
   final int studentId;
   final String studentName;
   final String studentPhotoUuid;
@@ -785,6 +790,7 @@ class _CustomAttendanceRow {
 
   const _CustomAttendanceRow({
     required this.id,
+    required this.studentCode,
     required this.studentId,
     required this.studentName,
     required this.studentPhotoUuid,

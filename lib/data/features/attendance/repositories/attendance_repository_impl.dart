@@ -151,6 +151,7 @@ class AttendanceRepositoryImpl
   StudentAttendanceDailyItem _mapItemModelToEntity(
       StudentAttendanceDailyItemModel model) {
     return StudentAttendanceDailyItem(
+      studentCode: model.studentCode,
       studentName: model.studentName,
       isExpectedToday: model.isExpectedToday,
       classroomName: model.classroomName,

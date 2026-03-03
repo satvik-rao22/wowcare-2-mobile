@@ -150,6 +150,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   StudentAttendanceCardData _entityToCardData(StudentAttendanceDailyItem item, int index) {
     return StudentAttendanceCardData(
       id: '${item.studentName}_${item.classroomCode}_$index',
+      studentCode: item.studentCode,
       studentName: item.studentName,
       studentPhotoUuid: null, // API doesn't provide this
       roomName: item.classroomName,
@@ -368,6 +369,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
+                                  studentCode: '',
                                   studentId: student.studentId,
                                   studentName: student.name,
                                   studentPhotoUuid: student.photoUuid,
@@ -455,6 +457,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
+                                  studentCode: student.id,
                                   studentId: student.studentId,
                                   studentName: student.studentName,
                                   studentPhotoUuid: student.studentPhotoUuid,
