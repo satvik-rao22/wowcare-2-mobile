@@ -271,7 +271,7 @@ class StudentProfileModel extends Equatable {
     this.legalCustodians = const [],
     this.subsidy = false,
     this.address,
-    this.siblings,
+    this.siblings = const [],
     this.importantDates,
     this.regularSchedules = const [],
   });
@@ -289,7 +289,7 @@ class StudentProfileModel extends Equatable {
   final List<dynamic> legalCustodians;
   final bool subsidy;
   final Map<String, dynamic>? address;
-  final Map<String, dynamic>? siblings;
+  final List<dynamic> siblings;
   final StudentImportantDatesModel? importantDates;
   final List<dynamic> regularSchedules;
 
@@ -326,7 +326,7 @@ class StudentProfileModel extends Equatable {
       legalCustodians: data['legalCustodians'] as List<dynamic>? ?? const [],
       subsidy: data['subsidy'] as bool? ?? false,
       address: data['address'] as Map<String, dynamic>?,
-      siblings: data['siblings'] as Map<String, dynamic>?,
+      siblings: data['siblings'] as List<dynamic>? ?? const [],
       importantDates: StudentImportantDatesModel.fromJson(importantDatesJson),
       regularSchedules: data['regularSchedules'] as List<dynamic>? ?? const [],
     );
@@ -347,7 +347,7 @@ class StudentProfileModel extends Equatable {
       'legalCustodians': legalCustodians,
       'subsidy': subsidy,
       if (address != null) 'address': address,
-      if (siblings != null) 'siblings': siblings,
+      'siblings': siblings,
       if (importantDates != null) 'importantDates': importantDates!.toJson(),
       'regularSchedules': regularSchedules,
     };

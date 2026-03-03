@@ -173,6 +173,14 @@ abstract class StudentRemoteDataSource {
     required String studentCode,
   });
 
+  /// Fetches all guardians/parents for a school via `GET /api/v1/guardian`.
+  ///
+  /// Returns the raw `data` list from the backend response, each item being a
+  /// map with keys like `code`, `firstName`, `lastName`, `email`.
+  Future<List<Map<String, dynamic>>> getGuardiansBySchool({
+    required String schoolCode,
+  });
+
   /// Fetches student important dates via
   /// `GET /api/v1/student/{code}/important-dates`.
   Future<StudentImportantDatesModel> getStudentImportantDates({
@@ -793,6 +801,37 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getGuardiansBySchool({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardian,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian list API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+  }
+
+  @override
   Future<StudentImportantDatesModel> getStudentImportantDates({
     required String code,
   }) async {
@@ -809,10 +848,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final root = response.data! as Map<String, dynamic>;
     final data = root['data'] as Map<String, dynamic>?;
-    if (data == null) {
-      throw Exception('Missing data field in student important dates response');
-    }
 
+    // Backend returns `"data": null` when no important dates are set.
+    // Treat this as an empty important-dates model instead of throwing.
     return StudentImportantDatesModel.fromJson(data);
   }
 

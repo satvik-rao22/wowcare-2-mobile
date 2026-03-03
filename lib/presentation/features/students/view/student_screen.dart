@@ -7,7 +7,7 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/shared/common/views/filter_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -454,64 +454,30 @@ class _StudentScreenState extends State<StudentScreen> {
                                   final result = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                          sections: [
-                                            FilerSection(
-                                                label: 'Classroom',
-                                                hintText: 'Select classroom',
-                                                items: ['1-Blue D', '3-Orange-D', '2-Red A'],
-                                                initialSelected: _currentFilters['Classroom'] ?? [],
-                                                isMultiSelectDropDown: false
-                                            ),
-                                            FilerSection(
-                                                label: 'Status',
-                                                hintText: 'Select status',
-                                                items: ['Active', 'Inactive', 'Upcoming'],
-                                                initialSelected: _currentFilters['Status'] ?? [],
-                                                isMultiSelectDropDown: false,
-                                            ),
-                                            FilerSection(
-                                                label: 'Tags',
-                                                hintText: 'Select tags',
-                                                items:  [
-                                                  '5 Days',
-                                                  'Full Day',
-                                                  'Photo Permission',
-                                                  'Vegetarian',
-                                                  'First Aid',
-                                                  'Allergy',
-                                                  'Pickup Authorized',
-                                                ],
-                                                isMultiSelectDropDown: false,
-                                                initialSelected: _currentFilters['Tags'] ?? []
-                                            ),
-                                            FilerSection(
-                                                label: 'Parents',
-                                                hintText: 'Select parents',
-                                                items:  ['Father Mehta', 'Mother Mehta', 'Father Khan', 'Mother Khan', 'Father Gupta', 'Mother Gupta'],
-                                                isMultiSelectDropDown: false,
-                                                initialSelected: _currentFilters['Parent'] ?? []
-                                            ),
-                                            FilerSection(
-                                                label: 'Attendance',
-                                                items:  ['Expected', 'Present', 'Absent'],
-                                                isMultiSelectDropDown: false,
-                                                initialSelected: _currentFilters['Attendance'] ?? []
-                                            ),
-                                          ],
-                                          onApply: (filters) {
-                                            setState(() {
-                                              _currentFilters = filters;
-                                            });
-                                            _applyFiltersToCubit();
-                                          }
+                                      builder: (_) => BlocProvider.value(
+                                        value: context.read<ClassroomCubit>(),
+                                        child: StudentFilterScreen(
+                                          initialFilters: _currentFilters,
+                                        ),
                                       ),
                                     ),
                                   );
                                   if (!mounted) return;
                                   if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
+                                    final normalized = <String, List<String>>{};
+                                    result.forEach((key, value) {
+                                      final k = key.toString();
+                                      if (value is List) {
+                                        normalized[k] = value.map((e) => e.toString()).toList();
+                                      } else if (value != null) {
+                                        normalized[k] = [value.toString()];
+                                      }
+                                    });
+
+                                    setState(() {
+                                      _currentFilters = normalized;
+                                    });
+                                    _applyFiltersToCubit();
                                   }
                                 },
                                 borderRadius: BorderRadius.circular(100),

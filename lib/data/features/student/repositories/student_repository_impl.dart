@@ -466,6 +466,37 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     );
   }
 
+  @override
+  Future<List<String>> getGuardianNamesForSchool({
+    required String schoolCode,
+  }) async {
+    final raw = await _remoteDataSource.getGuardiansBySchool(
+      schoolCode: schoolCode,
+    );
+
+    final names = <String>{};
+
+    for (final item in raw) {
+      final first = (item['firstName'] ?? '').toString().trim();
+      final last = (item['lastName'] ?? '').toString().trim();
+      final email = (item['email'] ?? '').toString().trim();
+
+      String display;
+      if (first.isEmpty && last.isEmpty) {
+        display = email.isNotEmpty ? email : (item['code'] ?? '').toString();
+      } else {
+        display = '$first $last'.trim();
+      }
+
+      if (display.isNotEmpty) {
+        names.add(display);
+      }
+    }
+
+    final sorted = names.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sorted;
+  }
+
   Future<List<StudentGuardianModel>> getStudentGuardians({
     required String studentCode,
   }) async {

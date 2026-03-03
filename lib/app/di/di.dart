@@ -63,6 +63,7 @@ import '../../domain/features/student/usecases/get_student_important_dates_useca
 import '../../domain/features/student/usecases/update_student_important_dates_usecase.dart';
 import '../../domain/features/student/usecases/update_student_document_usecase.dart';
 import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
+import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
@@ -284,6 +285,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteStudentDocumentUseCase>(
     () => DeleteStudentDocumentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetGuardianNamesForSchoolUseCase>(
+    () => GetGuardianNamesForSchoolUseCase(serviceLocator()),
   );
 
   // Cubits (factory - new instance each time for UI)

@@ -189,13 +189,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             ? List<String>.from(widget.tags)
             : const <String>[];
         
-        // Extract siblings (from siblings map if available)
+        // Extract siblings (placeholder - API returns a list, not yet surfaced in UI)
         final siblings = <String>[];
-        if (profile.siblings != null) {
-          // Assuming siblings is a map, extract names or codes
-          // Adjust based on actual structure
-          siblings.addAll([]); // TODO: Extract from siblings map structure
-        }
         
         // Extract legal custodians
         final legalCustodians = <String>[];

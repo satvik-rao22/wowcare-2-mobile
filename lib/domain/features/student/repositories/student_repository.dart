@@ -112,6 +112,13 @@ abstract class StudentRepository {
     String? userCode,
     String? organizationCode,
   });
+
+  /// Fetches all guardians/parents for a school via `GET /api/v1/guardian`.
+  ///
+  /// Returns a list of display names (e.g. "First Last") suitable for dropdowns.
+  Future<List<String>> getGuardianNamesForSchool({
+    required String schoolCode,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

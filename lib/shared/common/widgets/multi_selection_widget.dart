@@ -13,6 +13,9 @@ class MultiSelectWidget extends StatefulWidget {
   final bool isRequired;
   final String? errorText;
   final bool colorfulSelection;
+  /// When true, renders a fixed-height field with "N selected" summary
+  /// (useful inside GridViews to avoid layout overflow).
+  final bool compact;
   final bool showClearAllOption;
   final String clearSelectionText;
 
@@ -26,6 +29,7 @@ class MultiSelectWidget extends StatefulWidget {
     this.isRequired = true,
     this.errorText = "This is a mandatory field please select one option",
     this.colorfulSelection = true,
+    this.compact = false,
     this.showClearAllOption = false,
     this.clearSelectionText = 'Clear All'
   });
@@ -241,6 +245,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final String displayText = widget.selectedOptions.isEmpty
+        ? widget.hintText
+        : '${widget.selectedOptions.length} selected';
 
     return CompositedTransformTarget(
       link: _layerLink,
@@ -270,10 +277,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
             onTap: _toggleDropdown,
             child: Container(
               width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: responsive.isTablet ? 20 : 16,
-                vertical: responsive.isTablet ? 16 : 12,
-              ),
+              height: widget.compact ? 40 : null,
+              padding: widget.compact
+                  ? const EdgeInsets.symmetric(horizontal: 10)
+                  : EdgeInsets.symmetric(
+                      horizontal: responsive.isTablet ? 20 : 16,
+                      vertical: responsive.isTablet ? 16 : 12,
+                    ),
               // decoration: BoxDecoration(
               //   color: Colors.white,
               //   border: Border.all(
@@ -288,7 +298,21 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               ),
               child: Stack(
                 children: [
-                  if (widget.selectedOptions.isEmpty)
+                  if (widget.compact)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        displayText,
+                        style: TextStyle(
+                          color: widget.selectedOptions.isEmpty
+                              ? Colors.grey[600]
+                              : Colors.black87,
+                          fontSize: 15,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  else if (widget.selectedOptions.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
