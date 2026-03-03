@@ -132,6 +132,28 @@ abstract class AttendanceRepository {
     int page,
     int size,
   });
+
+  /// Staff Sign-Out form list - staff that can be signed out for a date range.
+  Future<StaffAttendanceDailyPage> getStaffSignOutFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
+
+  /// Staff Transfer form list - staff that can be transferred for a date range.
+  Future<StaffAttendanceDailyPage> getStaffTransferFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

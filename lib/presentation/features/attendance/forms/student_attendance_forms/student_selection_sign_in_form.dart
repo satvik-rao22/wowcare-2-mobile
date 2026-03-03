@@ -65,6 +65,7 @@ class _StudentSelectionSignInFormState
   }
 
   Future<void> _loadStudents() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -94,6 +95,8 @@ class _StudentSelectionSignInFormState
         size: 100,
       );
 
+      if (!mounted) return;
+
       final students = page.items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
@@ -114,6 +117,7 @@ class _StudentSelectionSignInFormState
             _filteredStudents.every((s) => selectedStudents.contains(s));
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = e.toString();

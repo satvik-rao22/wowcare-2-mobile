@@ -504,6 +504,54 @@ class AttendanceRepositoryImpl
     return _mapStaffDailyPageModelToEntity(pageModel);
   }
 
+  @override
+  Future<StaffAttendanceDailyPage> getStaffSignOutFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffSignOutFormList(
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    // No caching for this transient selection list.
+    return _mapStaffDailyPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<StaffAttendanceDailyPage> getStaffTransferFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffTransferFormList(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    // No caching for this transient selection list.
+    return _mapStaffDailyPageModelToEntity(pageModel);
+  }
+
   staff_absent.StaffAttendanceAbsentItem _mapStaffAbsentItemModelToEntity(
     StaffAttendanceAbsentItemModel model,
   ) {

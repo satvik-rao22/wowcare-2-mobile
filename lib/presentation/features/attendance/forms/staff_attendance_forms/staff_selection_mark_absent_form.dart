@@ -6,8 +6,10 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 import 'staff_mark_absent_form.dart';
@@ -30,22 +32,9 @@ class _StaffSelectionMarkAbsentFormState
   List<StaffEntity> _filteredStaff = [];
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
-  bool _isLoading = true;
+  bool _isLoading = false;
 
-  // Mock data for UI-only implementation
-  final List<StaffEntity> _allStaff = List.generate(
-      20,
-      (index) => StaffEntity(
-            id: index + 1,
-            name: 'Staff ${index + 1}',
-            primaryRoomId: (index % 4) + 1,
-            photoUuid: '',
-            designation: index % 3 == 0
-                ? 'Teacher'
-                : index % 3 == 1
-                    ? 'Admin'
-                    : 'Staff',
-          ));
+  final List<StaffEntity> _allStaff = [];
 
   final List<String> _classrooms = [
     'Classroom A',
@@ -55,19 +44,15 @@ class _StaffSelectionMarkAbsentFormState
   ];
   final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
 
+  late final GetStaffAbsentFormListUseCase _getStaffAbsentFormListUseCase;
+
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    // Simulate loading
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _filteredStaff = List.from(_allStaff);
-        });
-      }
-    });
+    _getStaffAbsentFormListUseCase =
+        serviceLocator<GetStaffAbsentFormListUseCase>();
+    _loadStaff();
   }
 
   @override
@@ -95,13 +80,11 @@ class _StaffSelectionMarkAbsentFormState
         }
 
         if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
-          // Map staff primary room to classroom name (A-D) for UI-only filtering
           final classroomName = 'Classroom '
               '${String.fromCharCode(65 + ((staff.primaryRoomId - 1) % 4))}';
           matchesRoom = _selectedClassroom == classroomName;
         }
 
-        // Tag matching would be implemented with actual tag data
         return matchesSearch && matchesRoom && matchesTag;
       }).toList();
     });
@@ -150,18 +133,70 @@ class _StaffSelectionMarkAbsentFormState
   }
 
   Widget _buildShimmerGrid() {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 69,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) => const ShimmerLoaderCard(
-        child: SizedBox(),
-      ),
-    );
+    return const Center(child: PrimaryCircularLoader());
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadStaff() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final today = DateTime.now();
+      final dateString = _formatDate(today);
+
+      final classroomCodes =
+          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
+              ? <String>[_selectedClassroom!]
+              : null;
+
+      final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
+
+      final searchText =
+          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+
+      final page = await _getStaffAbsentFormListUseCase(
+        fromAbsenceDate: dateString,
+        toAbsenceDate: dateString,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: searchText,
+        page: 0,
+        size: 100,
+      );
+
+      if (!mounted) return;
+
+      final staffList = page.items.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
+        return StaffEntity(
+          id: index + 1,
+          name: item.staffName,
+          primaryRoomId: 0,
+          photoUuid: null,
+          designation: 'Staff',
+        );
+      }).toList();
+
+      setState(() {
+        _allStaff
+          ..clear()
+          ..addAll(staffList);
+        _filteredStaff = List.from(staffList);
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _handleNext() {

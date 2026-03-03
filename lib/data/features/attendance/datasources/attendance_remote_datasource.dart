@@ -129,6 +129,28 @@ abstract class AttendanceRemoteDataSource {
     List<String>? sort,
   });
 
+  Future<StaffAttendanceDailyPageModel> getStaffSignOutFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
+
+  Future<StaffAttendanceDailyPageModel> getStaffTransferFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
+
   Future<StaffAttendanceAbsentPageModel> getStaffAttendanceAbsent({
     required String fromAbsenceDate,
     required String toAbsenceDate,
@@ -639,6 +661,59 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
+  Future<StaffAttendanceDailyPageModel> getStaffSignOutFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAttendanceDate': fromAttendanceDate,
+      'toAttendanceDate': toAttendanceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceSignOutFormList,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff sign-out form list API response format');
+    }
+
+    return StaffAttendanceDailyPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
   Future<StaffAttendanceDailyPageModel> getStaffAttendanceCustom({
     required String fromAttendanceDate,
     required String toAttendanceDate,
@@ -684,6 +759,59 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff custom attendance API response format');
+    }
+
+    return StaffAttendanceDailyPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceDailyPageModel> getStaffTransferFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAbsenceDate': fromAbsenceDate,
+      'toAbsenceDate': toAbsenceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceTransferFormList,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff transfer form list API response format');
     }
 
     return StaffAttendanceDailyPageModel.fromJson(
