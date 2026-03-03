@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_summary.dart';
-import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_filters.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_shimmer.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -137,8 +143,11 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     return _staffMembers;
   }
 
-  void _clearAllFilters() {
+  void _clearAllFiltersAndSearch() {
     setState(() {
+      _searchController.clear();
+      _searchQuery = '';
+      _showAbsentOnly = false;
       _statusLegendFilter = null;
       _staffFilters = null;
     });
@@ -219,35 +228,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                       },
                     ),
                     SizedBox(height: responsive.verticalSpacing),
-                    // Filters
-                    StaffAttendanceFilters(
-                      searchController: _searchController,
-                      selectedDate: _selectedDate,
-                      showAbsentOnly: _showAbsentOnly,
-                      hasActiveFilters:
-                          _hasActiveFilters() || _statusLegendFilter != null,
-                      onDateSelected: (date) {
-                        setState(() {
-                          _selectedDate = date;
-                        });
-                        _loadAttendanceData(context, reset: true);
-                      },
-                      onToggleChanged: (value) {
-                        setState(() {
-                          _showAbsentOnly = value;
-                          if (_showAbsentOnly) {
-                            _statusLegendFilter = null;
-                          }
-                        });
-                        if (!_showAbsentOnly) {
-                          _loadAttendanceData(context, reset: true);
-                        }
-                      },
-                      onFilterTap: () async {
-                        // Navigate to filter screen
-                        // Placeholder - will be implemented when filter screen is ready
-                      },
-                      onClearAll: _clearAllFilters,
+                    // Filters: keep the same date-field UI (CustomDateTimeField) but layout like StaffScreen
+                    _buildFilterCard(
+                      responsive,
+                      hasActiveFilters: _hasActiveFilters() ||
+                          _statusLegendFilter != null ||
+                          _searchController.text.trim().isNotEmpty,
                     ),
                     SizedBox(height: responsive.verticalSpacing),
                     // Content area
@@ -270,6 +256,112 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildFilterCard(
+    ResponsiveHelper responsive, {
+    required bool hasActiveFilters,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.cardBorderColor),
+        borderRadius: BorderRadius.circular(12),
+        color: AppColors.cardColor,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: CustomSearchBar(
+                  controller: _searchController,
+                  hintText: 'Search Staff',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () async {
+                    // Placeholder: wire to attendance filter screen when ready
+                  },
+                  borderRadius: BorderRadius.circular(100),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: SvgPicture.asset(
+                          MediaRes.filterIcon,
+                          height: 20,
+                        ),
+                      ),
+                      if (hasActiveFilters)
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color.fromRGBO(179, 38, 30, 1),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: responsive.verticalSpacing / 2),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: false,
+                  isTime: false,
+                  fetchInitialTime: false,
+                  initialDate: _selectedDate,
+                  onDateSelected: (date) {
+                    setState(() {
+                      _selectedDate = date;
+                    });
+                    _loadAttendanceData(context, reset: true);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              CustomClearAllChip(
+                onTap: hasActiveFilters ? _clearAllFiltersAndSearch : null,
+              ),
+            ],
+          ),
+          SizedBox(height: responsive.verticalSpacing / 2),
+          Align(
+            alignment: Alignment.centerRight,
+            child: CustomToggle(
+              label: 'Show Absent',
+              isToggled: _showAbsentOnly,
+              onToggle: (value) {
+                setState(() {
+                  _showAbsentOnly = value;
+                  if (_showAbsentOnly) {
+                    _statusLegendFilter = null;
+                  }
+                });
+                if (!_showAbsentOnly) {
+                  _loadAttendanceData(context, reset: true);
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

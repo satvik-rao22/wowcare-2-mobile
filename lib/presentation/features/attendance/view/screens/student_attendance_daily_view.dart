@@ -5,11 +5,15 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/views/filter_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_summary.dart';
-import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_filters.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -25,6 +29,7 @@ import 'package:wowcare/data/features/attendance/repositories/attendance_reposit
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
   const StudentAttendanceDailyViewScreen({
@@ -251,59 +256,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     },
                   ),
                   SizedBox(height: responsive.verticalSpacing),
-                  // Filters row
-                  StudentAttendanceFilters(
-                    searchController: _searchController,
-                    selectedDate: _selectedDate,
-                    showAbsentOnly: _showAbsentOnly,
-                    selectedClassrooms: _selectedClassrooms,
-                    selectedTags: _selectedTags,
-                    availableClassrooms: ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Room 5'],
-                    availableTags: ['Full Day', 'Half Day', '5 Days', 'Photo Permission'],
-                    hasActiveFilters: _statusLegendFilter != null || 
-                        _studentFilters != null || 
-                        _selectedClassrooms.isNotEmpty || 
-                        _selectedTags.isNotEmpty,
-                    onDateSelected: (date) {
-                      setState(() {
-                        _selectedDate = date;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
-                    onToggleChanged: (value) {
-                      setState(() {
-                        _showAbsentOnly = value;
-                        if (value) {
-                          _statusLegendFilter = null;
-                        }
-                      });
-                      _loadAttendanceData();
-                    },
-                    onClassroomsChanged: (classrooms) {
-                      setState(() {
-                        _selectedClassrooms = classrooms;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
-                    onTagsChanged: (tags) {
-                      setState(() {
-                        _selectedTags = tags;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
-                    onFilterTap: () {
-                      _navigateToFilterScreen();
-                    },
-                    onClearAll: () {
-                      setState(() {
-                        _statusLegendFilter = null;
-                        _studentFilters = null;
-                        _selectedClassrooms = [];
-                        _selectedTags = [];
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
-                  ),
+                  // Filters row styled similar to StaffScreen: search, filter, date, clear all, show absent toggle
+                  _buildFilterCard(responsive),
                   SizedBox(height: responsive.verticalSpacing),
                   // Error handling
                   if (state.errorMessage != null)
@@ -553,6 +507,125 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     }
 
     return filtered;
+  }
+
+  Widget _buildFilterCard(ResponsiveHelper responsive) {
+    final hasActiveFilters = _statusLegendFilter != null ||
+        _studentFilters != null ||
+        _selectedClassrooms.isNotEmpty ||
+        _selectedTags.isNotEmpty ||
+        _searchController.text.trim().isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.cardBorderColor),
+        borderRadius: BorderRadius.circular(12),
+        color: AppColors.cardColor,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: CustomSearchBar(
+                  controller: _searchController,
+                  hintText: 'Search Students',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _navigateToFilterScreen,
+                  borderRadius: BorderRadius.circular(100),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: SvgPicture.asset(
+                          MediaRes.filterIcon,
+                          height: 20,
+                        ),
+                      ),
+                      if (hasActiveFilters)
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color.fromRGBO(179, 38, 30, 1),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: false,
+                  isTime: false,
+                  fetchInitialTime: false,
+                  initialDate: _selectedDate,
+                  onDateSelected: (date) {
+                    setState(() {
+                      _selectedDate = date;
+                    });
+                    _loadAttendanceData(reset: true);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              CustomClearAllChip(
+                onTap: hasActiveFilters
+                    ? () {
+                        setState(() {
+                          _searchController.clear();
+                          _statusLegendFilter = null;
+                          _studentFilters = null;
+                          _selectedClassrooms = [];
+                          _selectedTags = [];
+                          _showAbsentOnly = false;
+                        });
+                        _loadAttendanceData(reset: true);
+                      }
+                    : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: CustomToggle(
+              label: 'Show Absent',
+              isToggled: _showAbsentOnly,
+              onToggle: (value) {
+                setState(() {
+                  _showAbsentOnly = value;
+                  if (value) {
+                    _statusLegendFilter = 'Absent';
+                  } else if (_statusLegendFilter == 'Absent') {
+                    _statusLegendFilter = null;
+                  }
+                });
+                _loadAttendanceData(reset: true);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigateToFilterScreen() async {
