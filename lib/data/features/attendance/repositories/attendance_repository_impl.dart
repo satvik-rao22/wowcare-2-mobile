@@ -480,6 +480,30 @@ class AttendanceRepositoryImpl
     );
   }
 
+  @override
+  Future<StaffAttendanceDailyPage> getStaffSignInFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffSignInFormList(
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    // No caching for this transient selection list.
+    return _mapStaffDailyPageModelToEntity(pageModel);
+  }
+
   staff_absent.StaffAttendanceAbsentItem _mapStaffAbsentItemModelToEntity(
     StaffAttendanceAbsentItemModel model,
   ) {

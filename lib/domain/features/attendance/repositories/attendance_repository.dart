@@ -121,6 +121,17 @@ abstract class AttendanceRepository {
     int page,
     int size,
   });
+
+  /// Staff Sign-In form list - staff that can be signed in for a date range.
+  Future<StaffAttendanceDailyPage> getStaffSignInFormList({
+    required String fromAttendanceDate,
+    required String toAttendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

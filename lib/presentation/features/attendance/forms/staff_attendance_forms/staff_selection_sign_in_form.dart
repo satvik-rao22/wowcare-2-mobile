@@ -7,6 +7,8 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 import 'staff_sign_in_form.dart';
@@ -31,21 +33,6 @@ class _StaffSelectionSignInFormState
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
 
-  // Mock data for UI-only implementation
-  final List<StaffEntity> _allStaff = List.generate(
-      20,
-      (index) => StaffEntity(
-            id: index + 1,
-            name: 'Staff ${index + 1}',
-            primaryRoomId: (index % 4) + 1,
-            photoUuid: '',
-            designation: index % 3 == 0
-                ? 'Teacher'
-                : index % 3 == 1
-                    ? 'Admin'
-                    : 'Staff',
-          ));
-
   final List<String> _classrooms = [
     'Classroom A',
     'Classroom B',
@@ -56,10 +43,17 @@ class _StaffSelectionSignInFormState
 
   List<StaffEntity> _filteredStaff = [];
 
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  late final GetStaffSignInFormListUseCase _getStaffSignInFormListUseCase;
+
   @override
   void initState() {
     super.initState();
-    _filteredStaff = List.from(_allStaff);
+    _getStaffSignInFormListUseCase =
+        serviceLocator<GetStaffSignInFormListUseCase>();
+    _loadStaff();
   }
 
   @override
@@ -68,30 +62,64 @@ class _StaffSelectionSignInFormState
     super.dispose();
   }
 
-  void _filterStaff() {
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadStaff() async {
     setState(() {
-      _filteredStaff = _allStaff.where((staff) {
-        bool matchesSearch = true;
-        bool matchesRoom = true;
-        bool matchesTag = true;
-
-        if (_searchController.text.isNotEmpty) {
-          matchesSearch = staff.name
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase());
-        }
-
-        if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
-          // Map staff primary room to classroom name (A-D) for UI-only filtering
-          final classroomName = 'Classroom '
-              '${String.fromCharCode(65 + ((staff.primaryRoomId - 1) % 4))}';
-          matchesRoom = _selectedClassroom == classroomName;
-        }
-
-        // Tag matching would be implemented with actual tag data
-        return matchesSearch && matchesRoom && matchesTag;
-      }).toList();
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final today = DateTime.now();
+      final dateString = _formatDate(today);
+
+      final classroomCodes =
+          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
+              ? <String>[_selectedClassroom!]
+              : null;
+
+      final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
+
+      final searchText =
+          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+
+      final page = await _getStaffSignInFormListUseCase(
+        fromAttendanceDate: dateString,
+        toAttendanceDate: dateString,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: searchText,
+        page: 0,
+        size: 100,
+      );
+
+      final staffList = page.items.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
+        return StaffEntity(
+          id: index + 1,
+          name: item.staffName,
+          primaryRoomId: 0,
+          photoUuid: null,
+          designation: item.designation.isNotEmpty ? item.designation.first : 'Staff',
+        );
+      }).toList();
+
+      setState(() {
+        _filteredStaff = List.from(staffList);
+        _isLoading = false;
+        isSelectAllChecked = _filteredStaff.isNotEmpty &&
+            _filteredStaff.every((s) => selectedStaff.contains(s));
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
   }
 
   void _toggleSelectAll(bool? value) {
@@ -175,7 +203,7 @@ class _StaffSelectionSignInFormState
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
-              onChanged: (_) => _filterStaff(),
+              onChanged: (_) => _loadStaff(),
             ),
           ),
           const SizedBox(height: 12),
@@ -189,8 +217,8 @@ class _StaffSelectionSignInFormState
                   onSelect: (value) {
                     setState(() {
                       _selectedClassroom = value;
-                      _filterStaff();
                     });
+                    _loadStaff();
                   },
                 ),
               ),
@@ -203,8 +231,8 @@ class _StaffSelectionSignInFormState
                   onChanged: (selectedItems) {
                     setState(() {
                       _selectedTag = selectedItems;
-                      _filterStaff();
                     });
+                    _loadStaff();
                   },
                 ),
               ),
@@ -226,32 +254,52 @@ class _StaffSelectionSignInFormState
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: _filteredStaff.isEmpty
-                ? const Center(child: AppText.body("No staff found"))
-                : GridView.builder(
-                    shrinkWrap: false,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisExtent: 52,
-                    ),
-                    itemCount: _filteredStaff.length,
-                    itemBuilder: (context, index) {
-                      final staff = _filteredStaff[index];
-                      final isSelected =
-                          selectedStaff.contains(staff);
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppText.body(
+                              _errorMessage ?? 'Failed to load staff',
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _loadStaff,
+                              child: const AppText.body('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _filteredStaff.isEmpty
+                        ? const Center(child: AppText.body("No staff found"))
+                        : GridView.builder(
+                            shrinkWrap: false,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: isTablet ? 16 : 12,
+                              mainAxisSpacing: isTablet ? 16 : 12,
+                              mainAxisExtent: 52,
+                            ),
+                            itemCount: _filteredStaff.length,
+                            itemBuilder: (context, index) {
+                              final staff = _filteredStaff[index];
+                              final isSelected =
+                                  selectedStaff.contains(staff);
 
-                      return StaffListItem(
-                        staff: staff,
-                        isSelected: isSelected,
-                        onSelectionChanged: (value) =>
-                            _toggleStaffSelection(staff, value),
-                      );
-                    },
-                  ),
+                              return StaffListItem(
+                                staff: staff,
+                                isSelected: isSelected,
+                                onSelectionChanged: (value) =>
+                                    _toggleStaffSelection(staff, value),
+                              );
+                            },
+                          ),
           ),
         ],
       ),
