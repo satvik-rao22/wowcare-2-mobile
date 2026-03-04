@@ -46,6 +46,18 @@ abstract class StudentRepository {
     required Map<String, dynamic> fields,
   });
 
+  /// Updates the student's address via `/api/v1/student/{studentCode}/address`.
+  Future<String> updateStudentAddress({
+    required String studentCode,
+    required Map<String, dynamic> fields,
+  });
+
+  /// Updates the student's siblings via `/api/v1/student/{studentCode}/siblings`.
+  Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
   /// Fetches paginated student documents. [studentCode] = ownerId.
   Future<StudentDocumentsPage> getStudentDocuments({
     required String studentCode,
@@ -136,6 +148,23 @@ abstract class StudentRepository {
   /// This is useful when filters are selected by tag name in the UI but the
   /// backend expects tagCodes in query parameters.
   Future<Map<String, String>> getTagNameCodeMapForSchool({
+    required String schoolCode,
+  });
+
+  /// Returns a mapping from guardian display name (as used in filters) to guardian
+  /// code for a given school.
+  ///
+  /// Display names must follow the same rules as `getGuardianNamesForSchool` so
+  /// that selected filter values can be resolved back to codes for the API.
+  Future<Map<String, String>> getGuardianNameCodeMapForSchool({
+    required String schoolCode,
+  });
+
+  /// Fetches student counts (active, upcoming, enrolled) for a school.
+  ///
+  /// The returned map must contain keys: 'activeCount', 'upcomingCount',
+  /// and 'enrolledCount'.
+  Future<Map<String, int>> getStudentCounts({
     required String schoolCode,
   });
 }

@@ -89,6 +89,13 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         identifier: studentCode,
       );
 
+  @override
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
+  }) {
+    return _remoteDataSource.getStudentCounts(schoolCode: schoolCode);
+  }
+
   static String _studentImmunizationCacheKey(String studentCode) =>
       CacheManager.buildCacheKey(
         feature: 'student',
@@ -110,12 +117,15 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     int page = 0,
     int size = 10,
   }) async {
+    // Backend expects upper-case enum values for StudentStatus (e.g. ACTIVE).
+    final normalizedStatus = status?.trim().toUpperCase();
+
     final studentPageModel = await _remoteDataSource.getStudentPage(
       schoolCode: schoolCode,
       code: code,
       firstName: firstName,
       lastName: lastName,
-      status: status,
+      status: normalizedStatus,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
@@ -453,11 +463,22 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   Future<Map<String, String>> getTagNameCodeMapForSchool({
     required String schoolCode,
   }) async {
-    // Tags are managed by a dedicated tags API; for now this repository
-    // does not cache or transform them further. Delegate directly to the
-    // remote data source once a student-tags endpoint is available.
-    // To keep the implementation non-breaking today, return an empty map.
-    return const <String, String>{};
+    final raw = await _remoteDataSource.getTagsBySchool(
+      schoolCode: schoolCode,
+    );
+
+    final map = <String, String>{};
+
+    for (final item in raw) {
+      final name = (item['name'] ?? '').toString().trim();
+      final code = (item['code'] ?? '').toString().trim();
+
+      if (name.isNotEmpty && code.isNotEmpty) {
+        map[name] = code;
+      }
+    }
+
+    return map;
   }
 
   Future<StudentPhysicianModel> addPhysician({
@@ -546,8 +567,8 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
-  }) {
-    return _remoteDataSource.createGuardianUser(
+  }) async {
+    final message = await _remoteDataSource.createGuardianUser(
       schoolCode: schoolCode,
       studentCode: studentCode,
       firstName: firstName,
@@ -561,6 +582,11 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       userCode: userCode,
       organizationCode: organizationCode,
     );
+
+    // New guardian added – invalidate guardians cache so next load is fresh.
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return message;
   }
 
   @override
@@ -592,6 +618,37 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
 
     final sorted = names.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return sorted;
+  }
+
+  @override
+  Future<Map<String, String>> getGuardianNameCodeMapForSchool({
+    required String schoolCode,
+  }) async {
+    final raw = await _remoteDataSource.getGuardiansBySchool(
+      schoolCode: schoolCode,
+    );
+
+    final map = <String, String>{};
+
+    for (final item in raw) {
+      final first = (item['firstName'] ?? '').toString().trim();
+      final last = (item['lastName'] ?? '').toString().trim();
+      final email = (item['email'] ?? '').toString().trim();
+      final code = (item['code'] ?? '').toString().trim();
+
+      String display;
+      if (first.isEmpty && last.isEmpty) {
+        display = email.isNotEmpty ? email : code;
+      } else {
+        display = '$first $last'.trim();
+      }
+
+      if (display.isNotEmpty && code.isNotEmpty) {
+        map[display] = code;
+      }
+    }
+
+    return map;
   }
 
   @override
@@ -766,6 +823,32 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     // since profile changes might affect list display.
     // TODO: Add profile cache key if needed
     // await _cacheManager.invalidateCache(_studentProfileCacheKey(code));
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStudentAddress({
+    required String studentCode,
+    required Map<String, dynamic> fields,
+  }) async {
+    final message = await _remoteDataSource.updateStudentAddress(
+      studentCode: studentCode,
+      body: fields,
+    );
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final message = await _remoteDataSource.updateStudentSiblings(
+      studentCode: studentCode,
+      siblingCodes: siblingCodes,
+    );
 
     return message;
   }

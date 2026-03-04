@@ -10,6 +10,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
@@ -47,6 +49,9 @@ class _StudentScreenState extends State<StudentScreen> {
   StudentPanelType _currentPanel = StudentPanelType.none;
   Map<String, List<String>> _currentFilters = {'Status': ['Active']};
   Map<String, String> _tagNameToCode = <String, String>{};
+  Map<String, String> _guardianNameToCode = <String, String>{};
+  int _activeCount = 0;
+  int _upcomingCount = 0;
 
   @override
   void initState(){
@@ -58,6 +63,8 @@ class _StudentScreenState extends State<StudentScreen> {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
         _loadTagNameCodeMap();
+        _loadGuardianNameCodeMap();
+        _loadStudentCounts();
       }
     });
   }
@@ -97,6 +104,46 @@ class _StudentScreenState extends State<StudentScreen> {
     }
   }
 
+  Future<void> _loadGuardianNameCodeMap() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>();
+      final map = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _guardianNameToCode = map;
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
+  }
+
+  Future<void> _loadStudentCounts() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase = serviceLocator() as GetStudentCountsUseCase;
+      final counts = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _activeCount = counts['activeCount'] ?? 0;
+        _upcomingCount = counts['upcomingCount'] ?? 0;
+      });
+    } catch (_) {
+      // Non-critical for UI; keep defaults.
+    }
+  }
+
   void _applyFiltersToCubit() {
     final statusFilter = _currentFilters['Status']?.isNotEmpty == true
         ? _currentFilters['Status']!.first
@@ -124,9 +171,13 @@ class _StudentScreenState extends State<StudentScreen> {
         .where((c) => c.trim().isNotEmpty)
         .toList();
 
-    // TODO: When guardian codes are available, resolve them here
-    // based on the selected 'Parents' filters.
-    final List<String> guardianCodes = const [];
+    final selectedGuardianNames =
+        _currentFilters['Parents'] ?? const <String>[];
+    final guardianCodes = selectedGuardianNames
+        .map((name) => _guardianNameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
 
     context.read<StudentCubit>().updateFilters(
       status: statusFilter,
@@ -393,8 +444,8 @@ class _StudentScreenState extends State<StudentScreen> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final bool isTablet = constraints.maxWidth >= 600;
-                      final double active = 120.0; // demo
-                      final double upcoming = 8.0; // demo
+                      final double active = _activeCount.toDouble();
+                      final double upcoming = _upcomingCount.toDouble();
                       final int totalCount = (active + upcoming).toInt();
                       final String total = '$totalCount';
                       final items = [
@@ -536,9 +587,81 @@ class _StudentScreenState extends State<StudentScreen> {
                                   }
                                 },
                                 borderRadius: BorderRadius.circular(100),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(MediaRes.filterIcon, height: 20),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: SvgPicture.asset(
+                                        MediaRes.filterIcon,
+                                        height: 20,
+                                      ),
+                                    ),
+                                    Builder(
+                                      builder: (context) {
+                                        final statusList =
+                                            _currentFilters['Status'] ?? const <String>[];
+                                        final classroomList =
+                                            _currentFilters['Classroom'] ?? const <String>[];
+                                        final tagsList =
+                                            _currentFilters['Tags'] ?? const <String>[];
+                                        final parentsList =
+                                            _currentFilters['Parents'] ?? const <String>[];
+                                        final attendanceList =
+                                            _currentFilters['Attendance'] ?? const <String>[];
+
+                                        final String status =
+                                            statusList.isNotEmpty ? statusList.first : '';
+                                        final statusUpper = status.trim().toUpperCase();
+
+                                        // Treat empty or ACTIVE as default (no badge contribution).
+                                        final bool hasNonDefaultStatus =
+                                            statusUpper.isNotEmpty &&
+                                                statusUpper != 'ACTIVE';
+                                        final bool hasClassroomFilter =
+                                            classroomList.isNotEmpty;
+                                        final bool hasTagsFilter = tagsList.isNotEmpty;
+                                        final bool hasParentsFilter =
+                                            parentsList.isNotEmpty;
+                                        final bool hasAttendanceFilter =
+                                            attendanceList.isNotEmpty;
+
+                                        final int badgeCount =
+                                            (hasNonDefaultStatus ? 1 : 0) +
+                                                (hasClassroomFilter ? 1 : 0) +
+                                                (hasTagsFilter ? 1 : 0) +
+                                                (hasParentsFilter ? 1 : 0) +
+                                                (hasAttendanceFilter ? 1 : 0);
+
+                                        if (badgeCount == 0) {
+                                          return const SizedBox.shrink();
+                                        }
+
+                                        return Positioned(
+                                          right: 2,
+                                          top: 2,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 5,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color.fromRGBO(179, 38, 30, 1),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              badgeCount > 99 ? '99+' : '$badgeCount',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

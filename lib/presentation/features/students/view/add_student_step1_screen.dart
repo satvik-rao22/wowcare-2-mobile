@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -693,27 +694,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
-              child: Container(
-                height: responsive.buttonHeight,
-                decoration: BoxDecoration(
-                  gradient:
-                      _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-                  color: _isSubmitting ? Colors.grey[300] : null,
-                  borderRadius: BorderRadius.circular(
-                      responsive.isTablet ? 16.0 : 8.0),
-                ),
-                child: TextButton(
-                  onPressed: _isSubmitting ? null : _onNext,
-                  child: Text(
-                    'Next',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: responsive.buttonFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+              child: CustomButtonLayout(
+                confirmButtonLabel: 'Next',
+                onPressedConfirm: _isSubmitting ? null : _onNext,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: _isSubmitting,
               ),
             ),
           ),

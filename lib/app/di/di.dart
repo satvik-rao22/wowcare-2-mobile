@@ -41,6 +41,7 @@ import '../../domain/features/staff/usecases/update_important_dates_usecase.dart
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
+import '../../domain/features/student/usecases/get_student_counts_usecase.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
@@ -65,6 +66,8 @@ import '../../domain/features/student/usecases/update_student_document_usecase.d
 import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -296,6 +299,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetTagNameCodeMapForSchoolUseCase>(
     () => GetTagNameCodeMapForSchoolUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetGuardianNameCodeMapForSchoolUseCase>(
+    () => GetGuardianNameCodeMapForSchoolUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentCountsUseCase>(
+    () => GetStudentCountsUseCase(serviceLocator()),
   );
 
   // Cubits (factory - new instance each time for UI)

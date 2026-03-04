@@ -153,6 +153,18 @@ abstract class StudentRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// Updates the student's address via `PATCH /api/v1/student/{studentCode}/address`.
+  Future<String> updateStudentAddress({
+    required String studentCode,
+    required Map<String, dynamic> body,
+  });
+
+  /// Updates the student's siblings via `PUT /api/v1/student/{studentCode}/siblings`.
+  Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
   /// Creates / links a guardian user to a student via `/api/v1/guardian-user`.
   ///
   /// Returns the backend `message` field.
@@ -222,6 +234,12 @@ abstract class StudentRemoteDataSource {
   Future<String> updateStudentImportantDates({
     required String code,
     required StudentImportantDatesModel dates,
+  });
+
+  /// Fetches student counts (active, upcoming, enrolled) for a school via
+  /// `GET /api/v1/student/count`.
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
   });
 }
 
@@ -774,6 +792,54 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<String> updateStudentAddress({
+    required String studentCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAddress(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student address update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student address updated successfully';
+  }
+
+  @override
+  Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentSiblings(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.put<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'siblingCodes': siblingCodes,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student siblings update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student siblings updated successfully';
+  }
+
+  @override
   Future<String> createGuardianUser({
     required String schoolCode,
     required String studentCode,
@@ -956,6 +1022,38 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final root = response.data! as Map<String, dynamic>;
     return root['message']?.toString() ?? 'Important dates updated successfully';
+  }
+
+  @override
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentList}/count',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student count API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final active = root['activeCount'] as int? ?? 0;
+    final upcoming = root['upcomingCount'] as int? ?? 0;
+    final enrolled = root['enrolledCount'] as int? ?? 0;
+
+    return <String, int>{
+      'activeCount': active,
+      'upcomingCount': upcoming,
+      'enrolledCount': enrolled,
+    };
   }
 
   @override

@@ -29,7 +29,7 @@ class StudentState extends Equatable {
         isLoadingMore = false,
         isFromCache = false,
         searchQuery = '',
-        statusFilter = null,
+        statusFilter = 'ACTIVE',
         codeFilter = null,
         firstNameFilter = null,
         lastNameFilter = null,

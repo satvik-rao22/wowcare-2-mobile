@@ -6,8 +6,8 @@ class ApiClient {
   ApiClient({
     required String baseUrl,
     List<Interceptor>? interceptors,
-    Duration connectTimeout = const Duration(seconds: 20),
-    Duration receiveTimeout = const Duration(seconds: 20),
+    Duration connectTimeout = const Duration(minutes: 1),
+    Duration receiveTimeout = const Duration(minutes: 1),
   }) {
     _dio = Dio(
       BaseOptions(

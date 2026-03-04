@@ -298,11 +298,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         dobFormatted = dateFormatter.format(_selectedBirthDate!);
       }
 
-      String? upcomingMovesFormatted;
-      if (_selectedUpcomingMoveDate != null) {
-        upcomingMovesFormatted = dateFormatter.format(_selectedUpcomingMoveDate!);
-      }
-
       // Map subsidy
       final subsidy = _selectedStateSubsidyOption == 'Yes';
 
@@ -312,40 +307,54 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         fteNumber = int.tryParse(fte);
       }
 
-      // Build payload according to API contract
-      final payload = <String, dynamic>{
+      final repository = serviceLocator<StudentRepository>();
+
+      // 1) Core profile PATCH /api/v1/student/{code}/profile
+      final profilePayload = <String, dynamic>{
         'firstName': first,
         'lastName': last,
         'status': statusApi,
-        'classroom': classroomCode,
-        'tags': _selectedTags,
         if (dobFormatted != null) 'dob': dobFormatted,
         'notes': _notesController.text.trim(),
-        'subsidy': subsidy,
-        'legalCustodians': _selectedChildCustody,
-        'siblings': _selectedSiblings,
         if (fteNumber != null) 'fte': fteNumber,
-        if (upcomingMovesFormatted != null) 'upcomingMoves': upcomingMovesFormatted,
-        // Address fields
+        'subsidy': subsidy,
+        // gender and profilePhotoUrl omitted for now (not in this form)
+        'classroom': <String, dynamic>{
+          'code': classroomCode,
+          'name': selectedClassroomName,
+        },
+      };
+
+      final message = await repository.updateStudentProfile(
+        code: widget.studentCode,
+        fields: profilePayload,
+      );
+
+      // 2) Address PATCH /api/v1/student/{studentCode}/address
+      final addressPayload = <String, dynamic>{
         'line1': _streetController.text.trim(),
         'line2': _street2Controller.text.trim(),
-        'street': _streetController.text.trim(), // Some APIs use 'street' instead
+        'street': _streetController.text.trim(),
         'city': _cityController.text.trim(),
         'state': stateCode,
         'country': countryCode,
         'postalCode': _zipCodeController.text.trim(),
-        // Optional address fields (set to empty if not used)
-        'room': '',
-        'building': '',
-        'apartment': '',
+        // For now treat this as the student's home address.
+        'addressType': 'HOME',
       };
 
-      final repository = serviceLocator<StudentRepository>();
-
-      final message = await repository.updateStudentProfile(
-        code: widget.studentCode,
-        fields: payload,
+      await repository.updateStudentAddress(
+        studentCode: widget.studentCode,
+        fields: addressPayload,
       );
+
+      // 3) Siblings PUT /api/v1/student/{studentCode}/siblings
+      if (_selectedSiblings.isNotEmpty) {
+        await repository.updateStudentSiblings(
+          studentCode: widget.studentCode,
+          siblingCodes: _selectedSiblings,
+        );
+      }
 
       if (!mounted) return;
       setState(() {
