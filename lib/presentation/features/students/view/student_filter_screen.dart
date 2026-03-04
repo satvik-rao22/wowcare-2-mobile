@@ -96,6 +96,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
       if (!mounted) return;
 
+      // Names list is enough for UI; codes are resolved when applying filters
+      // by using the same names and a separate codes lookup if needed.
       setState(() {
         _tagsList = names;
         _selectedTagsList
@@ -133,6 +135,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
       'Tags': List<String>.from(_selectedTagsList),
       'Parents': List<String>.from(_selectedParentsList),
       'Attendance': List<String>.from(_selectedAttendanceList),
+      // Code-based filters will be resolved in StudentScreen using
+      // ClassroomCubit + tags/guardian services as needed.
     });
   }
 

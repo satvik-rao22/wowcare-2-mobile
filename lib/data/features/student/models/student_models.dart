@@ -189,6 +189,44 @@ class StudentImportantDatesModel extends Equatable {
       ];
 }
 
+class StudentHealthModel extends Equatable {
+  const StudentHealthModel({
+    this.allergy,
+    this.medications,
+    this.dietRestrictions,
+  });
+
+  final String? allergy;
+  final String? medications;
+  final String? dietRestrictions;
+
+  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const StudentHealthModel();
+    }
+    return StudentHealthModel(
+      allergy: json['allergy'] as String?,
+      medications: json['medications'] as String?,
+      dietRestrictions: json['dietRestrictions'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (allergy != null) 'allergy': allergy,
+      if (medications != null) 'medications': medications,
+      if (dietRestrictions != null) 'dietRestrictions': dietRestrictions,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        allergy,
+        medications,
+        dietRestrictions,
+      ];
+}
+
 class StudentGuardianModel extends Equatable {
   const StudentGuardianModel({
     required this.guardianCode,

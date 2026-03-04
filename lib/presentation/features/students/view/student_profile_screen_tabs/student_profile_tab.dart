@@ -198,6 +198,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         schedule: widget.schedule,
                         sibling: widget.sibling,
                         onRefresh: _refreshProfile,
+                        studentCode: widget.studentCode,
                       ),
                       StudentFamilyTabCard(
                         scrollController: _familyScrollController,
@@ -282,7 +283,8 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         tags: widget.tags,
                         schedule: widget.schedule,
                         sibling: widget.sibling,
-                      onRefresh: _refreshProfile,
+                        onRefresh: _refreshProfile,
+                        studentCode: widget.studentCode,
                       ),
                       StudentFamilyTabCard(
                         scrollController: _familyScrollController,
@@ -319,6 +321,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                       sibling: widget.sibling,
                       studentProfile: profileData,
                       onRefresh: _refreshProfile,
+                      studentCode: profileData.code,
                     ),
                     StudentFamilyTabCard(
                       scrollController: _familyScrollController,

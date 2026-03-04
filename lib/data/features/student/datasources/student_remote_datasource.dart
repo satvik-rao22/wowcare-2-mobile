@@ -14,6 +14,9 @@ abstract class StudentRemoteDataSource {
     String? firstName,
     String? lastName,
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     int page = 0,
     int size = 10,
@@ -195,6 +198,12 @@ abstract class StudentRemoteDataSource {
     required String code,
   });
 
+  /// Fetches student health record via
+  /// `GET /api/v1/student/{code}/health`.
+  Future<StudentHealthModel> getStudentHealth({
+    required String code,
+  });
+
   /// Updates student important dates via
   /// `PATCH /api/v1/student/{code}/important-dates`.
   Future<String> updateStudentImportantDates({
@@ -215,6 +224,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? firstName,
     String? lastName,
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     int page = 0,
     int size = 10,
@@ -242,6 +254,15 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
+    }
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+    if (guardianCodes != null && guardianCodes.isNotEmpty) {
+      queryParameters['guardianCodes'] = guardianCodes;
     }
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
@@ -922,6 +943,27 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final root = response.data! as Map<String, dynamic>;
     return root['message']?.toString() ?? 'Important dates updated successfully';
+  }
+
+  @override
+  Future<StudentHealthModel> getStudentHealth({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentHealth(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student health API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>?;
+
+    return StudentHealthModel.fromJson(data);
   }
 }
 

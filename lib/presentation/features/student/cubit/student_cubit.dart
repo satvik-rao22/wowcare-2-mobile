@@ -86,6 +86,9 @@ class StudentCubit extends Cubit<StudentState> {
         page: 0,
         size: _pageSize,
         status: state.statusFilter,
+        classroomCodes: state.classroomCodesFilter,
+        tagCodes: state.tagCodesFilter,
+        guardianCodes: state.guardianCodesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -107,6 +110,9 @@ class StudentCubit extends Cubit<StudentState> {
           page: 1,
           size: _pageSize,
           status: state.statusFilter,
+          classroomCodes: state.classroomCodesFilter,
+          tagCodes: state.tagCodesFilter,
+          guardianCodes: state.guardianCodesFilter,
           search: state.searchQuery,
           firstName: state.firstNameFilter,
           lastName: state.lastNameFilter,
@@ -158,6 +164,9 @@ class StudentCubit extends Cubit<StudentState> {
         page: nextPageIndex,
         size: _pageSize,
         status: state.statusFilter,
+        classroomCodes: state.classroomCodesFilter,
+        tagCodes: state.tagCodesFilter,
+        guardianCodes: state.guardianCodesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -198,6 +207,9 @@ class StudentCubit extends Cubit<StudentState> {
     String? code,
     String? firstName,
     String? lastName,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
   }) {
     emit(
       state.copyWith(
@@ -205,6 +217,9 @@ class StudentCubit extends Cubit<StudentState> {
         codeFilter: code,
         firstNameFilter: firstName,
         lastNameFilter: lastName,
+        classroomCodesFilter: classroomCodes,
+        tagCodesFilter: tagCodes,
+        guardianCodesFilter: guardianCodes,
       ),
     );
   }

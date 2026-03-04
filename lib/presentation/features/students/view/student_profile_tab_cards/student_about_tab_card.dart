@@ -14,6 +14,9 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -25,6 +28,7 @@ class StudentAboutTabCard extends StatefulWidget {
     required this.sibling,
     this.onRefresh,
     this.studentProfile,
+    this.studentCode,
     super.key,
   });
 
@@ -36,6 +40,7 @@ class StudentAboutTabCard extends StatefulWidget {
   final Map<String, dynamic> sibling;
   final Future<void> Function()? onRefresh;
   final StudentProfileModel? studentProfile;
+  final String? studentCode;
 
   @override
   State<StudentAboutTabCard> createState() => _StudentAboutTabCardState();
@@ -83,13 +88,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 
   bool _hasTags() {
-    // Check if we have tags from API or widget
-    final apiTags = widget.studentProfile?.regularSchedules;
-    final widgetTags = widget.tags;
-    
-    // For now, API doesn't have tags field, so check widget tags
-    // If API has tags in future, check that first
-    return widgetTags.isNotEmpty;
+    // For now, API doesn't have tags field, so check widget tags only.
+    return widget.tags.isNotEmpty;
   }
 
   List<String> _getTagsList() {
@@ -144,8 +144,11 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         cardType: 'student',
         title: 'Profile Information',
         scrollController: widget.scrollController,
-        studentFirstField:
-            ProfileField(label: 'Name', value: widget.name, isStudentStyle: true),
+        studentFirstField: _StudentNameWithHealthIcons(
+          name: widget.name,
+          profileCode: widget.studentProfile?.code,
+          studentCode: widget.studentCode,
+        ),
         onEdit: () {
         if (widget.studentProfile == null) return;
         
@@ -727,11 +730,45 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({required this.label, this.value, this.trailing});
-  final String label;
-  final String? value;
-  final Widget? trailing;
+class _StudentNameWithHealthIcons extends StatefulWidget {
+  const _StudentNameWithHealthIcons({
+    required this.name,
+    this.profileCode,
+    this.studentCode,
+  });
+
+  final String name;
+  final String? profileCode;
+  final String? studentCode;
+
+  @override
+  State<_StudentNameWithHealthIcons> createState() =>
+      _StudentNameWithHealthIconsState();
+}
+
+class _StudentNameWithHealthIconsState
+    extends State<_StudentNameWithHealthIcons> {
+  late Future<StudentHealthModel?> _healthFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _healthFuture = _buildHealthFuture();
+  }
+
+  Future<StudentHealthModel?> _buildHealthFuture() async {
+    final code = widget.profileCode ?? widget.studentCode;
+    if (code == null || code.isEmpty) {
+      return null;
+    }
+    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    try {
+      return await repo.getStudentHealth(studentCode: code);
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -739,30 +776,81 @@ class _Field extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
-          style: AppTextStyles.value.copyWith(
-            fontSize: 14,
-            letterSpacing: -0.03 * 14,
+          'Name',
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 15,
+            letterSpacing: -0.03 * 15,
             fontWeight: FontWeight.w400,
-            color: AppColors.primaryColor.withOpacity(0.6),
+            color: Color(0xFF6C6377),
           ),
         ),
         const SizedBox(height: 6),
-        if (trailing == null)
-          Text(
-            value ?? '- -',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.03 * 15,
-            ),
-          )
-        else
-          trailing!,
+        Text(
+          widget.name,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 16,
+            color: Color(0xff573353),
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.03 * 16,
+          ),
+        ),
+        const SizedBox(height: 6),
+        FutureBuilder<StudentHealthModel?>(
+          future: _healthFuture,
+          builder: (context, snapshot) {
+            final health = snapshot.data;
+            if (health == null) {
+              return const SizedBox.shrink();
+            }
+
+            final hasAllergy = (health.allergy ?? '').trim().isNotEmpty;
+            final hasMedication = (health.medications ?? '').trim().isNotEmpty;
+            final hasDietRestrictions =
+                (health.dietRestrictions ?? '').trim().isNotEmpty;
+
+            if (!hasAllergy && !hasMedication && !hasDietRestrictions) {
+              return const SizedBox.shrink();
+            }
+
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasDietRestrictions)
+                  SvgPicture.asset(
+                    MediaRes.foodIcon,
+                    height: 20,
+                    width: 20,
+                  ),
+                if (hasMedication)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: SvgPicture.asset(
+                      MediaRes.healthIcon,
+                      height: 20,
+                      width: 20,
+                    ),
+                  ),
+                if (hasAllergy)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: SvgPicture.asset(
+                      MediaRes.alertIcon,
+                      height: 20,
+                      width: 20,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }
 }
+
+// Legacy `_Field` widget is no longer used; kept removed to avoid dead code.
 
 class _tags extends StatelessWidget {
   const _tags({required this.tags});

@@ -82,6 +82,13 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         identifier: studentCode,
       );
 
+  static String _studentHealthCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'health',
+        identifier: studentCode,
+      );
+
   @override
   Future<StudentPage> getStudentPage({
     required String schoolCode,
@@ -89,6 +96,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     String? firstName,
     String? lastName,
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     int page = 0,
     int size = 10,
@@ -99,6 +109,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       firstName: firstName,
       lastName: lastName,
       status: status,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      guardianCodes: guardianCodes,
       search: search,
       page: page,
       size: size,
@@ -361,6 +374,26 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     );
 
     return models;
+  }
+
+  Future<StudentHealthModel> getStudentHealth({
+    required String studentCode,
+  }) async {
+    final cached =
+        await _cacheManager.loadCache(_studentHealthCacheKey(studentCode));
+    if (cached != null) {
+      return StudentHealthModel.fromJson(cached);
+    }
+
+    final model =
+        await _remoteDataSource.getStudentHealth(code: studentCode);
+
+    await _cacheManager.saveCache(
+      _studentHealthCacheKey(studentCode),
+      model.toJson(),
+    );
+
+    return model;
   }
 
   Future<StudentPhysicianModel> addPhysician({

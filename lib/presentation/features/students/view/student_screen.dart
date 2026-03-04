@@ -72,12 +72,34 @@ class _StudentScreenState extends State<StudentScreen> {
   }
 
   void _applyFiltersToCubit() {
-    final statusFilter = _currentFilters['Status']?.isNotEmpty == true 
-        ? _currentFilters['Status']!.first 
+    final statusFilter = _currentFilters['Status']?.isNotEmpty == true
+        ? _currentFilters['Status']!.first
         : null;
-    
+
+    // Map selected classroom names to codes for the API
+    final classroomState = context.read<ClassroomCubit>().state;
+    final nameToCode = {
+      for (final c in classroomState.classrooms) c.name: c.code,
+    };
+
+    final selectedClassroomNames =
+        _currentFilters['Classroom'] ?? const <String>[];
+    final classroomCodes = selectedClassroomNames
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    // TODO: When tag and guardian codes are available, resolve them here
+    // based on the selected 'Tags' and 'Parents' filters.
+    final List<String> tagCodes = const [];
+    final List<String> guardianCodes = const [];
+
     context.read<StudentCubit>().updateFilters(
       status: statusFilter,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      tagCodes: tagCodes.isEmpty ? null : tagCodes,
+      guardianCodes: guardianCodes.isEmpty ? null : guardianCodes,
     );
     context.read<StudentCubit>().refresh();
   }
