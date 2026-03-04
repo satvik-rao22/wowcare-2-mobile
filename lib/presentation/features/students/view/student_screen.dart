@@ -8,6 +8,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
@@ -16,6 +17,7 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -144,6 +146,97 @@ class _StudentScreenState extends State<StudentScreen> {
     }
   }
 
+  Future<void> _openEditStudentDetails(String studentCode) async {
+    try {
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final profile = await dataSource.getStudentProfile(studentCode);
+      if (!mounted) return;
+
+      // Map status from API (e.g. ACTIVE) to display format used by edit screen.
+      String statusDisplay = 'Active';
+      final upperStatus = profile.status.toUpperCase();
+      if (upperStatus == 'ACTIVE' || profile.status == 'A') {
+        statusDisplay = 'Active';
+      } else if (upperStatus == 'INACTIVE' || profile.status == 'I') {
+        statusDisplay = 'Inactive';
+      } else if (upperStatus == 'UPCOMING') {
+        statusDisplay = 'Upcoming';
+      } else if (upperStatus == 'WAITLIST') {
+        statusDisplay = 'Waitlist';
+      } else if (upperStatus == 'GRADUATED') {
+        statusDisplay = 'Graduated';
+      }
+
+      // Parse DOB
+      DateTime? birthDate;
+      if (profile.dob != null && profile.dob!.isNotEmpty) {
+        try {
+          birthDate = DateTime.parse(profile.dob!);
+        } catch (_) {
+          birthDate = null;
+        }
+      }
+
+      // Address fields
+      final address = profile.address;
+      final street = address?['street']?.toString() ?? '';
+      final city = address?['city']?.toString() ?? '';
+      final state = address?['state']?.toString() ?? '';
+      final country = address?['country']?.toString() ?? '';
+      final zipCode =
+          address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
+
+      // TODO: When backend exposes tags/siblings as separate collections with codes/names,
+      // map them here. For now, keep using existing mock/tag flows in the edit screen.
+      final tags = <String>[];
+      final siblings = <String>[];
+
+      // Legal custodians: use names or codes
+      final legalCustodians = <String>[];
+      for (final custodian in profile.legalCustodians) {
+        final name = custodian.name?.trim();
+        final code = custodian.code?.trim();
+        if (name != null && name.isNotEmpty) {
+          legalCustodians.add(name);
+        } else if (code != null && code.isNotEmpty) {
+          legalCustodians.add(code);
+        }
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EditStudentProfileDetailsScreen(
+            studentCode: profile.code,
+            initialFirstName: profile.firstName,
+            initialLastName: profile.lastName,
+            initialStatus: statusDisplay,
+            initialClassroom: profile.classroom ?? '',
+            initialBirthDate: birthDate,
+            initialNotes: profile.notes ?? '',
+            initialFTE: profile.fte ?? '',
+            initialStreet: street,
+            initialCity: city,
+            initialState: state,
+            initialCountry: country,
+            initialZipCode: zipCode,
+            initialTags: tags,
+            initialSiblings: siblings,
+            initialLegalCustodians: legalCustodians,
+            initialSubsidy: profile.subsidy,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
   void _applyFiltersToCubit() {
     final statusFilter = _currentFilters['Status']?.isNotEmpty == true
         ? _currentFilters['Status']!.first
@@ -209,7 +302,6 @@ class _StudentScreenState extends State<StudentScreen> {
   void _clearAllFilters() {
     setState(() {
       _currentFilters.clear();
-      _currentFilters['Status'] = ['Active']; // active filter is always on by default
     });
     _applyFiltersToCubit();
   }
@@ -387,6 +479,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           print('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
                           if (result is Map && (result['showPostAddPrompt'] == true)) {
                             final studentName = (result['studentName'] as String?) ?? '';
+                            final studentCode = (result['studentCode'] as String?) ?? '';
                             // New student added successfully → refresh list (uses invalidated cache)
                             await studentCubit.refresh();
                             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -405,7 +498,9 @@ class _StudentScreenState extends State<StudentScreen> {
                                   onLater: () => Navigator.of(ctx).pop(),
                                   onYes: () {
                                     Navigator.of(ctx).pop();
-                                    //Navigator.of(context).pushNamed('/edit-profile-details-screen');
+                                    if (studentCode.isNotEmpty) {
+                                      _openEditStudentDetails(studentCode);
+                                    }
                                   },
                                 ),
                               );
@@ -591,7 +686,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   clipBehavior: Clip.none,
                                   children: [
                                     Padding(
-                                      padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(8),
                                       child: SvgPicture.asset(
                                         MediaRes.filterIcon,
                                         height: 20,

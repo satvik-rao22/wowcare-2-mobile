@@ -497,6 +497,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       Navigator.pop(context, {
         'showPostAddPrompt': true,
         'studentName': studentName,
+        'studentCode': student.code,
       });
     } catch (e) {
       final message = ApiErrorHandler.extractErrorMessage(e);

@@ -86,6 +86,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   String? _selectedCountry;
   bool _isSubmitting = false;
   DateTime? _selectedUpcomingMoveDate;
+  String? _selectedAddressType;
 
   final List<String> _allTags = [
     '5 Days',
@@ -107,13 +108,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
   final List<String> _childCustodyOptions = ['Mother', 'Father', 'Both Mother and Father'];
+  final List<String> _addressTypeOptions = ['Current address', 'Permanent address', 'Other'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
   final List<String> _countryOptions =
       COUNTRY_LIST.map((c) => c.name).toList(growable: false);
 
   // Simple validators (align with Add Staff)
-  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
+  // Allow letters, digits, spaces, basic punctuation; first char must be non-space.
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z0-9][A-Za-z0-9\-'\s]{0,49}$");
   static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
 
   @override
@@ -160,6 +163,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     }
 
     _zipCodeController.text = widget.initialZipCode ?? '';
+    // Default address type to CURRENT; can be changed via dropdown.
+    _selectedAddressType = _addressTypeOptions.first;
   }
 
   @override
@@ -180,18 +185,26 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     final last = _lastNameController.text.trim();
     final fte = _FTEController.text.trim();
 
-    if (first.isEmpty || !_nameRegex.hasMatch(first)) {
+    if (first.isEmpty || !_nameRegex.hasMatch(first) || first.length > 50) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required',
+        message: 'First Name is required and must be max 50 characters',
         isError: true,
       );
       return;
     }
-    if (last.isEmpty || !_nameRegex.hasMatch(last)) {
+    if (last.isEmpty || !_nameRegex.hasMatch(last) || last.length > 50) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required',
+        message: 'Last Name is required and must be max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (_selectedStatus == null || _selectedStatus!.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Status is required',
         isError: true,
       );
       return;
@@ -200,6 +213,35 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Classroom is required',
+        isError: true,
+      );
+      return;
+    }
+    // Birthdate: required and must be in the past
+    if (_selectedBirthDate == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Birthdate is required',
+        isError: true,
+      );
+      return;
+    } else {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      if (_selectedBirthDate!.isAfter(today.subtract(const Duration(days: 1)))) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Birthdate must be a past date',
+          isError: true,
+        );
+        return;
+      }
+    }
+    // Notes: optional, max 500 chars
+    if (_notesController.text.trim().length > 500) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Notes cannot exceed 500 characters',
         isError: true,
       );
       return;
@@ -213,7 +255,11 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       return;
     }
 
-    if (_streetController.text.isEmpty) {
+    final street = _streetController.text.trim();
+    final city = _cityController.text.trim();
+    final zip = _zipCodeController.text.trim();
+
+    if (street.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Street is required',
@@ -221,7 +267,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (_cityController.text.isEmpty) {
+    if (street.length > 150) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street address cannot exceed 150 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (city.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'City is required',
@@ -229,10 +283,50 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (_zipCodeController.text.trim().isEmpty) {
+    if (city.length > 50) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City name cannot exceed 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (zip.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code is required',
+        isError: true,
+      );
+      return;
+    }
+    if (!RegExp(r'^\d{3,10}$').hasMatch(zip)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code must contain only numbers (3–10 digits)',
+        isError: true,
+      );
+      return;
+    }
+    if ((_selectedState ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'State is required',
+        isError: true,
+      );
+      return;
+    }
+    if ((_selectedCountry ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Country is required',
+        isError: true,
+      );
+      return;
+    }
+    if (_selectedAddressType == null || _selectedAddressType!.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Address type is required',
         isError: true,
       );
       return;
@@ -331,16 +425,28 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
 
       // 2) Address PATCH /api/v1/student/{studentCode}/address
+      String _mapAddressTypeToApiValue(String uiLabel) {
+        switch (uiLabel.toLowerCase()) {
+          case 'current address':
+            return 'CURRENT';
+          case 'permanent address':
+            // Keep backend's enum spelling.
+            return 'PERMENENT';
+          case 'other':
+          default:
+            return 'OTHER';
+        }
+      }
+
       final addressPayload = <String, dynamic>{
-        'line1': _streetController.text.trim(),
+        'line1': street,
         'line2': _street2Controller.text.trim(),
-        'street': _streetController.text.trim(),
-        'city': _cityController.text.trim(),
+        'street': street,
+        'city': city,
         'state': stateCode,
         'country': countryCode,
-        'postalCode': _zipCodeController.text.trim(),
-        // For now treat this as the student's home address.
-        'addressType': 'HOME',
+        'postalCode': zip,
+        'addressType': _mapAddressTypeToApiValue(_selectedAddressType!),
       };
 
       await repository.updateStudentAddress(
@@ -603,6 +709,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State Subsidy", "Select", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildCustomDropdown(
+                          "Address Type",
+                          "Select",
+                          _addressTypeOptions,
+                          _selectedAddressType,
+                          (v) => setState(() => _selectedAddressType = v),
+                          isRequired: true,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Street",
