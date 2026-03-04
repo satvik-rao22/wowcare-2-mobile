@@ -6,17 +6,24 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 class SimpleTimePickerField extends StatelessWidget {
   const SimpleTimePickerField({
     super.key,
-    required this.time,
+    this.time,
+    this.placeholder,
     required this.onTimeSelected,
   });
 
-  final TimeOfDay time;
+  /// Currently selected time. If null, the field shows [placeholder] instead
+  /// and the time picker will default to the current time.
+  final TimeOfDay? time;
+
+  /// Optional placeholder text to show when [time] is null.
+  final String? placeholder;
+
   final ValueChanged<TimeOfDay> onTimeSelected;
 
   Future<void> _pickTime(BuildContext context) async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: time,
+      initialTime: time ?? TimeOfDay.now(),
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
@@ -49,7 +56,11 @@ class SimpleTimePickerField extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            AppText.value(time.format(context)),
+            AppText.value(
+              time != null
+                  ? time!.format(context)
+                  : (placeholder ?? 'Select time'),
+            ),
             SvgPicture.asset(MediaRes.clock_icon),
           ],
         ),

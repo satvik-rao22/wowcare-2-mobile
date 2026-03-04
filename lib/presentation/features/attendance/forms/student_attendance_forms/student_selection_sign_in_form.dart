@@ -102,9 +102,11 @@ class _StudentSelectionSignInFormState
         final item = entry.value;
         return StudentEntity(
           id: index + 1,
+          studentCode: item.studentCode,
           fullName: item.studentName,
           roomId: 0,
           roomName: item.classroomName,
+          classroomCode: item.classroomCode,
           photoUuid: null,
         );
       }).toList();

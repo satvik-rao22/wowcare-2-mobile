@@ -8,22 +8,40 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
 
-// Mock student entity for UI-only implementation
+// Student entity for Sign-Out UI & API payload
 class StudentEntity {
   final int id;
+  final String studentCode;
   final String fullName;
   final int roomId;
   final String roomName;
   final String photoUuid;
+  final String classroomCode;
 
   StudentEntity({
     required this.id,
+    required this.studentCode,
     required this.fullName,
     required this.roomId,
     required this.roomName,
     this.photoUuid = '',
+    required this.classroomCode,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StudentEntity &&
+          runtimeType == other.runtimeType &&
+          studentCode == other.studentCode;
+
+  @override
+  int get hashCode => studentCode.hashCode;
 }
 
 class StudentSignOutForm extends StatefulWidget {
@@ -46,6 +64,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
   List<StudentEntity> currentStudents = [];
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -65,16 +84,109 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     });
   }
 
-  void _handleSubmit() {
-    // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Signed-Out successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+    if (currentStudents.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No students selected to sign out'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final client = serviceLocator<ApiClient>().client;
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceRecordsSignOut,
+      ApiConstants.attendanceBaseUrl,
     );
-    Navigator.pop(context);
-    widget.refreshCallback?.call();
+
+    final attendanceDate =
+        '${selectedDate.year.toString().padLeft(4, '0')}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+
+    final occurredAt = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    ).toUtc();
+
+    // TODO: Replace hardcoded staffCode and classroomCode with real values.
+    const staffCode = 'STF_001';
+    const defaultClassroomCode = 'CLS_001';
+
+    final studentCodes = currentStudents.map((s) => s.studentCode).toList();
+
+    final classroomCodeByStudentCode = <String, String>{
+      for (final s in currentStudents) s.studentCode: defaultClassroomCode,
+    };
+
+    final payload = <String, dynamic>{
+      'attendanceDate': attendanceDate,
+      'staffCode': staffCode,
+      'studentCodes': studentCodes,
+      'classroomCode': defaultClassroomCode,
+      'classroomCodeByStudentCode': classroomCodeByStudentCode,
+      'method': 'APP',
+      'latitude': 0,
+      'longitude': 0,
+      'withinGeofence': true,
+      'timeZone': 'Asia/Kolkata',
+      'occurredAt': occurredAt.toIso8601String(),
+    };
+
+    try {
+      final response = await client.post<dynamic>(
+        endpoint,
+        data: payload,
+      );
+
+      final data = response.data;
+      bool success = false;
+      String message = 'Signed-Out successfully';
+
+      if (data is Map<String, dynamic>) {
+        success = data['success'] as bool? ?? false;
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              success ? AppColors.successColor : AppColors.errorColor,
+        ),
+      );
+
+      if (success) {
+        Navigator.pop(context);
+        widget.refreshCallback?.call();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to sign out students. Please try again.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -171,7 +283,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-Out',
-        onPressedConfirm: _handleSubmit,
+        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
       ),
     );

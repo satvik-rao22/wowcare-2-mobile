@@ -216,6 +216,12 @@ abstract class AttendanceRemoteDataSource {
   Future<Map<String, String>> getStudentSignInStatus({
     required List<String> studentCodes,
   });
+
+  /// Updates a single student attendance record (sign-in/sign-out entry).
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required Map<String, dynamic> payload,
+  });
 }
 
 class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
@@ -975,7 +981,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String staffCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '/api/v1/student-attendance-records/$attendanceRecordCode',
+      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
       ApiConstants.attendanceBaseUrl,
     );
 
@@ -1123,5 +1129,29 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     final raw = data['data'] as Map<String, dynamic>;
     return raw.map((key, value) => MapEntry(key, value.toString()));
+  }
+
+  @override
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required Map<String, dynamic> payload,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.patch<Map<String, dynamic>>(
+      endpoint,
+      data: payload,
+    );
+
+    final data = response.data;
+    if (data == null) {
+      throw Exception('Empty response from update attendance record API');
+    }
+
+    // Top-level "message" field is used as success message per contract.
+    return (data['message'] ?? 'Attendance updated successfully').toString();
   }
 }

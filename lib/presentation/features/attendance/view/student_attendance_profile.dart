@@ -189,6 +189,22 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   _StudentModel? student;
   _AttendanceReportModel? attendanceReport;
 
+  /// Helper to format API time (either a string or {hour, minute, ...} map)
+  /// into 'hh:mm:ss a' format for further formatting / calculations.
+  String _formatApiTime(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    if (value is Map<String, dynamic>) {
+      final hour = value['hour'] as int? ?? 0;
+      final minute = value['minute'] as int? ?? 0;
+      final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final mm = minute.toString().padLeft(2, '0');
+      return '$h12:$mm:00 $period';
+    }
+    return value.toString();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -226,6 +242,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     setState(() {
       isAttendancesLoading = true;
       isAbsentDaysLoading = true;
+      isStudentLoading = true;
     });
 
     final from = _startDate ?? DateTime.now();
@@ -235,7 +252,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
     final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
+    final profileEndpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceProfile,
       ApiConstants.attendanceBaseUrl,
     );
@@ -250,79 +267,127 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     };
 
     try {
-      final response = await client.get<dynamic>(
-        endpoint,
+      // --------- Load attendance (present days / summary) ----------
+      final profileResponse = await client.get<dynamic>(
+        profileEndpoint,
         queryParameters: queryParameters,
       );
 
-      final data = response.data;
-      if (data is! Map<String, dynamic>) {
+      final profileData = profileResponse.data;
+      if (profileData is Map<String, dynamic>) {
+        final root = profileData['data'] as Map<String, dynamic>? ?? {};
+        final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
+        final records = root['records'] as Map<String, dynamic>? ?? {};
+        final content = records['content'] as List<dynamic>? ?? const [];
+
+        final attendedDays = agg['attendedDays'] as int? ?? 0;
+        final totalAttendedTime = agg['totalAttendedTime'] as String? ?? '';
+
+        final List<_AttendanceModel> loadedAttendances = [];
+
+        for (final e in content) {
+          final m = e as Map<String, dynamic>;
+          final dateStr = m['attendanceDate'] as String? ?? '';
+          final date = dateStr.isNotEmpty
+              ? DateTime.tryParse(dateStr) ?? DateTime.now()
+              : DateTime.now();
+
+          loadedAttendances.add(
+            _AttendanceModel(
+              date: date,
+              signInTime: _formatApiTime(m['signedInTime']),
+              signOutTime: _formatApiTime(m['signedOutTime']),
+              roomName: m['classroomName'] as String? ?? widget.roomName,
+              signInBy: m['signedInBy'] as String? ?? '',
+              signOutBy: m['signedOutBy'] as String? ?? 'System Auto Signout',
+            ),
+          );
+        }
+
+        setState(() {
+          attendanceReport = _AttendanceReportModel(
+            attendedDays: attendedDays,
+            totalAttendedHours: totalAttendedTime,
+            // Absent days count will be updated from absent profile API below.
+            absentDays: attendanceReport?.absentDays ?? 0,
+          );
+          attendances = loadedAttendances;
+          isAttendancesLoading = false;
+        });
+      } else {
         setState(() {
           isAttendancesLoading = false;
+        });
+      }
+
+      // --------- Load absent days for toggle list (profile/absent/toggle) ----------
+      final absentEndpoint = ApiPaths.urlWithBase(
+        ApiPaths.studentAttendanceProfileAbsentToggle,
+        ApiConstants.attendanceBaseUrl,
+      );
+
+      final absentQueryParameters = <String, dynamic>{
+        'studentCode': widget.studentCode,
+        'fromAbsenceDate': fromStr,
+        'toAbsenceDate': toStr,
+        'page': 0,
+        'size': 100,
+        'sort': <String>['absenceDate,desc'],
+      };
+
+      final absentResponse = await client.get<dynamic>(
+        absentEndpoint,
+        queryParameters: absentQueryParameters,
+      );
+
+      final absentData = absentResponse.data;
+
+      if (absentData is Map<String, dynamic>) {
+        final root = absentData['data'] as Map<String, dynamic>? ?? {};
+        final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
+        final records = root['records'] as Map<String, dynamic>? ?? {};
+        final content = records['content'] as List<dynamic>? ?? const [];
+
+        final absentDaysCount = agg['absentDays'] as int? ?? 0;
+
+        final List<_AbsentDayModel> loadedAbsentDays = [];
+
+        for (final e in content) {
+          final m = e as Map<String, dynamic>;
+          final dateStr = m['absenceDate'] as String? ?? '';
+          final date = dateStr.isNotEmpty
+              ? DateTime.tryParse(dateStr) ?? DateTime.now()
+              : DateTime.now();
+
+          loadedAbsentDays.add(
+            _AbsentDayModel(
+              startDate: date,
+              endDate: date,
+              absentTime: _formatApiTime(m['markedAbsentTime']),
+              absentBy: m['markedAbsentBy'] as String? ?? '',
+              note: m['absenceNote'] as String? ?? '',
+            ),
+          );
+        }
+
+        if (!mounted) return;
+        setState(() {
+          attendanceReport = _AttendanceReportModel(
+            attendedDays: attendanceReport?.attendedDays ?? 0,
+            totalAttendedHours: attendanceReport?.totalAttendedHours ?? '',
+            absentDays: absentDaysCount,
+          );
+          absentDays = loadedAbsentDays;
           isAbsentDaysLoading = false;
           isStudentLoading = false;
         });
-        return;
+      } else {
+        if (!mounted) return;
+        setState(() {
+          isAbsentDaysLoading = false;
+          isStudentLoading = false;
+        });
       }
-
-      final root = data['data'] as Map<String, dynamic>? ?? {};
-      final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
-      final records = root['records'] as Map<String, dynamic>? ?? {};
-      final content = records['content'] as List<dynamic>? ?? const [];
-
-      final attendedDays = agg['attendedDays'] as int? ?? 0;
-      final totalAttendedTime = agg['totalAttendedTime'] as String? ?? '';
-      final absentDaysCount = agg['absentDays'] as int? ?? 0;
-
-      final List<_AttendanceModel> loadedAttendances = [];
-
-      String _formatTime(dynamic value) {
-        if (value == null) return '';
-        if (value is String) return value;
-        if (value is Map<String, dynamic>) {
-          final hour = value['hour'] as int? ?? 0;
-          final minute = value['minute'] as int? ?? 0;
-          final h12 = hour == 0
-              ? 12
-              : (hour > 12 ? hour - 12 : hour);
-          final period = hour >= 12 ? 'PM' : 'AM';
-          final mm = minute.toString().padLeft(2, '0');
-          return '$h12:$mm:00 $period';
-        }
-        return value.toString();
-      }
-
-      for (final e in content) {
-        final m = e as Map<String, dynamic>;
-        final dateStr = m['attendanceDate'] as String? ?? '';
-        final date = dateStr.isNotEmpty
-            ? DateTime.tryParse(dateStr) ?? DateTime.now()
-            : DateTime.now();
-
-        loadedAttendances.add(
-          _AttendanceModel(
-            date: date,
-            signInTime: _formatTime(m['signedInTime']),
-            signOutTime: _formatTime(m['signedOutTime']),
-            roomName: m['classroomName'] as String? ?? widget.roomName,
-            signInBy: m['signedInBy'] as String? ?? '',
-            signOutBy: m['signedOutBy'] as String? ?? 'System Auto Signout',
-          ),
-        );
-      }
-
-      setState(() {
-        attendanceReport = _AttendanceReportModel(
-          attendedDays: attendedDays,
-          totalAttendedHours: totalAttendedTime,
-          absentDays: absentDaysCount,
-        );
-        attendances = loadedAttendances;
-        absentDays = [];
-        isAttendancesLoading = false;
-        isAbsentDaysLoading = false;
-        isStudentLoading = false;
-      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -754,7 +819,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   Widget _buildStats() {
-    if (attendanceReport == null) {
+    final report = attendanceReport;
+
+    if (report == null) {
       return Column(
         children: [
           _buildStatItem(
@@ -765,12 +832,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             valueColor: const Color(0xFF4CAF50),
           ),
           const SizedBox(height: 16),
-          _buildStatItem(
-            icon: MediaRes.timerIcon,
-            iconColor: const Color(0xFF4285F4),
-            label: 'Attended Hours',
-            value: 'h',
-            valueColor: const Color(0xFF4285F4),
+          _buildAttendedHoursStat(
+            report: null,
           ),
           const SizedBox(height: 16),
           _buildStatItem(
@@ -790,25 +853,17 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           icon: MediaRes.calenderClockIcon,
           iconColor: const Color(0xFF4285F4),
           label: 'Attended Days',
-          value: '${attendanceReport!.attendedDays}',
+          value: '${report.attendedDays}',
           valueColor: const Color(0xFF4CAF50),
         ),
         const SizedBox(height: 16),
-        _buildStatItem(
-          icon: MediaRes.timerIcon,
-          iconColor: const Color(0xFF4285F4),
-          label: 'Attended Hours',
-          value: attendanceReport!.totalAttendedHours.isNotEmpty
-              ? '${attendanceReport!.totalAttendedHours.split(' ').first}h'
-              : '0h',
-          valueColor: const Color(0xFF4285F4),
-        ),
+        _buildAttendedHoursStat(report: report),
         const SizedBox(height: 16),
         _buildStatItem(
           icon: MediaRes.calenderClockIcon,
           iconColor: const Color(0xFF4285F4),
           label: 'Absent Days',
-          value: '${attendanceReport!.absentDays}',
+          value: '${report.absentDays}',
           valueColor: Colors.red,
         ),
       ],
@@ -862,6 +917,89 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAttendedHoursStat({
+    required _AttendanceReportModel? report,
+  }) {
+    int hours = 0;
+    int minutes = 0;
+
+    // Parse from raw string when available, expecting formats like "5 Hrs 30 Mins".
+    if (report != null && report.totalAttendedHours.isNotEmpty) {
+      final parts = report.totalAttendedHours.split(' ');
+      if (parts.length >= 4) {
+        hours = int.tryParse(parts[0]) ?? 0;
+        minutes = int.tryParse(parts[2]) ?? 0;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black12, width: 1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            MediaRes.timerIcon,
+            height: 22,
+            colorFilter:
+                const ColorFilter.mode(Color(0xFF4285F4), BlendMode.srcIn),
+          ),
+          const SizedBox(width: 8),
+          const AppText.body(
+            'Attended Hours',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              _buildValueCircle(
+                text: '${hours}h',
+                color: const Color(0xFF4285F4),
+              ),
+              const SizedBox(width: 8),
+              _buildValueCircle(
+                text: '${minutes}m',
+                color: const Color(0xFF4285F4),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValueCircle({
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: color,
+          width: 1.5,
+        ),
+      ),
+      child: Center(
+        child: AppText.body(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
       ),
     );
   }
@@ -1003,6 +1141,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   Widget _buildAttendanceItem(int index) {
     final attendance = attendances[index];
+    final durationText =
+        calculateAttendedTime(attendance.signInTime, attendance.signOutTime);
+    final collapsedText =
+        durationText == 'Not Yet Signed Out' && attendanceReport != null
+            ? (attendanceReport!.totalAttendedHours.isNotEmpty
+                ? attendanceReport!.totalAttendedHours
+                : durationText)
+            : durationText;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -1014,7 +1160,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           ),
         ),
         trailing: AppText.body(
-          calculateAttendedTime(attendance.signInTime, attendance.signOutTime),
+          collapsedText,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -1128,7 +1274,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Marked Absent Time',
-            text: absentDay.absentTime,
+            text: formatTime(absentDay.absentTime),
           ),
           const SizedBox(height: 16),
           _AttendanceField(

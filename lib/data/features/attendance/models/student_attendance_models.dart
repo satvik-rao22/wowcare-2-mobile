@@ -11,6 +11,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
     this.signedInTime,
     this.signedOutAt,
     this.signedOutTime,
+    this.signedInMethod,
+    this.signedOutMethod,
     required this.classroomCode,
     required this.tagCodes,
     required this.tagNames,
@@ -26,6 +28,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final StudentAttendanceTimeModel? signedInTime;
   final String? signedOutAt;
   final StudentAttendanceTimeModel? signedOutTime;
+  final String? signedInMethod;
+  final String? signedOutMethod;
   final String classroomCode;
   final List<String> tagCodes;
   final List<String> tagNames;
@@ -33,7 +37,10 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
-      attendanceRecordCode: json['attendanceRecordCode'] as String?,
+      // Backend now returns the attendance record identifier as `code`.
+      // Fall back to `attendanceRecordCode` for backward compatibility.
+      attendanceRecordCode:
+          (json['attendanceRecordCode'] ?? json['code']) as String?,
       studentCode: json['studentCode'] as String?,
       studentName: json['studentName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
@@ -46,6 +53,9 @@ class StudentAttendanceDailyItemModel extends Equatable {
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
+      // Backend exposes how the student was signed in/out (GPS, PIN, QR, APP, etc.)
+      signedInMethod: json['signedInMethod'] as String?,
+      signedOutMethod: json['signedOutMethod'] as String?,
       classroomCode: json['classroomCode'] as String? ?? '',
       tagCodes: (json['tagCodes'] as List<dynamic>?)
               ?.map((e) => e.toString())
@@ -70,6 +80,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
       'signedInTime': signedInTime?.toJson(),
       'signedOutAt': signedOutAt,
       'signedOutTime': signedOutTime?.toJson(),
+      'signedInMethod': signedInMethod,
+      'signedOutMethod': signedOutMethod,
       'classroomCode': classroomCode,
       'tagCodes': tagCodes,
       'tagNames': tagNames,
@@ -88,6 +100,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
         signedInTime,
         signedOutAt,
         signedOutTime,
+        signedInMethod,
+        signedOutMethod,
         classroomCode,
         tagCodes,
         tagNames,

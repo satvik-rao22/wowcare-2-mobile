@@ -60,11 +60,13 @@ class ApiPaths {
   static const String studentAttendanceAbsentView = '/api/v1/student-attendance/view/absent';
   static const String studentAttendanceAbsentToggleView =
       '/api/v1/student-attendance/view/absent/toggle';
+  static const String studentAttendanceProfile = '/api/v1/student-attendance/profile';
+  static const String studentAttendanceProfileAbsentToggle =
+      '/api/v1/student-attendance/profile/absent/toggle';
   static const String studentAttendanceSignInStatus =
       '/api/v1/student-attendance/sign-in/status';
   static const String studentAttendanceExpectedSummaryCard =
       '/api/v1/student-attendance/expected/summary/card';
-  static const String studentAttendanceProfile = '/api/v1/student-attendance/profile';
   static const String studentAttendanceSignInFormList =
       '/api/v1/student-attendance/sign-in/form/list';
   static const String studentAttendanceSignOutFormList =
@@ -75,6 +77,13 @@ class ApiPaths {
       '/api/v1/student-attendance/transfer/form/list';
   static const String studentAbsenceRecordsMarkAbsent =
       '/api/v1/student-absence-records/mark-absent';
+  static const String studentAttendanceRecords = '/api/v1/student-attendance-records';
+  static const String studentAttendanceRecordsSignIn =
+      '/api/v1/student-attendance-records/sign-in';
+  static const String studentAttendanceRecordsSignOut =
+      '/api/v1/student-attendance-records/sign-out';
+  static const String studentAttendanceRecordsTransfer =
+      '/api/v1/student-attendance-records/transfer';
   static const String staffAttendanceDailyView = '/api/v1/staff-attendance/view/daily';
   static const String staffAttendanceExpectedSummaryCard =
       '/api/v1/staff-attendance/expected/summary/card';
@@ -89,12 +98,16 @@ class ApiPaths {
   static const String staffAttendanceSignInStatus =
       '/api/v1/staff-attendance/sign-in/status';
   static const String staffAttendanceProfile = '/api/v1/staff-attendance/profile';
+  static const String staffAttendanceProfileAbsentToggle =
+      '/api/v1/staff-attendance/profile/absent/toggle';
   static const String staffAttendanceAbsentView = '/api/v1/staff-attendance/view/absent';
   static const String staffAttendanceAbsentFormList =
       '/api/v1/staff-attendance/absent/form/list';
   static const String staffAttendanceAbsentToggleView =
       '/api/v1/staff-attendance/view/absent/toggle';
   static const String staffAttendanceCustomView = '/api/v1/staff-attendance/view/custom';
+  static const String staffAttendanceRecordsSignIn =
+      '/api/v1/staff-attendance-records/sign-in';
 
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';

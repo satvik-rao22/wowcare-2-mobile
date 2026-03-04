@@ -199,6 +199,20 @@ abstract class AttendanceRepository {
   /// Returns a status string such as `SIGNED_IN` or `ABSENT`, or `null`
   /// if the backend did not return a status for this code.
   Future<String?> getStudentTodaySignInStatus(String studentCode);
+
+  /// Updates a single student attendance record (sign-in/sign-out entry).
+  ///
+  /// Returns a human-friendly success message from the API.
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+    DateTime? signedInAt,
+    DateTime? signedOutAt,
+    String? originalClassroomCode,
+    String? currentClassroomCode,
+    String? notes,
+    String? timeZone,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

@@ -179,6 +179,8 @@ class AttendanceRepositoryImpl
               nano: model.signedOutTime!.nano,
             )
           : null,
+      signedInMethod: model.signedInMethod,
+      signedOutMethod: model.signedOutMethod,
       classroomCode: model.classroomCode,
       tagCodes: model.tagCodes,
       tagNames: model.tagNames,
@@ -786,5 +788,43 @@ class AttendanceRepositoryImpl
       studentCodes: <String>[studentCode],
     );
     return map[studentCode];
+  }
+
+  @override
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+    DateTime? signedInAt,
+    DateTime? signedOutAt,
+    String? originalClassroomCode,
+    String? currentClassroomCode,
+    String? notes,
+    String? timeZone,
+  }) async {
+    final payload = <String, dynamic>{
+      'staffCode': staffCode,
+      // Backend expects ISO8601 with timezone (e.g., "2026-03-04T16:31:09.002Z")
+      'signedInAt': signedInAt?.toIso8601String(),
+      'signedOutAt': signedOutAt?.toIso8601String(),
+      'signedInMethod': 'APP',
+      'signedOutMethod': 'APP',
+      // Location/geofence fields are currently not captured in the UI.
+      // Send defaults as per backend schema.
+      'signedInLocationLat': 0,
+      'signedInLocationLong': 0,
+      'signedInWithinGeofence': true,
+      'signedOutLocationLat': 0,
+      'signedOutLocationLong': 0,
+      'signedOutWithinGeofence': true,
+      'originalClassroomCode': originalClassroomCode,
+      'currentClassroomCode': currentClassroomCode,
+      'notes': notes,
+      'timeZone': timeZone,
+    };
+
+    return _remoteDataSource.updateStudentAttendanceRecord(
+      attendanceRecordCode: attendanceRecordCode,
+      payload: payload,
+    );
   }
 }

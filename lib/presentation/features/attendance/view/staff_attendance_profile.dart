@@ -183,6 +183,22 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   _StaffModel? staff;
   _AttendanceReportModel? attendanceReport;
 
+  /// Helper to format API time (either a string or {hour, minute, ...} map)
+  /// into 'hh:mm:ss a' which works with the existing `formatTime` helper.
+  String _formatApiTime(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    if (value is Map<String, dynamic>) {
+      final hour = value['hour'] as int? ?? 0;
+      final minute = value['minute'] as int? ?? 0;
+      final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final mm = minute.toString().padLeft(2, '0');
+      return '$h12:$mm:00 $period';
+    }
+    return value.toString();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -207,19 +223,32 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     _loadData();
   }
 
-  void _loadData() {
+  Future<void> _loadData() async {
+    if (widget.staffCode.isEmpty) {
+      setState(() {
+        isAttendancesLoading = false;
+        isAbsentDaysLoading = false;
+        isStaffLoading = false;
+      });
+      return;
+    }
+
     final from = _startDate ?? DateTime.now();
     final to = _endDate ?? from;
 
     setState(() {
       isAttendancesLoading = true;
-      isAbsentDaysLoading = false;
+      isAbsentDaysLoading = true;
       isStaffLoading = true;
     });
 
     final apiClient = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
+    final profileEndpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceProfile,
+      ApiConstants.attendanceBaseUrl,
+    );
+    final absentEndpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceProfileAbsentToggle,
       ApiConstants.attendanceBaseUrl,
     );
 
@@ -236,100 +265,176 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     };
 
     debugPrint(
-      'StaffAttendanceProfile API → GET $endpoint '
+      'StaffAttendanceProfile API → GET $profileEndpoint '
       'query=$queryParameters',
     );
 
-    apiClient
-        .get<dynamic>(
-      endpoint,
-      queryParameters: queryParameters,
-    )
-        .then((response) {
-      debugPrint(
-        'StaffAttendanceProfile API ← status=${response.statusCode} '
-        'data=${response.data}',
+    try {
+      // ---------- Load staff attendance profile (present days / summary) ----------
+      final profileResponse = await apiClient.get<dynamic>(
+        profileEndpoint,
+        queryParameters: queryParameters,
       );
 
-      if (!mounted) return;
+      debugPrint(
+        'StaffAttendanceProfile API ← status=${profileResponse.statusCode} '
+        'data=${profileResponse.data}',
+      );
 
-      final data = response.data;
-      if (data is! Map<String, dynamic>) {
-        setState(() {
-          isAttendancesLoading = false;
-          isStaffLoading = false;
-        });
-        return;
+      final data = profileResponse.data;
+      if (data is Map<String, dynamic>) {
+        final root = data['data'] as Map<String, dynamic>? ?? {};
+        final aggJson = root['aggregations'] as Map<String, dynamic>? ?? {};
+        final recordsJson = root['records'] as Map<String, dynamic>? ?? {};
+        final content = recordsJson['content'] as List<dynamic>? ?? const [];
+
+        // Aggregations
+        final attendedDays = (aggJson['attendedDays'] as int?) ?? 0;
+        final totalAttendedHours =
+            (aggJson['totalAttendedTime'] as String?) ?? '';
+        final initialAbsentDays = (aggJson['absentDays'] as int?) ?? 0;
+
+        // Records
+        final loadedAttendances = content.map<_AttendanceModel>((e) {
+          final m = e as Map<String, dynamic>;
+
+          String _parseTime(dynamic value) {
+            if (value == null) return '';
+            if (value is String) return value;
+            if (value is Map<String, dynamic>) {
+              final hour = value['hour'] as int? ?? 0;
+              final minute = value['minute'] as int? ?? 0;
+              final second = value['second'] as int? ?? 0;
+              final h = hour.toString().padLeft(2, '0');
+              final mStr = minute.toString().padLeft(2, '0');
+              final sStr = second.toString().padLeft(2, '0');
+              return '$h:$mStr:$sStr';
+            }
+            return value.toString();
+          }
+
+          final dateStr = m['attendanceDate'] as String? ?? '';
+          final parsedDate = dateStr.isNotEmpty
+              ? DateTime.tryParse(dateStr) ?? DateTime.now()
+              : DateTime.now();
+
+          final signInRaw = _parseTime(m['signedInTime']);
+          final signOutRaw = _parseTime(m['signedOutTime']);
+
+          return _AttendanceModel(
+            date: parsedDate,
+            signInTime: signInRaw,
+            signOutTime: signOutRaw,
+            roomName: (m['classroomName'] as String?) ?? widget.roomName,
+            signInBy: (m['signedInBy'] as String?) ?? '',
+            signOutBy: (m['signedOutBy'] as String?) ?? '',
+          );
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            attendanceReport = _AttendanceReportModel(
+              attendedDays: attendedDays,
+              totalAttendedHours: totalAttendedHours,
+              absentDays: initialAbsentDays,
+            );
+            attendances = loadedAttendances;
+            isAttendancesLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            isAttendancesLoading = false;
+          });
+        }
       }
 
-      final root = data['data'] as Map<String, dynamic>? ?? {};
-      final aggJson = root['aggregations'] as Map<String, dynamic>? ?? {};
-      final recordsJson = root['records'] as Map<String, dynamic>? ?? {};
-      final content = recordsJson['content'] as List<dynamic>? ?? const [];
+      // ---------- Load staff absent profile for toggle list ----------
+      final absentQueryParameters = <String, dynamic>{
+        'staffCode': widget.staffCode,
+        'fromAbsenceDate': fromStr,
+        'toAbsenceDate': toStr,
+        'page': 0,
+        'size': 10,
+        'sort': <String>['absenceDate,desc'],
+      };
 
-      // Aggregations
-      attendanceReport = _AttendanceReportModel(
-        attendedDays: (aggJson['attendedDays'] as int?) ?? 0,
-        totalAttendedHours:
-            (aggJson['totalAttendedTime'] as String?) ?? '',
-        absentDays: (aggJson['absentDays'] as int?) ?? 0,
+      debugPrint(
+        'StaffAttendanceProfileAbsentToggle API → GET $absentEndpoint '
+        'query=$absentQueryParameters',
       );
 
-      // Records
-      attendances = content.map<_AttendanceModel>((e) {
-        final m = e as Map<String, dynamic>;
+      final absentResponse = await apiClient.get<dynamic>(
+        absentEndpoint,
+        queryParameters: absentQueryParameters,
+      );
 
-        String _parseTime(dynamic value) {
-          if (value == null) return '';
-          if (value is String) return value;
-          if (value is Map<String, dynamic>) {
-            final hour = value['hour'] as int? ?? 0;
-            final minute = value['minute'] as int? ?? 0;
-            final second = value['second'] as int? ?? 0;
-            final h = hour.toString().padLeft(2, '0');
-            final mStr = minute.toString().padLeft(2, '0');
-            final sStr = second.toString().padLeft(2, '0');
-            return '$h:$mStr:$sStr';
-          }
-          return value.toString();
+      debugPrint(
+        'StaffAttendanceProfileAbsentToggle API ← status=${absentResponse.statusCode} '
+        'data=${absentResponse.data}',
+      );
+
+      final absentData = absentResponse.data;
+      if (absentData is Map<String, dynamic>) {
+        final root = absentData['data'] as Map<String, dynamic>? ?? {};
+        final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
+        final records = root['records'] as Map<String, dynamic>? ?? {};
+        final content = records['content'] as List<dynamic>? ?? const [];
+
+        final absentDaysCount = agg['absentDays'] as int? ?? 0;
+
+        final loadedAbsentDays = content.map<_AbsentDayModel>((e) {
+          final m = e as Map<String, dynamic>;
+          final dateStr = m['absenceDate'] as String? ?? '';
+          final date = dateStr.isNotEmpty
+              ? DateTime.tryParse(dateStr) ?? DateTime.now()
+              : DateTime.now();
+
+          return _AbsentDayModel(
+            startDate: date,
+            endDate: date,
+            absentTime: _formatApiTime(m['markedAbsentTime']),
+            absentBy: m['markedAbsentBy'] as String? ?? '',
+            note: m['absenceNote'] as String? ?? '',
+          );
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            attendanceReport = _AttendanceReportModel(
+              attendedDays: attendanceReport?.attendedDays ?? 0,
+              totalAttendedHours:
+                  attendanceReport?.totalAttendedHours ?? '',
+              absentDays: absentDaysCount,
+            );
+            absentDays = loadedAbsentDays;
+            isAbsentDaysLoading = false;
+            isStaffLoading = false;
+          });
         }
-
-        final dateStr = m['attendanceDate'] as String? ?? '';
-        final parsedDate = dateStr.isNotEmpty
-            ? DateTime.tryParse(dateStr) ?? DateTime.now()
-            : DateTime.now();
-
-        final signInRaw = _parseTime(m['signedInTime']);
-        final signOutRaw = _parseTime(m['signedOutTime']);
-
-        return _AttendanceModel(
-          date: parsedDate,
-          signInTime: signInRaw,
-          signOutTime: signOutRaw,
-          roomName: (m['classroomName'] as String?) ?? widget.roomName,
-          signInBy: (m['signedInBy'] as String?) ?? '',
-          signOutBy: (m['signedOutBy'] as String?) ?? '',
-        );
-      }).toList();
-
-      setState(() {
-        isAttendancesLoading = false;
-        isAbsentDaysLoading = false;
-        isStaffLoading = false;
-      });
-    }).catchError((error, stack) {
+      } else {
+        if (mounted) {
+          setState(() {
+            isAbsentDaysLoading = false;
+            isStaffLoading = false;
+          });
+        }
+      }
+    } catch (error, stack) {
       debugPrint('StaffAttendanceProfile API error: $error');
+      debugPrint('$stack');
       if (!mounted) return;
       setState(() {
         isAttendancesLoading = false;
         isAbsentDaysLoading = false;
         isStaffLoading = false;
       });
-    });
+    }
   }
 
   Future<void> refreshData() async {
-    _loadData();
+    await _loadData();
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
@@ -342,7 +447,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
     return GlobalScaffold(
@@ -354,11 +458,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.symmetric(
             horizontal: contentPadding.left,
-            vertical: responsive.verticalSpacing / 2,
+            vertical: ResponsiveHelper(context).verticalSpacing / 2,
           ),
           child: Column(
             children: [
-              SizedBox(height: responsive.verticalSpacing),
+              SizedBox(height: ResponsiveHelper(context).verticalSpacing),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -422,7 +526,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   Widget _buildPopupMenu() {
-    final responsive = ResponsiveHelper(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
     final isLargeTablet = screenWidth >= 900;
@@ -578,7 +681,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   Widget _buildStaffCard() {
     if (staff == null) return const SizedBox.shrink();
 
-    final responsive = ResponsiveHelper(context);
     final currentStaff = staff!;
 
     return Card(
@@ -617,7 +719,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       AppText.title(
                         currentStaff.name,
                         style: TextStyle(
-                          fontSize: responsive.isTablet ? 23 : 20,
+                          fontSize: ResponsiveHelper(context).isTablet ? 23 : 20,
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.6,
                         ),
@@ -1026,7 +1128,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Marked Absent Time',
-            text: absentDay.absentTime,
+            text: formatTime(absentDay.absentTime),
           ),
           const SizedBox(height: 16),
           _AttendanceField(
