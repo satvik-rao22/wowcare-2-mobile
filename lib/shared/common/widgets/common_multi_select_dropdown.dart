@@ -112,7 +112,7 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
               children: [
                 Expanded(
                   child: Text(
-                    count == 0 ? 'Select' : '$count Classroom(s) selected',
+                    count == 0 ? 'Select' : '$count item(s) selected',
                     style: const TextStyle(fontFamily: 'Manrope'),
                     overflow: TextOverflow.ellipsis,
                   ),

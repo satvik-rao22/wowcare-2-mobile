@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -50,14 +49,15 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return const <Map<String, dynamic>>[];
     }
 
-    try {
-      final repo = serviceLocator<StudentRepository>();
-      final models = await (repo as StudentRepositoryImpl)
-          .getStudentGuardians(studentCode: studentCode);
-      return models.map((e) => e.toJson()).toList(growable: false);
-    } catch (_) {
+    // Use repository, which already applies caching via CacheManager.
+    final repo = serviceLocator<StudentRepository>();
+    if (repo is! StudentRepositoryImpl) {
+      // Fallback: no data if repository implementation is not available.
       return const <Map<String, dynamic>>[];
     }
+
+    final models = await repo.getStudentGuardians(studentCode: studentCode);
+    return models.map((e) => e.toJson()).toList(growable: false);
   }
   Future<void> _onAddParent() async {
     final studentCode = widget.studentCode ?? '';

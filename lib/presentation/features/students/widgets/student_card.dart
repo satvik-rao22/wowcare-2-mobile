@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/app/di/di.dart';
+
+import '_tags_loader.dart';
 
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../view/edit_student_profile_details_screen.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
@@ -51,6 +49,18 @@ class StudentCard extends StatefulWidget {
 
 class _StudentCardState extends State<StudentCard> {
   bool isExpanded = false;
+  List<String> _resolvedTags = const <String>[];
+  bool _hasLoadedTags = false;
+
+  @override
+  void didUpdateWidget(covariant StudentCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tags != widget.tags || oldWidget.studentCode != widget.studentCode) {
+      // If parent passes new tags or a different student, reset local cache.
+      _resolvedTags = const <String>[];
+      _hasLoadedTags = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +212,24 @@ class _StudentCardState extends State<StudentCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        if (widget.tags.isNotEmpty)
+                                        // Prefer tags resolved from API (student-tags)
+                                        // but fall back to tags passed from parent if any.
+                                        if ((_resolvedTags.isNotEmpty ||
+                                                widget.tags.isNotEmpty) &&
+                                            !_hasLoadedTags)
+                                          TagsLoader(
+                                            studentCode: widget.studentCode,
+                                            initialTags: widget.tags,
+                                            onTagsLoaded: (tags) {
+                                              setState(() {
+                                                _resolvedTags = tags;
+                                                _hasLoadedTags = true;
+                                              });
+                                            },
+                                          ),
+                                        if ((_resolvedTags.isNotEmpty ||
+                                                widget.tags.isNotEmpty) &&
+                                            _hasLoadedTags)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -214,7 +241,9 @@ class _StudentCardState extends State<StudentCard> {
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              widget.tags[0],
+                                              (_resolvedTags.isNotEmpty
+                                                      ? _resolvedTags
+                                                      : widget.tags)[0],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -223,7 +252,9 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if (widget.tags.length > 1)
+                                        if ((_resolvedTags.length > 1 ||
+                                                widget.tags.length > 1) &&
+                                            _hasLoadedTags)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -235,7 +266,9 @@ class _StudentCardState extends State<StudentCard> {
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              widget.tags[1],
+                                              (_resolvedTags.isNotEmpty
+                                                      ? _resolvedTags
+                                                      : widget.tags)[1],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -244,9 +277,13 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if (widget.tags.length > 2)
+                                        if ((_resolvedTags.length > 2 ||
+                                                widget.tags.length > 2) &&
+                                            _hasLoadedTags)
                                           Tooltip(
-                                            message: widget.tags
+                                            message: (_resolvedTags.isNotEmpty
+                                                    ? _resolvedTags
+                                                    : widget.tags)
                                                 .skip(2)
                                                 .join(', '),
                                             child: Container(
@@ -486,80 +523,7 @@ class _StudentCardState extends State<StudentCard> {
                                           AppColors.buildPrimaryGradient(),
                                     ),
                                     child: TextButton(
-                                      onPressed: () {
-                                        // Invoke external handler if provided
-                                        widget.onEdit?.call();
-
-                                        // Derive first/last name from full name
-                                        final parts = widget.name.trim().split(' ');
-                                        final initialFirstName = parts.isNotEmpty ? parts.first : '';
-                                        final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
-                                        // Map status from API format (ACTIVE) to display format (Active)
-                                        String statusDisplay = 'Active';
-                                        final upperStatus = widget.status.toUpperCase();
-                                        if (upperStatus == 'ACTIVE' || widget.status == 'A') {
-                                          statusDisplay = 'Active';
-                                        } else if (upperStatus == 'INACTIVE' || widget.status == 'I') {
-                                          statusDisplay = 'Inactive';
-                                        } else if (upperStatus == 'UPCOMING' || widget.status == 'Upcoming') {
-                                          statusDisplay = 'Upcoming';
-                                        } else if (upperStatus == 'WAITLIST') {
-                                          statusDisplay = 'Waitlist';
-                                        } else if (upperStatus == 'GRADUATED') {
-                                          statusDisplay = 'Graduated';
-                                        }
-
-                                        ClassroomCubit? classroomCubit;
-                                        try {
-                                          classroomCubit =
-                                              context.read<ClassroomCubit>();
-                                        } catch (_) {
-                                          classroomCubit = null;
-                                        }
-
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) {
-                                              final screen = EditStudentProfileDetailsScreen(
-                                                studentCode: widget.studentCode,
-                                                initialFirstName: initialFirstName,
-                                                initialLastName: initialLastName,
-                                                initialStatus: statusDisplay,
-                                                initialClassroom: widget.classroom,
-                                              );
-
-                                              // Preserve already-loaded classrooms when available; otherwise load fresh.
-                                              if (classroomCubit != null) {
-                                                return BlocProvider.value(
-                                                  value: classroomCubit,
-                                                  child: screen,
-                                                );
-                                              }
-                                              return BlocProvider(
-                                                create: (_) =>
-                                                    serviceLocator<ClassroomCubit>()
-                                                      ..loadActiveClassrooms(),
-                                                child: screen,
-                                              );
-                                            },
-                                          ),
-                                        );
-
-                                        // Navigator.of(context).push(
-                                        //   MaterialPageRoute(
-                                        //     builder: (_) => AddStudentScreen(
-                                        //       isEdit: true,
-                                        //       initialFirstName: initialFirstName,
-                                        //       initialLastName: initialLastName,
-                                        //       initialClassroom: widget.classroom,
-                                        //       //initialStatus: widget.status,
-                                        //       // initialEmail and initialStatus not available here
-                                        //     ),
-                                        //   ),
-                                        // );
-                                      },
+                                      onPressed: widget.onEdit,
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                       ),

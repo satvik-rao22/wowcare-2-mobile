@@ -203,9 +203,14 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           _selectedAttendanceList,
         ];
 
-        final isReady = _classroomList.isNotEmpty;
+        // Consider API-driven data (classrooms, tags, parents) independently.
+        // Even if one API fails, the others can still populate their dropdowns.
+        final hasAnyApiData =
+            _classroomList.isNotEmpty ||
+            _tagsList.isNotEmpty ||
+            _parentsList.isNotEmpty;
 
-        if (isReady) {
+        if (hasAnyApiData) {
           return GridView.builder(
             padding: EdgeInsets.zero,
             itemCount: dropdownLists.length,

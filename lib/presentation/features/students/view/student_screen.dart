@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -152,14 +153,16 @@ class _StudentScreenState extends State<StudentScreen> {
       final profile = await dataSource.getStudentProfile(studentCode);
       if (!mounted) return;
 
-      // Map status from API (e.g. ACTIVE) to display format used by edit screen.
+      // --- Map fields exactly like StudentAboutTabCard.onEdit ---
+
+      // Map status from API format (ACTIVE) to display format (Active)
       String statusDisplay = 'Active';
       final upperStatus = profile.status.toUpperCase();
       if (upperStatus == 'ACTIVE' || profile.status == 'A') {
         statusDisplay = 'Active';
       } else if (upperStatus == 'INACTIVE' || profile.status == 'I') {
         statusDisplay = 'Inactive';
-      } else if (upperStatus == 'UPCOMING') {
+      } else if (upperStatus == 'UPCOMING' || profile.status == 'Upcoming') {
         statusDisplay = 'Upcoming';
       } else if (upperStatus == 'WAITLIST') {
         statusDisplay = 'Waitlist';
@@ -167,7 +170,7 @@ class _StudentScreenState extends State<StudentScreen> {
         statusDisplay = 'Graduated';
       }
 
-      // Parse DOB
+      // Parse birth date
       DateTime? birthDate;
       if (profile.dob != null && profile.dob!.isNotEmpty) {
         try {
@@ -177,7 +180,7 @@ class _StudentScreenState extends State<StudentScreen> {
         }
       }
 
-      // Address fields
+      // Extract address fields
       final address = profile.address;
       final street = address?['street']?.toString() ?? '';
       final city = address?['city']?.toString() ?? '';
@@ -186,45 +189,97 @@ class _StudentScreenState extends State<StudentScreen> {
       final zipCode =
           address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
 
-      // TODO: When backend exposes tags/siblings as separate collections with codes/names,
-      // map them here. For now, keep using existing mock/tag flows in the edit screen.
+      // Extract tags as display names from profile.tags[]
       final tags = <String>[];
-      final siblings = <String>[];
-
-      // Legal custodians: use names or codes
-      final legalCustodians = <String>[];
-      for (final custodian in profile.legalCustodians) {
-        final name = custodian.name?.trim();
-        final code = custodian.code?.trim();
-        if (name != null && name.isNotEmpty) {
-          legalCustodians.add(name);
-        } else if (code != null && code.isNotEmpty) {
-          legalCustodians.add(code);
+      for (final raw in profile.tags) {
+        if (raw is Map<String, dynamic>) {
+          final name = (raw['name'] ?? '').toString().trim();
+          if (name.isNotEmpty) tags.add(name);
         }
+      }
+
+      // Extract siblings as codes for edit screen (API returns list of objects).
+      final siblings = <String>[];
+      if (profile.siblings.isNotEmpty) {
+        for (final s in profile.siblings) {
+          if (s is Map<String, dynamic>) {
+            final code = (s['code'] ?? '').toString().trim();
+            if (code.isNotEmpty) {
+              siblings.add(code);
+            }
+          }
+        }
+      }
+
+      // Extract legal custodians using same display logic as guardian names API.
+      final legalCustodians = <String>[];
+      if (profile.legalCustodians.isNotEmpty) {
+        for (final custodian in profile.legalCustodians) {
+          if (custodian is String) {
+            if (custodian.trim().isNotEmpty) {
+              legalCustodians.add(custodian.trim());
+            }
+          } else if (custodian is Map<String, dynamic>) {
+            final first = (custodian['firstName'] ?? '').toString().trim();
+            final last = (custodian['lastName'] ?? '').toString().trim();
+            final email = (custodian['email'] ?? '').toString().trim();
+            final code = (custodian['code'] ?? '').toString().trim();
+
+            String display;
+            if (first.isEmpty && last.isEmpty) {
+              display = email.isNotEmpty ? email : code;
+            } else {
+              display = '$first $last'.trim();
+            }
+
+            if (display.isNotEmpty) {
+              legalCustodians.add(display);
+            }
+          }
+        }
+      }
+
+      ClassroomCubit? classroomCubit;
+      try {
+        classroomCubit = context.read<ClassroomCubit>();
+      } catch (_) {
+        classroomCubit = null;
       }
 
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => EditStudentProfileDetailsScreen(
-            studentCode: profile.code,
-            initialFirstName: profile.firstName,
-            initialLastName: profile.lastName,
-            initialStatus: statusDisplay,
-            initialClassroom: profile.classroom ?? '',
-            initialBirthDate: birthDate,
-            initialNotes: profile.notes ?? '',
-            initialFTE: profile.fte ?? '',
-            initialStreet: street,
-            initialCity: city,
-            initialState: state,
-            initialCountry: country,
-            initialZipCode: zipCode,
-            initialTags: tags,
-            initialSiblings: siblings,
-            initialLegalCustodians: legalCustodians,
-            initialSubsidy: profile.subsidy,
-          ),
+          builder: (context) {
+            final screen = EditStudentProfileDetailsScreen(
+              studentCode: profile.code,
+              initialFirstName: profile.firstName,
+              initialLastName: profile.lastName,
+              initialStatus: statusDisplay,
+              initialClassroom: profile.classroom ?? '',
+              initialBirthDate: birthDate,
+              initialNotes: profile.notes ?? '',
+              initialFTE: profile.fte ?? '',
+              initialStreet: street,
+              initialCity: city,
+              initialState: state,
+              initialCountry: country,
+              initialZipCode: zipCode,
+              initialTags: tags,
+              initialSiblings: siblings,
+              initialLegalCustodians: legalCustodians,
+              initialSubsidy: profile.subsidy,
+            );
+
+            // Preserve already-loaded classrooms when available; otherwise load fresh.
+            if (classroomCubit != null) {
+              return BlocProvider.value(value: classroomCubit, child: screen);
+            }
+            return BlocProvider(
+              create: (_) =>
+                  serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+              child: screen,
+            );
+          },
         ),
       );
     } catch (e) {
@@ -283,12 +338,23 @@ class _StudentScreenState extends State<StudentScreen> {
 
   // Convert Student entity to map format for compatibility with existing UI
   Map<String, dynamic> _studentToMap(Student student) {
+    // Format birthdate as MM/dd/yyyy if possible; otherwise keep raw.
+    String formattedDob = student.dob;
+    if (student.dob.isNotEmpty) {
+      try {
+        final parsed = DateTime.parse(student.dob);
+        formattedDob = DateFormat('MM/dd/yyyy').format(parsed);
+      } catch (_) {
+        formattedDob = student.dob;
+      }
+    }
+
     return {
       'name': student.fullName,
       'Classroom': student.classroom,
       'Tags': <String>[], // API doesn't provide tags yet
       'schedule': <String>[], // API doesn't provide schedule yet
-      'birthDate': student.dob,
+      'birthDate': formattedDob,
       'movementDate': student.movementDate,
       'Status': student.status,
       'Attendance': 'Expected', // API doesn't provide attendance yet
@@ -882,7 +948,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 }
                                 _selectAll = _selectedDemo.every((e) => e);
                               }),
-                              onEdit: () {},
+                              onEdit: () => _openEditStudentDetails(student.code),
                               onPrimaryAction: () async {
                                 try {
                                   final message = isActive

@@ -8,7 +8,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/shared/common/widgets/multi_selection_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -18,6 +18,11 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -85,29 +90,18 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
-  DateTime? _selectedUpcomingMoveDate;
   String? _selectedAddressType;
 
-  final List<String> _allTags = [
-    '5 Days',
-    'Full Day',
-    'Photo Permission',
-    'Vegetarian',
-    'First Aid',
-    'Allergy',
-    'Pickup Authorized',
-  ];
-  final List<String> _allStudents = [
-    'Raghave Gupta',
-    'Rohan Gupta',
-    'Ruhi Gupta',
-    'Anya Mehta',
-    'Kabir Mehta',
-    'Sara Khan',
-  ];
+  // API-backed options and mappings
+  List<String> _availableTagNames = [];
+  Map<String, String> _tagNameToCode = {};
+
+  List<String> _availableStudentNames = [];
+  Map<String, String> _studentNameToCode = {};
+
+  List<String> _availableGuardianNames = [];
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
-  final List<String> _childCustodyOptions = ['Mother', 'Father', 'Both Mother and Father'];
   final List<String> _addressTypeOptions = ['Current address', 'Permanent address', 'Other'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
@@ -165,6 +159,122 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     _zipCodeController.text = widget.initialZipCode ?? '';
     // Default address type to CURRENT; can be changed via dropdown.
     _selectedAddressType = _addressTypeOptions.first;
+
+    // Load dynamic dropdown data
+    _loadTags();
+    _loadStudentsForSiblings();
+    _loadGuardiansForCustody();
+  }
+
+  Future<void> _loadTags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final namesUseCase =
+          serviceLocator<GetTagNamesForSchoolUseCase>();
+      final mapUseCase =
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+
+      final names = await namesUseCase(schoolCode: schoolCode);
+      final nameCodeMap = await mapUseCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _availableTagNames = names;
+        _tagNameToCode = nameCodeMap;
+        // Drop any selected tags that no longer exist.
+        _selectedTags.removeWhere((t) => !_availableTagNames.contains(t));
+      });
+    } catch (_) {
+      // Non-critical for this form; keep selections as-is.
+    }
+  }
+
+  Future<void> _loadStudentsForSiblings() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final repo = serviceLocator<StudentRepository>();
+
+      // Try cache first if repository exposes it.
+      dynamic maybeWithCache = repo;
+      dynamic cachedPage;
+      if (maybeWithCache is StudentRepositoryWithCache) {
+        cachedPage = await maybeWithCache.loadCachedStudentPage(
+          schoolCode,
+          status: 'ACTIVE',
+        );
+      }
+
+      // Fallback to API with pageSize = 150.
+      cachedPage ??= await repo.getStudentPage(
+        schoolCode: schoolCode,
+        status: 'ACTIVE',
+        page: 0,
+        size: 150,
+      );
+
+      if (!mounted) return;
+
+      final nameToCode = <String, String>{};
+      final names = <String>[];
+      for (final s in cachedPage.items) {
+        final display = '${s.firstName} ${s.lastName}'.trim();
+        if (display.isEmpty) continue;
+        names.add(display);
+        nameToCode[display] = s.code;
+      }
+
+      setState(() {
+        _availableStudentNames = names;
+        _studentNameToCode = nameToCode;
+
+        // If initial siblings are codes, map them to names for display.
+        if (widget.initialSiblings.isNotEmpty) {
+          final codeToName = {
+            for (final e in nameToCode.entries) e.value: e.key,
+          };
+          _selectedSiblings = widget.initialSiblings
+              .map((code) => codeToName[code] ?? code)
+              .where((n) => n.trim().isNotEmpty)
+              .toList();
+        } else {
+          // Ensure existing selected names still exist.
+          _selectedSiblings
+              .removeWhere((name) => !_availableStudentNames.contains(name));
+        }
+      });
+    } catch (_) {
+      // Non-critical; leave siblings dropdown empty.
+    }
+  }
+
+  Future<void> _loadGuardiansForCustody() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetGuardianNamesForSchoolUseCase>();
+      final names = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _availableGuardianNames = names;
+        _selectedChildCustody
+            .removeWhere((g) => !_availableGuardianNames.contains(g));
+      });
+    } catch (_) {
+      // Non-critical; keep any existing selections.
+    }
   }
 
   @override
@@ -454,11 +564,33 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         fields: addressPayload,
       );
 
-      // 3) Siblings PUT /api/v1/student/{studentCode}/siblings
-      if (_selectedSiblings.isNotEmpty) {
+      // 3) Tags POST /api/v1/student-tags
+      final selectedTagCodes = _selectedTags
+          .map((n) => _tagNameToCode[n])
+          .whereType<String>()
+          .toList();
+      if (selectedTagCodes.isNotEmpty) {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+        if (schoolCode.isNotEmpty) {
+          await repository.updateStudentTags(
+            studentCode: widget.studentCode,
+            schoolCode: schoolCode,
+            tagCodes: selectedTagCodes,
+          );
+        }
+      }
+
+      // 4) Siblings PUT /api/v1/student/{studentCode}/siblings
+      final siblingCodes = _selectedSiblings
+          .map((name) => _studentNameToCode[name] ?? name)
+          .where((code) => code.trim().isNotEmpty)
+          .toList();
+      if (siblingCodes.isNotEmpty) {
         await repository.updateStudentSiblings(
           studentCode: widget.studentCode,
-          siblingCodes: _selectedSiblings,
+          siblingCodes: siblingCodes,
         );
       }
 
@@ -663,15 +795,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           isRequired: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        MultiSelectWidget(
-                          availableOptions: _allTags,
-                          selectedOptions: _selectedTags,
-                          onSelectionChanged: (tags) {
+                        CustomMultiSelectDropdown(
+                          label: 'Tags',
+                          hintText: 'Select',
+                          items: _availableTagNames,
+                          selectedItems: _selectedTags,
+                          onChanged: (tags) {
                             setState(() => _selectedTags = tags);
                           },
-                          isRequired: false,
-                          showClearAllOption: true,
-                          clearSelectionText: "Select Tags",
+                          isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildDateField("Birthdate", _selectedBirthDate),
@@ -682,30 +814,26 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           _notesController,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        MultiSelectWidget(
-                          availableOptions: _allStudents,
-                          selectedOptions: _selectedSiblings,
-                          onSelectionChanged: (siblings) {
+                        CustomMultiSelectDropdown(
+                          label: 'Siblings',
+                          hintText: 'Select student',
+                          items: _availableStudentNames,
+                          selectedItems: _selectedSiblings,
+                          onChanged: (siblings) {
                             setState(() => _selectedSiblings = siblings);
                           },
-                          isRequired: false,
-                          colorfulSelection: false,
-                          label: "Siblings",
-                          hintText: 'Select student',
-                          showClearAllOption: true,
-                          clearSelectionText: "Select Sibling/s",
+                          isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        MultiSelectWidget(
-                          availableOptions: _childCustodyOptions,
-                          selectedOptions: _selectedChildCustody,
-                          onSelectionChanged: (custodyOptions) {
+                        CustomMultiSelectDropdown(
+                          label: 'Child Custody',
+                          hintText: 'Select guardian',
+                          items: _availableGuardianNames,
+                          selectedItems: _selectedChildCustody,
+                          onChanged: (custodyOptions) {
                             setState(() => _selectedChildCustody = custodyOptions);
                           },
-                          isRequired: true,
-                          colorfulSelection: false,
-                          label: "Child Custody",
-                          hintText: 'Select guardian',
+                          isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State Subsidy", "Select", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),

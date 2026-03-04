@@ -89,6 +89,20 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         identifier: studentCode,
       );
 
+  static String _studentImportantDatesCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'important_dates',
+        identifier: studentCode,
+      );
+
+  static String _studentTagsCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'tags',
+        identifier: studentCode,
+      );
+
   @override
   Future<Map<String, int>> getStudentCounts({
     required String schoolCode,
@@ -672,6 +686,44 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     return sorted;
   }
 
+  /// Returns tag display names for a specific student using
+  /// `GET /api/v1/student-tags/{studentCode}`, with caching.
+  Future<List<String>> getStudentTagNames({
+    required String studentCode,
+  }) async {
+    // Try cache first
+    final cached =
+        await _cacheManager.loadCache(_studentTagsCacheKey(studentCode));
+    if (cached != null) {
+      final items = (cached['items'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>();
+      final names = items
+          .map((e) => (e['name'] ?? '').toString().trim())
+          .where((n) => n.isNotEmpty)
+          .toList();
+      if (names.isNotEmpty) return names;
+    }
+
+    // Fallback to API
+    final raw = await _remoteDataSource.getStudentTags(
+      studentCode: studentCode,
+    );
+    final names = raw
+        .map((e) => (e['name'] ?? '').toString().trim())
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    // Cache raw items for subsequent loads
+    await _cacheManager.saveCache(
+      _studentTagsCacheKey(studentCode),
+      {
+        'items': raw,
+      },
+    );
+
+    return names;
+  }
+
   Future<List<StudentGuardianModel>> getStudentGuardians({
     required String studentCode,
   }) async {
@@ -854,12 +906,50 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }
 
   @override
+  Future<String> updateStudentTags({
+    required String studentCode,
+    required String schoolCode,
+    required List<String> tagCodes,
+  }) async {
+    final message = await _remoteDataSource.updateStudentTags(
+      studentCode: studentCode,
+      schoolCode: schoolCode,
+      tagCodes: tagCodes,
+    );
+
+    // Invalidate per-student tags cache so subsequent reads are fresh.
+    await _cacheManager.invalidateCache(_studentTagsCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
   Future<StudentImportantDates> getStudentImportantDates({
     required String studentCode,
   }) async {
-    final model = await _remoteDataSource.getStudentImportantDates(
-      code: studentCode,
-    );
+    // Try cache first
+    final cached =
+        await _cacheManager.loadCache(_studentImportantDatesCacheKey(studentCode));
+
+    StudentImportantDatesModel model;
+
+    if (cached != null) {
+      final raw = cached['dates'] as Map<String, dynamic>?;
+      model = StudentImportantDatesModel.fromJson(raw);
+    } else {
+      // Fallback to API
+      model = await _remoteDataSource.getStudentImportantDates(
+        code: studentCode,
+      );
+
+      // Cache the raw model for subsequent loads
+      await _cacheManager.saveCache(
+        _studentImportantDatesCacheKey(studentCode),
+        {
+          'dates': model.toJson(),
+        },
+      );
+    }
 
     DateTime? _parse(String? value) {
       if (value == null || value.isEmpty) return null;
@@ -900,6 +990,11 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     final message = await _remoteDataSource.updateStudentImportantDates(
       code: studentCode,
       dates: model,
+    );
+
+    // Invalidate cached important-dates so next load is fresh.
+    await _cacheManager.invalidateCache(
+      _studentImportantDatesCacheKey(studentCode),
     );
 
     return message;

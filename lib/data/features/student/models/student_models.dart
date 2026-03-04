@@ -376,9 +376,11 @@ class StudentProfileModel extends Equatable {
     this.notes,
     this.profilePhotoUrl,
     this.fte,
+    this.gender,
     this.legalCustodians = const [],
     this.subsidy = false,
     this.address,
+    this.tags = const [],
     this.siblings = const [],
     this.importantDates,
     this.regularSchedules = const [],
@@ -394,9 +396,13 @@ class StudentProfileModel extends Equatable {
   final String? notes;
   final String? profilePhotoUrl;
   final String? fte;
+  final String? gender;
   final List<dynamic> legalCustodians;
   final bool subsidy;
   final Map<String, dynamic>? address;
+  /// Raw tags array from profile API. Each item is typically a map with
+  /// { code, name, defaultTag }.
+  final List<dynamic> tags;
   final List<dynamic> siblings;
   final StudentImportantDatesModel? importantDates;
   final List<dynamic> regularSchedules;
@@ -431,9 +437,11 @@ class StudentProfileModel extends Equatable {
       notes: data['notes'] as String?,
       profilePhotoUrl: data['profilePhotoUrl'] as String?,
       fte: data['fte'] as String?,
+      gender: data['gender'] as String?,
       legalCustodians: data['legalCustodians'] as List<dynamic>? ?? const [],
       subsidy: data['subsidy'] as bool? ?? false,
       address: data['address'] as Map<String, dynamic>?,
+      tags: data['tags'] as List<dynamic>? ?? const [],
       siblings: data['siblings'] as List<dynamic>? ?? const [],
       importantDates: StudentImportantDatesModel.fromJson(importantDatesJson),
       regularSchedules: data['regularSchedules'] as List<dynamic>? ?? const [],
@@ -452,9 +460,11 @@ class StudentProfileModel extends Equatable {
       if (notes != null) 'notes': notes,
       if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
       if (fte != null) 'fte': fte,
+      if (gender != null) 'gender': gender,
       'legalCustodians': legalCustodians,
       'subsidy': subsidy,
       if (address != null) 'address': address,
+      'tags': tags,
       'siblings': siblings,
       if (importantDates != null) 'importantDates': importantDates!.toJson(),
       'regularSchedules': regularSchedules,
@@ -473,9 +483,11 @@ class StudentProfileModel extends Equatable {
         notes,
         profilePhotoUrl,
         fte,
+        gender,
         legalCustodians,
         subsidy,
         address,
+        tags,
         siblings,
         importantDates,
         regularSchedules,

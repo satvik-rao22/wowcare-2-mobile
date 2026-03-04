@@ -167,6 +167,15 @@ abstract class StudentRepository {
   Future<Map<String, int>> getStudentCounts({
     required String schoolCode,
   });
+
+  /// Updates a student's tags via `POST /api/v1/student-tags`.
+  ///
+  /// [tagCodes] must be backend tag codes (e.g. TAG_...).
+  Future<String> updateStudentTags({
+    required String studentCode,
+    required String schoolCode,
+    required List<String> tagCodes,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
