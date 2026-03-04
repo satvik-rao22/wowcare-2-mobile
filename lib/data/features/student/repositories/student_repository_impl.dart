@@ -89,6 +89,13 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         identifier: studentCode,
       );
 
+  static String _studentImmunizationCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'immunization',
+        identifier: studentCode,
+      );
+
   @override
   Future<StudentPage> getStudentPage({
     required String schoolCode,
@@ -394,6 +401,63 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     );
 
     return model;
+  }
+
+  Future<StudentHealthModel> updateStudentHealth({
+    required String studentCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final model =
+        await _remoteDataSource.updateStudentHealth(code: studentCode, body: body);
+
+    await _cacheManager.saveCache(
+      _studentHealthCacheKey(studentCode),
+      model.toJson(),
+    );
+
+    return model;
+  }
+
+  Future<List<StudentImmunizationModel>> getStudentImmunizations({
+    required String studentCode,
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh) {
+      final cached =
+          await _cacheManager.loadCache(_studentImmunizationCacheKey(studentCode));
+      if (cached != null) {
+        final items = cached['items'];
+        if (items is List) {
+          return items
+              .whereType<Map<String, dynamic>>()
+              .map(StudentImmunizationModel.fromJson)
+              .toList(growable: false);
+        }
+      }
+    }
+
+    final models =
+        await _remoteDataSource.getStudentImmunizations(code: studentCode);
+
+    await _cacheManager.saveCache(
+      _studentImmunizationCacheKey(studentCode),
+      {
+        'items': models.map((e) => e.toJson()).toList(),
+      },
+    );
+
+    return models;
+  }
+
+  @override
+  Future<Map<String, String>> getTagNameCodeMapForSchool({
+    required String schoolCode,
+  }) async {
+    // Tags are managed by a dedicated tags API; for now this repository
+    // does not cache or transform them further. Delegate directly to the
+    // remote data source once a student-tags endpoint is available.
+    // To keep the implementation non-breaking today, return an empty map.
+    return const <String, String>{};
   }
 
   Future<StudentPhysicianModel> addPhysician({

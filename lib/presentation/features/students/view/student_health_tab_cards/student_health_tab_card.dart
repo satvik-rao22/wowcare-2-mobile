@@ -5,9 +5,10 @@ import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
 
 
 
@@ -45,7 +46,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     }
     final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
     try {
-      return await repo.getStudentHealth(studentCode: code);
+      final model = await repo.getStudentHealth(studentCode: code);
+      _photoPermission = true; // backend currently omits this; default to true
+      return model;
     } catch (_) {
       rethrow;
     }
@@ -55,11 +58,24 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   Widget build(BuildContext context) {
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      child: FutureBuilder<StudentHealthModel?>(
-        future: _healthFuture,
-        builder: (context, snapshot) {
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _healthFuture = _buildHealthFuture();
+          _hasShownErrorSnackBar = false;
+        });
+        try {
+          await _healthFuture;
+        } catch (_) {
+          // errors handled by FutureBuilder
+        }
+      },
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: FutureBuilder<StudentHealthModel?>(
+          future: _healthFuture,
+          builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Padding(
               padding: EdgeInsets.only(top: 24),
@@ -81,62 +97,88 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                 );
               });
             }
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline,
-                      color: Colors.red, size: 40),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Failed to load health info',
-                    style: AppTextStyles.value.copyWith(fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    snapshot.error.toString(),
-                    style: AppTextStyles.label.copyWith(
-                      color: AppColors.primaryColor.withOpacity(0.6),
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _healthFuture = _buildHealthFuture();
-                        _hasShownErrorSnackBar = false;
-                      });
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
+            // Do not show an inline error widget; just keep the card hidden.
+            return const SizedBox.shrink();
           }
 
-          final health = snapshot.data;
+            final health = snapshot.data;
 
-          return Column(
-            children: [
-              _HealthCard(
-                allergies: health?.allergy,
-                medication: health?.medications,
-                dietRestrictions: health?.dietRestrictions,
-                photoPermission: _photoPermission,
-                onTogglePhotoPermission: (v) {
+            return Column(
+              children: [
+                _HealthCard(
+                  allergies: health?.allergy,
+                  medication: health?.medications,
+                  dietRestrictions: health?.dietRestrictions,
+                  photoPermission: _photoPermission,
+                  onTogglePhotoPermission: (v) async {
+                  final code = widget.studentCode;
+                  if (code == null || code.isEmpty) return;
                   setState(() {
                     _photoPermission = v;
                   });
-                },
-              ),
-              SizedBox(height: 24 + bottomSafe),
-            ],
-          );
-        },
+                  try {
+                    final repo =
+                        serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+                    final body = {
+                      'allergy': health?.allergy ?? '',
+                      'medications': health?.medications ?? '',
+                      'dietRestrictions': health?.dietRestrictions ?? '',
+                      'photoPermission': v,
+                    };
+                    await repo.updateStudentHealth(
+                      studentCode: code,
+                      body: body,
+                    );
+                  } catch (e) {
+                    CoreUtils.logApiError(e.toString());
+                    if (!mounted) return;
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Failed to update photo permission',
+                      isError: true,
+                    );
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () async {
+                    final code = widget.studentCode;
+                    if (code == null || code.isEmpty) return;
+                    final currentHealth = health;
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => EditStudentHealthScreen(
+                          studentCode: code,
+                          initialHealth: currentHealth,
+                        ),
+                      ),
+                    );
+                      if (result == true && mounted) {
+                        setState(() {
+                          _healthFuture = _buildHealthFuture();
+                          _hasShownErrorSnackBar = false;
+                        });
+                      }
+                    },
+                    child: const Text(
+                      'Edit health details',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 24 + bottomSafe),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

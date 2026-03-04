@@ -204,6 +204,19 @@ abstract class StudentRemoteDataSource {
     required String code,
   });
 
+  /// Creates or updates student health record via
+  /// `PUT /api/v1/student/{code}/health`.
+  Future<StudentHealthModel> updateStudentHealth({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Fetches all immunization records for a student via
+  /// `GET /api/v1/student/{code}/immunization`.
+  Future<List<StudentImmunizationModel>> getStudentImmunizations({
+    required String code,
+  });
+
   /// Updates student important dates via
   /// `PATCH /api/v1/student/{code}/important-dates`.
   Future<String> updateStudentImportantDates({
@@ -964,6 +977,57 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     final data = root['data'] as Map<String, dynamic>?;
 
     return StudentHealthModel.fromJson(data);
+  }
+
+  @override
+  Future<StudentHealthModel> updateStudentHealth({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentHealth(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.put<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student health update API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>?;
+    return StudentHealthModel.fromJson(data);
+  }
+
+  @override
+  Future<List<StudentImmunizationModel>> getStudentImmunizations({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImmunization(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student immunization API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <StudentImmunizationModel>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StudentImmunizationModel.fromJson)
+        .toList(growable: false);
   }
 }
 

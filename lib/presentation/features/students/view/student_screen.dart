@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
-import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -42,6 +46,7 @@ class _StudentScreenState extends State<StudentScreen> {
   bool _selectAll = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
   Map<String, List<String>> _currentFilters = {'Status': ['Active']};
+  Map<String, String> _tagNameToCode = <String, String>{};
 
   @override
   void initState(){
@@ -52,6 +57,7 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
+        _loadTagNameCodeMap();
       }
     });
   }
@@ -69,6 +75,26 @@ class _StudentScreenState extends State<StudentScreen> {
     context.read<StudentCubit>().updateSearch(query);
     // Refresh to apply search filter
     context.read<StudentCubit>().refresh();
+  }
+
+  Future<void> _loadTagNameCodeMap() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final map = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _tagNameToCode = map;
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
   }
 
   void _applyFiltersToCubit() {
@@ -90,9 +116,16 @@ class _StudentScreenState extends State<StudentScreen> {
         .where((c) => c.trim().isNotEmpty)
         .toList();
 
-    // TODO: When tag and guardian codes are available, resolve them here
-    // based on the selected 'Tags' and 'Parents' filters.
-    final List<String> tagCodes = const [];
+    final selectedTagNames =
+        _currentFilters['Tags'] ?? const <String>[];
+    final tagCodes = selectedTagNames
+        .map((name) => _tagNameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    // TODO: When guardian codes are available, resolve them here
+    // based on the selected 'Parents' filters.
     final List<String> guardianCodes = const [];
 
     context.read<StudentCubit>().updateFilters(

@@ -130,6 +130,14 @@ abstract class StudentRepository {
   Future<List<String>> getTagNamesForSchool({
     required String schoolCode,
   });
+
+  /// Returns a mapping from tag display name to tag code for a given school.
+  ///
+  /// This is useful when filters are selected by tag name in the UI but the
+  /// backend expects tagCodes in query parameters.
+  Future<Map<String, String>> getTagNameCodeMapForSchool({
+    required String schoolCode,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

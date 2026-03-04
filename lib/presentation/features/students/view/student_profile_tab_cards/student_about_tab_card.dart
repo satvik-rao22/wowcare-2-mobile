@@ -14,9 +14,6 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -144,11 +141,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         cardType: 'student',
         title: 'Profile Information',
         scrollController: widget.scrollController,
-        studentFirstField: _StudentNameWithHealthIcons(
-          name: widget.name,
-          profileCode: widget.studentProfile?.code,
-          studentCode: widget.studentCode,
-        ),
+        studentFirstField: _StudentNameField(name: widget.name),
         onEdit: () {
         if (widget.studentProfile == null) return;
         
@@ -730,54 +723,19 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 }
 
-class _StudentNameWithHealthIcons extends StatefulWidget {
-  const _StudentNameWithHealthIcons({
-    required this.name,
-    this.profileCode,
-    this.studentCode,
-  });
+class _StudentNameField extends StatelessWidget {
+  const _StudentNameField({required this.name});
 
   final String name;
-  final String? profileCode;
-  final String? studentCode;
-
-  @override
-  State<_StudentNameWithHealthIcons> createState() =>
-      _StudentNameWithHealthIconsState();
-}
-
-class _StudentNameWithHealthIconsState
-    extends State<_StudentNameWithHealthIcons> {
-  late Future<StudentHealthModel?> _healthFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _healthFuture = _buildHealthFuture();
-  }
-
-  Future<StudentHealthModel?> _buildHealthFuture() async {
-    final code = widget.profileCode ?? widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return null;
-    }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-    try {
-      return await repo.getStudentHealth(studentCode: code);
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      return null;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Name',
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Manrope',
             fontSize: 15,
             letterSpacing: -0.03 * 15,
@@ -787,7 +745,7 @@ class _StudentNameWithHealthIconsState
         ),
         const SizedBox(height: 6),
         Text(
-          widget.name,
+          name,
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 16,
@@ -795,55 +753,6 @@ class _StudentNameWithHealthIconsState
             fontWeight: FontWeight.w600,
             letterSpacing: -0.03 * 16,
           ),
-        ),
-        const SizedBox(height: 6),
-        FutureBuilder<StudentHealthModel?>(
-          future: _healthFuture,
-          builder: (context, snapshot) {
-            final health = snapshot.data;
-            if (health == null) {
-              return const SizedBox.shrink();
-            }
-
-            final hasAllergy = (health.allergy ?? '').trim().isNotEmpty;
-            final hasMedication = (health.medications ?? '').trim().isNotEmpty;
-            final hasDietRestrictions =
-                (health.dietRestrictions ?? '').trim().isNotEmpty;
-
-            if (!hasAllergy && !hasMedication && !hasDietRestrictions) {
-              return const SizedBox.shrink();
-            }
-
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (hasDietRestrictions)
-                  SvgPicture.asset(
-                    MediaRes.foodIcon,
-                    height: 20,
-                    width: 20,
-                  ),
-                if (hasMedication)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: SvgPicture.asset(
-                      MediaRes.healthIcon,
-                      height: 20,
-                      width: 20,
-                    ),
-                  ),
-                if (hasAllergy)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: SvgPicture.asset(
-                      MediaRes.alertIcon,
-                      height: 20,
-                      width: 20,
-                    ),
-                  ),
-              ],
-            );
-          },
         ),
       ],
     );

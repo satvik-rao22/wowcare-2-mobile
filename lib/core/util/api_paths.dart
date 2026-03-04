@@ -47,6 +47,8 @@ class ApiPaths {
   static String studentImportantDates(String code) =>
       '/api/v1/student/$code/important-dates';
   static String studentHealth(String code) => '/api/v1/student/$code/health';
+  static String studentImmunization(String code) =>
+      '/api/v1/student/$code/immunization';
 
   // Physicians
   static const String physicians = '/api/v1/physicians';

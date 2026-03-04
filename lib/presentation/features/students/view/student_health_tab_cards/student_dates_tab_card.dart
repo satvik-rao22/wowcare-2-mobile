@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 
 class StudentDatesTabCard extends StatefulWidget {
@@ -30,14 +31,21 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      child: Column(
-        children: const [
-          _PhysicalExamCard(status: "Completed", checkupDate: 'Nov 09 ,2025'),
-          SizedBox(height: 20),
-          _PhysicalExamCard(status: "Due", checkupDate: 'Nov 09 ,2026'),
-        ],
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        // Placeholder refresh; real data wiring can be added later.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      },
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: const [
+            _PhysicalExamCard(status: "Completed", checkupDate: 'Nov 09 ,2025'),
+            SizedBox(height: 20),
+            _PhysicalExamCard(status: "Due", checkupDate: 'Nov 09 ,2026'),
+          ],
+        ),
       ),
     );
   }
@@ -115,11 +123,10 @@ class _PhysicalExamCard extends StatelessWidget{
 
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.labelColor, required this.color, this.icon});
+  const _Chip({required this.label, required this.labelColor, required this.color});
   final String label;
   final Color labelColor;
   final Color color;
-  final Widget? icon;
 
 
   @override
@@ -133,10 +140,6 @@ class _Chip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
-            icon!,
-            const SizedBox(width: 6),
-          ],
           Text(
             label,
             style: AppTextStyles.value.copyWith(

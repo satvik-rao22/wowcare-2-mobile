@@ -227,6 +227,76 @@ class StudentHealthModel extends Equatable {
       ];
 }
 
+class StudentImmunizationModel extends Equatable {
+  const StudentImmunizationModel({
+    required this.code,
+    required this.studentCode,
+    required this.vaccineName,
+    required this.vaccineDoseCode,
+    required this.doseNumber,
+    this.dueDate,
+    this.administeredDate,
+    required this.status,
+    this.exemptionReason,
+    this.notes,
+  });
+
+  final String code;
+  final String studentCode;
+  final String vaccineName;
+  final String vaccineDoseCode;
+  final int doseNumber;
+  final String? dueDate;
+  final String? administeredDate;
+  final String status;
+  final String? exemptionReason;
+  final String? notes;
+
+  factory StudentImmunizationModel.fromJson(Map<String, dynamic> json) {
+    return StudentImmunizationModel(
+      code: json['code'] as String? ?? '',
+      studentCode: json['studentCode'] as String? ?? '',
+      vaccineName: json['vaccineName'] as String? ?? '',
+      vaccineDoseCode: json['vaccineDoseCode'] as String? ?? '',
+      doseNumber: json['doseNumber'] as int? ?? 0,
+      dueDate: json['dueDate'] as String?,
+      administeredDate: json['administeredDate'] as String?,
+      status: json['status'] as String? ?? '',
+      exemptionReason: json['exemptionReason'] as String?,
+      notes: json['notes'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      'studentCode': studentCode,
+      'vaccineName': vaccineName,
+      'vaccineDoseCode': vaccineDoseCode,
+      'doseNumber': doseNumber,
+      if (dueDate != null) 'dueDate': dueDate,
+      if (administeredDate != null) 'administeredDate': administeredDate,
+      'status': status,
+      if (exemptionReason != null) 'exemptionReason': exemptionReason,
+      if (notes != null) 'notes': notes,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        code,
+        studentCode,
+        vaccineName,
+        vaccineDoseCode,
+        doseNumber,
+        dueDate,
+        administeredDate,
+        status,
+        exemptionReason,
+        notes,
+      ];
+}
+
 class StudentGuardianModel extends Equatable {
   const StudentGuardianModel({
     required this.guardianCode,
