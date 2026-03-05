@@ -479,6 +479,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
     this.signedInTime,
     this.signedOutBy,
     this.signedOutTime,
+    this.signedInMethod,
+    this.signedOutMethod,
     required this.designation,
     this.attendedTime,
     this.attendedHours,
@@ -500,6 +502,12 @@ class StaffAttendanceDailyItemModel extends Equatable {
   final int? attendedHours;
   final int? attendedMinutes;
 
+  /// Sign-in method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedInMethod;
+
+  /// Sign-out method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedOutMethod;
+
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
       staffCode: json['staffCode'] as String? ?? '',
@@ -516,6 +524,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
+      signedInMethod: json['signedInMethod'] as String?,
+      signedOutMethod: json['signedOutMethod'] as String?,
       designation: (json['designation'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
@@ -538,6 +548,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
       'signedInTime': signedInTime?.toJson(),
       'signedOutBy': signedOutBy,
       'signedOutTime': signedOutTime?.toJson(),
+      'signedInMethod': signedInMethod,
+      'signedOutMethod': signedOutMethod,
       'designation': designation,
       'attendedTime': attendedTime,
       'attendedHours': attendedHours,
@@ -557,6 +569,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
         signedInTime,
         signedOutBy,
         signedOutTime,
+        signedInMethod,
+        signedOutMethod,
         designation,
         attendedTime,
         attendedHours,

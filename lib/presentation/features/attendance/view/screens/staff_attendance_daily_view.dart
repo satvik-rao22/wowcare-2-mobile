@@ -452,8 +452,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           signOutTime: signOutTime,
           signInBy: item.signedInBy,
           signOutBy: item.signedOutBy,
-          signInMethod: null,
-          signOutMethod: null,
+          // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
+          signInMethod: _mapMethodStringToEnum(item.signedInMethod),
+          signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
           staffId: 0,
           roomId: 0,
           schoolId: 0,
@@ -560,6 +561,24 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         );
       }).toList(),
     );
+  }
+
+  SignMethod? _mapMethodStringToEnum(String? method) {
+    if (method == null) return null;
+    final normalized = method.trim().toUpperCase();
+    switch (normalized) {
+      case 'GPS':
+        return SignMethod.gps;
+      case 'PIN':
+        // PIN entry is effectively via kiosk device.
+        return SignMethod.kiosk;
+      case 'QR':
+        return SignMethod.qr;
+      case 'APP':
+        return SignMethod.direct;
+      default:
+        return null;
+    }
   }
 
   Widget _buildAbsentStaffList(

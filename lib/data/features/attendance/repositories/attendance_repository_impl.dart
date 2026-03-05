@@ -422,6 +422,8 @@ class AttendanceRepositoryImpl
       attendedTime: model.attendedTime,
       attendedHours: model.attendedHours,
       attendedMinutes: model.attendedMinutes,
+      signedInMethod: model.signedInMethod,
+      signedOutMethod: model.signedOutMethod,
     );
   }
 

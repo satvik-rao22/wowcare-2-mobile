@@ -16,6 +16,8 @@ class StaffAttendanceDailyItem extends Equatable {
     this.attendedTime,
     this.attendedHours,
     this.attendedMinutes,
+    this.signedInMethod,
+    this.signedOutMethod,
   });
 
   final String staffCode;
@@ -32,6 +34,12 @@ class StaffAttendanceDailyItem extends Equatable {
   final String? attendedTime;
   final int? attendedHours;
   final int? attendedMinutes;
+
+  /// Sign-in method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedInMethod;
+
+  /// Sign-out method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedOutMethod;
 
   bool get hasSignIn => signedInTime != null || (signedInBy != null && signedInBy!.isNotEmpty);
 
@@ -55,6 +63,8 @@ class StaffAttendanceDailyItem extends Equatable {
         attendedTime,
         attendedHours,
         attendedMinutes,
+        signedInMethod,
+        signedOutMethod,
       ];
 }
 

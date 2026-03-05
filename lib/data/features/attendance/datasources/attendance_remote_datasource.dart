@@ -904,7 +904,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
 
     final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceAbsentFormList,
+      ApiPaths.staffAttendanceAbsentView,
       ApiConstants.attendanceBaseUrl,
     );
 

@@ -108,6 +108,10 @@ class ApiPaths {
   static const String staffAttendanceCustomView = '/api/v1/staff-attendance/view/custom';
   static const String staffAttendanceRecordsSignIn =
       '/api/v1/staff-attendance-records/sign-in';
+  static const String staffAttendanceRecordsSignOut =
+      '/api/v1/staff-attendance-records/sign-out';
+  static const String staffAttendanceRecordsTransfer =
+      '/api/v1/staff-attendance-records/transfer';
 
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';

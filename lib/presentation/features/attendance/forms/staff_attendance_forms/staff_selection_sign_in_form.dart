@@ -105,7 +105,9 @@ class _StaffSelectionSignInFormState
           name: item.staffName,
           primaryRoomId: 0,
           photoUuid: null,
-          designation: item.designation.isNotEmpty ? item.designation.first : 'Staff',
+          designation:
+              item.designation.isNotEmpty ? item.designation.first : 'Staff',
+          staffCode: item.staffCode,
         );
       }).toList();
 
