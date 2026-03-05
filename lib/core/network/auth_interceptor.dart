@@ -21,24 +21,16 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final path = options.uri.path;
-    final shouldSkip = _skipAuthPaths.any((p) => path.contains(p));
-    if (shouldSkip) {
-      handler.next(options);
-      return;
-    }
-
-    // If the request already has an explicit Authorization header (e.g. login-context
-    // right after login with the fresh token), do not overwrite it with storage.
-    final existingAuth = options.headers['Authorization'] ?? options.headers['authorization'];
-    if (existingAuth != null && existingAuth.toString().trim().isNotEmpty) {
-      handler.next(options);
-      return;
-    }
-
-    final token = await _storage.getString(StorageKeys.accessToken);
-    final headers = ApiHeaders.authorizedJson(token ?? '');
-    options.headers.addAll(headers);
+    // TEMP: Disable Authorization header for all requests so APIs are called without token.
+    //
+    // We still want basic JSON headers (content-type / accept), but we do NOT
+    // attach any Bearer token, regardless of endpoint or stored access token.
+    //
+    // If you want to re‑enable auth later, restore the previous logic that:
+    //   - skips some auth paths
+    //   - reads the token from storage
+    //   - uses ApiHeaders.authorizedJson(token) to add Authorization.
+    options.headers.addAll(ApiHeaders.json);
     handler.next(options);
   }
 }

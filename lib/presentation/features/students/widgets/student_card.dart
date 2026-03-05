@@ -212,11 +212,9 @@ class _StudentCardState extends State<StudentCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        // Prefer tags resolved from API (student-tags)
-                                        // but fall back to tags passed from parent if any.
-                                        if ((_resolvedTags.isNotEmpty ||
-                                                widget.tags.isNotEmpty) &&
-                                            !_hasLoadedTags)
+                                        // Always attempt to resolve tags from API (student-tags)
+                                        // the first time this card is expanded.
+                                        if (!_hasLoadedTags)
                                           TagsLoader(
                                             studentCode: widget.studentCode,
                                             initialTags: widget.tags,
@@ -227,9 +225,9 @@ class _StudentCardState extends State<StudentCard> {
                                               });
                                             },
                                           ),
-                                        if ((_resolvedTags.isNotEmpty ||
-                                                widget.tags.isNotEmpty) &&
-                                            _hasLoadedTags)
+                                        if (_hasLoadedTags &&
+                                            (_resolvedTags.isNotEmpty ||
+                                                widget.tags.isNotEmpty))
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -252,9 +250,9 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if ((_resolvedTags.length > 1 ||
-                                                widget.tags.length > 1) &&
-                                            _hasLoadedTags)
+                                        if (_hasLoadedTags &&
+                                            (_resolvedTags.length > 1 ||
+                                                widget.tags.length > 1))
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -277,9 +275,9 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if ((_resolvedTags.length > 2 ||
-                                                widget.tags.length > 2) &&
-                                            _hasLoadedTags)
+                                        if (_hasLoadedTags &&
+                                            (_resolvedTags.length > 2 ||
+                                                widget.tags.length > 2))
                                           Tooltip(
                                             message: (_resolvedTags.isNotEmpty
                                                     ? _resolvedTags

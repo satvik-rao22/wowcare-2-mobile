@@ -65,7 +65,6 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
-        _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
       }
