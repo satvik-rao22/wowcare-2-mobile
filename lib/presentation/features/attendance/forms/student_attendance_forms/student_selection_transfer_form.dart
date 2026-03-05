@@ -106,6 +106,7 @@ class _StudentSelectionTransferFormState
         final item = entry.value;
         return StudentEntity(
           id: index + 1,
+          studentCode: item.studentCode,
           fullName: item.studentName,
           roomId: 0,
           roomName: item.classroomName,

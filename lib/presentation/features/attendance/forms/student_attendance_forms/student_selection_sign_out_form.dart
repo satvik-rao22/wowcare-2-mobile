@@ -30,9 +30,6 @@ class _StudentSelectionSignOutFormState
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
 
-  // Backing list populated from the Sign-Out form API.
-  List<StudentEntity> _allStudents = [];
-
   final List<String> _classrooms = ['Classroom A', 'Classroom B', 'Classroom C', 'Classroom D'];
   final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
 
@@ -97,15 +94,16 @@ class _StudentSelectionSignOutFormState
         final item = entry.value;
         return StudentEntity(
           id: index + 1,
+          studentCode: item.studentCode,
           fullName: item.studentName,
           roomId: 0,
           roomName: item.classroomName,
           photoUuid: '', // API does not supply image here
+          classroomCode: item.classroomCode,
         );
       }).toList();
 
       setState(() {
-        _allStudents = students;
         _filteredStudents = List.from(students);
         _isLoading = false;
         isSelectAllChecked = _filteredStudents.isNotEmpty &&

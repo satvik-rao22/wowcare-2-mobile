@@ -7,8 +7,11 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
 import 'staff_entity.dart';
 
 class StaffSignInForm extends StatefulWidget {
@@ -29,6 +32,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
   StaffEntity? currentStaff;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -40,15 +44,112 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     );
   }
 
-  void _handleSubmit() {
-    // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Signed-In successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+    if (currentStaff == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No staff selected to sign in'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final client = serviceLocator<ApiClient>().client;
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceRecordsSignIn,
+      ApiConstants.attendanceBaseUrl,
     );
-    Navigator.pop(context);
+
+    final attendanceDate =
+        '${selectedDate.year.toString().padLeft(4, '0')}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+
+    final occurredAt = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    ).toUtc();
+
+    // For now use a hardcoded acting staffCode, and fall back to it if entity has no code.
+    const fallbackStaffCode = 'STF_001';
+    final staffCode = currentStaff!.staffCode ?? fallbackStaffCode;
+
+    // Single staff sign-in: staffCodes contains just this staff.
+    final staffCodes = <String>[staffCode];
+
+    // TODO: Replace hardcoded classroomCode with real classroom mapping.
+    const classroomCode = 'CLS_001';
+
+    final classroomCodeByStaffCode = <String, String>{
+      for (final code in staffCodes) code: classroomCode,
+    };
+
+    final payload = <String, dynamic>{
+      'attendanceDate': attendanceDate,
+      'staffCode': staffCode,
+      'staffCodes': staffCodes,
+      'classroomCode': classroomCode,
+      'classroomCodeByStaffCode': classroomCodeByStaffCode,
+      'method': 'APP',
+      'latitude': 0,
+      'longitude': 0,
+      'withinGeofence': true,
+      'timeZone': 'Asia/Kolkata',
+      'occurredAt': occurredAt.toIso8601String(),
+    };
+
+    try {
+      final response = await client.post<dynamic>(
+        endpoint,
+        data: payload,
+      );
+
+      final data = response.data;
+      bool success = false;
+      String message = 'Signed-In successfully';
+
+      if (data is Map<String, dynamic>) {
+        success = data['success'] as bool? ?? false;
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              success ? AppColors.successColor : AppColors.errorColor,
+        ),
+      );
+
+      if (success) {
+        Navigator.pop(context);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to sign in staff. Please try again.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -136,7 +237,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-In',
-        onPressedConfirm: _handleSubmit,
+        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
       ),
     );

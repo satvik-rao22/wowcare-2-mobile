@@ -11,6 +11,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
     this.signedInTime,
     this.signedOutAt,
     this.signedOutTime,
+    this.signedInMethod,
+    this.signedOutMethod,
     required this.classroomCode,
     required this.tagCodes,
     required this.tagNames,
@@ -26,6 +28,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final StudentAttendanceTimeModel? signedInTime;
   final String? signedOutAt;
   final StudentAttendanceTimeModel? signedOutTime;
+  final String? signedInMethod;
+  final String? signedOutMethod;
   final String classroomCode;
   final List<String> tagCodes;
   final List<String> tagNames;
@@ -33,7 +37,10 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
-      attendanceRecordCode: json['attendanceRecordCode'] as String?,
+      // Backend now returns the attendance record identifier as `code`.
+      // Fall back to `attendanceRecordCode` for backward compatibility.
+      attendanceRecordCode:
+          (json['attendanceRecordCode'] ?? json['code']) as String?,
       studentCode: json['studentCode'] as String?,
       studentName: json['studentName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
@@ -46,6 +53,9 @@ class StudentAttendanceDailyItemModel extends Equatable {
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
+      // Backend exposes how the student was signed in/out (GPS, PIN, QR, APP, etc.)
+      signedInMethod: json['signedInMethod'] as String?,
+      signedOutMethod: json['signedOutMethod'] as String?,
       classroomCode: json['classroomCode'] as String? ?? '',
       tagCodes: (json['tagCodes'] as List<dynamic>?)
               ?.map((e) => e.toString())
@@ -70,6 +80,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
       'signedInTime': signedInTime?.toJson(),
       'signedOutAt': signedOutAt,
       'signedOutTime': signedOutTime?.toJson(),
+      'signedInMethod': signedInMethod,
+      'signedOutMethod': signedOutMethod,
       'classroomCode': classroomCode,
       'tagCodes': tagCodes,
       'tagNames': tagNames,
@@ -88,6 +100,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
         signedInTime,
         signedOutAt,
         signedOutTime,
+        signedInMethod,
+        signedOutMethod,
         classroomCode,
         tagCodes,
         tagNames,
@@ -465,6 +479,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
     this.signedInTime,
     this.signedOutBy,
     this.signedOutTime,
+    this.signedInMethod,
+    this.signedOutMethod,
     required this.designation,
     this.attendedTime,
     this.attendedHours,
@@ -486,6 +502,12 @@ class StaffAttendanceDailyItemModel extends Equatable {
   final int? attendedHours;
   final int? attendedMinutes;
 
+  /// Sign-in method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedInMethod;
+
+  /// Sign-out method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedOutMethod;
+
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
       staffCode: json['staffCode'] as String? ?? '',
@@ -502,6 +524,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
+      signedInMethod: json['signedInMethod'] as String?,
+      signedOutMethod: json['signedOutMethod'] as String?,
       designation: (json['designation'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
@@ -524,6 +548,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
       'signedInTime': signedInTime?.toJson(),
       'signedOutBy': signedOutBy,
       'signedOutTime': signedOutTime?.toJson(),
+      'signedInMethod': signedInMethod,
+      'signedOutMethod': signedOutMethod,
       'designation': designation,
       'attendedTime': attendedTime,
       'attendedHours': attendedHours,
@@ -543,6 +569,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
         signedInTime,
         signedOutBy,
         signedOutTime,
+        signedInMethod,
+        signedOutMethod,
         designation,
         attendedTime,
         attendedHours,
@@ -911,3 +939,95 @@ class StudentAttendanceAbsentFormPageModel extends Equatable {
     };
   }
 }
+
+/// Expected attendance summary for the daily view "Expected Students" card.
+class StudentAttendanceExpectedSummaryModel extends Equatable {
+  const StudentAttendanceExpectedSummaryModel({
+    required this.expected,
+    required this.present,
+    required this.absent,
+    required this.signOut,
+    required this.notMarked,
+  });
+
+  final int expected;
+  final int present;
+  final int absent;
+  final int signOut;
+  final int notMarked;
+
+  /// Parses the wrapped API response:
+  /// {
+  ///   "success": true,
+  ///   "message": "...",
+  ///   "data": {
+  ///     "expected": 10,
+  ///     "present": 0,
+  ///     "absent": 4,
+  ///     "signout": 0,
+  ///     "notMarked": 6
+  ///   },
+  ///   ...
+  /// }
+  factory StudentAttendanceExpectedSummaryModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    return StudentAttendanceExpectedSummaryModel(
+      expected: data['expected'] as int? ?? 0,
+      present: data['present'] as int? ?? 0,
+      absent: data['absent'] as int? ?? 0,
+      signOut: data['signout'] as int? ?? 0,
+      notMarked: data['notMarked'] as int? ?? 0,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        expected,
+        present,
+        absent,
+        signOut,
+        notMarked,
+      ];
+}
+
+/// Staff expected attendance summary for the daily view "Expected Staff" card.
+class StaffAttendanceExpectedSummaryModel extends Equatable {
+  const StaffAttendanceExpectedSummaryModel({
+    required this.expected,
+    required this.present,
+    required this.absent,
+    required this.signOut,
+    required this.notMarked,
+  });
+
+  final int expected;
+  final int present;
+  final int absent;
+  final int signOut;
+  final int notMarked;
+
+  factory StaffAttendanceExpectedSummaryModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    return StaffAttendanceExpectedSummaryModel(
+      expected: data['expected'] as int? ?? 0,
+      present: data['present'] as int? ?? 0,
+      absent: data['absent'] as int? ?? 0,
+      signOut: data['signout'] as int? ?? 0,
+      notMarked: data['notMarked'] as int? ?? 0,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        expected,
+        present,
+        absent,
+        signOut,
+        notMarked,
+      ];
+}
+

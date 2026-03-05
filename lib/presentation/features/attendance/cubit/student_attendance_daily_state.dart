@@ -14,6 +14,12 @@ class StudentAttendanceDailyState extends Equatable {
     this.classroomCodes,
     this.tagCodes,
     this.search,
+    this.expectedCount,
+    this.presentCount,
+    this.absentCount,
+    this.signedOutCount,
+    this.notMarkedCount,
+    this.isSummaryLoading = false,
   });
 
   const StudentAttendanceDailyState.initial()
@@ -28,7 +34,13 @@ class StudentAttendanceDailyState extends Equatable {
         attendanceDate = null,
         classroomCodes = null,
         tagCodes = null,
-        search = null;
+        search = null,
+        expectedCount = null,
+        presentCount = null,
+        absentCount = null,
+        signedOutCount = null,
+        notMarkedCount = null,
+        isSummaryLoading = false;
 
   const StudentAttendanceDailyState.loaded({
     required List<StudentAttendanceDailyItem> items,
@@ -39,6 +51,12 @@ class StudentAttendanceDailyState extends Equatable {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? search,
+    int? expectedCount,
+    int? presentCount,
+    int? absentCount,
+    int? signedOutCount,
+    int? notMarkedCount,
+    bool isSummaryLoading = false,
   })  : items = items,
         isLoading = false,
         isRefreshing = false,
@@ -48,7 +66,13 @@ class StudentAttendanceDailyState extends Equatable {
         attendanceDate = attendanceDate,
         classroomCodes = classroomCodes,
         tagCodes = tagCodes,
-        search = search;
+        search = search,
+        expectedCount = expectedCount,
+        presentCount = presentCount,
+        absentCount = absentCount,
+        signedOutCount = signedOutCount,
+        notMarkedCount = notMarkedCount,
+        isSummaryLoading = isSummaryLoading;
 
   final List<StudentAttendanceDailyItem> items;
   final bool isLoading;
@@ -62,6 +86,12 @@ class StudentAttendanceDailyState extends Equatable {
   final List<String>? classroomCodes;
   final List<String>? tagCodes;
   final String? search;
+  final int? expectedCount;
+  final int? presentCount;
+  final int? absentCount;
+  final int? signedOutCount;
+  final int? notMarkedCount;
+  final bool isSummaryLoading;
 
   StudentAttendanceDailyState copyWith({
     List<StudentAttendanceDailyItem>? items,
@@ -76,6 +106,12 @@ class StudentAttendanceDailyState extends Equatable {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? search,
+    int? expectedCount,
+    int? presentCount,
+    int? absentCount,
+    int? signedOutCount,
+    int? notMarkedCount,
+    bool? isSummaryLoading,
   }) {
     return StudentAttendanceDailyState(
       items: items ?? this.items,
@@ -90,6 +126,12 @@ class StudentAttendanceDailyState extends Equatable {
       classroomCodes: classroomCodes ?? this.classroomCodes,
       tagCodes: tagCodes ?? this.tagCodes,
       search: search ?? this.search,
+      expectedCount: expectedCount ?? this.expectedCount,
+      presentCount: presentCount ?? this.presentCount,
+      absentCount: absentCount ?? this.absentCount,
+      signedOutCount: signedOutCount ?? this.signedOutCount,
+      notMarkedCount: notMarkedCount ?? this.notMarkedCount,
+      isSummaryLoading: isSummaryLoading ?? this.isSummaryLoading,
     );
   }
 
@@ -107,5 +149,11 @@ class StudentAttendanceDailyState extends Equatable {
         classroomCodes,
         tagCodes,
         search,
+        expectedCount,
+        presentCount,
+        absentCount,
+        signedOutCount,
+        notMarkedCount,
+        isSummaryLoading,
       ];
 }

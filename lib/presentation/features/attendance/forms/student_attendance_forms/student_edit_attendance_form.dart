@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -24,19 +26,21 @@ class StudentEditAttendanceForm extends StatefulWidget {
 }
 
 class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
-  late TimeOfDay _signInTime;
-  late TimeOfDay _signOutTime;
+  TimeOfDay? _signInTime;
+  TimeOfDay? _signOutTime;
+  late final UpdateStudentAttendanceRecordUseCase _updateUseCase;
 
   @override
   void initState() {
     super.initState();
-    _signInTime = _parseTimeOrNow(widget.studentAttendance.signInTime);
-    _signOutTime = _parseTimeOrNow(widget.studentAttendance.signOutTime);
+    _updateUseCase = serviceLocator<UpdateStudentAttendanceRecordUseCase>();
+    _signInTime = _parseTimeOrNull(widget.studentAttendance.signInTime);
+    _signOutTime = _parseTimeOrNull(widget.studentAttendance.signOutTime);
   }
 
-  TimeOfDay _parseTimeOrNow(String? timeString) {
+  TimeOfDay? _parseTimeOrNull(String? timeString) {
     if (timeString == null || timeString.isEmpty) {
-      return TimeOfDay.now();
+      return null;
     }
 
     try {
@@ -46,22 +50,97 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       final parsed = DateFormat.jm().parse(candidate);
       return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
     } catch (_) {
-      return TimeOfDay.now();
+      return null;
     }
   }
 
   void _handleSubmit() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Attendance updated successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
-    );
-    Navigator.pop(context);
+    _submitAsync();
   }
 
   void _handleCancel() {
     Navigator.pop(context);
+  }
+
+  Future<void> _submitAsync() async {
+    final attendanceCode = widget.studentAttendance.attendanceRecordCode;
+    if (attendanceCode == null || attendanceCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to update: missing attendance record code.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+      return;
+    }
+
+    // TODO: Replace hardcoded staffCode with value from StorageService when available.
+    const staffCode = 'STF_001';
+
+    final date = widget.attendanceDate;
+    DateTime? signedInAt;
+    DateTime? signedOutAt;
+
+    // Preserve semantics: only send times that were present originally.
+    if (widget.studentAttendance.signInTime != null &&
+        widget.studentAttendance.signInTime!.isNotEmpty &&
+        _signInTime != null) {
+      // Build an explicit UTC timestamp so the backend receives a proper
+      // ISO8601 value like "2026-03-04T16:31:00.000Z".
+      signedInAt = DateTime.utc(
+        date.year,
+        date.month,
+        date.day,
+        _signInTime!.hour,
+        _signInTime!.minute,
+      );
+    }
+
+    if (widget.studentAttendance.signOutTime != null &&
+        widget.studentAttendance.signOutTime!.isNotEmpty &&
+        _signOutTime != null) {
+      signedOutAt = DateTime.utc(
+        date.year,
+        date.month,
+        date.day,
+        _signOutTime!.hour,
+        _signOutTime!.minute,
+      );
+    }
+
+    final classroomCode = widget.studentAttendance.classroomCode;
+    final timeZone = DateTime.now().timeZoneName;
+
+    try {
+      final message = await _updateUseCase(
+        attendanceRecordCode: attendanceCode,
+        staffCode: staffCode,
+        signedInAt: signedInAt,
+        signedOutAt: signedOutAt,
+        originalClassroomCode: classroomCode,
+        currentClassroomCode: classroomCode,
+        notes: null,
+        timeZone: timeZone,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.successColor,
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    }
   }
 
   @override
@@ -174,7 +253,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
 
   Widget _buildTimeSection({
     required String label,
-    required TimeOfDay time,
+    required TimeOfDay? time,
     required ValueChanged<TimeOfDay> onTimeChanged,
   }) {
     return Column(
@@ -184,6 +263,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
         const SizedBox(height: 8),
         SimpleTimePickerField(
           time: time,
+          placeholder: 'Select time',
           onTimeSelected: onTimeChanged,
         ),
       ],

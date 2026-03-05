@@ -25,13 +25,12 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_d
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -75,11 +74,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   int enrolled = 120;
   int active = 100;
   int upcoming = 20;
-  int expected = 95;
-  int present = 85;
-  int absent = 10;
-  int signedOut = 5;
-  int notMarked = 5;
+  int expected = 0;
+  int present = 0;
+  int absent = 0;
+  int signedOut = 0;
+  int notMarked = 0;
 
   // Dummy absent students (will be replaced with API later)
   final List<StudentAbsentCardData> _absentStudents = [];
@@ -96,14 +95,18 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     if (serviceLocator.isRegistered<StudentAttendanceDailyCubit>()) {
       _cubit = serviceLocator<StudentAttendanceDailyCubit>();
     } else {
-      final apiClient = serviceLocator<ApiClient>();
-      final storageService = serviceLocator<StorageService>();
-
-      final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
-      final repo = AttendanceRepositoryImpl(remote, storageService);
+      final remote = AttendanceRemoteDataSourceImpl(
+        serviceLocator<ApiClient>().client,
+      );
+      final repo = AttendanceRepositoryImpl(
+        remote,
+        serviceLocator(),
+      );
 
       _cubit = StudentAttendanceDailyCubit(
         getStudentAttendanceDailyUseCase: GetStudentAttendanceDailyUseCase(repo),
+        getStudentAttendanceExpectedSummaryUseCase:
+            GetStudentAttendanceExpectedSummaryUseCase(repo),
         repository: repo,
       );
     }
@@ -114,10 +117,13 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       final repo = serviceLocator.isRegistered<AttendanceRepositoryImpl>()
           ? serviceLocator<AttendanceRepositoryImpl>()
           : (() {
-              final apiClient = serviceLocator<ApiClient>();
-              final storageService = serviceLocator<StorageService>();
-              final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
-              return AttendanceRepositoryImpl(remote, storageService);
+              final remote = AttendanceRemoteDataSourceImpl(
+                serviceLocator<ApiClient>().client,
+              );
+              return AttendanceRepositoryImpl(
+                remote,
+                serviceLocator(),
+              );
             })();
 
       _absentToggleCubit = StudentAttendanceAbsentToggleCubit(
@@ -246,19 +252,39 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       studentName: item.studentName,
       studentPhotoUuid: null, // API doesn't provide this
       roomName: item.classroomName,
+      classroomCode: item.classroomCode,
       expectedToday: item.isExpectedToday,
       hasSignIn: item.hasSignIn,
       signInTime: item.formattedSignInTime,
       signOutTime: item.formattedSignOutTime,
-      signInBy: null, // API doesn't provide this
-      signOutBy: null, // API doesn't provide this
-      signInMethod: null, // API doesn't provide this
-      signOutMethod: null, // API doesn't provide this
+      signInBy: null, // API doesn't provide this for daily view
+      signOutBy: null, // API doesn't provide this for daily view
+      // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
+      signInMethod: _mapMethodStringToEnum(item.signedInMethod),
+      signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
       tags: item.tagNames.isNotEmpty ? item.tagNames : null,
       studentId: index, // Use index as placeholder
       roomId: index, // Use index as placeholder
       schoolId: 1, // Use placeholder
     );
+  }
+
+  SignMethod? _mapMethodStringToEnum(String? method) {
+    if (method == null) return null;
+    final normalized = method.trim().toUpperCase();
+    switch (normalized) {
+      case 'GPS':
+        return SignMethod.gps;
+      case 'PIN':
+        // PIN entry is effectively via kiosk device.
+        return SignMethod.kiosk;
+      case 'QR':
+        return SignMethod.qr;
+      case 'APP':
+        return SignMethod.direct;
+      default:
+        return null;
+    }
   }
 
   @override
@@ -348,12 +374,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     enrolled: enrolled,
                     active: active,
                     upcoming: upcoming,
-                    expected: expected,
-                    present: present,
-                    absent: absent,
-                    signedOut: signedOut,
-                    notMarked: notMarked,
-                    isLoading: state.isLoading || state.isRefreshing,
+                    expected: state.expectedCount ?? expected,
+                    present: state.presentCount ?? present,
+                    absent: state.absentCount ?? absent,
+                    signedOut: state.signedOutCount ?? signedOut,
+                    notMarked: state.notMarkedCount ?? notMarked,
+                    isLoading: state.isLoading ||
+                        state.isRefreshing ||
+                        state.isSummaryLoading,
                     onLegendTap: (status) {
                       setState(() {
                         if (_statusLegendFilter == status) {
@@ -494,8 +522,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                               }
                             });
                           },
-                          onEdit: () {
-                            Navigator.push(
+                          onEdit: () async {
+                            final updated = await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => StudentEditAttendanceForm(
@@ -504,6 +532,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                 ),
                               ),
                             );
+                            if (updated == true) {
+                              _loadAttendanceData(reset: true);
+                            }
                           },
                           onDelete: () {
                             showModalBottomSheet(
@@ -530,25 +561,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                     }
 
                                     try {
-                                      final storage =
-                                          serviceLocator<StorageService>();
-                                      final staffCode =
-                                          (await storage.getString(
-                                                  StorageKeys.staffCode) ??
-                                              '')
-                                              .trim();
-
-                                      if (staffCode.isEmpty) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Unable to delete: staffCode not available.',
-                                            ),
-                                          ),
-                                        );
-                                        return;
-                                      }
+                                      // TODO: Replace hardcoded staffCode with value from StorageService when available.
+                                      const staffCode = 'STF_001';
 
                                       final apiClient =
                                           serviceLocator<ApiClient>().client;

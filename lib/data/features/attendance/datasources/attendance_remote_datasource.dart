@@ -3,6 +3,7 @@ import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../models/student_attendance_models.dart';
 import '../models/student_absence_record_models.dart';
+import '../models/staff_absence_record_models.dart';
 
 abstract class AttendanceRemoteDataSource {
   Future<StudentAttendanceDailyPageModel> getStudentAttendanceDaily({
@@ -162,6 +163,20 @@ abstract class AttendanceRemoteDataSource {
     List<String>? sort,
   });
 
+  /// Staff Absent toggle view - absent staff for a date (used in Daily -> Show Absent toggle).
+  ///
+  /// Response shape matches [StaffAttendanceAbsentPageModel].
+  Future<StaffAttendanceAbsentPageModel> getStaffAttendanceAbsentToggleView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
+
   /// Delete a single student attendance record (sign-in/sign-out entry).
   Future<void> deleteStudentAttendanceRecord({
     required String attendanceRecordCode,
@@ -171,6 +186,41 @@ abstract class AttendanceRemoteDataSource {
   /// Marks students absent for a date range.
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
+  });
+
+  /// Marks staff absent for a date range.
+  Future<StaffMarkAbsentResponseModel> markStaffAbsent({
+    required StaffMarkAbsentRequestModel request,
+  });
+
+  /// Expected attendance summary used for the daily "Expected Students" card.
+  Future<StudentAttendanceExpectedSummaryModel>
+      getStudentAttendanceExpectedSummaryCard();
+
+  /// Staff expected attendance summary used for the daily "Expected Staff" card.
+  Future<StaffAttendanceExpectedSummaryModel>
+      getStaffAttendanceExpectedSummaryCard();
+
+  /// Current-day sign-in status for one or more staff members.
+  ///
+  /// Returns a map of `staffCode -> status` where status is typically
+  /// `SIGNED_IN` or `ABSENT`.
+  Future<Map<String, String>> getStaffSignInStatus({
+    required List<String> staffCodes,
+  });
+
+  /// Current-day sign-in status for one or more students.
+  ///
+  /// Returns a map of `studentCode -> status` where status is typically
+  /// `SIGNED_IN` or `ABSENT`.
+  Future<Map<String, String>> getStudentSignInStatus({
+    required List<String> studentCodes,
+  });
+
+  /// Updates a single student attendance record (sign-in/sign-out entry).
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required Map<String, dynamic> payload,
   });
 }
 
@@ -873,12 +923,65 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
+  Future<StaffAttendanceAbsentPageModel> getStaffAttendanceAbsentToggleView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAbsenceDate': fromAbsenceDate,
+      'toAbsenceDate': toAbsenceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceAbsentToggleView,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff absent toggle API response format');
+    }
+
+    return StaffAttendanceAbsentPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
   Future<void> deleteStudentAttendanceRecord({
     required String attendanceRecordCode,
     required String staffCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '/api/v1/student-attendance-records/$attendanceRecordCode',
+      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
       ApiConstants.attendanceBaseUrl,
     );
 
@@ -911,5 +1014,144 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     return MarkAbsentResponseModel.fromJson(
       response.data! as Map<String, dynamic>,
     );
+  }
+
+  @override
+  Future<StaffMarkAbsentResponseModel> markStaffAbsent({
+    required StaffMarkAbsentRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAbsenceRecordsMarkAbsent,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff mark-absent API response format');
+    }
+
+    return StaffMarkAbsentResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StudentAttendanceExpectedSummaryModel>
+      getStudentAttendanceExpectedSummaryCard() async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceExpectedSummaryCard,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected expected attendance summary API response format',
+      );
+    }
+
+    return StudentAttendanceExpectedSummaryModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceExpectedSummaryModel>
+      getStaffAttendanceExpectedSummaryCard() async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceExpectedSummaryCard,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected staff expected attendance summary API response format',
+      );
+    }
+
+    return StaffAttendanceExpectedSummaryModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<Map<String, String>> getStaffSignInStatus({
+    required List<String> staffCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceSignInStatus,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.post<Map<String, dynamic>>(
+      endpoint,
+      data: <String, dynamic>{
+        'staffCodes': staffCodes,
+      },
+    );
+
+    final data = response.data;
+    if (data == null || data['data'] is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff sign-in status API response format');
+    }
+
+    final raw = data['data'] as Map<String, dynamic>;
+    return raw.map((key, value) => MapEntry(key, value.toString()));
+  }
+
+  @override
+  Future<Map<String, String>> getStudentSignInStatus({
+    required List<String> studentCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceSignInStatus,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.post<Map<String, dynamic>>(
+      endpoint,
+      data: <String, dynamic>{
+        'studentCodes': studentCodes,
+      },
+    );
+
+    final data = response.data;
+    if (data == null || data['data'] is! Map<String, dynamic>) {
+      throw Exception('Unexpected student sign-in status API response format');
+    }
+
+    final raw = data['data'] as Map<String, dynamic>;
+    return raw.map((key, value) => MapEntry(key, value.toString()));
+  }
+
+  @override
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required Map<String, dynamic> payload,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.patch<Map<String, dynamic>>(
+      endpoint,
+      data: payload,
+    );
+
+    final data = response.data;
+    if (data == null) {
+      throw Exception('Empty response from update attendance record API');
+    }
+
+    // Top-level "message" field is used as success message per contract.
+    return (data['message'] ?? 'Attendance updated successfully').toString();
   }
 }

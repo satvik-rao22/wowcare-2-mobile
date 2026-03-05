@@ -3,16 +3,23 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_attendance_daily_usecase.dart';
+import '../../../../domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
 
 part 'staff_attendance_daily_state.dart';
 
 class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
   StaffAttendanceDailyCubit({
     required GetStaffAttendanceDailyUseCase getStaffAttendanceDailyUseCase,
+    required GetStaffAttendanceExpectedSummaryUseCase
+        getStaffAttendanceExpectedSummaryUseCase,
   })  : _getStaffAttendanceDailyUseCase = getStaffAttendanceDailyUseCase,
+        _getStaffAttendanceExpectedSummaryUseCase =
+            getStaffAttendanceExpectedSummaryUseCase,
         super(const StaffAttendanceDailyState.initial());
 
   final GetStaffAttendanceDailyUseCase _getStaffAttendanceDailyUseCase;
+  final GetStaffAttendanceExpectedSummaryUseCase
+      _getStaffAttendanceExpectedSummaryUseCase;
 
   static const int _pageSize = 10;
 
@@ -48,6 +55,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       search: search,
+      isSummaryLoading: true,
     ));
 
     try {
@@ -60,6 +68,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         page: 0,
         size: _pageSize,
       );
+      final summary =
+          await _getStaffAttendanceExpectedSummaryUseCase();
 
       if (isClosed) return;
 
@@ -72,12 +82,19 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         search: search,
+        expectedCount: summary.expected,
+        presentCount: summary.present,
+        absentCount: summary.absent,
+        signedOutCount: summary.signOut,
+        notMarkedCount: summary.notMarked,
+        isSummaryLoading: false,
       ));
     } catch (e) {
       if (isClosed) return;
       emit(state.copyWith(
         isLoading: false,
         isRefreshing: false,
+        isSummaryLoading: false,
         errorMessage: e.toString(),
       ));
     }
