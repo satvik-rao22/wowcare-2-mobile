@@ -247,6 +247,43 @@ class StudentHealthModel extends Equatable {
       ];
 }
 
+class StudentPhysicalExamModel extends Equatable {
+  const StudentPhysicalExamModel({
+    required this.code,
+    this.examDate,
+    this.status,
+    this.notes,
+  });
+
+  final String code;
+  /// ISO date string `YYYY-MM-DD` (per backend contract).
+  final String? examDate;
+  /// e.g. `COMPLETED`, `DUE`.
+  final String? status;
+  final String? notes;
+
+  factory StudentPhysicalExamModel.fromJson(Map<String, dynamic> json) {
+    return StudentPhysicalExamModel(
+      code: json['code'] as String? ?? '',
+      examDate: json['examDate'] as String?,
+      status: json['status'] as String?,
+      notes: json['notes'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      if (examDate != null) 'examDate': examDate,
+      if (status != null) 'status': status,
+      if (notes != null) 'notes': notes,
+    };
+  }
+
+  @override
+  List<Object?> get props => [code, examDate, status, notes];
+}
+
 class StudentImmunizationModel extends Equatable {
   const StudentImmunizationModel({
     required this.code,

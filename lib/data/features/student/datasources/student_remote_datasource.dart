@@ -247,6 +247,27 @@ abstract class StudentRemoteDataSource {
     required String code,
   });
 
+  /// Fetches all physical-exam records for a student via
+  /// `GET /api/v1/student/{studentCode}/physical-exam`.
+  Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
+    required String code,
+  });
+
+  /// Creates a new physical exam record for a student via
+  /// `POST /api/v1/student/{studentCode}/physical-exam`.
+  Future<StudentPhysicalExamModel> addStudentPhysicalExam({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Partially updates an existing physical exam record via
+  /// `PATCH /api/v1/student/{studentCode}/physical-exam/{examCode}`.
+  Future<StudentPhysicalExamModel> updateStudentPhysicalExam({
+    required String studentCode,
+    required String examCode,
+    required Map<String, dynamic> body,
+  });
+
   /// Updates student important dates via
   /// `PATCH /api/v1/student/{code}/important-dates`.
   Future<String> updateStudentImportantDates({
@@ -1218,6 +1239,90 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         .map(StudentImmunizationModel.fromJson)
         .toList(growable: false);
+  }
+
+  @override
+  Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentPhysicalExams(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student physical exam API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <StudentPhysicalExamModel>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StudentPhysicalExamModel.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<StudentPhysicalExamModel> addStudentPhysicalExam({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentPhysicalExams(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected add physical exam API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload for add physical exam');
+    }
+
+    return StudentPhysicalExamModel.fromJson(data);
+  }
+
+  @override
+  Future<StudentPhysicalExamModel> updateStudentPhysicalExam({
+    required String studentCode,
+    required String examCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentPhysicalExam(studentCode, examCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected update physical exam API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload for update physical exam');
+    }
+
+    return StudentPhysicalExamModel.fromJson(data);
   }
 }
 

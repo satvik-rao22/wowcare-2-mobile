@@ -134,6 +134,13 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         identifier: studentCode,
       );
 
+  static String _studentPhysicalExamsCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'physical_exams',
+        identifier: studentCode,
+      );
+
   @override
   Future<StudentPage> getStudentPage({
     required String schoolCode,
@@ -491,6 +498,87 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     );
 
     return models;
+  }
+
+  Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
+    required String studentCode,
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh) {
+      final cached = await _cacheManager
+          .loadCache(_studentPhysicalExamsCacheKey(studentCode));
+      if (cached != null) {
+        final items = cached['items'];
+        if (items is List) {
+          return items
+              .whereType<Map<String, dynamic>>()
+              .map(StudentPhysicalExamModel.fromJson)
+              .toList(growable: false);
+        }
+      }
+    }
+
+    final models =
+        await _remoteDataSource.getStudentPhysicalExams(code: studentCode);
+
+    await _cacheManager.saveCache(
+      _studentPhysicalExamsCacheKey(studentCode),
+      {
+        'items': models.map((e) => e.toJson()).toList(),
+      },
+    );
+
+    return models;
+  }
+
+  Future<StudentPhysicalExamModel> addStudentPhysicalExam({
+    required String studentCode,
+    required DateTime examDate,
+    required String status,
+    String? notes,
+  }) async {
+    final body = <String, dynamic>{
+      'examDate': DateFormat('yyyy-MM-dd').format(examDate),
+      'status': status,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    };
+
+    final model = await _remoteDataSource.addStudentPhysicalExam(
+      code: studentCode,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentPhysicalExamsCacheKey(studentCode),
+    );
+
+    return model;
+  }
+
+  Future<StudentPhysicalExamModel> updateStudentPhysicalExam({
+    required String studentCode,
+    required String examCode,
+    required DateTime examDate,
+    required String status,
+    String? notes,
+  }) async {
+    final body = <String, dynamic>{
+      'examDate': DateFormat('yyyy-MM-dd').format(examDate),
+      'status': status,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    };
+
+    final model = await _remoteDataSource.updateStudentPhysicalExam(
+      studentCode: studentCode,
+      examCode: examCode,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentPhysicalExamsCacheKey(studentCode),
+    );
+
+    return model;
   }
 
   @override

@@ -11,7 +11,6 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -65,7 +64,7 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
-        _loadTagNameCodeMap();
+        // NOTE: Do not call tags API for now (as requested).
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
       }
@@ -85,26 +84,6 @@ class _StudentScreenState extends State<StudentScreen> {
     context.read<StudentCubit>().updateSearch(query);
     // Refresh to apply search filter
     context.read<StudentCubit>().refreshWithCacheReset();
-  }
-
-  Future<void> _loadTagNameCodeMap() async {
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          await storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) return;
-
-      final useCase =
-          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-      final map = await useCase(schoolCode: schoolCode);
-      if (!mounted) return;
-
-      setState(() {
-        _tagNameToCode = map;
-      });
-    } catch (_) {
-      // Non-critical for filters; ignore errors.
-    }
   }
 
   Future<void> _loadGuardianNameCodeMap() async {
@@ -134,7 +113,7 @@ class _StudentScreenState extends State<StudentScreen> {
           await storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final useCase = serviceLocator() as GetStudentCountsUseCase;
+      final useCase = serviceLocator<GetStudentCountsUseCase>();
       final counts = await useCase(schoolCode: schoolCode);
       if (!mounted) return;
 
@@ -373,7 +352,9 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _clearAllFilters() async {
     setState(() {
-      _currentFilters.clear();
+      _currentFilters
+        ..clear()
+        ..['Status'] = ['Active'];
     });
     await _applyFiltersToCubit();
   }
@@ -508,6 +489,9 @@ class _StudentScreenState extends State<StudentScreen> {
                 context
                     .read<ClassroomCubit>()
                     .loadActiveClassrooms(force: true),
+                // Keep these in sync on refresh as well (but DO NOT call tags API).
+                _loadGuardianNameCodeMap(),
+                _loadStudentCounts(),
               ]);
             },
             child: NotificationListener<ScrollNotification>(

@@ -6,6 +6,7 @@ import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/auth/usecases/login_usecase.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/data/static/static_school_catalog.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -266,6 +267,11 @@ class AuthCubit extends Cubit<AuthState> {
       codes = schoolCodes;
     }
 
+    final staticFallback = staticSchoolSelectionEntriesForOrg(
+      organizationCode: organizationCode,
+      restrictToSchoolCodes: isAdmin ? const <String>[] : codes,
+    );
+
     final prev = state is AuthLoaded ? state as AuthLoaded : null;
     emit(AuthLoaded(
       loginResponse: login,
@@ -284,11 +290,16 @@ class AuthCubit extends Cubit<AuthState> {
         isAdmin: isAdmin,
         accessToken: login.accessToken,
       );
-      final schoolList = result.dataWithCodes.isNotEmpty
+      var schoolList = result.dataWithCodes.isNotEmpty
           ? result.dataWithCodes
           : result.data
               .map((n) => {'schoolCode': n, 'schoolName': n})
               .toList();
+
+      // If API returns empty (or unexpected payload), fallback to static catalog.
+      if (schoolList.isEmpty && staticFallback.isNotEmpty) {
+        schoolList = staticFallback;
+      }
       final updated =
           Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
       updated[organizationCode] = schoolList;
@@ -302,15 +313,32 @@ class AuthCubit extends Cubit<AuthState> {
         redirectUrl: prev?.redirectUrl,
       ));
     } catch (e) {
-      emit(AuthLoaded(
-        loginResponse: login,
-        schoolsByOrg: prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
-        isPrefetchingSchools: false,
-        lastErrorMessage: e.toString(),
-        orgNames: prev?.orgNames ?? const [],
-        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-        redirectUrl: prev?.redirectUrl,
-      ));
+      // Fallback to static catalog when API fails so user can still continue.
+      if (staticFallback.isNotEmpty) {
+        final updated =
+            Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
+        updated[organizationCode] = staticFallback;
+        emit(AuthLoaded(
+          loginResponse: login,
+          schoolsByOrg: updated,
+          isPrefetchingSchools: false,
+          lastErrorMessage: null,
+          orgNames: prev?.orgNames ?? const [],
+          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+          redirectUrl: prev?.redirectUrl,
+        ));
+      } else {
+        emit(AuthLoaded(
+          loginResponse: login,
+          schoolsByOrg:
+              prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
+          isPrefetchingSchools: false,
+          lastErrorMessage: e.toString(),
+          orgNames: prev?.orgNames ?? const [],
+          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+          redirectUrl: prev?.redirectUrl,
+        ));
+      }
     }
   }
 

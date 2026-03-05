@@ -14,6 +14,10 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 
 class AddStudentStep2Screen extends StatefulWidget {
   const AddStudentStep2Screen({
@@ -72,11 +76,10 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   bool _isSubmitting = false;
 
   final List<String> _relationOptions = ['Mother', 'Father', 'Guardian', 'Other'];
-  final List<String> _existingParents = [
-    'John Smith (john@example.com)',
-    'Jane Doe (jane@example.com)',
-    'Mike Johnson (mike@example.com)',
-  ]; // Mock data - should come from API
+  List<String> _existingParents = const [];
+
+  late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
+  late final StorageService _storageService;
 
   // Email validation regexes: strict and permissive; accept if any matches
   static final RegExp _emailRegexStrict = RegExp(
@@ -91,6 +94,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   @override
   void initState() {
     super.initState();
+    _getGuardianNamesForSchoolUseCase =
+        serviceLocator<GetGuardianNamesForSchoolUseCase>();
+    _storageService = serviceLocator<StorageService>();
     _selectFromExisting = widget.initialSelectFromExisting;
     _selectedExistingParents = List<String>.from(widget.initialSelectedExistingParents);
     if (widget.initialFirstName != null) {
@@ -112,6 +118,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     _isEmergencyContact = widget.initialIsEmergencyContact;
     _isChildCustody = widget.initialIsChildCustody;
     _profilePhoto = widget.initialProfilePhoto;
+
+    _loadExistingParents();
   }
 
   @override
@@ -197,6 +205,99 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     return null;
   }
 
+  Future<void> _createGuardiansForExistingParents({
+    required String schoolCode,
+    required String studentCode,
+  }) async {
+    // Load full guardian records (with email/mobile) from guardian API.
+    final remote = serviceLocator<StudentRemoteDataSource>();
+    final repo = serviceLocator<StudentRepository>();
+
+    final rawList =
+        await remote.getGuardiansBySchool(schoolCode: schoolCode);
+
+    String _buildDisplayName(Map<String, dynamic> item) {
+      final first = (item['firstName'] ?? '').toString().trim();
+      final last = (item['lastName'] ?? '').toString().trim();
+      final email = (item['email'] ?? '').toString().trim();
+      final code = (item['code'] ?? '').toString().trim();
+
+      if (first.isEmpty && last.isEmpty) {
+        return email.isNotEmpty ? email : code;
+      }
+      return '$first $last'.trim();
+    }
+
+    final byDisplay = <String, Map<String, dynamic>>{};
+    for (final item in rawList) {
+      final display = _buildDisplayName(item);
+      if (display.isEmpty) continue;
+      byDisplay[display] = item;
+    }
+
+    for (final selected in _selectedExistingParents) {
+      final key = selected.trim();
+      if (key.isEmpty) continue;
+      final item = byDisplay[key];
+      if (item == null) continue;
+
+      final first =
+          (item['firstName'] ?? '').toString().trim();
+      final last =
+          (item['lastName'] ?? '').toString().trim();
+      final email =
+          (item['email'] ?? '').toString().trim();
+      final mobile =
+          (item['mobile'] ?? '').toString().trim();
+      final relationRaw =
+          (item['relationToStudent'] ?? '').toString().trim();
+
+      final relationToStudent = relationRaw.isNotEmpty
+          ? relationRaw.toUpperCase()
+          : 'GUARDIAN';
+
+      await repo.createGuardianUser(
+        schoolCode: schoolCode,
+        studentCode: studentCode,
+        firstName: first,
+        lastName: last,
+        email: email,
+        mobile: mobile,
+        relationToStudent: relationToStudent,
+        primaryContact: _isEmergencyContact,
+        legalCustody: _isChildCustody,
+      );
+    }
+  }
+
+  Future<void> _loadExistingParents() async {
+    try {
+      // Prefer explicit schoolCode from widget; fall back to storage.
+      String schoolCode = widget.schoolCode ?? '';
+      if (schoolCode.isEmpty) {
+        schoolCode =
+            await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      }
+      if (schoolCode.isEmpty) {
+        return;
+      }
+
+      final names =
+          await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _existingParents = names;
+        // Ensure initially selected parents still exist in the latest list.
+        _selectedExistingParents.removeWhere(
+          (parent) => !_existingParents.contains(parent),
+        );
+      });
+    } catch (_) {
+      // Non-critical for this screen; ignore errors and keep list empty.
+    }
+  }
+
   void _onNext() {
     _trimAllInputs();
 
@@ -259,7 +360,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
-      if (_selectedRelation == 'Other' && _relationOtherController.text.trim().isEmpty) {
+      if (_selectedRelation == 'Other' &&
+          _relationOtherController.text.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please specify the relation',
@@ -274,49 +376,65 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final schoolCode = widget.schoolCode ?? '';
     if (widget.createGuardianDirectly &&
         studentCode.isNotEmpty &&
-        schoolCode.isNotEmpty &&
-        !_selectFromExisting) {
-      final first = _firstNameController.text.trim();
-      final last = _lastNameController.text.trim();
-      final email = _emailController.text.trim().toLowerCase();
-      final rawPhone = _phoneController.text.trim();
-      final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
-
-      final relationLabel = (_selectedRelation ?? '').trim();
-      final relationOther = _relationOtherController.text.trim();
-      final relationToStudent =
-          (relationLabel == 'Other' && relationOther.isNotEmpty
-                  ? relationOther
-                  : relationLabel)
-              .toUpperCase();
-
-      final primaryContact = _isEmergencyContact;
-      final legalCustody = _isChildCustody;
-
+        schoolCode.isNotEmpty) {
       if (_isSubmitting) return;
       setState(() => _isSubmitting = true);
+
       () async {
         try {
-          final repo = serviceLocator<StudentRepository>();
-          final message = await repo.createGuardianUser(
-            schoolCode: schoolCode,
-            studentCode: studentCode,
-            firstName: first,
-            lastName: last,
-            email: email,
-            mobile: digits,
-            relationToStudent: relationToStudent,
-            primaryContact: primaryContact,
-            legalCustody: legalCustody,
-          );
+          if (_selectFromExisting) {
+            // Use full guardian details from guardian API for existing parents.
+            await _createGuardiansForExistingParents(
+              schoolCode: schoolCode,
+              studentCode: studentCode,
+            );
 
-          if (!mounted) return;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: message,
-            isSuccess: true,
-          );
-          Navigator.pop(context, true);
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Parents linked successfully',
+              isSuccess: true,
+            );
+            Navigator.pop(context, true);
+          } else {
+            final repo = serviceLocator<StudentRepository>();
+            final first = _firstNameController.text.trim();
+            final last = _lastNameController.text.trim();
+            final email = _emailController.text.trim().toLowerCase();
+            final rawPhone = _phoneController.text.trim();
+            final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+
+            final relationLabel = (_selectedRelation ?? '').trim();
+            final relationOther = _relationOtherController.text.trim();
+            final relationToStudent =
+                (relationLabel == 'Other' && relationOther.isNotEmpty
+                        ? relationOther
+                        : relationLabel)
+                    .toUpperCase();
+
+            final primaryContact = _isEmergencyContact;
+            final legalCustody = _isChildCustody;
+
+            final message = await repo.createGuardianUser(
+              schoolCode: schoolCode,
+              studentCode: studentCode,
+              firstName: first,
+              lastName: last,
+              email: email,
+              mobile: digits,
+              relationToStudent: relationToStudent,
+              primaryContact: primaryContact,
+              legalCustody: legalCustody,
+            );
+
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: message,
+              isSuccess: true,
+            );
+            Navigator.pop(context, true);
+          }
         } catch (e) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(

@@ -22,6 +22,9 @@ import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+/// TEMP: flip to `false` to restore normal onboarding/login routing.
+const bool kBypassLogin = true;
 // Create a global instance of NotificationService that will be initialized later
 // final NotificationService notificationService = NotificationService();
 
@@ -166,7 +169,7 @@ class _MyAppState extends State<MyApp> {
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
                     theme: themeProvider.currentTheme,
-                    home: const SplashScreenWrapper(),
+                    home: const DashboardScreen(),
                     onGenerateRoute: generateRoute,
                     navigatorKey: navigatorKey,
                   ),
@@ -208,6 +211,11 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
+      if (kBypassLogin) {
+        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+        return;
+      }
+
       final storage = serviceLocator<StorageService>();
 
       final seenOnboarding =

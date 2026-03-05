@@ -19,6 +19,9 @@ class StudentCubit extends Cubit<StudentState> {
         _storageService = storageService,
         super(const StudentState.initial());
 
+  /// TEMP: static school code to allow API calls before login/school-selection is wired.
+  static const String _tempSchoolCode = 'SCH_5317481E-5';
+
   final GetStudentPageUseCase _getStudentPageUseCase;
   final StudentRepository _repository;
   final StorageService _storageService;
@@ -31,6 +34,14 @@ class StudentCubit extends Cubit<StudentState> {
     if (_schoolCode != null) return _schoolCode!;
     // Take school from login-context API (saved in storage) only.
     _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+
+    // TEMP fallback: if school code isn't set yet (because login is bypassed),
+    // force a static one so endpoints that require schoolCode don't 500.
+    if (_schoolCode!.trim().isEmpty) {
+      _schoolCode = _tempSchoolCode;
+      await _storageService.saveString(StorageKeys.schoolCode, _tempSchoolCode);
+    }
+
     return _schoolCode!;
   }
 

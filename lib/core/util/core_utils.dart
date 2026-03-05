@@ -355,6 +355,7 @@
 
 
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -438,7 +439,8 @@ class CoreUtils {
     bool isAdjust = false,
     Duration duration = const Duration(seconds: 2),
   }) {
-    if ((context as dynamic).mounted == false) return;
+    // Don't attempt to show UI from a disposed context.
+    if (context is Element && !context.mounted) return;
 
     const Color successColor = Color.fromRGBO(21, 133, 49, 1);
     const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
@@ -458,20 +460,45 @@ class CoreUtils {
                 ? successColor
                 : Colors.black;
 
-    final overlay = Overlay.of(context);
+    // Use the root overlay so messages remain visible even if the current route
+    // is popped (e.g., user taps "Skip" and navigation happens immediately).
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) {
+      // Fallback: use ScaffoldMessenger if no Overlay is available.
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      messenger
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: backgroundColor,
+            duration: duration,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      return;
+    }
     final topInset = MediaQuery.of(context).padding.top;
+    final leftInset = MediaQuery.of(context).padding.left;
     final rightInset = MediaQuery.of(context).padding.right;
     final screenWidth = MediaQuery.of(context).size.width;
     const horizontalMargin = 16.0;
     const topMargin = 12.0;
     const maxBannerWidth = 280.0;
 
+    // Keep the banner fully on-screen for narrow devices.
+    final minLeft = leftInset + horizontalMargin;
+    final desiredLeft =
+        screenWidth - maxBannerWidth - rightInset - horizontalMargin;
+    final left = math.max(minLeft, desiredLeft);
+
     late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: topInset + topMargin,
         right: rightInset + horizontalMargin,
-        left: screenWidth - maxBannerWidth - rightInset - horizontalMargin,
+        left: left,
         child: Material(
           color: Colors.transparent,
           child: Container(
