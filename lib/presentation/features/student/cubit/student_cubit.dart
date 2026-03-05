@@ -43,6 +43,9 @@ class StudentCubit extends Cubit<StudentState> {
             ? (_repository as StudentRepositoryWithCache).loadCachedStudentPage(
                 schoolCode,
                 status: state.statusFilter,
+                classroomCodes: state.classroomCodesFilter,
+                tagCodes: state.tagCodesFilter,
+                guardianCodes: state.guardianCodesFilter,
                 search: state.searchQuery,
                 code: state.codeFilter,
                 firstName: state.firstNameFilter,
@@ -148,6 +151,28 @@ class StudentCubit extends Cubit<StudentState> {
         ),
       );
     }
+  }
+
+  /// Invalidates the cached first-page for the *current* list query and refreshes from API.
+  ///
+  /// Use this after mutations (add/edit) and when filters change to ensure we don't
+  /// re-hydrate stale cached results.
+  Future<void> refreshWithCacheReset() async {
+    final schoolCode = await _resolveSchoolCode();
+    if (_repository is StudentRepositoryWithCache) {
+      await (_repository as StudentRepositoryWithCache).invalidateCachedStudentPage(
+        schoolCode,
+        status: state.statusFilter,
+        classroomCodes: state.classroomCodesFilter,
+        tagCodes: state.tagCodesFilter,
+        guardianCodes: state.guardianCodesFilter,
+        search: state.searchQuery,
+        code: state.codeFilter,
+        firstName: state.firstNameFilter,
+        lastName: state.lastNameFilter,
+      );
+    }
+    await refresh();
   }
 
   Future<void> loadNextPage() async {

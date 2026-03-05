@@ -65,6 +65,7 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
+        _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
       }
@@ -83,7 +84,7 @@ class _StudentScreenState extends State<StudentScreen> {
     final query = _searchController.text.trim();
     context.read<StudentCubit>().updateSearch(query);
     // Refresh to apply search filter
-    context.read<StudentCubit>().refresh();
+    context.read<StudentCubit>().refreshWithCacheReset();
   }
 
   Future<void> _loadTagNameCodeMap() async {
@@ -280,7 +281,13 @@ class _StudentScreenState extends State<StudentScreen> {
             );
           },
         ),
-      );
+      ).then((result) async {
+        // If student was edited, refresh + reset list cache.
+        if (!mounted) return;
+        if (result == true) {
+          await context.read<StudentCubit>().refreshWithCacheReset();
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -291,7 +298,7 @@ class _StudentScreenState extends State<StudentScreen> {
     }
   }
 
-  void _applyFiltersToCubit() {
+  Future<void> _applyFiltersToCubit() async {
     final statusFilter = _currentFilters['Status']?.isNotEmpty == true
         ? _currentFilters['Status']!.first
         : null;
@@ -332,7 +339,7 @@ class _StudentScreenState extends State<StudentScreen> {
       tagCodes: tagCodes.isEmpty ? null : tagCodes,
       guardianCodes: guardianCodes.isEmpty ? null : guardianCodes,
     );
-    context.read<StudentCubit>().refresh();
+    await context.read<StudentCubit>().refreshWithCacheReset();
   }
 
   // Convert Student entity to map format for compatibility with existing UI
@@ -351,7 +358,7 @@ class _StudentScreenState extends State<StudentScreen> {
     return {
       'name': student.fullName,
       'Classroom': student.classroom,
-      'Tags': <String>[], // API doesn't provide tags yet
+      'Tags': student.tags,
       'schedule': <String>[], // API doesn't provide schedule yet
       'birthDate': formattedDob,
       'movementDate': student.movementDate,
@@ -364,11 +371,11 @@ class _StudentScreenState extends State<StudentScreen> {
     };
   }
 
-  void _clearAllFilters() {
+  Future<void> _clearAllFilters() async {
     setState(() {
       _currentFilters.clear();
     });
-    _applyFiltersToCubit();
+    await _applyFiltersToCubit();
   }
 
   bool _canShowActivitiesButton(selectedCount, List<Student> students) {
@@ -545,8 +552,8 @@ class _StudentScreenState extends State<StudentScreen> {
                           if (result is Map && (result['showPostAddPrompt'] == true)) {
                             final studentName = (result['studentName'] as String?) ?? '';
                             final studentCode = (result['studentCode'] as String?) ?? '';
-                            // New student added successfully → refresh list (uses invalidated cache)
-                            await studentCubit.refresh();
+                            // New student added successfully → reset cache + refresh list
+                            await studentCubit.refreshWithCacheReset();
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               showModalBottomSheet(
                                 context: context,
@@ -630,7 +637,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           items: items,
                           fullWidthBar: false,
                           selectedFilterValue: (_currentFilters['Status']?.length == 1) ? _currentFilters['Status']!.first : null,
-                          onLegendTap: (String label, String? filterValue){
+                          onLegendTap: (String label, String? filterValue) async {
                             setState(() {
                               final current = _currentFilters['Status'];
                               if (current != null && current.length == 1 && current.first == filterValue){
@@ -639,7 +646,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 _currentFilters['Status'] = [filterValue!];
                               }
                             });
-                            _applyFiltersToCubit();
+                            await _applyFiltersToCubit();
                           },
 
                         ),
@@ -743,7 +750,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                     setState(() {
                                       _currentFilters = normalized;
                                     });
-                                    _applyFiltersToCubit();
+                                    await _applyFiltersToCubit();
                                   }
                                 },
                                 borderRadius: BorderRadius.circular(100),
@@ -848,7 +855,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 // ),
                                 const CustomClearAllChip(onTap: null, label: 'Active'),// should be turned on by default and show active students
                                 const SizedBox(width: 8),
-                                CustomClearAllChip(onTap: _clearAllFilters),
+                                CustomClearAllChip(onTap: () => _clearAllFilters()),
                               ],
                             ),
                             // CustomToggle(

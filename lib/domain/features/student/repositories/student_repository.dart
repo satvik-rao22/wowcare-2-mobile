@@ -183,11 +183,31 @@ abstract class StudentRepositoryWithCache {
   Future<StudentPage?> loadCachedStudentPage(
     String schoolCode, {
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     String? code,
     String? firstName,
     String? lastName,
   });
+
+  /// Invalidates the cached first page for the given list query (filters included).
+  ///
+  /// This is useful after mutations (add/edit/deactivate/reactivate) or when the
+  /// user changes filters, to ensure `loadInitial()` doesn't hydrate stale data.
+  Future<void> invalidateCachedStudentPage(
+    String schoolCode, {
+    String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
+    String? search,
+    String? code,
+    String? firstName,
+    String? lastName,
+  });
+
   Future<StudentDocumentsPage?> loadCachedStudentDocuments(String studentCode);
 }
 

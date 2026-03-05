@@ -25,22 +25,39 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   static String _studentListCacheKey(
     String schoolCode, {
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     String? code,
     String? firstName,
     String? lastName,
   }) {
     String norm(String? v) => (v ?? '').trim();
+    List<String> normList(List<String>? values) {
+      final items = (values ?? const <String>[])
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
+      items.sort((a, b) => a.toUpperCase().compareTo(b.toUpperCase()));
+      return items;
+    }
 
     final statusKey = norm(status).isEmpty ? 'ACTIVE' : norm(status).toUpperCase();
     final searchKey = norm(search).toLowerCase();
     final codeKey = norm(code).toUpperCase();
     final firstNameKey = norm(firstName).toUpperCase();
     final lastNameKey = norm(lastName).toUpperCase();
+    final classroomKey = normList(classroomCodes).map((e) => e.toUpperCase()).join(',');
+    final tagKey = normList(tagCodes).map((e) => e.toUpperCase()).join(',');
+    final guardianKey = normList(guardianCodes).map((e) => e.toUpperCase()).join(',');
 
     final identifier = [
       schoolCode,
       'status=$statusKey',
+      if (classroomKey.isNotEmpty) 'classrooms=$classroomKey',
+      if (tagKey.isNotEmpty) 'tags=$tagKey',
+      if (guardianKey.isNotEmpty) 'guardians=$guardianKey',
       if (searchKey.isNotEmpty) 'search=$searchKey',
       if (codeKey.isNotEmpty) 'code=$codeKey',
       if (firstNameKey.isNotEmpty) 'firstName=$firstNameKey',
@@ -154,6 +171,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         _studentListCacheKey(
           schoolCode,
           status: status,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          guardianCodes: guardianCodes,
           search: search,
           code: code,
           firstName: firstName,
@@ -761,6 +781,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   Future<StudentPage?> loadCachedStudentPage(
     String schoolCode, {
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     String? code,
     String? firstName,
@@ -770,6 +793,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       _studentListCacheKey(
         schoolCode,
         status: status,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        guardianCodes: guardianCodes,
         search: search,
         code: code,
         firstName: firstName,
@@ -780,6 +806,33 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
 
     final model = StudentPageModel.fromCacheJson(payload);
     return _mapPageModelToEntity(model);
+  }
+
+  @override
+  Future<void> invalidateCachedStudentPage(
+    String schoolCode, {
+    String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
+    String? search,
+    String? code,
+    String? firstName,
+    String? lastName,
+  }) async {
+    await _cacheManager.invalidateCache(
+      _studentListCacheKey(
+        schoolCode,
+        status: status,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        guardianCodes: guardianCodes,
+        search: search,
+        code: code,
+        firstName: firstName,
+        lastName: lastName,
+      ),
+    );
   }
 
   // Map model to entity
@@ -793,6 +846,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         classroom: m.classroom,
         dob: m.dob,
         movementDate: m.movementDate,
+        tags: m.tags,
       )).toList(),
       page: model.page,
       size: model.size,
@@ -857,6 +911,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       classroom: model.classroom,
       dob: model.dob,
       movementDate: model.movementDate,
+      tags: model.tags,
     );
   }
 
