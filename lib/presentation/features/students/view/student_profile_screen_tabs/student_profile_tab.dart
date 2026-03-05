@@ -198,6 +198,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         schedule: widget.schedule,
                         sibling: widget.sibling,
                         onRefresh: _refreshProfile,
+                        studentCode: widget.studentCode,
                       ),
                       StudentFamilyTabCard(
                         scrollController: _familyScrollController,
@@ -282,7 +283,8 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                         tags: widget.tags,
                         schedule: widget.schedule,
                         sibling: widget.sibling,
-                      onRefresh: _refreshProfile,
+                        onRefresh: _refreshProfile,
+                        studentCode: widget.studentCode,
                       ),
                       StudentFamilyTabCard(
                         scrollController: _familyScrollController,
@@ -305,6 +307,62 @@ class _StudentProfileTabState extends State<StudentProfileTab>
 
                 // Use API data - profile is StudentProfileModel
                 final profileData = profile;
+
+                // Derive tags list from profile API (tags[].name)
+                final apiTags = (profileData.tags)
+                    .whereType<Map<String, dynamic>>()
+                    .map((t) => (t['name'] ?? '').toString().trim())
+                    .where((name) => name.isNotEmpty)
+                    .toList();
+
+                // Derive schedule short-day list from regularSchedules[].dayOfWeek
+                final apiSchedule = (profileData.regularSchedules)
+                    .whereType<Map<String, dynamic>>()
+                    .map((s) => (s['dayOfWeek'] ?? '').toString().toUpperCase())
+                    .map((day) {
+                      switch (day) {
+                        case 'MONDAY':
+                          return 'Mon';
+                        case 'TUESDAY':
+                          return 'Tue';
+                        case 'WEDNESDAY':
+                          return 'Wed';
+                        case 'THURSDAY':
+                          return 'Thu';
+                        case 'FRIDAY':
+                          return 'Fri';
+                        case 'SATURDAY':
+                          return 'Sat';
+                        case 'SUNDAY':
+                          return 'Sun';
+                        default:
+                          return '';
+                      }
+                    })
+                    .where((d) => d.isNotEmpty)
+                    .toList();
+
+                // Derive sibling display map from profile API siblings[]
+                final siblingNames = <String>[];
+                final siblingRelations = <String>[];
+                final siblingStatuses = <String>[];
+                for (final raw in profileData.siblings) {
+                  if (raw is! Map<String, dynamic>) continue;
+                  final first = (raw['firstName'] ?? '').toString().trim();
+                  final last = (raw['lastName'] ?? '').toString().trim();
+                  final name = ('$first $last').trim();
+                  if (name.isEmpty) continue;
+                  siblingNames.add(name);
+                  siblingRelations.add('Sibling');
+                  final status = (raw['status'] ?? '').toString().toLowerCase();
+                  siblingStatuses.add(status);
+                }
+                final apiSiblingMap = <String, dynamic>{
+                  'name': siblingNames,
+                  'relation': siblingRelations,
+                  'status': siblingStatuses,
+                };
+
                 return TabBarView(
                   controller: _tabController,
                   children: [
@@ -314,11 +372,12 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                           ? profileData.fullName 
                           : widget.name,
                       classroom: profileData.classroom ?? widget.classroom,
-                      tags: widget.tags,
-                      schedule: widget.schedule,
-                      sibling: widget.sibling,
+                      tags: apiTags,
+                      schedule: apiSchedule,
+                      sibling: apiSiblingMap,
                       studentProfile: profileData,
                       onRefresh: _refreshProfile,
+                      studentCode: profileData.code,
                     ),
                     StudentFamilyTabCard(
                       scrollController: _familyScrollController,

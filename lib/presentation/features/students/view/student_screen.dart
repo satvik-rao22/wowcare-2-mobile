@@ -1,24 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
-import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/shared/common/views/filter_screen.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -42,6 +51,10 @@ class _StudentScreenState extends State<StudentScreen> {
   bool _selectAll = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
   Map<String, List<String>> _currentFilters = {'Status': ['Active']};
+  Map<String, String> _tagNameToCode = <String, String>{};
+  Map<String, String> _guardianNameToCode = <String, String>{};
+  int _activeCount = 0;
+  int _upcomingCount = 0;
 
   @override
   void initState(){
@@ -52,6 +65,8 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
+        _loadGuardianNameCodeMap();
+        _loadStudentCounts();
       }
     });
   }
@@ -71,25 +86,274 @@ class _StudentScreenState extends State<StudentScreen> {
     context.read<StudentCubit>().refresh();
   }
 
+  Future<void> _loadTagNameCodeMap() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final map = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _tagNameToCode = map;
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
+  }
+
+  Future<void> _loadGuardianNameCodeMap() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>();
+      final map = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _guardianNameToCode = map;
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
+  }
+
+  Future<void> _loadStudentCounts() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase = serviceLocator() as GetStudentCountsUseCase;
+      final counts = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _activeCount = counts['activeCount'] ?? 0;
+        _upcomingCount = counts['upcomingCount'] ?? 0;
+      });
+    } catch (_) {
+      // Non-critical for UI; keep defaults.
+    }
+  }
+
+  Future<void> _openEditStudentDetails(String studentCode) async {
+    try {
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final profile = await dataSource.getStudentProfile(studentCode);
+      if (!mounted) return;
+
+      // --- Map fields exactly like StudentAboutTabCard.onEdit ---
+
+      // Map status from API format (ACTIVE) to display format (Active)
+      String statusDisplay = 'Active';
+      final upperStatus = profile.status.toUpperCase();
+      if (upperStatus == 'ACTIVE' || profile.status == 'A') {
+        statusDisplay = 'Active';
+      } else if (upperStatus == 'INACTIVE' || profile.status == 'I') {
+        statusDisplay = 'Inactive';
+      } else if (upperStatus == 'UPCOMING' || profile.status == 'Upcoming') {
+        statusDisplay = 'Upcoming';
+      } else if (upperStatus == 'WAITLIST') {
+        statusDisplay = 'Waitlist';
+      } else if (upperStatus == 'GRADUATED') {
+        statusDisplay = 'Graduated';
+      }
+
+      // Parse birth date
+      DateTime? birthDate;
+      if (profile.dob != null && profile.dob!.isNotEmpty) {
+        try {
+          birthDate = DateTime.parse(profile.dob!);
+        } catch (_) {
+          birthDate = null;
+        }
+      }
+
+      // Extract address fields
+      final address = profile.address;
+      final street = address?['street']?.toString() ?? '';
+      final city = address?['city']?.toString() ?? '';
+      final state = address?['state']?.toString() ?? '';
+      final country = address?['country']?.toString() ?? '';
+      final zipCode =
+          address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
+
+      // Extract tags as display names from profile.tags[]
+      final tags = <String>[];
+      for (final raw in profile.tags) {
+        if (raw is Map<String, dynamic>) {
+          final name = (raw['name'] ?? '').toString().trim();
+          if (name.isNotEmpty) tags.add(name);
+        }
+      }
+
+      // Extract siblings as codes for edit screen (API returns list of objects).
+      final siblings = <String>[];
+      if (profile.siblings.isNotEmpty) {
+        for (final s in profile.siblings) {
+          if (s is Map<String, dynamic>) {
+            final code = (s['code'] ?? '').toString().trim();
+            if (code.isNotEmpty) {
+              siblings.add(code);
+            }
+          }
+        }
+      }
+
+      // Extract legal custodians using same display logic as guardian names API.
+      final legalCustodians = <String>[];
+      if (profile.legalCustodians.isNotEmpty) {
+        for (final custodian in profile.legalCustodians) {
+          if (custodian is String) {
+            if (custodian.trim().isNotEmpty) {
+              legalCustodians.add(custodian.trim());
+            }
+          } else if (custodian is Map<String, dynamic>) {
+            final first = (custodian['firstName'] ?? '').toString().trim();
+            final last = (custodian['lastName'] ?? '').toString().trim();
+            final email = (custodian['email'] ?? '').toString().trim();
+            final code = (custodian['code'] ?? '').toString().trim();
+
+            String display;
+            if (first.isEmpty && last.isEmpty) {
+              display = email.isNotEmpty ? email : code;
+            } else {
+              display = '$first $last'.trim();
+            }
+
+            if (display.isNotEmpty) {
+              legalCustodians.add(display);
+            }
+          }
+        }
+      }
+
+      ClassroomCubit? classroomCubit;
+      try {
+        classroomCubit = context.read<ClassroomCubit>();
+      } catch (_) {
+        classroomCubit = null;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) {
+            final screen = EditStudentProfileDetailsScreen(
+              studentCode: profile.code,
+              initialFirstName: profile.firstName,
+              initialLastName: profile.lastName,
+              initialStatus: statusDisplay,
+              initialClassroom: profile.classroom ?? '',
+              initialBirthDate: birthDate,
+              initialNotes: profile.notes ?? '',
+              initialFTE: profile.fte ?? '',
+              initialStreet: street,
+              initialCity: city,
+              initialState: state,
+              initialCountry: country,
+              initialZipCode: zipCode,
+              initialTags: tags,
+              initialSiblings: siblings,
+              initialLegalCustodians: legalCustodians,
+              initialSubsidy: profile.subsidy,
+            );
+
+            // Preserve already-loaded classrooms when available; otherwise load fresh.
+            if (classroomCubit != null) {
+              return BlocProvider.value(value: classroomCubit, child: screen);
+            }
+            return BlocProvider(
+              create: (_) =>
+                  serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+              child: screen,
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
   void _applyFiltersToCubit() {
-    final statusFilter = _currentFilters['Status']?.isNotEmpty == true 
-        ? _currentFilters['Status']!.first 
+    final statusFilter = _currentFilters['Status']?.isNotEmpty == true
+        ? _currentFilters['Status']!.first
         : null;
-    
+
+    // Map selected classroom names to codes for the API
+    final classroomState = context.read<ClassroomCubit>().state;
+    final nameToCode = {
+      for (final c in classroomState.classrooms) c.name: c.code,
+    };
+
+    final selectedClassroomNames =
+        _currentFilters['Classroom'] ?? const <String>[];
+    final classroomCodes = selectedClassroomNames
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    final selectedTagNames =
+        _currentFilters['Tags'] ?? const <String>[];
+    final tagCodes = selectedTagNames
+        .map((name) => _tagNameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    final selectedGuardianNames =
+        _currentFilters['Parents'] ?? const <String>[];
+    final guardianCodes = selectedGuardianNames
+        .map((name) => _guardianNameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
     context.read<StudentCubit>().updateFilters(
       status: statusFilter,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      tagCodes: tagCodes.isEmpty ? null : tagCodes,
+      guardianCodes: guardianCodes.isEmpty ? null : guardianCodes,
     );
     context.read<StudentCubit>().refresh();
   }
 
   // Convert Student entity to map format for compatibility with existing UI
   Map<String, dynamic> _studentToMap(Student student) {
+    // Format birthdate as MM/dd/yyyy if possible; otherwise keep raw.
+    String formattedDob = student.dob;
+    if (student.dob.isNotEmpty) {
+      try {
+        final parsed = DateTime.parse(student.dob);
+        formattedDob = DateFormat('MM/dd/yyyy').format(parsed);
+      } catch (_) {
+        formattedDob = student.dob;
+      }
+    }
+
     return {
       'name': student.fullName,
       'Classroom': student.classroom,
       'Tags': <String>[], // API doesn't provide tags yet
       'schedule': <String>[], // API doesn't provide schedule yet
-      'birthDate': student.dob,
+      'birthDate': formattedDob,
       'movementDate': student.movementDate,
       'Status': student.status,
       'Attendance': 'Expected', // API doesn't provide attendance yet
@@ -103,7 +367,6 @@ class _StudentScreenState extends State<StudentScreen> {
   void _clearAllFilters() {
     setState(() {
       _currentFilters.clear();
-      _currentFilters['Status'] = ['Active']; // active filter is always on by default
     });
     _applyFiltersToCubit();
   }
@@ -281,6 +544,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           print('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
                           if (result is Map && (result['showPostAddPrompt'] == true)) {
                             final studentName = (result['studentName'] as String?) ?? '';
+                            final studentCode = (result['studentCode'] as String?) ?? '';
                             // New student added successfully → refresh list (uses invalidated cache)
                             await studentCubit.refresh();
                             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -299,7 +563,9 @@ class _StudentScreenState extends State<StudentScreen> {
                                   onLater: () => Navigator.of(ctx).pop(),
                                   onYes: () {
                                     Navigator.of(ctx).pop();
-                                    //Navigator.of(context).pushNamed('/edit-profile-details-screen');
+                                    if (studentCode.isNotEmpty) {
+                                      _openEditStudentDetails(studentCode);
+                                    }
                                   },
                                 ),
                               );
@@ -338,8 +604,8 @@ class _StudentScreenState extends State<StudentScreen> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final bool isTablet = constraints.maxWidth >= 600;
-                      final double active = 120.0; // demo
-                      final double upcoming = 8.0; // demo
+                      final double active = _activeCount.toDouble();
+                      final double upcoming = _upcomingCount.toDouble();
                       final int totalCount = (active + upcoming).toInt();
                       final String total = '$totalCount';
                       final items = [
@@ -454,70 +720,108 @@ class _StudentScreenState extends State<StudentScreen> {
                                   final result = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                          sections: [
-                                            FilerSection(
-                                                label: 'Classroom',
-                                                hintText: 'Select classroom',
-                                                items: ['1-Blue D', '3-Orange-D', '2-Red A'],
-                                                initialSelected: _currentFilters['Classroom'] ?? [],
-                                                isMultiSelectDropDown: false
-                                            ),
-                                            FilerSection(
-                                                label: 'Status',
-                                                hintText: 'Select status',
-                                                items: ['Active', 'Inactive', 'Upcoming'],
-                                                initialSelected: _currentFilters['Status'] ?? [],
-                                                isMultiSelectDropDown: false,
-                                            ),
-                                            FilerSection(
-                                                label: 'Tags',
-                                                hintText: 'Select tags',
-                                                items:  [
-                                                  '5 Days',
-                                                  'Full Day',
-                                                  'Photo Permission',
-                                                  'Vegetarian',
-                                                  'First Aid',
-                                                  'Allergy',
-                                                  'Pickup Authorized',
-                                                ],
-                                                isMultiSelectDropDown: false,
-                                                initialSelected: _currentFilters['Tags'] ?? []
-                                            ),
-                                            FilerSection(
-                                                label: 'Parents',
-                                                hintText: 'Select parents',
-                                                items:  ['Father Mehta', 'Mother Mehta', 'Father Khan', 'Mother Khan', 'Father Gupta', 'Mother Gupta'],
-                                                isMultiSelectDropDown: false,
-                                                initialSelected: _currentFilters['Parent'] ?? []
-                                            ),
-                                            FilerSection(
-                                                label: 'Attendance',
-                                                items:  ['Expected', 'Present', 'Absent'],
-                                                isMultiSelectDropDown: false,
-                                                initialSelected: _currentFilters['Attendance'] ?? []
-                                            ),
-                                          ],
-                                          onApply: (filters) {
-                                            setState(() {
-                                              _currentFilters = filters;
-                                            });
-                                            _applyFiltersToCubit();
-                                          }
+                                      builder: (_) => BlocProvider.value(
+                                        value: context.read<ClassroomCubit>(),
+                                        child: StudentFilterScreen(
+                                          initialFilters: _currentFilters,
+                                        ),
                                       ),
                                     ),
                                   );
                                   if (!mounted) return;
                                   if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
+                                    final normalized = <String, List<String>>{};
+                                    result.forEach((key, value) {
+                                      final k = key.toString();
+                                      if (value is List) {
+                                        normalized[k] = value.map((e) => e.toString()).toList();
+                                      } else if (value != null) {
+                                        normalized[k] = [value.toString()];
+                                      }
+                                    });
+
+                                    setState(() {
+                                      _currentFilters = normalized;
+                                    });
+                                    _applyFiltersToCubit();
                                   }
                                 },
                                 borderRadius: BorderRadius.circular(100),
-                                child: Padding(
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Padding(
                                   padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(MediaRes.filterIcon, height: 20),
+                                      child: SvgPicture.asset(
+                                        MediaRes.filterIcon,
+                                        height: 20,
+                                      ),
+                                    ),
+                                    Builder(
+                                      builder: (context) {
+                                        final statusList =
+                                            _currentFilters['Status'] ?? const <String>[];
+                                        final classroomList =
+                                            _currentFilters['Classroom'] ?? const <String>[];
+                                        final tagsList =
+                                            _currentFilters['Tags'] ?? const <String>[];
+                                        final parentsList =
+                                            _currentFilters['Parents'] ?? const <String>[];
+                                        final attendanceList =
+                                            _currentFilters['Attendance'] ?? const <String>[];
+
+                                        final String status =
+                                            statusList.isNotEmpty ? statusList.first : '';
+                                        final statusUpper = status.trim().toUpperCase();
+
+                                        // Treat empty or ACTIVE as default (no badge contribution).
+                                        final bool hasNonDefaultStatus =
+                                            statusUpper.isNotEmpty &&
+                                                statusUpper != 'ACTIVE';
+                                        final bool hasClassroomFilter =
+                                            classroomList.isNotEmpty;
+                                        final bool hasTagsFilter = tagsList.isNotEmpty;
+                                        final bool hasParentsFilter =
+                                            parentsList.isNotEmpty;
+                                        final bool hasAttendanceFilter =
+                                            attendanceList.isNotEmpty;
+
+                                        final int badgeCount =
+                                            (hasNonDefaultStatus ? 1 : 0) +
+                                                (hasClassroomFilter ? 1 : 0) +
+                                                (hasTagsFilter ? 1 : 0) +
+                                                (hasParentsFilter ? 1 : 0) +
+                                                (hasAttendanceFilter ? 1 : 0);
+
+                                        if (badgeCount == 0) {
+                                          return const SizedBox.shrink();
+                                        }
+
+                                        return Positioned(
+                                          right: 2,
+                                          top: 2,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 5,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color.fromRGBO(179, 38, 30, 1),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              badgeCount > 99 ? '99+' : '$badgeCount',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -643,7 +947,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 }
                                 _selectAll = _selectedDemo.every((e) => e);
                               }),
-                              onEdit: () {},
+                              onEdit: () => _openEditStudentDetails(student.code),
                               onPrimaryAction: () async {
                                 try {
                                   final message = isActive

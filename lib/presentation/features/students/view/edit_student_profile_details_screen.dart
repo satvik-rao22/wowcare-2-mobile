@@ -8,7 +8,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/shared/common/widgets/multi_selection_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -18,6 +18,11 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -85,35 +90,27 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
-  DateTime? _selectedUpcomingMoveDate;
+  String? _selectedAddressType;
 
-  final List<String> _allTags = [
-    '5 Days',
-    'Full Day',
-    'Photo Permission',
-    'Vegetarian',
-    'First Aid',
-    'Allergy',
-    'Pickup Authorized',
-  ];
-  final List<String> _allStudents = [
-    'Raghave Gupta',
-    'Rohan Gupta',
-    'Ruhi Gupta',
-    'Anya Mehta',
-    'Kabir Mehta',
-    'Sara Khan',
-  ];
+  // API-backed options and mappings
+  List<String> _availableTagNames = [];
+  Map<String, String> _tagNameToCode = {};
+
+  List<String> _availableStudentNames = [];
+  Map<String, String> _studentNameToCode = {};
+
+  List<String> _availableGuardianNames = [];
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
-  final List<String> _childCustodyOptions = ['Mother', 'Father', 'Both Mother and Father'];
+  final List<String> _addressTypeOptions = ['Current address', 'Permanent address', 'Other'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
   final List<String> _countryOptions =
       COUNTRY_LIST.map((c) => c.name).toList(growable: false);
 
   // Simple validators (align with Add Staff)
-  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
+  // Allow letters, digits, spaces, basic punctuation; first char must be non-space.
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z0-9][A-Za-z0-9\-'\s]{0,49}$");
   static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
 
   @override
@@ -160,6 +157,124 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     }
 
     _zipCodeController.text = widget.initialZipCode ?? '';
+    // Default address type to CURRENT; can be changed via dropdown.
+    _selectedAddressType = _addressTypeOptions.first;
+
+    // Load dynamic dropdown data
+    _loadTags();
+    _loadStudentsForSiblings();
+    _loadGuardiansForCustody();
+  }
+
+  Future<void> _loadTags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final namesUseCase =
+          serviceLocator<GetTagNamesForSchoolUseCase>();
+      final mapUseCase =
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+
+      final names = await namesUseCase(schoolCode: schoolCode);
+      final nameCodeMap = await mapUseCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _availableTagNames = names;
+        _tagNameToCode = nameCodeMap;
+        // Drop any selected tags that no longer exist.
+        _selectedTags.removeWhere((t) => !_availableTagNames.contains(t));
+      });
+    } catch (_) {
+      // Non-critical for this form; keep selections as-is.
+    }
+  }
+
+  Future<void> _loadStudentsForSiblings() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final repo = serviceLocator<StudentRepository>();
+
+      // Try cache first if repository exposes it.
+      dynamic maybeWithCache = repo;
+      dynamic cachedPage;
+      if (maybeWithCache is StudentRepositoryWithCache) {
+        cachedPage = await maybeWithCache.loadCachedStudentPage(
+          schoolCode,
+          status: 'ACTIVE',
+        );
+      }
+
+      // Fallback to API with pageSize = 150.
+      cachedPage ??= await repo.getStudentPage(
+        schoolCode: schoolCode,
+        status: 'ACTIVE',
+        page: 0,
+        size: 150,
+      );
+
+      if (!mounted) return;
+
+      final nameToCode = <String, String>{};
+      final names = <String>[];
+      for (final s in cachedPage.items) {
+        final display = '${s.firstName} ${s.lastName}'.trim();
+        if (display.isEmpty) continue;
+        names.add(display);
+        nameToCode[display] = s.code;
+      }
+
+      setState(() {
+        _availableStudentNames = names;
+        _studentNameToCode = nameToCode;
+
+        // If initial siblings are codes, map them to names for display.
+        if (widget.initialSiblings.isNotEmpty) {
+          final codeToName = {
+            for (final e in nameToCode.entries) e.value: e.key,
+          };
+          _selectedSiblings = widget.initialSiblings
+              .map((code) => codeToName[code] ?? code)
+              .where((n) => n.trim().isNotEmpty)
+              .toList();
+        } else {
+          // Ensure existing selected names still exist.
+          _selectedSiblings
+              .removeWhere((name) => !_availableStudentNames.contains(name));
+        }
+      });
+    } catch (_) {
+      // Non-critical; leave siblings dropdown empty.
+    }
+  }
+
+  Future<void> _loadGuardiansForCustody() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetGuardianNamesForSchoolUseCase>();
+      final names = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _availableGuardianNames = names;
+        _selectedChildCustody
+            .removeWhere((g) => !_availableGuardianNames.contains(g));
+      });
+    } catch (_) {
+      // Non-critical; keep any existing selections.
+    }
   }
 
   @override
@@ -180,18 +295,26 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     final last = _lastNameController.text.trim();
     final fte = _FTEController.text.trim();
 
-    if (first.isEmpty || !_nameRegex.hasMatch(first)) {
+    if (first.isEmpty || !_nameRegex.hasMatch(first) || first.length > 50) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required',
+        message: 'First Name is required and must be max 50 characters',
         isError: true,
       );
       return;
     }
-    if (last.isEmpty || !_nameRegex.hasMatch(last)) {
+    if (last.isEmpty || !_nameRegex.hasMatch(last) || last.length > 50) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required',
+        message: 'Last Name is required and must be max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (_selectedStatus == null || _selectedStatus!.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Status is required',
         isError: true,
       );
       return;
@@ -200,6 +323,35 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Classroom is required',
+        isError: true,
+      );
+      return;
+    }
+    // Birthdate: required and must be in the past
+    if (_selectedBirthDate == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Birthdate is required',
+        isError: true,
+      );
+      return;
+    } else {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      if (_selectedBirthDate!.isAfter(today.subtract(const Duration(days: 1)))) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Birthdate must be a past date',
+          isError: true,
+        );
+        return;
+      }
+    }
+    // Notes: optional, max 500 chars
+    if (_notesController.text.trim().length > 500) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Notes cannot exceed 500 characters',
         isError: true,
       );
       return;
@@ -213,7 +365,11 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       return;
     }
 
-    if (_streetController.text.isEmpty) {
+    final street = _streetController.text.trim();
+    final city = _cityController.text.trim();
+    final zip = _zipCodeController.text.trim();
+
+    if (street.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Street is required',
@@ -221,7 +377,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (_cityController.text.isEmpty) {
+    if (street.length > 150) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street address cannot exceed 150 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (city.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'City is required',
@@ -229,10 +393,50 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (_zipCodeController.text.trim().isEmpty) {
+    if (city.length > 50) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City name cannot exceed 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (zip.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code is required',
+        isError: true,
+      );
+      return;
+    }
+    if (!RegExp(r'^\d{3,10}$').hasMatch(zip)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code must contain only numbers (3–10 digits)',
+        isError: true,
+      );
+      return;
+    }
+    if ((_selectedState ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'State is required',
+        isError: true,
+      );
+      return;
+    }
+    if ((_selectedCountry ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Country is required',
+        isError: true,
+      );
+      return;
+    }
+    if (_selectedAddressType == null || _selectedAddressType!.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Address type is required',
         isError: true,
       );
       return;
@@ -298,11 +502,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         dobFormatted = dateFormatter.format(_selectedBirthDate!);
       }
 
-      String? upcomingMovesFormatted;
-      if (_selectedUpcomingMoveDate != null) {
-        upcomingMovesFormatted = dateFormatter.format(_selectedUpcomingMoveDate!);
-      }
-
       // Map subsidy
       final subsidy = _selectedStateSubsidyOption == 'Yes';
 
@@ -312,40 +511,88 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         fteNumber = int.tryParse(fte);
       }
 
-      // Build payload according to API contract
-      final payload = <String, dynamic>{
+      final repository = serviceLocator<StudentRepository>();
+
+      // 1) Core profile PATCH /api/v1/student/{code}/profile
+      final profilePayload = <String, dynamic>{
         'firstName': first,
         'lastName': last,
         'status': statusApi,
-        'classroom': classroomCode,
-        'tags': _selectedTags,
         if (dobFormatted != null) 'dob': dobFormatted,
         'notes': _notesController.text.trim(),
-        'subsidy': subsidy,
-        'legalCustodians': _selectedChildCustody,
-        'siblings': _selectedSiblings,
         if (fteNumber != null) 'fte': fteNumber,
-        if (upcomingMovesFormatted != null) 'upcomingMoves': upcomingMovesFormatted,
-        // Address fields
-        'line1': _streetController.text.trim(),
-        'line2': _street2Controller.text.trim(),
-        'street': _streetController.text.trim(), // Some APIs use 'street' instead
-        'city': _cityController.text.trim(),
-        'state': stateCode,
-        'country': countryCode,
-        'postalCode': _zipCodeController.text.trim(),
-        // Optional address fields (set to empty if not used)
-        'room': '',
-        'building': '',
-        'apartment': '',
+        'subsidy': subsidy,
+        // gender and profilePhotoUrl omitted for now (not in this form)
+        'classroom': <String, dynamic>{
+          'code': classroomCode,
+          'name': selectedClassroomName,
+        },
       };
-
-      final repository = serviceLocator<StudentRepository>();
 
       final message = await repository.updateStudentProfile(
         code: widget.studentCode,
-        fields: payload,
+        fields: profilePayload,
       );
+
+      // 2) Address PATCH /api/v1/student/{studentCode}/address
+      String _mapAddressTypeToApiValue(String uiLabel) {
+        switch (uiLabel.toLowerCase()) {
+          case 'current address':
+            return 'CURRENT';
+          case 'permanent address':
+            // Keep backend's enum spelling.
+            return 'PERMENENT';
+          case 'other':
+          default:
+            return 'OTHER';
+        }
+      }
+
+      final addressPayload = <String, dynamic>{
+        'line1': street,
+        'line2': _street2Controller.text.trim(),
+        'street': street,
+        'city': city,
+        'state': stateCode,
+        'country': countryCode,
+        'postalCode': zip,
+        'addressType': _mapAddressTypeToApiValue(_selectedAddressType!),
+      };
+
+      await repository.updateStudentAddress(
+        studentCode: widget.studentCode,
+        fields: addressPayload,
+      );
+
+      // 3) Tags POST /api/v1/student-tags
+      final selectedTagCodes = _selectedTags
+          .map((n) => _tagNameToCode[n])
+          .whereType<String>()
+          .toList();
+      if (selectedTagCodes.isNotEmpty) {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+        if (schoolCode.isNotEmpty) {
+          await repository.updateStudentTags(
+            studentCode: widget.studentCode,
+            schoolCode: schoolCode,
+            tagCodes: selectedTagCodes,
+          );
+        }
+      }
+
+      // 4) Siblings PUT /api/v1/student/{studentCode}/siblings
+      final siblingCodes = _selectedSiblings
+          .map((name) => _studentNameToCode[name] ?? name)
+          .where((code) => code.trim().isNotEmpty)
+          .toList();
+      if (siblingCodes.isNotEmpty) {
+        await repository.updateStudentSiblings(
+          studentCode: widget.studentCode,
+          siblingCodes: siblingCodes,
+        );
+      }
 
       if (!mounted) return;
       setState(() {
@@ -548,15 +795,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           isRequired: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        MultiSelectWidget(
-                          availableOptions: _allTags,
-                          selectedOptions: _selectedTags,
-                          onSelectionChanged: (tags) {
+                        CustomMultiSelectDropdown(
+                          label: 'Tags',
+                          hintText: 'Select',
+                          items: _availableTagNames,
+                          selectedItems: _selectedTags,
+                          onChanged: (tags) {
                             setState(() => _selectedTags = tags);
                           },
-                          isRequired: false,
-                          showClearAllOption: true,
-                          clearSelectionText: "Select Tags",
+                          isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildDateField("Birthdate", _selectedBirthDate),
@@ -567,33 +814,38 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           _notesController,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        MultiSelectWidget(
-                          availableOptions: _allStudents,
-                          selectedOptions: _selectedSiblings,
-                          onSelectionChanged: (siblings) {
+                        CustomMultiSelectDropdown(
+                          label: 'Siblings',
+                          hintText: 'Select student',
+                          items: _availableStudentNames,
+                          selectedItems: _selectedSiblings,
+                          onChanged: (siblings) {
                             setState(() => _selectedSiblings = siblings);
                           },
-                          isRequired: false,
-                          colorfulSelection: false,
-                          label: "Siblings",
-                          hintText: 'Select student',
-                          showClearAllOption: true,
-                          clearSelectionText: "Select Sibling/s",
+                          isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        MultiSelectWidget(
-                          availableOptions: _childCustodyOptions,
-                          selectedOptions: _selectedChildCustody,
-                          onSelectionChanged: (custodyOptions) {
+                        CustomMultiSelectDropdown(
+                          label: 'Child Custody',
+                          hintText: 'Select guardian',
+                          items: _availableGuardianNames,
+                          selectedItems: _selectedChildCustody,
+                          onChanged: (custodyOptions) {
                             setState(() => _selectedChildCustody = custodyOptions);
                           },
-                          isRequired: true,
-                          colorfulSelection: false,
-                          label: "Child Custody",
-                          hintText: 'Select guardian',
+                          isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State Subsidy", "Select", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildCustomDropdown(
+                          "Address Type",
+                          "Select",
+                          _addressTypeOptions,
+                          _selectedAddressType,
+                          (v) => setState(() => _selectedAddressType = v),
+                          isRequired: true,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Street",

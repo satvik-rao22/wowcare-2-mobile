@@ -11,6 +11,9 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/data/features/student/models/student_models.dart';
 
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
@@ -46,11 +49,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
+  late Future<StudentHealthModel?> _healthFuture;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _healthFuture = _buildHealthFuture();
 
     // Cache-first classroom load (won't refetch if already loaded).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -61,6 +66,20 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         // If no ClassroomCubit is provided above, build() will wrap with one.
       }
     });
+  }
+
+  Future<StudentHealthModel?> _buildHealthFuture() async {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) {
+      return null;
+    }
+    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    try {
+      return await repo.getStudentHealth(studentCode: code);
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      return null;
+    }
   }
 
   @override
@@ -266,19 +285,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        widget.classroom,
-                        style: TextStyle(
-                          color: AppColors.primaryColor.withOpacity(0.7),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue[50],
                           borderRadius: BorderRadius.circular(4),
@@ -290,6 +301,56 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<StudentHealthModel?>(
+                        future: _healthFuture,
+                        builder: (context, snapshot) {
+                          final health = snapshot.data;
+                          final hasAllergy =
+                              (health?.allergy ?? '').trim().isNotEmpty;
+                          final hasMedication =
+                              (health?.medications ?? '').trim().isNotEmpty;
+                          final hasDietRestrictions =
+                              (health?.dietRestrictions ?? '').trim().isNotEmpty;
+
+                          final hasAnyHealthIcon =
+                              hasAllergy || hasMedication || hasDietRestrictions;
+
+                          if (!hasAnyHealthIcon) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              if (hasDietRestrictions)
+                                Image.asset(
+                                  MediaRes.foodIcon2,
+                                  height: 20,
+                                  width: 20,
+                                ),
+                              if (hasMedication)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: SvgPicture.asset(
+                                    MediaRes.healthIcon,
+                                    height: 20,
+                                    width: 20,
+                                  ),
+                                ),
+                              if (hasAllergy)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: SvgPicture.asset(
+                                    MediaRes.alertIcon,
+                                    height: 20,
+                                    width: 20,
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),

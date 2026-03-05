@@ -189,6 +189,114 @@ class StudentImportantDatesModel extends Equatable {
       ];
 }
 
+class StudentHealthModel extends Equatable {
+  const StudentHealthModel({
+    this.allergy,
+    this.medications,
+    this.dietRestrictions,
+  });
+
+  final String? allergy;
+  final String? medications;
+  final String? dietRestrictions;
+
+  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const StudentHealthModel();
+    }
+    return StudentHealthModel(
+      allergy: json['allergy'] as String?,
+      medications: json['medications'] as String?,
+      dietRestrictions: json['dietRestrictions'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (allergy != null) 'allergy': allergy,
+      if (medications != null) 'medications': medications,
+      if (dietRestrictions != null) 'dietRestrictions': dietRestrictions,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        allergy,
+        medications,
+        dietRestrictions,
+      ];
+}
+
+class StudentImmunizationModel extends Equatable {
+  const StudentImmunizationModel({
+    required this.code,
+    required this.studentCode,
+    required this.vaccineName,
+    required this.vaccineDoseCode,
+    required this.doseNumber,
+    this.dueDate,
+    this.administeredDate,
+    required this.status,
+    this.exemptionReason,
+    this.notes,
+  });
+
+  final String code;
+  final String studentCode;
+  final String vaccineName;
+  final String vaccineDoseCode;
+  final int doseNumber;
+  final String? dueDate;
+  final String? administeredDate;
+  final String status;
+  final String? exemptionReason;
+  final String? notes;
+
+  factory StudentImmunizationModel.fromJson(Map<String, dynamic> json) {
+    return StudentImmunizationModel(
+      code: json['code'] as String? ?? '',
+      studentCode: json['studentCode'] as String? ?? '',
+      vaccineName: json['vaccineName'] as String? ?? '',
+      vaccineDoseCode: json['vaccineDoseCode'] as String? ?? '',
+      doseNumber: json['doseNumber'] as int? ?? 0,
+      dueDate: json['dueDate'] as String?,
+      administeredDate: json['administeredDate'] as String?,
+      status: json['status'] as String? ?? '',
+      exemptionReason: json['exemptionReason'] as String?,
+      notes: json['notes'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      'studentCode': studentCode,
+      'vaccineName': vaccineName,
+      'vaccineDoseCode': vaccineDoseCode,
+      'doseNumber': doseNumber,
+      if (dueDate != null) 'dueDate': dueDate,
+      if (administeredDate != null) 'administeredDate': administeredDate,
+      'status': status,
+      if (exemptionReason != null) 'exemptionReason': exemptionReason,
+      if (notes != null) 'notes': notes,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        code,
+        studentCode,
+        vaccineName,
+        vaccineDoseCode,
+        doseNumber,
+        dueDate,
+        administeredDate,
+        status,
+        exemptionReason,
+        notes,
+      ];
+}
+
 class StudentGuardianModel extends Equatable {
   const StudentGuardianModel({
     required this.guardianCode,
@@ -268,10 +376,12 @@ class StudentProfileModel extends Equatable {
     this.notes,
     this.profilePhotoUrl,
     this.fte,
+    this.gender,
     this.legalCustodians = const [],
     this.subsidy = false,
     this.address,
-    this.siblings,
+    this.tags = const [],
+    this.siblings = const [],
     this.importantDates,
     this.regularSchedules = const [],
   });
@@ -286,10 +396,14 @@ class StudentProfileModel extends Equatable {
   final String? notes;
   final String? profilePhotoUrl;
   final String? fte;
+  final String? gender;
   final List<dynamic> legalCustodians;
   final bool subsidy;
   final Map<String, dynamic>? address;
-  final Map<String, dynamic>? siblings;
+  /// Raw tags array from profile API. Each item is typically a map with
+  /// { code, name, defaultTag }.
+  final List<dynamic> tags;
+  final List<dynamic> siblings;
   final StudentImportantDatesModel? importantDates;
   final List<dynamic> regularSchedules;
 
@@ -323,10 +437,12 @@ class StudentProfileModel extends Equatable {
       notes: data['notes'] as String?,
       profilePhotoUrl: data['profilePhotoUrl'] as String?,
       fte: data['fte'] as String?,
+      gender: data['gender'] as String?,
       legalCustodians: data['legalCustodians'] as List<dynamic>? ?? const [],
       subsidy: data['subsidy'] as bool? ?? false,
       address: data['address'] as Map<String, dynamic>?,
-      siblings: data['siblings'] as Map<String, dynamic>?,
+      tags: data['tags'] as List<dynamic>? ?? const [],
+      siblings: data['siblings'] as List<dynamic>? ?? const [],
       importantDates: StudentImportantDatesModel.fromJson(importantDatesJson),
       regularSchedules: data['regularSchedules'] as List<dynamic>? ?? const [],
     );
@@ -344,10 +460,12 @@ class StudentProfileModel extends Equatable {
       if (notes != null) 'notes': notes,
       if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
       if (fte != null) 'fte': fte,
+      if (gender != null) 'gender': gender,
       'legalCustodians': legalCustodians,
       'subsidy': subsidy,
       if (address != null) 'address': address,
-      if (siblings != null) 'siblings': siblings,
+      'tags': tags,
+      'siblings': siblings,
       if (importantDates != null) 'importantDates': importantDates!.toJson(),
       'regularSchedules': regularSchedules,
     };
@@ -365,9 +483,11 @@ class StudentProfileModel extends Equatable {
         notes,
         profilePhotoUrl,
         fte,
+        gender,
         legalCustodians,
         subsidy,
         address,
+        tags,
         siblings,
         importantDates,
         regularSchedules,

@@ -14,6 +14,9 @@ abstract class StudentRemoteDataSource {
     String? firstName,
     String? lastName,
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     int page = 0,
     int size = 10,
@@ -150,6 +153,28 @@ abstract class StudentRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// Updates the student's address via `PATCH /api/v1/student/{studentCode}/address`.
+  Future<String> updateStudentAddress({
+    required String studentCode,
+    required Map<String, dynamic> body,
+  });
+
+  /// Updates the student's siblings via `PUT /api/v1/student/{studentCode}/siblings`.
+  Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
+  /// Updates the student's tags via `POST /api/v1/student-tags`.
+  ///
+  /// Query params: studentCode, schoolCode
+  /// Body: [ { "tagCode": "TAG_..." }, ... ]
+  Future<String> updateStudentTags({
+    required String studentCode,
+    required String schoolCode,
+    required List<String> tagCodes,
+  });
+
   /// Creates / links a guardian user to a student via `/api/v1/guardian-user`.
   ///
   /// Returns the backend `message` field.
@@ -173,9 +198,52 @@ abstract class StudentRemoteDataSource {
     required String studentCode,
   });
 
+  /// Fetches all guardians/parents for a school via `GET /api/v1/guardian`.
+  ///
+  /// Returns the raw `data` list from the backend response, each item being a
+  /// map with keys like `code`, `firstName`, `lastName`, `email`.
+  Future<List<Map<String, dynamic>>> getGuardiansBySchool({
+    required String schoolCode,
+  });
+
+  /// Fetches tags for a school via `GET /api/v1/tags`.
+  ///
+  /// Returns the `content` list from the paginated `data` payload, each item
+  /// being a map with keys like `code`, `name`, `status`, etc.
+  Future<List<Map<String, dynamic>>> getTagsBySchool({
+    required String schoolCode,
+  });
+
+  /// Fetches tags for a specific student via `GET /api/v1/student-tags/{studentCode}`.
+  ///
+  /// Returns the raw `data` list from the backend response, each item being
+  /// a map with keys like `code`, `name`, `defaultTag`.
+  Future<List<Map<String, dynamic>>> getStudentTags({
+    required String studentCode,
+  });
+
   /// Fetches student important dates via
   /// `GET /api/v1/student/{code}/important-dates`.
   Future<StudentImportantDatesModel> getStudentImportantDates({
+    required String code,
+  });
+
+  /// Fetches student health record via
+  /// `GET /api/v1/student/{code}/health`.
+  Future<StudentHealthModel> getStudentHealth({
+    required String code,
+  });
+
+  /// Creates or updates student health record via
+  /// `PUT /api/v1/student/{code}/health`.
+  Future<StudentHealthModel> updateStudentHealth({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Fetches all immunization records for a student via
+  /// `GET /api/v1/student/{code}/immunization`.
+  Future<List<StudentImmunizationModel>> getStudentImmunizations({
     required String code,
   });
 
@@ -184,6 +252,12 @@ abstract class StudentRemoteDataSource {
   Future<String> updateStudentImportantDates({
     required String code,
     required StudentImportantDatesModel dates,
+  });
+
+  /// Fetches student counts (active, upcoming, enrolled) for a school via
+  /// `GET /api/v1/student/count`.
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
   });
 }
 
@@ -199,6 +273,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? firstName,
     String? lastName,
     String? status,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
     String? search,
     int page = 0,
     int size = 10,
@@ -226,6 +303,15 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
+    }
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+    if (guardianCodes != null && guardianCodes.isNotEmpty) {
+      queryParameters['guardianCodes'] = guardianCodes;
     }
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
@@ -724,6 +810,115 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<String> updateStudentAddress({
+    required String studentCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAddress(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student address update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student address updated successfully';
+  }
+
+  @override
+  Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentSiblings(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.put<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'siblingCodes': siblingCodes,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student siblings update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student siblings updated successfully';
+  }
+
+  @override
+  Future<String> updateStudentTags({
+    required String studentCode,
+    required String schoolCode,
+    required List<String> tagCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentTags,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = tagCodes
+        .map((code) => <String, dynamic>{'tagCode': code})
+        .toList(growable: false);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'studentCode': studentCode,
+        'schoolCode': schoolCode,
+      },
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student tags update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student tags updated successfully';
+  }
+
+  /// Fetches tags for a specific student via `GET /api/v1/student-tags/{studentCode}`.
+  ///
+  /// Returns the raw `data` list from the backend response, each item being
+  /// a map with keys like `code`, `name`, `defaultTag`.
+  Future<List<Map<String, dynamic>>> getStudentTags({
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentTags}/$studentCode',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student tags API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+  }
+
+  @override
   Future<String> createGuardianUser({
     required String schoolCode,
     required String studentCode,
@@ -783,11 +978,94 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final response = await _client.get<dynamic>(endpoint);
 
-    if (response.data is! List) {
+    // Backend returns: { "success": true, "message": "...", "data": [ {...}, ... ] }
+    final raw = response.data;
+
+    List<dynamic>? list;
+    if (raw is List) {
+      list = raw;
+    } else if (raw is Map<String, dynamic>) {
+      final data = raw['data'];
+      if (data is List) {
+        list = data;
+      }
+    }
+
+    if (list == null) {
       return const <Map<String, dynamic>>[];
     }
 
-    return (response.data as List)
+    return list
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getGuardiansBySchool({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardian,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian list API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTagsBySchool({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.tags,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        // Load first page with a reasonable size; tags list is usually small.
+        'pageable.page': 0,
+        'pageable.size': 100,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected tags API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    final content = data['content'];
+    if (content is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return content
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
   }
@@ -809,10 +1087,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final root = response.data! as Map<String, dynamic>;
     final data = root['data'] as Map<String, dynamic>?;
-    if (data == null) {
-      throw Exception('Missing data field in student important dates response');
-    }
 
+    // Backend returns `"data": null` when no important dates are set.
+    // Treat this as an empty important-dates model instead of throwing.
     return StudentImportantDatesModel.fromJson(data);
   }
 
@@ -837,6 +1114,110 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final root = response.data! as Map<String, dynamic>;
     return root['message']?.toString() ?? 'Important dates updated successfully';
+  }
+
+  @override
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.studentList}/count',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student count API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final active = root['activeCount'] as int? ?? 0;
+    final upcoming = root['upcomingCount'] as int? ?? 0;
+    final enrolled = root['enrolledCount'] as int? ?? 0;
+
+    return <String, int>{
+      'activeCount': active,
+      'upcomingCount': upcoming,
+      'enrolledCount': enrolled,
+    };
+  }
+
+  @override
+  Future<StudentHealthModel> getStudentHealth({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentHealth(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student health API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>?;
+
+    return StudentHealthModel.fromJson(data);
+  }
+
+  @override
+  Future<StudentHealthModel> updateStudentHealth({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentHealth(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.put<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student health update API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>?;
+    return StudentHealthModel.fromJson(data);
+  }
+
+  @override
+  Future<List<StudentImmunizationModel>> getStudentImmunizations({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImmunization(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student immunization API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <StudentImmunizationModel>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StudentImmunizationModel.fromJson)
+        .toList(growable: false);
   }
 }
 

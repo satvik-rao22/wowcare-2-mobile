@@ -83,6 +83,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String? _selectedPrimaryClassroom;
   DateTime? _selectedBirthDate;
   String? _selectedJobTag;
+  String? _selectedGender;
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
@@ -101,6 +102,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   // Backed by classroom names; populated from widget.initialClassroomNames/CodeByName.
   final List<String> _classroomOptions = [];
   final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
+  final List<String> _genderOptions = ['Male', 'Female'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
   final List<String> _countryOptions =
@@ -192,6 +194,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _selectedJobTag = profile.jobTag.isEmpty
             ? null
             : _mapJobTagFromApiOrLabel(profile.jobTag);
+        // Gender is currently not included in StaffProfileModel; keep null for now.
 
         _streetController.text = a.street;
         _street2Controller.text = a.line2;
@@ -397,6 +400,15 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final designationApi = _mapDesignationToApiValue(_selectedDesignation);
       final jobTagApi =
           _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
+      String? genderApi;
+      if (_selectedGender != null && _selectedGender!.isNotEmpty) {
+        final g = _selectedGender!.toLowerCase();
+        if (g == 'male') {
+          genderApi = 'MALE';
+        } else if (g == 'female') {
+          genderApi = 'FEMALE';
+        }
+      }
 
       final primaryClassroomCode = _selectedPrimaryClassroom == null
           ? null
@@ -412,6 +424,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'status': statusApi,
         'phoneNumber': phoneDigits,
         'designation': designationApi,
+        if (genderApi != null) 'gender': genderApi,
         if (jobTagApi != null) 'jobTag': jobTagApi,
         if (_selectedBirthDate != null)
           'birthdate': _selectedBirthDate!.toIso8601String(),
@@ -692,6 +705,15 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                               ),
                             ),
                           ],
+                        ),
+          SizedBox(height: responsive.verticalSpacing),
+                        _buildCustomDropdown(
+                          "Gender",
+                          "Select",
+                          _genderOptions,
+                          _selectedGender,
+                          (v) => setState(() => _selectedGender = v),
+                          isRequired: false,
                         ),
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),

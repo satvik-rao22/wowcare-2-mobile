@@ -205,7 +205,11 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
     // If there's effectively no scrollable content, always show bars.
     if (notification.metrics.maxScrollExtent <= 32) {
       if (!_showBars) {
-        setState(() => _showBars = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_showBars) {
+            setState(() => _showBars = true);
+          }
+        });
       }
       return false;
     }
@@ -215,11 +219,19 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       final delta = notification.scrollDelta!;
       // Small threshold to avoid jitter.
       if (delta > 2 && _showBars) {
-        // scrolling down → hide
-        setState(() => _showBars = false);
+        // scrolling down → hide (schedule after current frame)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _showBars) {
+            setState(() => _showBars = false);
+          }
+        });
       } else if (delta < -2 && !_showBars) {
-        // scrolling up → show
-        setState(() => _showBars = true);
+        // scrolling up → show (schedule after current frame)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_showBars) {
+            setState(() => _showBars = true);
+          }
+        });
       }
     }
     return false;

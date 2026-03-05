@@ -3,7 +3,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_physician_models.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
@@ -51,8 +50,10 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     if (code == null || code.isEmpty) {
       return Future.value(const <StudentPhysicianModel>[]);
     }
-    final dataSource = serviceLocator<StudentRemoteDataSource>();
-    return dataSource.getPhysicians(studentCode: code);
+    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    // Repository handles cache via CacheManager; first call may use cache,
+    // subsequent ones will hit API when cache is invalidated after mutations.
+    return repo.getStudentPhysicians(studentCode: code);
   }
 
   Future<void> _handleRefresh() async {

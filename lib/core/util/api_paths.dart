@@ -42,10 +42,16 @@ class ApiPaths {
   static const String studentDocuments = '/api/v1/student-documents';
   static String studentProfile(String code) => '/api/v1/student/$code';
   static String studentProfileUpdate(String code) => '/api/v1/student/$code/profile';
+  static String studentAddress(String code) => '/api/v1/student/$code/address';
+  static String studentSiblings(String code) => '/api/v1/student/$code/siblings';
+  static const String studentTags = '/api/v1/student-tags';
   static String studentDeactivate(String code) => '/api/v1/student/$code/deactivate';
   static String studentReactivate(String code) => '/api/v1/student/$code/reactivate';
   static String studentImportantDates(String code) =>
       '/api/v1/student/$code/important-dates';
+  static String studentHealth(String code) => '/api/v1/student/$code/health';
+  static String studentImmunization(String code) =>
+      '/api/v1/student/$code/immunization';
 
   // Physicians
   static const String physicians = '/api/v1/physicians';
@@ -53,6 +59,9 @@ class ApiPaths {
   // Guardian / Parent users
   static const String guardianUser = '/api/v1/guardian-user';
   static const String guardian = '/api/v1/guardian';
+
+  // Tags
+  static const String tags = '/api/v1/tags';
 
   // Attendance
   static const String studentAttendanceDailyView = '/api/v1/student-attendance/view/daily';

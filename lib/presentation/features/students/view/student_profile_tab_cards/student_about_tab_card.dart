@@ -25,6 +25,7 @@ class StudentAboutTabCard extends StatefulWidget {
     required this.sibling,
     this.onRefresh,
     this.studentProfile,
+    this.studentCode,
     super.key,
   });
 
@@ -36,6 +37,7 @@ class StudentAboutTabCard extends StatefulWidget {
   final Map<String, dynamic> sibling;
   final Future<void> Function()? onRefresh;
   final StudentProfileModel? studentProfile;
+  final String? studentCode;
 
   @override
   State<StudentAboutTabCard> createState() => _StudentAboutTabCardState();
@@ -83,17 +85,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 
   bool _hasTags() {
-    // Check if we have tags from API or widget
-    final apiTags = widget.studentProfile?.regularSchedules;
-    final widgetTags = widget.tags;
-    
-    // For now, API doesn't have tags field, so check widget tags
-    // If API has tags in future, check that first
-    return widgetTags.isNotEmpty;
+    return widget.tags.isNotEmpty;
   }
 
   List<String> _getTagsList() {
-    // Return tags from widget (API doesn't have tags field yet)
     return widget.tags;
   }
 
@@ -144,8 +139,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         cardType: 'student',
         title: 'Profile Information',
         scrollController: widget.scrollController,
-        studentFirstField:
-            ProfileField(label: 'Name', value: widget.name, isStudentStyle: true),
+        studentFirstField: _StudentNameField(name: widget.name),
         onEdit: () {
         if (widget.studentProfile == null) return;
         
@@ -184,29 +178,48 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         final country = address?['country']?.toString() ?? '';
         final zipCode = address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
         
-        // Extract tags (from widget tags for now)
+        // Extract tags (API-backed, passed from parent as display names)
         final tags = widget.tags.isNotEmpty
             ? List<String>.from(widget.tags)
             : const <String>[];
         
-        // Extract siblings (from siblings map if available)
+        // Extract siblings as codes for edit screen (API returns list of objects).
         final siblings = <String>[];
-        if (profile.siblings != null) {
-          // Assuming siblings is a map, extract names or codes
-          // Adjust based on actual structure
-          siblings.addAll([]); // TODO: Extract from siblings map structure
+        if (profile.siblings.isNotEmpty) {
+          for (final s in profile.siblings) {
+            if (s is Map<String, dynamic>) {
+              final code = (s['code'] ?? '').toString().trim();
+              if (code.isNotEmpty) {
+                siblings.add(code);
+              }
+            }
+          }
         }
         
-        // Extract legal custodians
+        // Extract legal custodians using same display logic as guardian names API.
         final legalCustodians = <String>[];
         if (profile.legalCustodians.isNotEmpty) {
           for (final custodian in profile.legalCustodians) {
             if (custodian is String) {
-              legalCustodians.add(custodian);
-            } else if (custodian is Map) {
-              // Extract name or code from map
-              final name = custodian['name']?.toString() ?? custodian['code']?.toString() ?? '';
-              if (name.isNotEmpty) legalCustodians.add(name);
+              if (custodian.trim().isNotEmpty) {
+                legalCustodians.add(custodian.trim());
+              }
+            } else if (custodian is Map<String, dynamic>) {
+              final first = (custodian['firstName'] ?? '').toString().trim();
+              final last = (custodian['lastName'] ?? '').toString().trim();
+              final email = (custodian['email'] ?? '').toString().trim();
+              final code = (custodian['code'] ?? '').toString().trim();
+
+              String display;
+              if (first.isEmpty && last.isEmpty) {
+                display = email.isNotEmpty ? email : code;
+              } else {
+                display = '$first $last'.trim();
+              }
+
+              if (display.isNotEmpty) {
+                legalCustodians.add(display);
+              }
             }
           }
         }
@@ -294,7 +307,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'Gender',
-          value: '-',
+        value: _getValueOrDash(widget.studentProfile?.gender),
           isStudentStyle: true,
         ),
 
@@ -312,7 +325,27 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'Child Custody',
-          value: "Child custody not selected",
+        value: (() {
+          final custodians = widget.studentProfile?.legalCustodians ?? [];
+          final names = <String>[];
+          for (final c in custodians) {
+            if (c is String) {
+              if (c.trim().isNotEmpty) names.add(c.trim());
+            } else if (c is Map<String, dynamic>) {
+              final first = (c['firstName'] ?? '').toString().trim();
+              final last = (c['lastName'] ?? '').toString().trim();
+              final name = ('$first $last').trim();
+              if (name.isNotEmpty) {
+                names.add(name);
+              } else {
+                final email = (c['email'] ?? '').toString().trim();
+                if (email.isNotEmpty) names.add(email);
+              }
+            }
+          }
+          if (names.isEmpty) return 'Child custody not selected';
+          return names.join(', ');
+        })(),
           isStudentStyle: true,
         ),
 
@@ -324,68 +357,69 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           isStudentStyle: true,
         ),
 
-        if ((widget.sibling['name'] as List?)?.isNotEmpty == true)
-          ProfileField(
-            label: (widget.sibling['name'] as List).length == 1 ? 'Sibling' : 'Siblings',
-            valueWidget: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: (widget.sibling['name'] as List).asMap().entries.map((entry) {
-                final index = entry.key;
-                final name = widget.sibling['name'][index] as String;
-                final relation = widget.sibling['relation'][index] as String;
-                final status = widget.sibling['status'][index] as String;
+        Builder(
+          builder: (context) {
+            final names = (widget.sibling['name'] as List?)?.cast<String>() ?? const <String>[];
+            final relations = (widget.sibling['relation'] as List?)?.cast<String>() ?? const <String>[];
+            final statuses = (widget.sibling['status'] as List?)?.cast<String>() ?? const <String>[];
 
-                final color = status == 'upcoming'
-                    ? const Color.fromARGB(255, 253, 205, 22)
-                    : status == 'signedIn'
-                    ? const Color.fromRGBO(0, 177, 21, 1)
-                    : status == 'isAbsent'
-                    ? const Color.fromRGBO(200, 32, 32, 1)
-                    : Colors.white;
+            if (names.isEmpty) {
+              return ProfileField(
+                label: 'Sibling',
+                value: 'No siblings',
+                isStudentStyle: true,
+              );
+            }
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Stack(
-                        children: [
-                          DocumentImageWidget(
-                            fileUuid: '',
-                            name: name,
-                            size: 45,
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '$name ($relation)',
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.03 * 16,
+            final label = names.length == 1 ? 'Sibling' : 'Siblings';
+            return ProfileField(
+              label: label,
+              valueWidget: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: List.generate(names.length, (index) {
+                  final name = names[index];
+                  final relation = index < relations.length ? relations[index] : 'Sibling';
+                  final rawStatus = index < statuses.length ? statuses[index] : '';
+                  final statusLower = rawStatus.toString().toLowerCase();
+
+                  Color? statusColor;
+                  if (statusLower == 'upcoming') {
+                    statusColor = const Color.fromARGB(255, 253, 205, 22);
+                  } else if (statusLower == 'active' || statusLower == 'signedin') {
+                    statusColor = const Color.fromRGBO(0, 177, 21, 1);
+                  } else if (statusLower == 'inactive' || statusLower == 'isabsent') {
+                    statusColor = const Color.fromRGBO(200, 32, 32, 1);
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        DocumentImageWidget(
+                          fileUuid: '',
+                          name: name,
+                          size: 45,
+                          statusColor: statusColor,
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-            isStudentStyle: true,
-          ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '$name ($relation)',
+                          style: AppTextStyles.value.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.03 * 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+              isStudentStyle: true,
+            );
+          },
+        ),
 
         ProfileField(
           label: 'Address',
@@ -732,42 +766,43 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({required this.label, this.value, this.trailing});
-  final String label;
-  final String? value;
-  final Widget? trailing;
+class _StudentNameField extends StatelessWidget {
+  const _StudentNameField({required this.name});
+
+  final String name;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTextStyles.value.copyWith(
-            fontSize: 14,
-            letterSpacing: -0.03 * 14,
+        const Text(
+          'Name',
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 15,
+            letterSpacing: -0.03 * 15,
             fontWeight: FontWeight.w400,
-            color: AppColors.primaryColor.withOpacity(0.6),
+            color: Color(0xFF6C6377),
           ),
         ),
         const SizedBox(height: 6),
-        if (trailing == null)
-          Text(
-            value ?? '- -',
-            style: AppTextStyles.value.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.03 * 15,
-            ),
-          )
-        else
-          trailing!,
+        Text(
+          name,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 16,
+            color: Color(0xff573353),
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.03 * 16,
+          ),
+        ),
       ],
     );
   }
 }
+
+// Legacy `_Field` widget is no longer used; kept removed to avoid dead code.
 
 class _tags extends StatelessWidget {
   const _tags({required this.tags});

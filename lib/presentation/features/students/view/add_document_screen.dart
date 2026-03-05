@@ -193,31 +193,11 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   }
 
   void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isWarning: true,
     );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   Future<void> _selectExpiryDate() async {
@@ -244,7 +224,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         });
       }
     } catch (e) {
-      print('Error opening calendar dialog: $e');
+      CoreUtils.logApiError('Error opening calendar dialog: $e');
     }
   }
 
@@ -264,7 +244,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         });
       }
     } catch (e) {
-      print('Error picking file: $e');
+      CoreUtils.logApiError('Error picking file: $e');
       _showWarningMessage('Error selecting file. Please try again.');
     }
   }

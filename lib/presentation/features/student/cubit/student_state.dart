@@ -14,6 +14,9 @@ class StudentState extends Equatable {
     this.codeFilter,
     this.firstNameFilter,
     this.lastNameFilter,
+    this.classroomCodesFilter,
+    this.tagCodesFilter,
+    this.guardianCodesFilter,
     this.errorMessage,
   });
 
@@ -26,10 +29,13 @@ class StudentState extends Equatable {
         isLoadingMore = false,
         isFromCache = false,
         searchQuery = '',
-        statusFilter = null,
+        statusFilter = 'ACTIVE',
         codeFilter = null,
         firstNameFilter = null,
         lastNameFilter = null,
+        classroomCodesFilter = null,
+        tagCodesFilter = null,
+        guardianCodesFilter = null,
         errorMessage = null;
 
   final List<Student> items;
@@ -44,6 +50,9 @@ class StudentState extends Equatable {
   final String? codeFilter;
   final String? firstNameFilter;
   final String? lastNameFilter;
+  final List<String>? classroomCodesFilter;
+  final List<String>? tagCodesFilter;
+  final List<String>? guardianCodesFilter;
   final String? errorMessage;
 
   StudentState copyWith({
@@ -59,6 +68,9 @@ class StudentState extends Equatable {
     String? codeFilter,
     String? firstNameFilter,
     String? lastNameFilter,
+    List<String>? classroomCodesFilter,
+    List<String>? tagCodesFilter,
+    List<String>? guardianCodesFilter,
     String? errorMessage,
   }) {
     return StudentState(
@@ -74,6 +86,9 @@ class StudentState extends Equatable {
       codeFilter: codeFilter ?? this.codeFilter,
       firstNameFilter: firstNameFilter ?? this.firstNameFilter,
       lastNameFilter: lastNameFilter ?? this.lastNameFilter,
+      classroomCodesFilter: classroomCodesFilter ?? this.classroomCodesFilter,
+      tagCodesFilter: tagCodesFilter ?? this.tagCodesFilter,
+      guardianCodesFilter: guardianCodesFilter ?? this.guardianCodesFilter,
       errorMessage: errorMessage,
     );
   }
@@ -92,6 +107,9 @@ class StudentState extends Equatable {
         codeFilter,
         firstNameFilter,
         lastNameFilter,
+        classroomCodesFilter,
+        tagCodesFilter,
+        guardianCodesFilter,
         errorMessage,
       ];
 }

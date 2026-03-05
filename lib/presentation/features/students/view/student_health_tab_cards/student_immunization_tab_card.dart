@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 
 class StudentImmunizationTabCard extends StatefulWidget {
@@ -8,12 +15,14 @@ class StudentImmunizationTabCard extends StatefulWidget {
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.studentCode,
     super.key,
   });
 
   final ScrollController scrollController;
   final String name;
   final String classroom;
+  final String? studentCode;
 
 
   @override
@@ -22,36 +31,129 @@ class StudentImmunizationTabCard extends StatefulWidget {
 }
 
 class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard> {
+  late Future<List<StudentImmunizationModel>> _immunizationFuture;
+  bool _hasShownErrorSnackBar = false;
 
   @override
   void initState() {
     super.initState();
+    _immunizationFuture = _buildImmunizationFuture();
+  }
+
+  Future<List<StudentImmunizationModel>> _buildImmunizationFuture() async {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) {
+      return const <StudentImmunizationModel>[];
+    }
+    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    try {
+      return await repo.getStudentImmunizations(studentCode: code);
+    } catch (_) {
+      rethrow;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      child: Column(
-        children: [
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _immunizationFuture =
+              serviceLocator<StudentRepository>() is StudentRepositoryImpl
+                  ? (serviceLocator<StudentRepository>() as StudentRepositoryImpl)
+                      .getStudentImmunizations(
+                      studentCode: widget.studentCode ?? '',
+                      forceRefresh: true,
+                    )
+                  : _buildImmunizationFuture();
+          _hasShownErrorSnackBar = false;
+        });
+        try {
+          await _immunizationFuture;
+        } catch (_) {
+          // handled in FutureBuilder
+        }
+      },
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: FutureBuilder<List<StudentImmunizationModel>>(
+          future: _immunizationFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: Center(child: PrimaryCircularLoader()),
+              );
+            }
 
-          _ImmunizationCard( vaccineName: 'DTaP', isFirstCard: true,),
-          SizedBox(height: 20,),
-          _ImmunizationCard(vaccineName: 'Hib', isFirstCard: false,),
-          SizedBox(height: 20,),
-          _ImmunizationCard(vaccineName: 'Hep A', isFirstCard: false,),
-        ],
+            if (snapshot.hasError) {
+              final message = snapshot.error.toString();
+              CoreUtils.logApiError(message);
+              if (!_hasShownErrorSnackBar) {
+                _hasShownErrorSnackBar = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: message,
+                    isError: true,
+                  );
+                });
+              }
+              return const SizedBox.shrink();
+            }
+
+            final items = snapshot.data ?? const <StudentImmunizationModel>[];
+            if (items.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: Text(
+                  'No immunization records found',
+                  style: AppTextStyles.value.copyWith(fontSize: 16),
+                ),
+              );
+            }
+
+            // Group by vaccine name
+            final Map<String, List<StudentImmunizationModel>> grouped = {};
+            for (final m in items) {
+              grouped.putIfAbsent(m.vaccineName, () => []).add(m);
+            }
+
+            final sortedKeys = grouped.keys.toList()..sort();
+
+            return Column(
+              children: [
+                for (int i = 0; i < sortedKeys.length; i++) ...[
+                  _ImmunizationCard(
+                    vaccineName: sortedKeys[i],
+                    doses: grouped[sortedKeys[i]]!..sort(
+                      (a, b) => a.doseNumber.compareTo(b.doseNumber),
+                    ),
+                    isFirstCard: i == 0,
+                  ),
+                  if (i != sortedKeys.length - 1) const SizedBox(height: 20),
+                ],
+              ],
+            );
+          },
+        ),
       ),
-
     );
   }
 
 }
 
 class _ImmunizationCard extends StatefulWidget {
-  const _ImmunizationCard({required this.vaccineName, required this.isFirstCard});
+  const _ImmunizationCard({
+    required this.vaccineName,
+    required this.doses,
+    required this.isFirstCard,
+  });
   final bool isFirstCard;
   final String vaccineName;
+  final List<StudentImmunizationModel> doses;
 
   @override
   State<_ImmunizationCard> createState() => _ImmunizationCardState();
@@ -71,14 +173,13 @@ class _ImmunizationCardState extends State<_ImmunizationCard> {
             width: constraints.maxWidth,
             decoration: BoxDecoration(
               color: Colors.white,
-              // Match staff card styling: radius 12, 1px border.
               borderRadius: BorderRadius.only(
-                topRight: widget.isFirstCard ? const Radius.circular(0) : const Radius.circular(12),
-                topLeft: const Radius.circular(12),
-                bottomLeft: const Radius.circular(12),
-                bottomRight: const Radius.circular(12),
+                topRight: widget.isFirstCard ? const Radius.circular(0) : const Radius.circular(8),
+                topLeft: const Radius.circular(8),
+                bottomLeft: const Radius.circular(8),
+                bottomRight: const Radius.circular(8),
               ),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
+              border: Border.all(color: AppColors.themeColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
@@ -134,11 +235,8 @@ class _ImmunizationCardState extends State<_ImmunizationCard> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _dose(doseNo: 1, status: "Completed", doseDate: "May 18, 2025"),
-                            _dose(doseNo: 2, status: "Completed", doseDate: "May 18, 2025"),
-                            _dose(doseNo: 3, status: "Completed", doseDate: "May 18, 2025"),
-                            _dose(doseNo: 4, doseDate: "-"),
-                            _dose(doseNo: 5, doseDate: "-"),
+                            for (final dose in widget.doses)
+                              _DoseRow(model: dose),
                             const SizedBox(height: 20),
 
                           ],
@@ -156,11 +254,9 @@ class _ImmunizationCardState extends State<_ImmunizationCard> {
   }
 }
 
-class _dose extends StatelessWidget{
-  const _dose({required this.doseNo,this.status, required this.doseDate});
-  final String? status;
-  final String doseDate;
-  final int doseNo;
+class _DoseRow extends StatelessWidget {
+  const _DoseRow({required this.model});
+  final StudentImmunizationModel model;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +269,7 @@ class _dose extends StatelessWidget{
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              'Dose ${doseNo}',
+              'Dose ${model.doseNumber}',
               style: AppTextStyles.label.copyWith(
                 color: AppColors.primaryColor.withOpacity(0.5),
                 fontSize: 14,
@@ -182,15 +278,14 @@ class _dose extends StatelessWidget{
             ),
             Row(
               children: [
-                if ( status != null)
-                  _Chip(
-                    label: status!,
-                    labelColor: (status!.toLowerCase() == 'completed') ? const Color(0xFF38C820) : Color(0xFFEABA00),
-                    color: (status!.toLowerCase() == 'completed') ? const Color(0x1A38C820) : Color(0x1AEABA00),
-                  ),
-                SizedBox(width: 10,),
+                _Chip(
+                  label: _statusLabel(model.status),
+                  labelColor: _statusLabelColor(model.status),
+                  color: _statusBgColor(model.status),
+                ),
+                const SizedBox(width: 10),
                 Text(
-                  doseDate,
+                  _doseDateText(model),
                   style: AppTextStyles.value.copyWith(
                     fontSize: 15,
                   ),
@@ -204,15 +299,50 @@ class _dose extends StatelessWidget{
 
   }
 
+  String _statusLabel(String raw) {
+    final upper = raw.trim().toUpperCase();
+    if (upper == 'COMPLETED') return 'Completed';
+    if (upper == 'DUE') return 'Due';
+    if (upper == 'EXEMPTED') return 'Exempted';
+    return upper.isEmpty
+        ? '-'
+        : upper[0] + upper.substring(1).toLowerCase();
+  }
+
+  Color _statusLabelColor(String raw) {
+    final upper = raw.trim().toUpperCase();
+    if (upper == 'COMPLETED') return const Color(0xFF38C820);
+    if (upper == 'DUE') return const Color(0xFFEABA00);
+    if (upper == 'EXEMPTED') return const Color(0xFF6C6377);
+    return AppColors.primaryColor.withOpacity(0.8);
+  }
+
+  Color _statusBgColor(String raw) {
+    final upper = raw.trim().toUpperCase();
+    if (upper == 'COMPLETED') return const Color(0x1A38C820);
+    if (upper == 'DUE') return const Color(0x1AEABA00);
+    if (upper == 'EXEMPTED') return const Color(0xFFECEFF1);
+    return const Color(0xFFF3F4FB);
+  }
+
+  String _doseDateText(StudentImmunizationModel model) {
+    if ((model.administeredDate ?? '').isNotEmpty) {
+      return model.administeredDate!;
+    }
+    if ((model.dueDate ?? '').isNotEmpty) {
+      return model.dueDate!;
+    }
+    return '-';
+  }
+
 }
 
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.labelColor, required this.color, this.icon});
+  const _Chip({required this.label, required this.labelColor, required this.color});
   final String label;
   final Color labelColor;
   final Color color;
-  final Widget? icon;
 
 
   @override
@@ -226,10 +356,6 @@ class _Chip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
-            icon!,
-            const SizedBox(width: 6),
-          ],
           Text(
             label,
             style: AppTextStyles.value.copyWith(

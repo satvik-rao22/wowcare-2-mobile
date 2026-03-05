@@ -247,7 +247,10 @@ class _StudentHealthTabState extends State<StudentHealthTab>
           child: TabBarView(
             controller: _tabController,
             children: [
-              StudentHealthTabCard(scrollController: _healthScrollController, name: widget.name, classroom: widget.classroom),
+              StudentHealthTabCard(
+                scrollController: _healthScrollController,
+                studentCode: widget.studentCode,
+              ),
               StudentPhysicianTabCard(
                 scrollController: _physicianScrollController,
                 name: widget.name,
