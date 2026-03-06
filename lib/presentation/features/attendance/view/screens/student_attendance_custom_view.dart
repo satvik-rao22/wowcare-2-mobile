@@ -4,7 +4,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -12,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
@@ -23,6 +23,7 @@ import 'package:wowcare/data/features/attendance/repositories/attendance_reposit
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -45,22 +46,20 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   final ScrollController _scrollController = ScrollController();
 
   String _searchQuery = '';
-  String? _customSelectedClassroom;
+  List<String> _selectedClassroomNames = <String>[];
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
-
-  List<String> _classrooms = <String>['All'];
 
   // Optional: show a small spinner on "View" action (UI-only)
   final Map<String, bool> _loadingButtons = <String, bool>{};
 
   late final StudentAttendanceCustomCubit _cubit;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
-    _customSelectedClassroom = 'All';
     // Resolve cubit from DI with safe fallback (for hot-reload scenarios)
     if (serviceLocator.isRegistered<StudentAttendanceCustomCubit>()) {
       _cubit = serviceLocator<StudentAttendanceCustomCubit>();
@@ -77,7 +76,8 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     }
 
     _customSearchController.addListener(_onSearchChanged);
-    _initializeClassrooms();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
+    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
     _initializeDefaultRange();
     _loadAttendanceData(reset: true);
   }
@@ -88,6 +88,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _customSearchController.dispose();
     _scrollController.dispose();
     _cubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -176,23 +177,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
-  void _initializeClassrooms() {
-    final fromWidget = (widget.staffAllowedClassrooms ?? const <String>[])
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-
-    // If nothing provided, keep a small default set for UI rendering
-    final fallback = <String>['Room 1', 'Room 2', 'Room 3'];
-
-    _classrooms = <String>[
-      'All',
-      ...((fromWidget.isNotEmpty) ? fromWidget : fallback),
-    ];
-  }
-
   void _initializeDefaultRange() {
     final now = DateTime.now();
     _customRangeStart ??= DateTime(now.year, now.month, 1);
@@ -206,14 +190,24 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
      _loadAttendanceData(reset: true);
   }
 
+  List<String>? _resolveSelectedClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) return null;
+    final nameToCode = <String, String>{
+      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+    };
+    final codes = _selectedClassroomNames
+        .map((n) => nameToCode[n])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
   void _loadAttendanceData({bool reset = false}) {
     final fromDate = _customRangeStart ?? DateTime.now();
     final toDate = _customRangeEnd ?? DateTime.now();
 
-    final classroomCodes = (_customSelectedClassroom != null &&
-            _customSelectedClassroom != 'All')
-        ? <String>[_customSelectedClassroom!]
-        : null;
+    final classroomCodes = _resolveSelectedClassroomCodes();
 
     final search = _searchQuery.trim().isNotEmpty ? _searchQuery.trim() : null;
 
@@ -240,7 +234,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     List<StudentAttendanceCustomItem> items,
   ) {
     final q = _searchQuery.trim().toLowerCase();
-    final selected = (_customSelectedClassroom ?? 'All').trim();
 
     final filtered = <_CustomAttendanceRow>[];
 
@@ -251,9 +244,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       final matchesSearch =
           q.isEmpty || item.studentName.toLowerCase().contains(q);
 
-      final matchesClassroom = selected == 'All' ||
-          selected.isEmpty ||
-          item.classroomName == selected;
+      final matchesClassroom =
+          _selectedClassroomNames.isEmpty ||
+              _selectedClassroomNames.contains(item.classroomName);
 
       if (matchesSearch && matchesClassroom) {
         filtered.add(
@@ -361,15 +354,21 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       hintText: 'Search Students',
                     ),
                     SizedBox(height: spacing),
-                    CustomDropdown(
-                      hintText: 'Select Classroom',
-                      items: _classrooms,
-                      selectedItem: _customSelectedClassroom ?? 'All',
-                      onSelect: (val) {
-                        setState(() {
-                          _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
-                        });
-                        _loadAttendanceData(reset: true);
+                    BlocBuilder<ClassroomCubit, ClassroomState>(
+                      bloc: _classroomCubit,
+                      builder: (context, state) {
+                        final items = state.classrooms.map((c) => c.name).toList();
+                        return CustomMultiSelectDropdown(
+                          hintText: 'Classroom',
+                          items: items,
+                          selectedItems: _selectedClassroomNames,
+                          onChanged: (values) {
+                            setState(() {
+                              _selectedClassroomNames = List<String>.from(values);
+                            });
+                            _loadAttendanceData(reset: true);
+                          },
+                        );
                       },
                     ),
                   ],
@@ -388,15 +387,21 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                   SizedBox(width: spacing),
                   Expanded(
                     flex: 2,
-                    child: CustomDropdown(
-                      hintText: 'Select Classroom',
-                      items: _classrooms,
-                      selectedItem: _customSelectedClassroom ?? 'All',
-                      onSelect: (val) {
-                        setState(() {
-                          _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
-                        });
-                        _loadAttendanceData(reset: true);
+                    child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                      bloc: _classroomCubit,
+                      builder: (context, state) {
+                        final items = state.classrooms.map((c) => c.name).toList();
+                        return CustomMultiSelectDropdown(
+                          hintText: 'Classroom',
+                          items: items,
+                          selectedItems: _selectedClassroomNames,
+                          onChanged: (values) {
+                            setState(() {
+                              _selectedClassroomNames = List<String>.from(values);
+                            });
+                            _loadAttendanceData(reset: true);
+                          },
+                        );
                       },
                     ),
                   ),

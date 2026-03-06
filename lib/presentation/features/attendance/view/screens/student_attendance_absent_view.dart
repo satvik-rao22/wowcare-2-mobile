@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -20,6 +21,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -73,7 +75,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
-  String? _selectedClassroom;
+  List<String> _selectedClassroomNames = <String>[];
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStudentIndex;
@@ -86,20 +88,20 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   bool _studentsHasMore = true;
   final int _pageSize = 10;
   final List<_AbsentStudentModel> _absentStudents = [];
-
-  List<String> classrooms = ['All'];
   bool isLoading = false;
   String? errorMessage;
 
   // Loading state for individual buttons
   final Map<int, bool> _loadingButtons = {};
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
-    _initializeClassrooms();
     _initializeDefaultRange();
     _searchController.addListener(_onSearchChanged);
+    _classroomCubit = serviceLocator<ClassroomCubit>();
+    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
     
     // Set up scroll listener for pagination
     _scrollController.addListener(_onScroll);
@@ -117,22 +119,8 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchDebounceTimer?.cancel();
+    _classroomCubit.close();
     super.dispose();
-  }
-
-  void _initializeClassrooms() {
-    final fromWidget = (widget.staffAllowedClassrooms ?? const <String>[])
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-
-    final fallback = <String>['Room 1', 'Room 2', 'Room 3'];
-    classrooms = <String>[
-      'All',
-      ...((fromWidget.isNotEmpty) ? fromWidget : fallback),
-    ];
   }
 
   void _initializeDefaultRange() {
@@ -156,6 +144,19 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
   void _triggerSearchReload() {
       _loadAbsentStudents(reset: true);
+  }
+
+  List<String>? _resolveSelectedClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) return null;
+    final nameToCode = <String, String>{
+      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+    };
+    final codes = _selectedClassroomNames
+        .map((n) => nameToCode[n])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    return codes.isEmpty ? null : codes;
   }
 
   void _onScroll() {
@@ -218,11 +219,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final classroomCodes = (_selectedClassroom != null &&
-            _selectedClassroom != 'All' &&
-            _selectedClassroom!.trim().isNotEmpty)
-        ? <String>[_selectedClassroom!.trim()]
-        : null;
+    final classroomCodes = _resolveSelectedClassroomCodes();
 
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromStr,
@@ -333,7 +330,6 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _isBackgroundFetchingStudents = false;
       });
 
-      _updateClassroomsList(_absentStudents);
     } catch (error) {
       debugPrint('StudentAbsent API error: $error');
       if (!mounted) return;
@@ -345,21 +341,6 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         errorMessage = error.toString();
       });
     }
-  }
-
-  void _updateClassroomsList(List<_AbsentStudentModel> students) {
-    final Set<String> uniqueClassrooms = {'All'};
-    
-    for (final student in students) {
-      final room = student.roomName.trim();
-      if (room.isNotEmpty) {
-        uniqueClassrooms.add(room);
-      }
-    }
-
-    final List<String> sortedClassrooms =
-        uniqueClassrooms.where((room) => room != 'All').toList()..sort();
-    classrooms = ['All', ...sortedClassrooms];
   }
 
   Future<void> _handleRefresh() async {
@@ -415,15 +396,21 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                       SizedBox(width: responsive.horizontalSpacing / 2),
                       Expanded(
                         flex: 2,
-                        child: CustomDropdown(
-                          hintText: 'Select Classroom',
-                          items: classrooms,
-                          selectedItem: _selectedClassroom ?? 'All',
-                          onSelect: (val) {
-                            setState(() {
-                              _selectedClassroom = val;
-                            });
-                              _loadAbsentStudents(reset: true);
+                        child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                          bloc: _classroomCubit,
+                          builder: (context, state) {
+                            final items = state.classrooms.map((c) => c.name).toList();
+                            return CustomMultiSelectDropdown(
+                              hintText: 'Classroom',
+                              items: items,
+                              selectedItems: _selectedClassroomNames,
+                              onChanged: (values) {
+                                setState(() {
+                                  _selectedClassroomNames = List<String>.from(values);
+                                });
+                                _loadAbsentStudents(reset: true);
+                              },
+                            );
                           },
                         ),
                       ),

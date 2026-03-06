@@ -23,6 +23,7 @@ import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -61,12 +62,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
   // Staff data lists
   final List<StaffAttendanceCardData> _staffMembers = [];
-  final List<StaffAbsentCardData> _absentStaff = [];
   int? _expandedStaffIndex;
   int? _expandedAbsentIndex;
 
   late final StaffAttendanceDailyCubit _cubit;
   late final StaffAttendanceAbsentToggleCubit _absentToggleCubit;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
@@ -88,6 +89,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
     _cubit = serviceLocator<StaffAttendanceDailyCubit>();
     _absentToggleCubit = serviceLocator<StaffAttendanceAbsentToggleCubit>();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
 
     // Load initial data from API
     _loadAttendanceData(context, reset: true);
@@ -99,6 +101,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     _searchController.dispose();
     _scrollController.dispose();
     _absentToggleCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -349,7 +352,54 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () async {
-                    // Placeholder: wire to attendance filter screen when ready
+                    final result =
+                        await Navigator.push<Map<String, dynamic>?>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BlocProvider.value(
+                          value: _classroomCubit,
+                          child: StaffFilterScreen(
+                            initialFilters: _staffFilters,
+                            selectedDate: _selectedDate,
+                            sections: const [
+                              StaffFilterSection.classroom,
+                              StaffFilterSection.designation,
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+
+                    if (!mounted || result == null) return;
+
+                    final String? status =
+                        (result['status'] as String?)?.trim();
+                    final String? designation =
+                        (result['designation'] as String?)?.trim();
+                    final List<String> classCodes =
+                        (result['classCodes'] as List?)?.cast<String>() ??
+                            const <String>[];
+                    final String? sortBy =
+                        (result['sortBy'] as String?)?.trim();
+
+                    setState(() {
+                      _staffFilters = FilterData(
+                        classroomIds: const <int>[],
+                        classrooms: classCodes,
+                        statuses: status == null || status.isEmpty
+                            ? const <String>[]
+                            : <String>[status],
+                        // NOTE: StaffFilterScreen uses "designation" for this field.
+                        // We keep it in `tags` because the existing daily view already
+                        // treats `tags` as the second API filter list.
+                        tags: designation == null || designation.isEmpty
+                            ? const <String>[]
+                            : <String>[designation],
+                        sortBy: sortBy,
+                      );
+                    });
+
+                    _loadAttendanceData(context, reset: true);
                   },
                   borderRadius: BorderRadius.circular(100),
                   child: Stack(

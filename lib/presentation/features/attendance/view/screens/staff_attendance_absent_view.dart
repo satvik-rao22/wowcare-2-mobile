@@ -5,7 +5,6 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
@@ -14,10 +13,12 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_p
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStaffModel {
@@ -75,16 +76,14 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
-  String? _selectedClassroom;
+  List<String> _selectedClassroomNames = <String>[];
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStaffIndex;
 
   late final StaffAttendanceAbsentCubit _cubit;
+  late final ClassroomCubit _classroomCubit;
   final List<_AbsentStaffModel> _absentStaff = [];
-  final Map<String, String> _classroomNameToCode = <String, String>{};
-
-  List<String> classrooms = ['All'];
   bool isLoading = false;
   String? errorMessage;
 
@@ -94,11 +93,12 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
   @override
   void initState() {
     super.initState();
-    _initializeClassrooms();
     _initializeDefaultRange();
     _searchController.addListener(_onSearchChanged);
 
     _cubit = serviceLocator<StaffAttendanceAbsentCubit>();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
+    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
 
     // Set up scroll listener for pagination
     _scrollController.addListener(_onScroll);
@@ -115,11 +115,21 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchDebounceTimer?.cancel();
+    _classroomCubit.close();
     super.dispose();
   }
 
-  void _initializeClassrooms() {
-    classrooms = ['All', 'Room 1', 'Room 2', 'Room 3'];
+  List<String>? _resolveSelectedClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) return null;
+    final nameToCode = <String, String>{
+      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+    };
+    final codes = _selectedClassroomNames
+        .map((n) => nameToCode[n])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    return codes.isEmpty ? null : codes;
   }
 
   void _initializeDefaultRange() {
@@ -160,15 +170,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     final from = _rangeStart!;
     final to = _rangeEnd!;
 
-    final String? selectedName =
-        (_selectedClassroom != null && _selectedClassroom != 'All')
-            ? _selectedClassroom
-            : null;
-    final String? selectedCode =
-        selectedName != null ? _classroomNameToCode[selectedName] : null;
-    final classroomCodes = selectedCode != null && selectedCode.trim().isNotEmpty
-        ? <String>[selectedCode]
-        : null;
+    final classroomCodes = _resolveSelectedClassroomCodes();
 
     if (reset) {
       _expandedStaffIndex = null;
@@ -190,16 +192,6 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     }
   }
 
-  void _updateClassroomsList() {
-    final Set<String> uniqueClassrooms = {'All'};
-    for (final staff in _absentStaff) {
-      if (staff.roomName.isNotEmpty) {
-        uniqueClassrooms.add(staff.roomName);
-      }
-    }
-    classrooms = uniqueClassrooms.toList()..sort();
-  }
-
   List<_AbsentStaffModel> _getFilteredStaff() {
     var filtered = _absentStaff;
 
@@ -213,9 +205,9 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     }
 
     // Apply classroom filter
-    if (_selectedClassroom != null && _selectedClassroom != 'All') {
+    if (_selectedClassroomNames.isNotEmpty) {
       filtered = filtered.where((staff) {
-        return staff.roomName == _selectedClassroom;
+        return _selectedClassroomNames.contains(staff.roomName);
       }).toList();
     }
 
@@ -247,22 +239,16 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return BlocProvider<StaffAttendanceAbsentCubit>.value(
-      value: _cubit,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<StaffAttendanceAbsentCubit>.value(value: _cubit),
+        BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
+      ],
       child: BlocBuilder<StaffAttendanceAbsentCubit, StaffAttendanceAbsentState>(
         builder: (context, state) {
           final isInitialLoading = state.isLoading && state.items.isEmpty;
 
           // Map API items → UI model
-          _classroomNameToCode.clear();
-          for (final it in state.items) {
-            final name = it.classroomName.trim();
-            final code = it.classroomCode.trim();
-            if (name.isNotEmpty && code.isNotEmpty) {
-              _classroomNameToCode[name] = code;
-            }
-          }
-
           _absentStaff
             ..clear()
             ..addAll(
@@ -294,7 +280,6 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
               }),
             );
 
-          _updateClassroomsList();
           final filtered = _getFilteredStaff();
 
           return CustomRefreshIndicator(
@@ -328,15 +313,24 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                             SizedBox(width: responsive.horizontalSpacing / 2),
                             Expanded(
                               flex: responsive.isTablet ? 2 : 1,
-                              child: CustomDropdown(
-                                hintText: 'Select Classroom',
-                                items: classrooms,
-                                selectedItem: _selectedClassroom ?? 'All',
-                                onSelect: (val) {
-                                  setState(() {
-                                    _selectedClassroom = val;
-                                  });
-                                  _loadAbsentStaff(reset: true);
+                              child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                                builder: (context, classroomState) {
+                                  final items = classroomState.classrooms
+                                      .map((c) => c.name)
+                                      .toList();
+
+                                  return CustomMultiSelectDropdown(
+                                    hintText: 'Classroom',
+                                    items: items,
+                                    selectedItems: _selectedClassroomNames,
+                                    onChanged: (values) {
+                                      setState(() {
+                                        _selectedClassroomNames =
+                                            List<String>.from(values);
+                                      });
+                                      _loadAbsentStaff(reset: true);
+                                    },
+                                  );
                                 },
                               ),
                             ),

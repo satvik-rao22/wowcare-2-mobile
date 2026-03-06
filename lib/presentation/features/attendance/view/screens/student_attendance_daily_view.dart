@@ -6,12 +6,10 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_summary.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_absent_card.dart';
@@ -27,12 +25,19 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
+    show FilterData;
+import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -65,10 +70,13 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   int? _expandedStudentIndex;
   
   // Filter state
-  List<String> _selectedClassrooms = [];
-  List<String> _selectedTags = [];
+  // UI selections are NAME-based (because StudentFilterScreen is name-driven).
+  // Before calling APIs we resolve name -> code.
+  List<String> _selectedClassroomNames = [];
+  List<String> _selectedTagNames = [];
   String? _sortColumn;
   bool _sortAscending = true;
+  Map<String, String> _tagNameToCode = <String, String>{};
 
   // Summary data (dummy data for now - will be replaced with API later)
   int enrolled = 120;
@@ -80,11 +88,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   int signedOut = 0;
   int notMarked = 0;
 
-  // Dummy absent students (will be replaced with API later)
-  final List<StudentAbsentCardData> _absentStudents = [];
-
   late final StudentAttendanceDailyCubit _cubit;
   late final StudentAttendanceAbsentToggleCubit _absentToggleCubit;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
@@ -131,6 +137,18 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
             GetStudentAttendanceAbsentToggleViewUseCase(repo),
       );
     }
+
+    // ClassroomCubit is required by StudentFilterScreen to populate "Classroom".
+    if (serviceLocator.isRegistered<ClassroomCubit>()) {
+      _classroomCubit = serviceLocator<ClassroomCubit>();
+    } else {
+      _classroomCubit = ClassroomCubit(
+        getActiveClassroomsUseCase: serviceLocator(),
+        storageService: serviceLocator(),
+      );
+    }
+    _classroomCubit.loadActiveClassrooms();
+    _loadTagNameCodeMap();
     _searchController.addListener(_onSearchChanged);
     
     // Handle incoming filter
@@ -152,12 +170,31 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     _loadAttendanceData();
   }
 
+  Future<void> _loadTagNameCodeMap() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final map = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+      setState(() {
+        _tagNameToCode = map;
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
+  }
+
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
     _absentToggleCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -165,10 +202,30 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     _loadAttendanceData();
   }
 
+  List<String>? _resolveSelectedClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) return null;
+    final nameToCode = <String, String>{
+      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+    };
+    final codes = _selectedClassroomNames
+        .map((n) => nameToCode[n])
+        .whereType<String>()
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
+  List<String>? _resolveSelectedTagCodes() {
+    if (_selectedTagNames.isEmpty) return null;
+    final codes = _selectedTagNames
+        .map((n) => _tagNameToCode[n])
+        .whereType<String>()
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
   void _loadAttendanceData({bool reset = false}) {
-    final classroomCodes =
-        _selectedClassrooms.isNotEmpty ? _selectedClassrooms : null;
-    final tagCodes = _selectedTags.isNotEmpty ? _selectedTags : null;
+    final classroomCodes = _resolveSelectedClassroomCodes();
+    final tagCodes = _resolveSelectedTagCodes();
     final search = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
         : null;
@@ -294,6 +351,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         providers: [
           BlocProvider.value(value: _cubit),
           BlocProvider.value(value: _absentToggleCubit),
+          BlocProvider.value(value: _classroomCubit),
         ],
         child: _buildContent(),
       );
@@ -303,6 +361,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       providers: [
         BlocProvider.value(value: _cubit),
         BlocProvider.value(value: _absentToggleCubit),
+        BlocProvider.value(value: _classroomCubit),
       ],
       child: GlobalScaffold(
         hasBackButton: true,
@@ -324,8 +383,6 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
           builder: (context, state) {
             final isAbsentMode = _showAbsentOnly;
             final isLoading = isAbsentMode ? absentState.isLoading : state.isLoading;
-            final isRefreshing =
-                isAbsentMode ? absentState.isRefreshing : state.isRefreshing;
             final isLoadingMore =
                 isAbsentMode ? absentState.isLoadingMore : state.isLoadingMore;
             final hasMore = isAbsentMode ? absentState.hasMore : state.hasMore;
@@ -414,7 +471,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                           SizedBox(width: responsive.horizontalSpacing / 2),
                           Expanded(
                             child: AppText.body(
-                              errorMessage ?? 'Unable to load attendance. Retry.',
+                              errorMessage,
                               style: TextStyle(color: AppColors.errorColor),
                             ),
                           ),
@@ -712,8 +769,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   Widget _buildFilterCard(ResponsiveHelper responsive) {
     final hasActiveFilters = _statusLegendFilter != null ||
         _studentFilters != null ||
-        _selectedClassrooms.isNotEmpty ||
-        _selectedTags.isNotEmpty ||
+        _selectedClassroomNames.isNotEmpty ||
+        _selectedTagNames.isNotEmpty ||
         _searchController.text.trim().isNotEmpty;
 
     return Container(
@@ -794,8 +851,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                           _searchController.clear();
                           _statusLegendFilter = null;
                           _studentFilters = null;
-                          _selectedClassrooms = [];
-                          _selectedTags = [];
+                          _selectedClassroomNames = [];
+                          _selectedTagNames = [];
                           _showAbsentOnly = false;
                         });
                         _loadAttendanceData(reset: true);
@@ -829,37 +886,31 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   }
 
   void _navigateToFilterScreen() async {
-    await Navigator.push(
+    final result = await Navigator.push<Map<String, List<String>>>(
       context,
       MaterialPageRoute(
-        builder: (_) => FilterScreen(
-          title: 'Filter Students',
-          sections: [
-            FilerSection(
-              label: 'Classroom',
-              hintText: 'Select classroom',
-              items: ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Room 5'],
-              initialSelected: _selectedClassrooms,
-              isMultiSelectDropDown: true,
-            ),
-            FilerSection(
-              label: 'Tags',
-              hintText: 'Select tags',
-              items: ['Full Day', 'Half Day', '5 Days', 'Photo Permission'],
-              initialSelected: _selectedTags,
-              isMultiSelectDropDown: true,
-            ),
-          ],
-          onApply: (appliedFilters) {
-            setState(() {
-              _selectedClassrooms = appliedFilters['Classroom'] ?? [];
-              _selectedTags = appliedFilters['Tags'] ?? [];
-            });
-            _loadAttendanceData(reset: true);
-          },
+        builder: (_) => BlocProvider.value(
+          value: _classroomCubit,
+          child: StudentFilterScreen(
+            initialFilters: {
+              'Classroom': List<String>.from(_selectedClassroomNames),
+              'Tags': List<String>.from(_selectedTagNames),
+            },
+            sections: const [
+              StudentFilterSection.classroom,
+              StudentFilterSection.tags,
+            ],
+          ),
         ),
       ),
     );
+
+    if (!mounted || result == null) return;
+    setState(() {
+      _selectedClassroomNames = List<String>.from(result['Classroom'] ?? const []);
+      _selectedTagNames = List<String>.from(result['Tags'] ?? const []);
+    });
+    _loadAttendanceData(reset: true);
   }
 
 }
