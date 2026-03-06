@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -318,19 +319,11 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
-                                    'Copy to all days',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xff573353),
-                                    ),
-                                  ),
-                                  Switch(
-                                    value: _copyToAllDays,
-                                    activeColor: AppColors.primaryColor,
-                                    onChanged: (v) {
+                                  CustomToggle(
+                                    label: 'Copy to all days',
+                                    isToggled: _copyToAllDays,
+                                    labelOnLeftSide: true,
+                                    onToggle: (v) {
                                       setState(() {
                                         _copyToAllDays = v;
                                         if (_copyToAllDays) {

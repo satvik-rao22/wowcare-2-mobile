@@ -514,7 +514,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               context,
               MaterialPageRoute(
                 builder: (context) => AddStudentStep3Screen(
-                  title: 'EDIT SCHEDULE',
+                  title: 'Edit Schedule',
                   primaryButtonLabel: 'Save',
                   showSkip: false,
                   initialSchedule: initialSchedule,
