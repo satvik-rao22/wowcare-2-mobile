@@ -326,9 +326,8 @@ class _StudentScreenState extends State<StudentScreen> {
       'name': student.fullName,
       'Classroom': student.classroom,
       'Tags': student.tags,
-      // Until the list API exposes per-student schedules, default to Mon–Fri
-      // so downstream widgets (cards/profile) can render schedule chips.
-      'schedule': <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      // Use schedule derived from regularSchedules if available; otherwise empty.
+      'schedule': student.schedule,
       // Keep raw DOB; card widget is responsible for display formatting
       'birthDate': student.dob,
       'movementDate': student.movementDate,

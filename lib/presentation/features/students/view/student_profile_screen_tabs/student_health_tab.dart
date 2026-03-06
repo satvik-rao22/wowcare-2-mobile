@@ -37,6 +37,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
   final ScrollController _physicianScrollController = ScrollController();
   final ScrollController _datesScrollController = ScrollController();
   final ScrollController _immunizationScrollController = ScrollController();
+  bool _isImmunizationExempt = false;
 
 
   @override
@@ -109,18 +110,17 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CustomToggle(
-                        key: ValueKey(false),
+                        key: ValueKey(_isImmunizationExempt),
                         label: '',
-                        isToggled: false,
-                        onToggle: (v) => setState(() {
-                          // _searchController.clear();
-                          // _isToggled = v;
-                        }),
+                        isToggled: _isImmunizationExempt,
+                        onToggle: (v) => setState(() => _isImmunizationExempt = v),
                       ),
                       SizedBox(width: 10),
                       Flexible(
                         child: const Text(
                           'Exempt students from immunizations',
+                          maxLines: 3,
+                          softWrap: true,
                           style: TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
@@ -141,24 +141,29 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                     padding: EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      gradient:
-                      AppColors.buildPrimaryGradient(),
+                      gradient: _isImmunizationExempt
+                          ? const LinearGradient(
+                              colors: [Color(0xFFC9C5CE), Color(0xFFB8B3BE)],
+                            )
+                          : AppColors.buildPrimaryGradient(),
                     ),
                     child: TextButton(
-                      onPressed: () {
-                      },
+                      onPressed: _isImmunizationExempt ? null : () {},
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                       ),
-                      child: const Text(
-                        'Send Reminder',
-                        style: TextStyle(
+                      child: Text(
+                        _isImmunizationExempt ? 'Reminder Disabled' : 'Send Reminder',
+                        style: const TextStyle(
                           fontFamily: 'Manrope',
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           height: 16 / 16,
                         ),
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        softWrap: true,
                       ),
                     ),
                   ),

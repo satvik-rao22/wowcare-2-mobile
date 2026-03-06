@@ -514,6 +514,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               context,
               MaterialPageRoute(
                 builder: (context) => AddStudentStep3Screen(
+                  title: 'EDIT SCHEDULE',
+                  primaryButtonLabel: 'Save',
+                  showSkip: false,
                   initialSchedule: initialSchedule,
                 ),
               ),
@@ -596,16 +599,82 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                       'Thursday',
                       'Friday',
                     ].map((fullDay) {
-                      const dayMap = {
-                        'Monday': 'Mon',
-                        'Tuesday': 'Tue',
-                        'Wednesday': 'Wed',
-                        'Thursday': 'Thu',
-                        'Friday': 'Fri',
-                      };
-                      final shortDay = dayMap[fullDay]!;
-                      final isAvailable = widget.schedule.contains(shortDay);
-                      final timeText = '07:00AM–05:30PM';
+                      // Build a lookup of time ranges from regularSchedules.
+                      String? _findTimeRangeForDay(String dayLabel) {
+                        final profile = widget.studentProfile;
+                        final schedules = profile?.regularSchedules ?? [];
+                        if (schedules.isEmpty) return null;
+
+                        String _fullToEnum(String full) {
+                          switch (full) {
+                            case 'Monday':
+                              return 'MONDAY';
+                            case 'Tuesday':
+                              return 'TUESDAY';
+                            case 'Wednesday':
+                              return 'WEDNESDAY';
+                            case 'Thursday':
+                              return 'THURSDAY';
+                            case 'Friday':
+                              return 'FRIDAY';
+                            default:
+                              return full.toUpperCase();
+                          }
+                        }
+
+                        TimeOfDay? _parseLocalTime(dynamic value) {
+                          if (value == null) return null;
+                          if (value is String) {
+                            final parts = value.split(':');
+                            if (parts.length >= 2) {
+                              final hour = int.tryParse(parts[0]) ?? 0;
+                              final minute = int.tryParse(parts[1]) ?? 0;
+                              return TimeOfDay(hour: hour, minute: minute);
+                            }
+                            return null;
+                          }
+                          if (value is Map) {
+                            final hour =
+                                int.tryParse(value['hour']?.toString() ?? '');
+                            final minute =
+                                int.tryParse(value['minute']?.toString() ?? '');
+                            if (hour != null && minute != null) {
+                              return TimeOfDay(hour: hour, minute: minute);
+                            }
+                          }
+                          return null;
+                        }
+
+                        String _formatTimeOfDay(TimeOfDay time) {
+                          final now = DateTime.now();
+                          final dt = DateTime(
+                            now.year,
+                            now.month,
+                            now.day,
+                            time.hour,
+                            time.minute,
+                          );
+                          return DateFormat('hh:mma').format(dt);
+                        }
+
+                        final targetEnum = _fullToEnum(dayLabel);
+                        for (final raw in schedules) {
+                          if (raw is! Map<String, dynamic>) continue;
+                          final dow =
+                              (raw['dayOfWeek'] ?? '').toString().toUpperCase();
+                          if (dow != targetEnum) continue;
+
+                          final start = _parseLocalTime(raw['startTime']);
+                          final end = _parseLocalTime(raw['endTime']);
+                          if (start == null || end == null) continue;
+
+                          return '${_formatTimeOfDay(start)}–${_formatTimeOfDay(end)}';
+                        }
+                        return null;
+                      }
+
+                      final timeText = _findTimeRangeForDay(fullDay);
+                      final isAvailable = timeText != null;
 
                       return Column(
                         mainAxisSize: MainAxisSize.min,

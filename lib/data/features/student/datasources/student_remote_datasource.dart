@@ -277,6 +277,14 @@ abstract class StudentRemoteDataSource {
     required String code,
   });
 
+  /// Partially updates a single immunization dose record via
+  /// `PATCH /api/v1/student/{studentCode}/immunization/{recordCode}`.
+  Future<StudentImmunizationModel> updateStudentImmunizationRecord({
+    required String studentCode,
+    required String recordCode,
+    required Map<String, dynamic> body,
+  });
+
   /// Fetches all physical-exam records for a student via
   /// `GET /api/v1/student/{studentCode}/physical-exam`.
   Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
@@ -1325,6 +1333,35 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         .map(StudentImmunizationModel.fromJson)
         .toList(growable: false);
+  }
+
+  @override
+  Future<StudentImmunizationModel> updateStudentImmunizationRecord({
+    required String studentCode,
+    required String recordCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImmunizationRecord(studentCode, recordCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected update immunization API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload for update immunization');
+    }
+
+    return StudentImmunizationModel.fromJson(data);
   }
 
   @override

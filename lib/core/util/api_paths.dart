@@ -67,6 +67,8 @@ class ApiPaths {
   static String studentHealth(String code) => '/api/v1/student/$code/health';
   static String studentImmunization(String code) =>
       '/api/v1/student/$code/immunization';
+  static String studentImmunizationRecord(String studentCode, String recordCode) =>
+      '/api/v1/student/$studentCode/immunization/$recordCode';
   static String studentPhysicalExams(String code) =>
       '/api/v1/student/$code/physical-exam';
   static String studentPhysicalExam(String studentCode, String examCode) =>

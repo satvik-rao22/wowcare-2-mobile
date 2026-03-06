@@ -500,6 +500,45 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     return models;
   }
 
+  Future<StudentImmunizationModel> updateStudentImmunizationRecord({
+    required String studentCode,
+    required StudentImmunizationModel record,
+    required DateTime date,
+    required String status,
+    String? exemptionReason,
+  }) async {
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+
+    final body = <String, dynamic>{
+      'code': record.code,
+      'studentCode': record.studentCode,
+      'vaccineName': record.vaccineName,
+      'vaccineDoseCode': record.vaccineDoseCode,
+      'doseNumber': record.doseNumber,
+      // For COMPLETED we treat [date] as administeredDate,
+      // otherwise as dueDate. Backend enforces detailed rules.
+      if (status == 'COMPLETED')
+        'administeredDate': dateFormatter.format(date)
+      else
+        'dueDate': dateFormatter.format(date),
+      'status': status,
+      if (exemptionReason != null && exemptionReason.trim().isNotEmpty)
+        'exemptionReason': exemptionReason.trim(),
+    };
+
+    final model = await _remoteDataSource.updateStudentImmunizationRecord(
+      studentCode: studentCode,
+      recordCode: record.code,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentImmunizationCacheKey(studentCode),
+    );
+
+    return model;
+  }
+
   Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
     required String studentCode,
     bool forceRefresh = false,
@@ -942,16 +981,21 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   // Map model to entity
   StudentPage _mapPageModelToEntity(StudentPageModel model) {
     return StudentPage(
-      items: model.items.map((m) => Student(
-        code: m.code,
-        firstName: m.firstName,
-        lastName: m.lastName,
-        status: m.status,
-        classroom: m.classroom,
-        dob: m.dob,
-        movementDate: m.movementDate,
-        tags: m.tags,
-      )).toList(),
+      items: model.items
+          .map(
+            (m) => Student(
+              code: m.code,
+              firstName: m.firstName,
+              lastName: m.lastName,
+              status: m.status,
+              classroom: m.classroom,
+              dob: m.dob,
+              movementDate: m.movementDate,
+              tags: m.tags,
+              schedule: m.schedule,
+            ),
+          )
+          .toList(),
       page: model.page,
       size: model.size,
       totalPages: model.totalPages,
