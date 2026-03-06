@@ -181,6 +181,7 @@ class _StaffSelectionMarkAbsentFormState
           primaryRoomId: 0,
           photoUuid: null,
           designation: 'Staff',
+          staffCode: item.staffCode,
         );
       }).toList();
 

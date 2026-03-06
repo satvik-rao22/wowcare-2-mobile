@@ -474,6 +474,29 @@ class AttendanceRepositoryImpl
   }
 
   @override
+  Future<staff_absent.StaffAttendanceAbsentPage> getStaffAbsentFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffAbsentFormList(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStaffAbsentPageModelToEntity(pageModel);
+  }
+
+  @override
   Future<staff_absent.StaffAttendanceAbsentPage>
       getStaffAttendanceAbsentToggleView({
     required String fromAbsenceDate,

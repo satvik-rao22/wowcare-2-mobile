@@ -142,6 +142,20 @@ abstract class AttendanceRepository {
     int size,
   });
 
+  /// Staff Absent form list - staff that can be marked absent for a date range.
+  ///
+  /// Backend endpoint: `/api/v1/staff-attendance/absent/form/list`.
+  /// Response shape matches [StaffAttendanceAbsentPage].
+  Future<StaffAttendanceAbsentPage> getStaffAbsentFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
+
   /// Staff Absent toggle view - absent staff for daily screen toggle.
   ///
   /// Response shape matches [StaffAttendanceAbsentPage].

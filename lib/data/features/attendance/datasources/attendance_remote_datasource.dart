@@ -152,6 +152,23 @@ abstract class AttendanceRemoteDataSource {
     List<String>? sort,
   });
 
+  /// Staff Absent form list - staff that can be marked absent for a date range.
+  ///
+  /// Backend endpoint: `/api/v1/staff-attendance/absent/form/list`
+  /// as exposed via [ApiPaths.staffAttendanceAbsentFormList].
+  ///
+  /// Response shape matches [StaffAttendanceAbsentPageModel].
+  Future<StaffAttendanceAbsentPageModel> getStaffAbsentFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
+
   Future<StaffAttendanceAbsentPageModel> getStaffAttendanceAbsent({
     required String fromAbsenceDate,
     required String toAbsenceDate,
@@ -865,6 +882,59 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
 
     return StaffAttendanceDailyPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StaffAttendanceAbsentPageModel> getStaffAbsentFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAbsenceDate': fromAbsenceDate,
+      'toAbsenceDate': toAbsenceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceAbsentFormList,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff absent form list API response format');
+    }
+
+    return StaffAttendanceAbsentPageModel.fromJson(
       response.data! as Map<String, dynamic>,
     );
   }
