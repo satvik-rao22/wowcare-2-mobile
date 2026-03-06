@@ -17,6 +17,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -484,6 +485,66 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               isError: true,
             );
           }
+        }
+      }
+
+      // If a schedule was provided from Step 3, send it to the regular-schedules API.
+      try {
+        if (schedule is Map) {
+          final rawSchedule = Map<String, dynamic>.from(schedule);
+          final List<Map<String, dynamic>> payloadSchedule = [];
+
+          String _formatLocalTime(TimeOfDay time) {
+            final h = time.hour.toString().padLeft(2, '0');
+            final m = time.minute.toString().padLeft(2, '0');
+            // Use HH:mm:ss which Jackson's LocalTime can parse by default.
+            return '$h:$m:00';
+          }
+
+          for (final entry in rawSchedule.entries) {
+            final dayName = entry.key.toString();
+            final timesMap = Map<String, dynamic>.from(entry.value as Map);
+            final start = timesMap['start'] as TimeOfDay?;
+            final end = timesMap['end'] as TimeOfDay?;
+
+            if (start == null || end == null) {
+              continue;
+            }
+
+            // Compute a simple mid-point time for halfDay between start and end.
+            final startMinutes = start.hour * 60 + start.minute;
+            final endMinutes = end.hour * 60 + end.minute;
+            final midMinutes = ((startMinutes + endMinutes) / 2).floor();
+            final halfDay = TimeOfDay(
+              hour: (midMinutes ~/ 60) % 24,
+              minute: midMinutes % 60,
+            );
+
+            payloadSchedule.add({
+              'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
+              'startTime': _formatLocalTime(start),
+              'halfDay': _formatLocalTime(halfDay),
+              'endTime': _formatLocalTime(end),
+            });
+          }
+
+          if (payloadSchedule.isNotEmpty && schoolCode.isNotEmpty) {
+            final remote = serviceLocator<StudentRemoteDataSource>();
+            await remote.updateStudentRegularSchedules(
+              schoolCode: schoolCode,
+              studentCode: student.code,
+              schedule: payloadSchedule,
+            );
+          }
+        }
+      } catch (e) {
+        final message = ApiErrorHandler.extractErrorMessage(e);
+        if (mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Student created but failed to save schedule: $message',
+            isError: true,
+          );
         }
       }
 

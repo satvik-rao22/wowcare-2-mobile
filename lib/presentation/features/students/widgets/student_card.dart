@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -47,6 +48,23 @@ class StudentCard extends StatefulWidget {
 
 class _StudentCardState extends State<StudentCard> {
   bool isExpanded = false;
+
+  String _formatBirthDate(String raw) {
+    if (raw.isEmpty) return '-';
+
+    try {
+      // Try ISO and similar formats
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) {
+        return DateFormat('MMM dd, yyyy').format(parsed);
+      }
+    } catch (_) {
+      // ignore and fall through
+    }
+
+    // Fallback: return original string if parsing fails
+    return raw;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +395,7 @@ class _StudentCardState extends State<StudentCard> {
                                   ),
                                 ),
                                 Text(
-                                  widget.birthDate,
+                                  _formatBirthDate(widget.birthDate),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,

@@ -34,8 +34,6 @@ class _EditStudentPhysicalExamScreenState
   bool _isSaving = false;
 
   static const List<String> _statusOptions = <String>[
-    'Due',
-    'Scheduled',
     'Completed',
   ];
 

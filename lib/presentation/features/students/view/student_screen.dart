@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -323,23 +322,15 @@ class _StudentScreenState extends State<StudentScreen> {
 
   // Convert Student entity to map format for compatibility with existing UI
   Map<String, dynamic> _studentToMap(Student student) {
-    // Format birthdate as MM/dd/yyyy if possible; otherwise keep raw.
-    String formattedDob = student.dob;
-    if (student.dob.isNotEmpty) {
-      try {
-        final parsed = DateTime.parse(student.dob);
-        formattedDob = DateFormat('MM/dd/yyyy').format(parsed);
-      } catch (_) {
-        formattedDob = student.dob;
-      }
-    }
-
     return {
       'name': student.fullName,
       'Classroom': student.classroom,
       'Tags': student.tags,
-      'schedule': <String>[], // API doesn't provide schedule yet
-      'birthDate': formattedDob,
+      // Until the list API exposes per-student schedules, default to Mon–Fri
+      // so downstream widgets (cards/profile) can render schedule chips.
+      'schedule': <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      // Keep raw DOB; card widget is responsible for display formatting
+      'birthDate': student.dob,
       'movementDate': student.movementDate,
       'Status': student.status,
       'Attendance': 'Expected', // API doesn't provide attendance yet
@@ -352,9 +343,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _clearAllFilters() async {
     setState(() {
-      _currentFilters
-        ..clear()
-        ..['Status'] = ['Active'];
+      _currentFilters.clear();
     });
     await _applyFiltersToCubit();
   }
@@ -447,10 +436,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                 child: StudentProfileScreen(
                                   name: studentMap['name'] as String? ?? "Unknown Student",
                                   sibling: studentMap['sibling'] as Map<String, dynamic>,
-                                  schedule : (studentMap['schedule'] as List<dynamic>?)
-                                      ?.map((e) => e.toString())
-                                      .toList() ??
-                                      ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                                  schedule: (studentMap['schedule'] as List<dynamic>?)
+                                          ?.map((e) => e.toString())
+                                          .toList() ??
+                                      <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                                   classroom: studentMap['Classroom'] as String? ?? "Unknown Class",
                                   tags: (studentMap['Tags'] as List<dynamic>?)
                                       ?.map((e) => e.toString())

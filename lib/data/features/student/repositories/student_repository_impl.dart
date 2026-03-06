@@ -774,6 +774,22 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }
 
   @override
+  Future<String> linkExistingGuardian({
+    required String guardianCode,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.linkExistingGuardian(
+      guardianCode: guardianCode,
+      studentCode: studentCode,
+    );
+
+    // Existing guardian linked – invalidate guardians cache so next load is fresh.
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
   Future<List<String>> getTagNamesForSchool({
     required String schoolCode,
   }) async {

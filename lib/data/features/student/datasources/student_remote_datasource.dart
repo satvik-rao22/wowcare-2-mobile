@@ -206,6 +206,15 @@ abstract class StudentRemoteDataSource {
     required String schoolCode,
   });
 
+  /// Links an existing guardian to a student via `POST /api/v1/guardian/existing`.
+  ///
+  /// Query params: guardianCode, studentCode
+  /// Returns the backend `message` field.
+  Future<String> linkExistingGuardian({
+    required String guardianCode,
+    required String studentCode,
+  });
+
   /// Fetches tags for a school via `GET /api/v1/tags`.
   ///
   /// Returns the `content` list from the paginated `data` payload, each item
@@ -226,6 +235,27 @@ abstract class StudentRemoteDataSource {
   /// `GET /api/v1/student/{code}/important-dates`.
   Future<StudentImportantDatesModel> getStudentImportantDates({
     required String code,
+  });
+
+  /// Updates a student's regular schedules via `PATCH /api/v1/regular-schedules`.
+  ///
+  /// Expected body shape:
+  /// {
+  ///   "schoolCode": "string",
+  ///   "studentCode": "string",
+  ///   "schedule": [
+  ///     {
+  ///       "dayOfWeek": "MONDAY",
+  ///       "startTime": { "hour": 9, "minute": 0, "second": 0, "nano": 0 },
+  ///       "halfDay":  { "hour": 13, "minute": 0, "second": 0, "nano": 0 },
+  ///       "endTime":  { "hour": 17, "minute": 0, "second": 0, "nano": 0 }
+  ///     }
+  ///   ]
+  /// }
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
   });
 
   /// Fetches student health record via
@@ -1053,6 +1083,32 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<String> linkExistingGuardian({
+    required String guardianCode,
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianExisting,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'guardianCode': guardianCode,
+        'studentCode': studentCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian existing API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Guardian linked successfully';
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> getTagsBySchool({
     required String schoolCode,
   }) async {
@@ -1112,6 +1168,36 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     // Backend returns `"data": null` when no important dates are set.
     // Treat this as an empty important-dates model instead of throwing.
     return StudentImportantDatesModel.fromJson(data);
+  }
+
+  @override
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentRegularSchedules,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = <String, dynamic>{
+      'schoolCode': schoolCode,
+      'studentCode': studentCode,
+      'schedule': schedule,
+    };
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student regular schedules API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Student schedule updated successfully';
   }
 
   @override

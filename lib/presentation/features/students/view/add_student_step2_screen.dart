@@ -209,63 +209,20 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     required String schoolCode,
     required String studentCode,
   }) async {
-    // Load full guardian records (with email/mobile) from guardian API.
-    final remote = serviceLocator<StudentRemoteDataSource>();
     final repo = serviceLocator<StudentRepository>();
-
-    final rawList =
-        await remote.getGuardiansBySchool(schoolCode: schoolCode);
-
-    String _buildDisplayName(Map<String, dynamic> item) {
-      final first = (item['firstName'] ?? '').toString().trim();
-      final last = (item['lastName'] ?? '').toString().trim();
-      final email = (item['email'] ?? '').toString().trim();
-      final code = (item['code'] ?? '').toString().trim();
-
-      if (first.isEmpty && last.isEmpty) {
-        return email.isNotEmpty ? email : code;
-      }
-      return '$first $last'.trim();
-    }
-
-    final byDisplay = <String, Map<String, dynamic>>{};
-    for (final item in rawList) {
-      final display = _buildDisplayName(item);
-      if (display.isEmpty) continue;
-      byDisplay[display] = item;
-    }
+    // Map display names back to guardian codes.
+    final nameCodeMap =
+        await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
 
     for (final selected in _selectedExistingParents) {
       final key = selected.trim();
       if (key.isEmpty) continue;
-      final item = byDisplay[key];
-      if (item == null) continue;
+      final guardianCode = nameCodeMap[key];
+      if (guardianCode == null || guardianCode.isEmpty) continue;
 
-      final first =
-          (item['firstName'] ?? '').toString().trim();
-      final last =
-          (item['lastName'] ?? '').toString().trim();
-      final email =
-          (item['email'] ?? '').toString().trim();
-      final mobile =
-          (item['mobile'] ?? '').toString().trim();
-      final relationRaw =
-          (item['relationToStudent'] ?? '').toString().trim();
-
-      final relationToStudent = relationRaw.isNotEmpty
-          ? relationRaw.toUpperCase()
-          : 'GUARDIAN';
-
-      await repo.createGuardianUser(
-        schoolCode: schoolCode,
+      await repo.linkExistingGuardian(
+        guardianCode: guardianCode,
         studentCode: studentCode,
-        firstName: first,
-        lastName: last,
-        email: email,
-        mobile: mobile,
-        relationToStudent: relationToStudent,
-        primaryContact: _isEmergencyContact,
-        legalCustody: _isChildCustody,
       );
     }
   }
