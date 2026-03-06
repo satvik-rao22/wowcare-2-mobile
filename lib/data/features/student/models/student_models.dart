@@ -9,6 +9,7 @@ class StudentListItemModel extends Equatable {
     this.classroom = '',
     this.dob = '',
     this.movementDate = '',
+    this.tags = const <String>[],
   });
 
   final String code;
@@ -18,6 +19,7 @@ class StudentListItemModel extends Equatable {
   final String classroom;
   final String dob;
   final String movementDate;
+  final List<String> tags;
 
   String get fullName => '$firstName $lastName'.trim();
 
@@ -34,6 +36,21 @@ class StudentListItemModel extends Equatable {
           : (code?.toString() ?? '');
     }
 
+    final rawTags = json['tags'];
+    final tags = <String>[];
+    if (rawTags is List) {
+      for (final t in rawTags) {
+        if (t is String) {
+          final v = t.trim();
+          if (v.isNotEmpty) tags.add(v);
+        } else if (t is Map) {
+          // Support shapes like { name: "Peanut Allergy", code: "TAG_..." }
+          final name = (t['name'] ?? '').toString().trim();
+          if (name.isNotEmpty) tags.add(name);
+        }
+      }
+    }
+
     return StudentListItemModel(
       code: json['code'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
@@ -42,6 +59,7 @@ class StudentListItemModel extends Equatable {
       classroom: classroomName,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
+      tags: tags,
     );
   }
 
@@ -54,6 +72,7 @@ class StudentListItemModel extends Equatable {
       'classroom': classroom,
       'dob': dob,
       'movementDate': movementDate,
+      'tags': tags,
     };
   }
 
@@ -66,6 +85,7 @@ class StudentListItemModel extends Equatable {
         classroom,
         dob,
         movementDate,
+        tags,
       ];
 }
 

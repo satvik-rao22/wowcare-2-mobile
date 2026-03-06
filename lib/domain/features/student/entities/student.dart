@@ -9,6 +9,7 @@ class Student extends Equatable {
     this.classroom = '',
     this.dob = '',
     this.movementDate = '',
+    this.tags = const <String>[],
   });
 
   final String code;
@@ -18,6 +19,7 @@ class Student extends Equatable {
   final String classroom;
   final String dob;
   final String movementDate;
+  final List<String> tags;
 
   String get fullName => '$firstName $lastName'.trim();
 
@@ -30,6 +32,7 @@ class Student extends Equatable {
         classroom,
         dob,
         movementDate,
+        tags,
       ];
 }
 

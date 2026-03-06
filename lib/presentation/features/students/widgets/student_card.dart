@@ -3,8 +3,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-import '_tags_loader.dart';
-
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class StudentCard extends StatefulWidget {
@@ -49,23 +47,12 @@ class StudentCard extends StatefulWidget {
 
 class _StudentCardState extends State<StudentCard> {
   bool isExpanded = false;
-  List<String> _resolvedTags = const <String>[];
-  bool _hasLoadedTags = false;
-
-  @override
-  void didUpdateWidget(covariant StudentCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.tags != widget.tags || oldWidget.studentCode != widget.studentCode) {
-      // If parent passes new tags or a different student, reset local cache.
-      _resolvedTags = const <String>[];
-      _hasLoadedTags = false;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    final tags = widget.tags;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -212,22 +199,7 @@ class _StudentCardState extends State<StudentCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        // Always attempt to resolve tags from API (student-tags)
-                                        // the first time this card is expanded.
-                                        if (!_hasLoadedTags)
-                                          TagsLoader(
-                                            studentCode: widget.studentCode,
-                                            initialTags: widget.tags,
-                                            onTagsLoaded: (tags) {
-                                              setState(() {
-                                                _resolvedTags = tags;
-                                                _hasLoadedTags = true;
-                                              });
-                                            },
-                                          ),
-                                        if (_hasLoadedTags &&
-                                            (_resolvedTags.isNotEmpty ||
-                                                widget.tags.isNotEmpty))
+                                        if (tags.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -239,9 +211,7 @@ class _StudentCardState extends State<StudentCard> {
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              (_resolvedTags.isNotEmpty
-                                                      ? _resolvedTags
-                                                      : widget.tags)[0],
+                                              tags[0],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -250,9 +220,7 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if (_hasLoadedTags &&
-                                            (_resolvedTags.length > 1 ||
-                                                widget.tags.length > 1))
+                                        if (tags.length > 1)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -264,9 +232,7 @@ class _StudentCardState extends State<StudentCard> {
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              (_resolvedTags.isNotEmpty
-                                                      ? _resolvedTags
-                                                      : widget.tags)[1],
+                                              tags[1],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -275,15 +241,9 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if (_hasLoadedTags &&
-                                            (_resolvedTags.length > 2 ||
-                                                widget.tags.length > 2))
+                                        if (tags.length > 2)
                                           Tooltip(
-                                            message: (_resolvedTags.isNotEmpty
-                                                    ? _resolvedTags
-                                                    : widget.tags)
-                                                .skip(2)
-                                                .join(', '),
+                                            message: tags.skip(2).join(', '),
                                             child: Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -296,7 +256,7 @@ class _StudentCardState extends State<StudentCard> {
                                                     BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${widget.tags.length - 2}',
+                                                '+${tags.length - 2}',
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,
