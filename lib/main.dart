@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
@@ -42,6 +43,13 @@ Future<void> main() async {
   
   // Initialize dependency injection
   await configureDependencies();
+
+  // TEMP: When bypassing login, force a known schoolCode into storage so
+  // any school-scoped APIs work during testing.
+  if (kBypassLogin) {
+    final storage = serviceLocator<StorageService>();
+    await storage.saveString(StorageKeys.schoolCode, DebugDefaults.schoolCode);
+  }
 
   // Only initialize if not already
   if (Platform.isIOS) {

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/debug_defaults.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -37,6 +40,19 @@ class StudentFamilyTabCard extends StatefulWidget {
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   late Future<List<Map<String, dynamic>>> _guardiansFuture;
 
+  Future<String> _resolveSchoolCode() async {
+    final direct = (widget.schoolCode ?? '').trim();
+    if (direct.isNotEmpty) return direct;
+
+    final storage = serviceLocator<StorageService>();
+    final fromStorage =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (fromStorage.isNotEmpty) return fromStorage;
+
+    // Final fallback (should never hit because StorageService also defaults).
+    return DebugDefaults.schoolCode;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +77,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   }
   Future<void> _onAddParent() async {
     final studentCode = widget.studentCode ?? '';
-    final schoolCode = widget.schoolCode ?? '';
+    final schoolCode = await _resolveSchoolCode();
     if (studentCode.isEmpty || schoolCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -369,35 +385,3 @@ class _FamilyCard extends StatelessWidget {
     );
   }
 }
-
-class _FamilyInfoRow extends StatelessWidget {
-  const _FamilyInfoRow({
-    required this.label,
-    required this.valueKey,
-  });
-
-  final String label;
-  final String valueKey;
-
-  @override
-  Widget build(BuildContext context) {
-    // No longer used; kept for compatibility if needed later.
-    return const SizedBox.shrink();
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

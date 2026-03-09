@@ -83,6 +83,22 @@ class AttendanceRepositoryImpl
     );
   }
 
+  // Cache key for the student expected-attendance summary card.
+  static String _studentAttendanceSummaryCacheKey() =>
+      CacheManager.buildCacheKey(
+        feature: 'attendance',
+        resource: 'student_summary',
+        identifier: 'default',
+      );
+
+  // Cache key for the staff expected-attendance summary card.
+  static String _staffAttendanceSummaryCacheKey() =>
+      CacheManager.buildCacheKey(
+        feature: 'attendance',
+        resource: 'staff_summary',
+        identifier: 'default',
+      );
+
   @override
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
     required String attendanceDate,
@@ -772,8 +788,34 @@ class AttendanceRepositoryImpl
   @override
   Future<StudentAttendanceExpectedSummary>
       getStudentAttendanceExpectedSummary() async {
+    // 1. Try cache first (summary is lightweight and global for "today").
+    final cached = await _cacheManager.loadCache(
+      _studentAttendanceSummaryCacheKey(),
+    );
+    if (cached != null) {
+      return StudentAttendanceExpectedSummary(
+        expected: cached['expected'] as int? ?? 0,
+        present: cached['present'] as int? ?? 0,
+        absent: cached['absent'] as int? ?? 0,
+        signOut: cached['signOut'] as int? ?? 0,
+        notMarked: cached['notMarked'] as int? ?? 0,
+      );
+    }
+
+    // 2. Fallback to API and cache the result.
     final model =
         await _remoteDataSource.getStudentAttendanceExpectedSummaryCard();
+
+    await _cacheManager.saveCache(
+      _studentAttendanceSummaryCacheKey(),
+      {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      },
+    );
 
     return StudentAttendanceExpectedSummary(
       expected: model.expected,
@@ -787,8 +829,34 @@ class AttendanceRepositoryImpl
   @override
   Future<StudentAttendanceExpectedSummary>
       getStaffAttendanceExpectedSummary() async {
+    // 1. Try cache first (summary is lightweight and global for "today").
+    final cached = await _cacheManager.loadCache(
+      _staffAttendanceSummaryCacheKey(),
+    );
+    if (cached != null) {
+      return StudentAttendanceExpectedSummary(
+        expected: cached['expected'] as int? ?? 0,
+        present: cached['present'] as int? ?? 0,
+        absent: cached['absent'] as int? ?? 0,
+        signOut: cached['signOut'] as int? ?? 0,
+        notMarked: cached['notMarked'] as int? ?? 0,
+      );
+    }
+
+    // 2. Fallback to API and cache the result.
     final model =
         await _remoteDataSource.getStaffAttendanceExpectedSummaryCard();
+
+    await _cacheManager.saveCache(
+      _staffAttendanceSummaryCacheKey(),
+      {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      },
+    );
 
     return StudentAttendanceExpectedSummary(
       expected: model.expected,

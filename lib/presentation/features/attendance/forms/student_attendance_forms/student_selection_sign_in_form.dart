@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'student_sign_in_form.dart';
 
@@ -35,33 +41,119 @@ class _StudentSelectionSignInFormState
   // Backing list loaded from the Sign-In form API.
   List<StudentEntity> _allStudents = [];
 
-  final List<String> _classrooms = ['Classroom A', 'Classroom B', 'Classroom C', 'Classroom D'];
-  final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
+  // Filter options loaded from APIs (similar to StudentFilterScreen).
+  List<String> _classroomList = [];
+  List<String> _tagsList = [];
+  Map<String, String> _tagNameToCode = {};
 
   List<StudentEntity> _filteredStudents = [];
 
   bool _isLoading = false;
   String? _errorMessage;
 
+  bool _isClassroomDataReady = false;
+  bool _isTagMapLoading = false;
+
   late final GetStudentSignInFormListUseCase
       _getStudentSignInFormListUseCase;
+  late final ClassroomCubit _classroomCubit;
+  late final StorageService _storageService;
+  late final GetTagNameCodeMapForSchoolUseCase
+      _getTagNameCodeMapForSchoolUseCase;
 
   @override
   void initState() {
     super.initState();
     _getStudentSignInFormListUseCase =
         serviceLocator<GetStudentSignInFormListUseCase>();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
+    _storageService = serviceLocator<StorageService>();
+    _getTagNameCodeMapForSchoolUseCase =
+        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+
+    _loadClassrooms();
+    _loadTags();
     _loadStudents();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _classroomCubit.close();
     super.dispose();
   }
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadClassrooms() async {
+    _classroomCubit.loadActiveClassrooms();
+
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      setState(() {
+        _classroomList = _classroomCubit.state.classrooms
+            .map((c) => c.name)
+            .toList(growable: false);
+        _isClassroomDataReady = true;
+      });
+      return;
+    }
+
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _classroomList = _classroomCubit.state.classrooms
+          .map((c) => c.name)
+          .toList(growable: false);
+      _isClassroomDataReady = _classroomList.isNotEmpty;
+    });
+  }
+
+  Future<void> _loadTags() async {
+    if (_isTagMapLoading) return;
+    setState(() {
+      _isTagMapLoading = true;
+    });
+
+    try {
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isTagMapLoading = false;
+        });
+        return;
+      }
+
+      final map = await _getTagNameCodeMapForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
+      if (!mounted) return;
+
+      final names = map.keys.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+      setState(() {
+        _tagNameToCode = map;
+        _tagsList = names;
+        // Drop any selected tags that no longer exist.
+        _selectedTag.removeWhere((t) => !_tagsList.contains(t));
+        _isTagMapLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isTagMapLoading = false;
+      });
+    }
   }
 
   Future<void> _loadStudents() async {
@@ -75,12 +167,30 @@ class _StudentSelectionSignInFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
-      final classroomCodes =
-          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
-              ? <String>[_selectedClassroom!]
-              : null;
+      // Resolve selected classroom NAME -> code using ClassroomCubit state.
+      List<String>? classroomCodes;
+      if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
+        final nameToCode = <String, String>{
+          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+        };
+        final code = nameToCode[_selectedClassroom!];
+        if (code != null && code.trim().isNotEmpty) {
+          classroomCodes = <String>[code];
+        }
+      }
 
-      final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
+      // Resolve selected tag NAMES -> tagCodes via _tagNameToCode map.
+      List<String>? tagCodes;
+      if (_selectedTag.isNotEmpty) {
+        final codes = _selectedTag
+            .map((name) => _tagNameToCode[name])
+            .whereType<String>()
+            .where((c) => c.trim().isNotEmpty)
+            .toList();
+        if (codes.isNotEmpty) {
+          tagCodes = codes;
+        }
+      }
 
       final searchText =
           _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
@@ -226,15 +336,33 @@ class _StudentSelectionSignInFormState
           Row(
             children: [
               Expanded(
-                child: CustomDropdown(
-                  hintText: 'Classroom',
-                  items: _classrooms,
-                  selectedItem: _selectedClassroom,
-                  onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                    });
-                    _loadStudents();
+                child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                  bloc: _classroomCubit,
+                  builder: (context, classroomState) {
+                    final items = _classroomList.isNotEmpty
+                        ? _classroomList
+                        : classroomState.classrooms
+                            .map((c) => c.name)
+                            .toList(growable: false);
+                    final isLoading =
+                        classroomState.isLoading || !_isClassroomDataReady;
+
+                    if (isLoading && items.isEmpty) {
+                      return const ShimmerLoader(height: 40);
+                    }
+
+                    return CustomDropdown(
+                      hintText: 'Classroom',
+                      items: items,
+                      selectedItem: _selectedClassroom,
+                      onSelect: (value) {
+                        if (isLoading) return;
+                        setState(() {
+                          _selectedClassroom = value;
+                        });
+                        _loadStudents();
+                      },
+                    );
                   },
                 ),
               ),
@@ -242,7 +370,7 @@ class _StudentSelectionSignInFormState
               Expanded(
                 child: CustomMultiSelectDropdown(
                   hintText: 'Tags',
-                  items: _tags,
+                  items: _tagsList,
                   selectedItems: _selectedTag,
                   onChanged: (selectedItems) {
                     setState(() {

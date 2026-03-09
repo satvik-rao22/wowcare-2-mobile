@@ -80,6 +80,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStaffIndex;
+  bool _isClassroomDataReady = false;
 
   late final StaffAttendanceAbsentCubit _cubit;
   late final ClassroomCubit _classroomCubit;
@@ -98,13 +99,41 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
 
     _cubit = serviceLocator<StaffAttendanceAbsentCubit>();
     _classroomCubit = serviceLocator<ClassroomCubit>();
-    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
+    // Staff screens intentionally load all ACTIVE locations (not just type=CLASSROOM).
+    // Guard for "data not loaded yet" so name->code resolution is reliable.
+    _loadClassroomData();
 
     // Set up scroll listener for pagination
     _scrollController.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAbsentStaff(reset: true);
+    });
+  }
+
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms(
+      force: true,
+      onlyTypeClassroom: false,
+    );
+
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isClassroomDataReady = true);
+      return;
+    }
+
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+          _classroomCubit.state.classrooms.isNotEmpty;
     });
   }
 
@@ -121,6 +150,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
 
   List<String>? _resolveSelectedClassroomCodes() {
     if (_selectedClassroomNames.isEmpty) return null;
+    if (_classroomCubit.state.classrooms.isEmpty) return null;
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
@@ -318,12 +348,21 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                                   final items = classroomState.classrooms
                                       .map((c) => c.name)
                                       .toList();
+                                  final isLoading = classroomState.isLoading ||
+                                      !_isClassroomDataReady;
+                                  if (isLoading && items.isEmpty) {
+                                    return ShimmerLoader(
+                                      height: 40,
+                                      borderRadius: BorderRadius.circular(12),
+                                    );
+                                  }
 
                                   return CustomMultiSelectDropdown(
                                     hintText: 'Classroom',
                                     items: items,
                                     selectedItems: _selectedClassroomNames,
                                     onChanged: (values) {
+                                      if (isLoading) return;
                                       setState(() {
                                         _selectedClassroomNames =
                                             List<String>.from(values);

@@ -77,6 +77,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   String? _sortColumn;
   bool _sortAscending = true;
   Map<String, String> _tagNameToCode = <String, String>{};
+  bool _isLoadingTagMap = false;
+  bool _isClassroomDataReady = false;
 
   // Summary data (dummy data for now - will be replaced with API later)
   int enrolled = 120;
@@ -147,7 +149,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         storageService: serviceLocator(),
       );
     }
-    _classroomCubit.loadActiveClassrooms();
+    // Load classroom data and tag mapping
+    _loadClassroomData();
     _loadTagNameCodeMap();
     _searchController.addListener(_onSearchChanged);
     
@@ -166,25 +169,68 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       // _selectedClassrooms = widget.classroomFilter?.selectedValues ?? [];
     }
 
-    // Load initial data
+    // Load initial data using cache-aware cubit methods.
     _loadAttendanceData();
   }
 
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms();
+    
+    // Check if data is already available
+    if (!_classroomCubit.state.isLoading && _classroomCubit.state.classrooms.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isClassroomDataReady = true;
+      });
+      return;
+    }
+    
+    // Wait for classroom data to be available (max 10 seconds)
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+    
+    if (!mounted) return;
+    setState(() {
+      _isClassroomDataReady = !_classroomCubit.state.isLoading && 
+                              _classroomCubit.state.classrooms.isNotEmpty;
+    });
+  }
+
   Future<void> _loadTagNameCodeMap() async {
+    if (_isLoadingTagMap) return;
+    setState(() {
+      _isLoadingTagMap = true;
+    });
+    
     try {
       final storageService = serviceLocator<StorageService>();
       final schoolCode =
           await storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) return;
+      if (schoolCode.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isLoadingTagMap = false;
+        });
+        return;
+      }
 
       final useCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
       final map = await useCase(schoolCode: schoolCode);
       if (!mounted) return;
       setState(() {
         _tagNameToCode = map;
+        _isLoadingTagMap = false;
       });
-    } catch (_) {
-      // Non-critical for filters; ignore errors.
+    } catch (e) {
+      // Non-critical for filters; log but don't block UI
+      debugPrint('Failed to load tag name-to-code map: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTagMap = false;
+      });
     }
   }
 
@@ -199,11 +245,19 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   }
 
   void _onSearchChanged() {
-    _loadAttendanceData();
+    // Search should use cache-first behaviour via loadInitial.
+    _loadAttendanceData(reset: false);
   }
 
   List<String>? _resolveSelectedClassroomCodes() {
     if (_selectedClassroomNames.isEmpty) return null;
+    
+    // Ensure classroom data is loaded
+    if (_classroomCubit.state.classrooms.isEmpty) {
+      debugPrint('Warning: No classroom data available for code resolution');
+      return null;
+    }
+    
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
@@ -211,15 +265,41 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         .map((n) => nameToCode[n])
         .whereType<String>()
         .toList();
+    
+    // Log if some names couldn't be resolved
+    if (codes.length < _selectedClassroomNames.length) {
+      final unresolved = _selectedClassroomNames
+          .where((n) => !nameToCode.containsKey(n))
+          .toList();
+      debugPrint('Warning: Could not resolve classroom codes for: $unresolved');
+    }
+    
     return codes.isEmpty ? null : codes;
   }
 
   List<String>? _resolveSelectedTagCodes() {
     if (_selectedTagNames.isEmpty) return null;
+    
+    // Ensure tag mapping is loaded
+    if (_tagNameToCode.isEmpty && !_isLoadingTagMap) {
+      debugPrint('Warning: Tag name-to-code map is empty. Attempting to reload...');
+      _loadTagNameCodeMap();
+      return null; // Return null for now, will retry after map loads
+    }
+    
     final codes = _selectedTagNames
         .map((n) => _tagNameToCode[n])
         .whereType<String>()
         .toList();
+    
+    // Log if some names couldn't be resolved
+    if (codes.length < _selectedTagNames.length) {
+      final unresolved = _selectedTagNames
+          .where((n) => !_tagNameToCode.containsKey(n))
+          .toList();
+      debugPrint('Warning: Could not resolve tag codes for: $unresolved');
+    }
+    
     return codes.isEmpty ? null : codes;
   }
 
@@ -229,6 +309,17 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     final search = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
         : null;
+
+    // Debug logging for filter application
+    debugPrint('[StudentAttendanceDaily] Loading attendance data:');
+    debugPrint('  - Date: $_selectedDate');
+    debugPrint('  - Classroom Names: $_selectedClassroomNames');
+    debugPrint('  - Classroom Codes: $classroomCodes');
+    debugPrint('  - Tag Names: $_selectedTagNames');
+    debugPrint('  - Tag Codes: $tagCodes');
+    debugPrint('  - Search: $search');
+    debugPrint('  - Show Absent Only: $_showAbsentOnly');
+    debugPrint('  - Reset: $reset');
 
     if (_showAbsentOnly) {
       if (reset) {
@@ -839,7 +930,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     setState(() {
                       _selectedDate = date;
                     });
-                    _loadAttendanceData(reset: true);
+                    // Date changes should still respect cache where available.
+                    _loadAttendanceData(reset: false);
                   },
                 ),
               ),
@@ -855,7 +947,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                           _selectedTagNames = [];
                           _showAbsentOnly = false;
                         });
-                        _loadAttendanceData(reset: true);
+                        _loadAttendanceData(reset: false);
                       }
                     : null,
               ),
@@ -876,7 +968,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     _statusLegendFilter = null;
                   }
                 });
-                _loadAttendanceData(reset: true);
+                  _loadAttendanceData(reset: false);
               },
             ),
           ),
@@ -886,6 +978,84 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   }
 
   void _navigateToFilterScreen() async {
+    // Ensure classroom data is loaded before opening filter screen
+    if (!_isClassroomDataReady || _classroomCubit.state.classrooms.isEmpty) {
+      // Show loading indicator and wait for data
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      try {
+        // Reload classroom data if needed
+        if (_classroomCubit.state.classrooms.isEmpty) {
+          _classroomCubit.loadActiveClassrooms(force: true);
+        }
+        
+        // Wait for classroom data to load (max 10 seconds)
+        int attempts = 0;
+        while (_classroomCubit.state.isLoading && attempts < 100) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          attempts++;
+        }
+        
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        // Check if we have data now
+        if (_classroomCubit.state.classrooms.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to load classroom data. Please try again.'),
+            ),
+          );
+          return;
+        }
+        
+        setState(() {
+          _isClassroomDataReady = true;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load classroom data: $e'),
+          ),
+        );
+        return;
+      }
+    }
+    
+    // Ensure tag mapping is loaded
+    if (_tagNameToCode.isEmpty && !_isLoadingTagMap) {
+      await _loadTagNameCodeMap();
+    }
+    
+    // Wait for tag map if still loading
+    if (_isLoadingTagMap) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      // Wait for tag map to finish loading (max 5 seconds)
+      int attempts = 0;
+      while (_isLoadingTagMap && attempts < 50) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+      }
+      
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading dialog
+    }
+    
     final result = await Navigator.push<Map<String, List<String>>>(
       context,
       MaterialPageRoute(
@@ -906,10 +1076,13 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     );
 
     if (!mounted || result == null) return;
+    
     setState(() {
       _selectedClassroomNames = List<String>.from(result['Classroom'] ?? const []);
       _selectedTagNames = List<String>.from(result['Tags'] ?? const []);
     });
+    
+    // Reload attendance data with new filters
     _loadAttendanceData(reset: true);
   }
 

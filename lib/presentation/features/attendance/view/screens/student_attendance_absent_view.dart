@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -19,8 +20,10 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 // Dummy data model for UI-only implementation
@@ -79,6 +82,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStudentIndex;
+  bool _isClassroomDataReady = false;
 
   // Pagination & list state
   bool _isInitialLoadingStudents = true;
@@ -88,6 +92,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   bool _studentsHasMore = true;
   final int _pageSize = 10;
   final List<_AbsentStudentModel> _absentStudents = [];
+  late final CacheManager _cacheManager;
   bool isLoading = false;
   String? errorMessage;
 
@@ -98,10 +103,13 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   @override
   void initState() {
     super.initState();
+    _cacheManager = CacheManager(serviceLocator<StorageService>());
     _initializeDefaultRange();
     _searchController.addListener(_onSearchChanged);
     _classroomCubit = serviceLocator<ClassroomCubit>();
-    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
+    // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
+    // We also guard for "data not loaded yet" so name->code resolution is reliable.
+    _loadClassroomData();
     
     // Set up scroll listener for pagination
     _scrollController.addListener(_onScroll);
@@ -109,6 +117,32 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
+    });
+  }
+
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms(
+      force: true,
+      onlyTypeClassroom: true,
+    );
+
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isClassroomDataReady = true);
+      return;
+    }
+
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+          _classroomCubit.state.classrooms.isNotEmpty;
     });
   }
 
@@ -148,6 +182,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
   List<String>? _resolveSelectedClassroomCodes() {
     if (_selectedClassroomNames.isEmpty) return null;
+    if (_classroomCubit.state.classrooms.isEmpty) return null;
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
@@ -176,6 +211,29 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   Future<void> _loadInitialData({bool reset = false, bool fromBackground = false}) async {
+    // Try cache first to mirror cache integration used in student lists.
+    if (!reset) {
+      final from = _rangeStart ?? DateTime.now();
+      final to = _rangeEnd ?? DateTime.now();
+      final classroomCodes = _resolveSelectedClassroomCodes();
+      final trimmedSearch = _searchQuery.trim();
+      final cacheKey = _studentAttendanceAbsentCacheKey(
+        from,
+        to,
+        classroomCodes: classroomCodes,
+        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+      );
+
+      final cachedPayload = await _cacheManager.loadCache(cacheKey);
+      if (cachedPayload != null) {
+        _applyPagePayload(
+          cachedPayload,
+          reset: true,
+        );
+        return;
+      }
+    }
+
     await _loadAbsentStudents(reset: reset, fromBackground: fromBackground);
   }
 
@@ -236,7 +294,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final trimmedSearch = _searchQuery.trim();
     if (trimmedSearch.isNotEmpty) {
       queryParameters['search'] = trimmedSearch;
-      }
+    }
 
     debugPrint(
       'StudentAbsent API → GET $endpoint query=$queryParameters',
@@ -266,69 +324,21 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       }
 
       final root = data['data'] as Map<String, dynamic>? ?? {};
-      final content = root['content'] as List<dynamic>? ?? const [];
-      final last = root['last'] as bool? ?? true;
-      final number = root['number'] as int? ?? _studentsPage;
 
-      String _parseTime(dynamic value) {
-        if (value == null) return '';
-        if (value is String) return value;
-        if (value is Map<String, dynamic>) {
-          final hour = value['hour'] as int? ?? 0;
-          final minute = value['minute'] as int? ?? 0;
-          final second = value['second'] as int? ?? 0;
-          final h = hour.toString().padLeft(2, '0');
-          final mStr = minute.toString().padLeft(2, '0');
-          final sStr = second.toString().padLeft(2, '0');
-          return '$h:$mStr:$sStr';
-        }
-        return value.toString();
+      // Cache first page keyed by filters so it can be reused on next load.
+      if (_studentsPage == 0) {
+        final from = _rangeStart ?? DateTime.now();
+        final to = _rangeEnd ?? DateTime.now();
+        final cacheKey = _studentAttendanceAbsentCacheKey(
+          from,
+          to,
+          classroomCodes: classroomCodes,
+          search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+        );
+        await _cacheManager.saveCache(cacheKey, root);
       }
 
-      final newData = content.asMap().entries.map<_AbsentStudentModel>((entry) {
-        final indexInPage = entry.key;
-        final e = entry.value;
-        final m = e as Map<String, dynamic>;
-
-        final absenceDateStr = m['absenceDate'] as String? ?? '';
-        final absenceDate = absenceDateStr.isNotEmpty
-            ? DateTime.tryParse(absenceDateStr) ?? DateTime.now()
-            : DateTime.now();
-
-        final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
-        final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
-        final roomDisplay =
-            classroomName.isNotEmpty ? classroomName : classroomCode;
-
-        return _AbsentStudentModel(
-          id: (m['studentCode'] as String?) ?? '',
-          name: (m['studentName'] as String?) ?? '',
-          photoUuid: null,
-          roomName: roomDisplay,
-          absentDays: (m['absentDays'] as int?) ?? 0,
-          startDate: absenceDate,
-          absentTime: _parseTime(m['markedAbsentTime']),
-          absentBy: (m['markedAbsentByName'] as String?) ?? '',
-          note: (m['absenceNote'] as String?),
-          // No numeric studentId available in this response - use a stable placeholder
-          studentId: (number * _pageSize) + indexInPage,
-          roomId: 0,
-          schoolId: 0,
-        );
-      }).toList();
-
-      setState(() {
-        if (reset) {
-          _absentStudents.clear();
-        }
-        _absentStudents.addAll(newData);
-        _studentsHasMore = !last;
-        _studentsPage = number + (newData.isNotEmpty ? 1 : 0);
-        _isInitialLoadingStudents = false;
-        _isLoadingStudents = false;
-        isLoading = false;
-        _isBackgroundFetchingStudents = false;
-      });
+      _applyPagePayload(root, reset: reset);
 
     } catch (error) {
       debugPrint('StudentAbsent API error: $error');
@@ -344,7 +354,110 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   Future<void> _handleRefresh() async {
-      await _loadAbsentStudents(reset: true);
+    await _loadAbsentStudents(reset: true);
+  }
+
+  /// Builds a cache key for the student absent toggle list,
+  /// following the `{feature}_{resource}_cache_{identifier}` pattern.
+  String _studentAttendanceAbsentCacheKey(
+    DateTime from,
+    DateTime to, {
+    List<String>? classroomCodes,
+    String? search,
+  }) {
+    final fromStr = DateFormat('yyyy-MM-dd').format(from);
+    final toStr = DateFormat('yyyy-MM-dd').format(to);
+
+    final parts = <String>[fromStr, toStr];
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      parts.add('classrooms=${classroomCodes.join(',')}');
+    }
+
+    final searchKey = (search ?? '').trim().toLowerCase();
+    if (searchKey.isNotEmpty) {
+      parts.add('search=$searchKey');
+    }
+
+    final identifier = parts.join('|');
+
+    return CacheManager.buildCacheKey(
+      feature: 'attendance',
+      resource: 'student_absent_toggle',
+      identifier: identifier,
+    );
+  }
+
+  /// Applies a paged API/cache payload to local state and list.
+  void _applyPagePayload(
+    Map<String, dynamic> root, {
+    required bool reset,
+  }) {
+    final content = root['content'] as List<dynamic>? ?? const [];
+    final last = root['last'] as bool? ?? true;
+    final number = root['number'] as int? ?? _studentsPage;
+
+    String parseTime(dynamic value) {
+      if (value == null) return '';
+      if (value is String) return value;
+      if (value is Map<String, dynamic>) {
+        final hour = value['hour'] as int? ?? 0;
+        final minute = value['minute'] as int? ?? 0;
+        final second = value['second'] as int? ?? 0;
+        final h = hour.toString().padLeft(2, '0');
+        final mStr = minute.toString().padLeft(2, '0');
+        final sStr = second.toString().padLeft(2, '0');
+        return '$h:$mStr:$sStr';
+      }
+      return value.toString();
+    }
+
+    final newData = content.asMap().entries.map<_AbsentStudentModel>((entry) {
+      final indexInPage = entry.key;
+      final e = entry.value;
+      final m = e as Map<String, dynamic>;
+
+      final absenceDateStr = m['absenceDate'] as String? ?? '';
+      final absenceDate = absenceDateStr.isNotEmpty
+          ? DateTime.tryParse(absenceDateStr) ?? DateTime.now()
+          : DateTime.now();
+
+      final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
+      final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
+      final roomDisplay =
+          classroomName.isNotEmpty ? classroomName : classroomCode;
+
+      return _AbsentStudentModel(
+        id: (m['studentCode'] as String?) ?? '',
+        name: (m['studentName'] as String?) ?? '',
+        photoUuid: null,
+        roomName: roomDisplay,
+        absentDays: (m['absentDays'] as int?) ?? 0,
+        startDate: absenceDate,
+        absentTime: parseTime(m['markedAbsentTime']),
+        absentBy: (m['markedAbsentByName'] as String?) ?? '',
+        note: (m['absenceNote'] as String?),
+        // No numeric studentId available in this response - use a stable placeholder
+        studentId: (number * _pageSize) + indexInPage,
+        roomId: 0,
+        schoolId: 0,
+      );
+    }).toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      if (reset) {
+        _absentStudents.clear();
+      }
+      _absentStudents.addAll(newData);
+      _studentsHasMore = !last;
+      _studentsPage = number + (newData.isNotEmpty ? 1 : 0);
+      _isInitialLoadingStudents = false;
+      _isLoadingStudents = false;
+      isLoading = false;
+      _isBackgroundFetchingStudents = false;
+    });
   }
 
 
@@ -400,11 +513,17 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                           bloc: _classroomCubit,
                           builder: (context, state) {
                             final items = state.classrooms.map((c) => c.name).toList();
+                            final isLoading =
+                                state.isLoading || !_isClassroomDataReady;
+                            if (isLoading && items.isEmpty) {
+                              return ShimmerLoader(height: 40);
+                            }
                             return CustomMultiSelectDropdown(
                               hintText: 'Classroom',
                               items: items,
                               selectedItems: _selectedClassroomNames,
                               onChanged: (values) {
+                                if (isLoading) return;
                                 setState(() {
                                   _selectedClassroomNames = List<String>.from(values);
                                 });

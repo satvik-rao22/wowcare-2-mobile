@@ -115,7 +115,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   // Method to load attendance data from backend
   void _loadAttendanceData(BuildContext context, {bool reset = false}) {
     final classroomCodes = _staffFilters?.classrooms;
-    final tagCodes = _staffFilters?.tags;
+    // For now, designation is filtered on the frontend only (no backend API filter),
+    // so we do NOT send designation/tagCodes to the attendance APIs.
+    final List<String>? tagCodes = null;
     final search = _searchQuery.isEmpty ? null : _searchQuery;
 
     if (_showAbsentOnly) {
@@ -172,15 +174,30 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   }
 
   List<StaffAttendanceCardData> _getFilteredStaff() {
-    if (_statusLegendFilter == null) {
-      return _staffMembers;
+    // Start with the full list from state.
+    var filtered = List<StaffAttendanceCardData>.from(_staffMembers);
+
+    // Apply legend filter first (Present, etc.).
+    if (_statusLegendFilter != null) {
+      if (_statusLegendFilter == 'Present') {
+        filtered = filtered.where((staff) => staff.hasSignIn).toList();
+      }
+      // Other legend statuses (Absent, etc.) are handled via _showAbsentOnly toggle.
     }
 
-    if (_statusLegendFilter == 'Present') {
-      return _staffMembers.where((staff) => staff.hasSignIn).toList();
+    // Apply designation filter (frontend-only) when provided via StaffFilterScreen.
+    final designationFilters = _staffFilters?.tags ?? const <String>[];
+    if (designationFilters.isNotEmpty) {
+      final selectedDesignation = designationFilters.first.trim().toUpperCase();
+      if (selectedDesignation.isNotEmpty) {
+        filtered = filtered.where((staff) {
+          final name = staff.designationName?.trim().toUpperCase() ?? '';
+          return name == selectedDesignation;
+        }).toList();
+      }
     }
 
-    return _staffMembers;
+    return filtered;
   }
 
   void _clearAllFiltersAndSearch() {

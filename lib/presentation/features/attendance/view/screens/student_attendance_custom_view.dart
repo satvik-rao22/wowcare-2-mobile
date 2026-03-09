@@ -50,6 +50,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
+  bool _isClassroomDataReady = false;
 
   // Optional: show a small spinner on "View" action (UI-only)
   final Map<String, bool> _loadingButtons = <String, bool>{};
@@ -77,9 +78,40 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
 
     _customSearchController.addListener(_onSearchChanged);
     _classroomCubit = serviceLocator<ClassroomCubit>();
-    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
+    // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
+    // We also guard for "data not loaded yet" so name->code resolution is reliable.
+    _loadClassroomData();
     _initializeDefaultRange();
-    _loadAttendanceData(reset: true);
+    // Initial load should use cached data when available.
+    _loadAttendanceData(reset: false);
+  }
+
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms(
+      force: true,
+      onlyTypeClassroom: true,
+    );
+
+    // Mark ready immediately if data already exists.
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isClassroomDataReady = true);
+      return;
+    }
+
+    // Poll the cubit's state for a short period (avoid hanging forever).
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+          _classroomCubit.state.classrooms.isNotEmpty;
+    });
   }
 
   @override
@@ -187,11 +219,13 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     setState(() {
       _searchQuery = _customSearchController.text;
     });
-     _loadAttendanceData(reset: true);
+    // For search & filter changes, prefer cache-first behaviour.
+    _loadAttendanceData(reset: false);
   }
 
   List<String>? _resolveSelectedClassroomCodes() {
     if (_selectedClassroomNames.isEmpty) return null;
+    if (_classroomCubit.state.classrooms.isEmpty) return null;
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
@@ -358,15 +392,20 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       bloc: _classroomCubit,
                       builder: (context, state) {
                         final items = state.classrooms.map((c) => c.name).toList();
+                        final isLoading = state.isLoading || !_isClassroomDataReady;
+                        if (isLoading && items.isEmpty) {
+                          return ShimmerLoader(height: 40);
+                        }
                         return CustomMultiSelectDropdown(
                           hintText: 'Classroom',
                           items: items,
                           selectedItems: _selectedClassroomNames,
                           onChanged: (values) {
+                            if (isLoading) return;
                             setState(() {
                               _selectedClassroomNames = List<String>.from(values);
                             });
-                            _loadAttendanceData(reset: true);
+                            _loadAttendanceData(reset: false);
                           },
                         );
                       },
@@ -391,15 +430,20 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       bloc: _classroomCubit,
                       builder: (context, state) {
                         final items = state.classrooms.map((c) => c.name).toList();
+                        final isLoading = state.isLoading || !_isClassroomDataReady;
+                        if (isLoading && items.isEmpty) {
+                          return ShimmerLoader(height: 40);
+                        }
                         return CustomMultiSelectDropdown(
                           hintText: 'Classroom',
                           items: items,
                           selectedItems: _selectedClassroomNames,
                           onChanged: (values) {
+                            if (isLoading) return;
                             setState(() {
                               _selectedClassroomNames = List<String>.from(values);
                             });
-                            _loadAttendanceData(reset: true);
+                          _loadAttendanceData(reset: false);
                           },
                         );
                       },
@@ -420,7 +464,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                 _customRangeStart = start;
                 _customRangeEnd = end;
               });
-              _loadAttendanceData(reset: true);
+              _loadAttendanceData(reset: false);
             },
           ),
         ],

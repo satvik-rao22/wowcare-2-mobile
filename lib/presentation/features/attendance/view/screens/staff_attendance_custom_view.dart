@@ -39,6 +39,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStaffIndex;
+  bool _isClassroomDataReady = false;
 
   final List<_CustomStaffAttendanceRow> _attendanceList = <_CustomStaffAttendanceRow>[];
 
@@ -52,8 +53,36 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _initializeDefaultRange();
     _cubit = serviceLocator<StaffAttendanceCustomCubit>();
     _classroomCubit = serviceLocator<ClassroomCubit>();
-    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
+    // Staff screens intentionally load all ACTIVE locations (not just type=CLASSROOM).
+    // Guard for "data not loaded yet" so name->code resolution is reliable.
+    _loadClassroomData();
     _loadAttendanceData(reset: true);
+  }
+
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms(
+      force: true,
+      onlyTypeClassroom: false,
+    );
+
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isClassroomDataReady = true);
+      return;
+    }
+
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+          _classroomCubit.state.classrooms.isNotEmpty;
+    });
   }
 
   @override
@@ -80,6 +109,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
 
   List<String>? _resolveSelectedClassroomCodes() {
     if (_selectedClassroomNames.isEmpty) return null;
+    if (_classroomCubit.state.classrooms.isEmpty) return null;
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
@@ -240,12 +270,21 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                             final items = classroomState.classrooms
                                 .map((c) => c.name)
                                 .toList();
+                            final isLoading =
+                                classroomState.isLoading || !_isClassroomDataReady;
+                            if (isLoading && items.isEmpty) {
+                              return ShimmerLoader(
+                                height: 40,
+                                borderRadius: BorderRadius.circular(12),
+                              );
+                            }
 
                             return CustomMultiSelectDropdown(
                               hintText: 'Classroom',
                               items: items,
                               selectedItems: _selectedClassroomNames,
                               onChanged: (values) {
+                                if (isLoading) return;
                                 setState(() {
                                   _selectedClassroomNames =
                                       List<String>.from(values);
@@ -264,6 +303,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                     isRangePicker: true,
                     initialDate: _customRangeStart,
                     onRangeSelected: (start, end) {
+                      // In this screen, the picker is range-based, but `end` can be null
+                      // during selection. Only validate when we have both dates.
                       if (end != null && start.isAfter(end)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
