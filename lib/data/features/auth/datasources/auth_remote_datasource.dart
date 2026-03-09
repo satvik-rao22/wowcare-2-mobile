@@ -218,8 +218,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final url = ApiPaths.url(ApiPaths.authLoginContext);
 
     try {
-      // Call login-context WITHOUT Authorization header (no token)
-      final headers = ApiHeaders.json;
+      // Call login-context WITH Authorization header
+      final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
         method: 'GET',
@@ -328,8 +328,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final requestBody = jsonEncode(body);
 
     try {
-      // Call login-context PATCH WITHOUT Authorization header (no token)
-      final headers = ApiHeaders.json;
+      // Call login-context PATCH WITH Authorization header
+      final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
         method: 'PATCH',
@@ -414,8 +414,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         queryParams['schoolCodes'] = schoolCodes;
       }
 
-      // Call school-names endpoint WITHOUT Authorization header (no token)
-      final headers = ApiHeaders.json;
+      // Call school-names endpoint WITH Authorization header
+      final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
         method: 'GET',
@@ -516,8 +516,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'organizationCodes': organizationCodes,
       };
 
-      // Call organization-names endpoint WITHOUT Authorization header (no token)
-      final headers = ApiHeaders.json;
+      // Call organization-names endpoint WITH Authorization header
+      final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
         method: 'GET',

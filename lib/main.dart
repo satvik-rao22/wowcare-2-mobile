@@ -23,8 +23,8 @@ import 'shared/common/app/providers/splash_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-/// TEMP: flip to `false` to restore normal onboarding/login routing.
-const bool kBypassLogin = true;
+// NOTE: Login bypass removed. App always starts from Splash and follows
+// onboarding/login-context redirect flow.
 // Create a global instance of NotificationService that will be initialized later
 // final NotificationService notificationService = NotificationService();
 
@@ -169,7 +169,7 @@ class _MyAppState extends State<MyApp> {
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
                     theme: themeProvider.currentTheme,
-                    home: const DashboardScreen(),
+                    home: const SplashScreenWrapper(),
                     onGenerateRoute: generateRoute,
                     navigatorKey: navigatorKey,
                   ),
@@ -211,11 +211,6 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
-      if (kBypassLogin) {
-        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-        return;
-      }
-
       final storage = serviceLocator<StorageService>();
 
       final seenOnboarding =
@@ -247,25 +242,23 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
               // LastLoginSchoolCode) into storage so all APIs use them.
               await authLocal.saveOrgAndSchoolFromContext(contextData);
 
-              // When school is null, backend may return redirectUrl to tell us
-              // where to go (select-school, select-organization, select-app).
+              // Backend may return redirectUrl to tell us where to go
+              // (select-school, select-organization, select-app).
+              final rawRedirect = contextData['redirectUrl'];
+              redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
+
               final String orgCode =
                   (contextData['LastLoginOrganizationCode'] as String?)?.trim() ?? '';
               final String schoolCode =
                   (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
-              if (orgCode.isEmpty || schoolCode.isEmpty) {
-                final rawRedirect = contextData['redirectUrl'];
-                redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
-                if (redirectUrl != null && redirectUrl.isNotEmpty) {
-                  // Save org if present (needed for SchoolSelectionScreen)
-                  if (orgCode.isNotEmpty) {
-                    await authLocal.setSelectedOrgAndSchool(
-                      organizationCode: orgCode,
-                      schoolCode: schoolCode,
-                      schoolName: '',
-                    );
-                  }
-                }
+
+              // Save org if present (needed for SchoolSelectionScreen when redirect is select-school)
+              if (orgCode.isNotEmpty) {
+                await authLocal.setSelectedOrgAndSchool(
+                  organizationCode: orgCode,
+                  schoolCode: schoolCode,
+                  schoolName: '',
+                );
               }
             }
           } catch (_) {

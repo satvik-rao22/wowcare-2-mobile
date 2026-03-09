@@ -6,14 +6,15 @@
 /// Notes
 /// - `organizationCode` can be `*` to make the school available for ANY org.
 /// - Consumers typically need entries shaped as `{schoolCode, schoolName}`.
+/// Default catalog is empty. Add real schools here if you need offline / static
+/// school selection, e.g. for demos without calling the schools API.
 const List<Map<String, String>> kStaticSchoolCatalog = <Map<String, String>>[
-  // Example entry (from your message). Replace `schoolName` with the real name
-  // and optionally set `organizationCode` to a specific org code.
-  <String, String>{
-    'organizationCode': '*',
-    'schoolCode': 'SCH_5317481E-5',
-    'schoolName': 'SCH_5317481E-5',
-  },
+  // Example:
+  // <String, String>{
+  //   'organizationCode': '*',
+  //   'schoolCode': 'SCH_XXXX',
+  //   'schoolName': 'My Demo School',
+  // },
 ];
 
 List<Map<String, String>> staticSchoolSelectionEntriesForOrg({
@@ -57,6 +58,7 @@ String? staticSchoolNameForCode(String schoolCode) {
   }
   return null;
 }
+
 
 
 

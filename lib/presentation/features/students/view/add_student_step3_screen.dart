@@ -374,28 +374,28 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
           child: Row(
             children: [
               if (widget.showSkip) ...[
-                Expanded(
-                  child: Container(
-                    height: responsive.buttonHeight,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.primaryColor),
-                      borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-                    ),
-                    child: TextButton(
-                      onPressed: _onSkip,
-                      child: Text(
-                        'Skip',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: responsive.buttonFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryColor,
-                        ),
+              Expanded(
+                child: Container(
+                  height: responsive.buttonHeight,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.primaryColor),
+                    borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+                  ),
+                  child: TextButton(
+                    onPressed: _onSkip,
+                    child: Text(
+                      'Skip',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: responsive.buttonFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+              ),
+              const SizedBox(width: 12),
               ],
               Expanded(
                 child: Container(

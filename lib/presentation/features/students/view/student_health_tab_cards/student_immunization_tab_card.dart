@@ -448,8 +448,8 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                     vaccineName: sortedKeys[i],
                     doses: grouped[sortedKeys[i]]!
                       ..sort(
-                        (a, b) => a.doseNumber.compareTo(b.doseNumber),
-                      ),
+                      (a, b) => a.doseNumber.compareTo(b.doseNumber),
+                    ),
                     onMore: (m) => _openEditImmunizationBottomSheet(model: m),
                   ),
                   if (i != sortedKeys.length - 1) const SizedBox(height: 20),
@@ -477,38 +477,38 @@ class _ImmunizationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Container(
+        return IntrinsicHeight(
+          child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
             bottomRight: Radius.circular(8),
-          ),
+              ),
           border: Border.fromBorderSide(
             BorderSide(color: AppColors.themeColor, width: 1),
           ),
-        ),
-        clipBehavior: Clip.antiAlias,
+            ),
+            clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-          child: Column(
+                child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                            children: [
                   Expanded(
                     child: Text(
                       vaccineName,
-                      style: AppTextStyles.value.copyWith(
-                        fontSize: 15,
+                                style: AppTextStyles.value.copyWith(
+                                  fontSize: 15,
                         fontWeight: FontWeight.w600,
-                      ),
+                              ),
                     ),
                   ),
                   IconButton(
@@ -517,7 +517,7 @@ class _ImmunizationCard extends StatelessWidget {
                       Icons.more_horiz,
                       size: 20,
                       color: Color(0xFF573353),
-                    ),
+                      ),
                     visualDensity: VisualDensity.compact,
                     constraints:
                         const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -529,11 +529,11 @@ class _ImmunizationCard extends StatelessWidget {
                 _DoseRow(
                   model: dose,
                   onMore: () => onMore(dose),
-                ),
-            ],
+                      ),
+                    ],
+              ),
+            ),
           ),
-        ),
-      ),
     );
   }
 }
@@ -567,9 +567,9 @@ class _DoseRow extends StatelessWidget {
                   onTap: onMore,
                   borderRadius: BorderRadius.circular(8),
                   child: _Chip(
-                    label: _statusLabel(model.status),
-                    labelColor: _statusLabelColor(model.status),
-                    color: _statusBgColor(model.status),
+                  label: _statusLabel(model.status),
+                  labelColor: _statusLabelColor(model.status),
+                  color: _statusBgColor(model.status),
                   ),
                 ),
                 const SizedBox(width: 10),
