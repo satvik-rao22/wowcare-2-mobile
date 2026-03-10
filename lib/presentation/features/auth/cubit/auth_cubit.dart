@@ -434,6 +434,72 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Resolves staffCode and prefetches the staff profile for the given
+  /// organization/school combination using the my-profile controller.
+  ///
+  /// This is used when switching organisations/schools so that
+  /// `UserProfileScreen` can render immediately from cache without
+  /// showing long loading states.
+  Future<void> prefetchStaffProfileForOrgAndSchool({
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    try {
+      LoginResponseModel? login;
+      if (state is AuthLoaded) {
+        login = (state as AuthLoaded).loginResponse;
+      } else {
+        login = await _localDataSource.getCachedLoginResponse();
+      }
+      if (login == null) return;
+
+      // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
+      // for the staff-code API as required by backend.
+      String effectiveSchoolCode = schoolCode;
+      const orgAdminRole = 'ORGANIZATION_ADMIN';
+      final rolesForOrg = login.roles
+          .where((r) => r.organizationCode == organizationCode)
+          .toList();
+      final isOrgAdmin = rolesForOrg
+          .any((r) => r.role.toUpperCase() == orgAdminRole);
+      if (isOrgAdmin) {
+        effectiveSchoolCode = '-';
+      }
+
+      final staffRepository = serviceLocator<StaffRepository>();
+      final staffCode = await staffRepository.getStaffCodeForUser(
+        userCode: login.userCode,
+        organizationCode: organizationCode,
+        schoolCode: effectiveSchoolCode,
+      );
+      final trimmed = (staffCode ?? '').trim();
+      if (trimmed.isEmpty) return;
+
+      // Persist resolved staffCode for later screens.
+      await _localDataSource.saveStaffCode(
+        userCode: login.userCode,
+        staffCode: trimmed,
+      );
+
+      // Prefetch staff profile once using the my-profile controller so
+      // profile screens can render from cache.
+      try {
+        final profile = await staffRepository.getStaffProfile(
+          staffCode: trimmed,
+        );
+        final storage = serviceLocator<StorageService>();
+        await storage.saveString(
+          StorageKeys.staffType,
+          profile.staffType,
+        );
+      } catch (_) {
+        // Non-blocking
+      }
+    } catch (_) {
+      // Non-blocking: do not fail switch flow on profile prefetch errors.
+    }
+  }
+
   /// Fetches organization display names for given org codes.
   /// Updates AuthLoaded.orgNames (same order as [organizationCodes]).
   Future<void> loadOrganizationNames(List<String> organizationCodes) async {

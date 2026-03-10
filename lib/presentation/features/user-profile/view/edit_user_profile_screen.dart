@@ -61,7 +61,6 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
-  static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
   @override
   void initState() {
@@ -212,10 +211,10 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
 
   void _applyProfileToControllers(StaffProfile profile) {
     _firstNameController.text = profile.firstName.isNotEmpty
-        ? profile.firstName
+        ? _toTitleCase(profile.firstName)
         : _firstNameController.text;
     _lastNameController.text = profile.lastName.isNotEmpty
-        ? profile.lastName
+        ? _toTitleCase(profile.lastName)
         : _lastNameController.text;
     _emailController.text = profile.email.isNotEmpty
         ? profile.email
@@ -229,33 +228,35 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
 
     final address = profile.address;
     if (address.street.isNotEmpty) {
-      _streetController.text = address.street;
+      _streetController.text = _toTitleCase(address.street);
     }
     if (address.line2.isNotEmpty) {
-      _addressLine2Controller.text = address.line2;
+      _addressLine2Controller.text = _toTitleCase(address.line2);
     }
     if (address.city.isNotEmpty) {
-      _cityController.text = address.city;
+      _cityController.text = _toTitleCase(address.city);
     }
     if (address.zipCode.isNotEmpty) {
       _zipCodeController.text = address.zipCode;
     }
 
-    _selectedState = address.state.isNotEmpty ? address.state : _selectedState;
-    _selectedCountry =
-        address.country.isNotEmpty ? address.country : _selectedCountry;
+    _selectedState =
+        address.state.isNotEmpty ? _toTitleCase(address.state) : _selectedState;
+    _selectedCountry = address.country.isNotEmpty
+        ? _toTitleCase(address.country)
+        : _selectedCountry;
   }
 
   Future<void> _saveProfileDetails() async {
-    final first = _firstNameController.text.trim();
-    final last = _lastNameController.text.trim();
+    final first = _toTitleCase(_firstNameController.text.trim());
+    final last = _toTitleCase(_lastNameController.text.trim());
     final email = _emailController.text.trim().toLowerCase();
     final phoneRaw = _phoneNoController.text.trim();
     final phoneDigits = phoneRaw.replaceAll(RegExp(r'\D'), '');
     final zip = _zipCodeController.text.trim();
-    final city = _cityController.text.trim();
-    final street = _streetController.text.trim();
-    final address2 = _addressLine2Controller.text.trim();
+    final city = _toTitleCase(_cityController.text.trim());
+    final street = _toTitleCase(_streetController.text.trim());
+    final address2 = _toTitleCase(_addressLine2Controller.text.trim());
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(context: context, message:'First Name is required', isError: true);
@@ -289,8 +290,12 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       CoreUtils.showTopSnackBar(context: context, message:'Phone Number is required', isError: true);
       return;
     }
-    if (phoneDigits.length != 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
-      CoreUtils.showTopSnackBar(context: context, message:'Please enter a valid 10-digit phone number', isError: true);
+    if (phoneDigits.length != 10) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please enter a valid 10-digit phone number',
+        isError: true,
+      );
       return;
     }
     if (_streetController.text.isEmpty) {
@@ -389,6 +394,17 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
         isError: true,
       );
     }
+  }
+
+  /// Simple helper to capitalize each word's first letter.
+  String _toTitleCase(String input) {
+    if (input.isEmpty) return input;
+    return input
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .map((word) =>
+            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
 
   @override

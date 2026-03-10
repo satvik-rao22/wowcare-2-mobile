@@ -381,6 +381,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                     selectedSchoolCode: _selectedSchoolCode,
                                   );
                                 }
+                                // After selecting org/school (either during login
+                                // or when switching organisation), prefetch the
+                                // staff profile for this context so that My Profile
+                                // loads instantly from cache.
+                                await authCubit.prefetchStaffProfileForOrgAndSchool(
+                                  organizationCode: widget.selectedOrg,
+                                  schoolCode: schoolCode,
+                                );
                                 if (!context.mounted) return;
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(

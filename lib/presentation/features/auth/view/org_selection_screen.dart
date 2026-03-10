@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -53,7 +54,16 @@ class _OrganizationSelectionScreenState
 
     void onBack() {
       if (widget.isSwitchFlow) {
-        Navigator.of(context).pop();
+        // When opened as a "switch organisation" flow:
+        // - If there's a previous route (e.g. from Dashboard), just pop back.
+        // - If this is the root route (e.g. app opened directly into
+        //   Select Organization via login-context), exit the app instead
+        //   of leaving a blank screen.
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          SystemNavigator.pop();
+        }
       } else {
         context.read<AuthCubit>().logout();
         Navigator.pushReplacementNamed(context, SignInScreen.routeName);

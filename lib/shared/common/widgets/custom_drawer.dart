@@ -302,6 +302,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
       lastLoginSchoolCode: schoolCode,
     );
 
+    // Prefetch staff profile for the newly selected organisation/school
+    // so that My Profile and related screens load instantly after switch.
+    await authCubit.prefetchStaffProfileForOrgAndSchool(
+      organizationCode: _currentOrgCode!,
+      schoolCode: schoolCode,
+    );
+
     if (!mounted) return;
     setState(() {
       _selectedSchoolCode = schoolCode;
