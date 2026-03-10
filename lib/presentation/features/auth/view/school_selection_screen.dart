@@ -355,7 +355,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
                       child: CustomButtonLayout(
-                        confirmButtonLabel: 'Continue',
+                        confirmButtonLabel: 'Next',
                         showCancelButton: false,
                         isForm: false,
                         onPressedConfirm: isNextEnabled

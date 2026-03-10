@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
@@ -255,10 +256,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _profile?.phoneNumber.isNotEmpty == true
             ? _formatPhoneForDisplay(_profile!.phoneNumber)
             : '-';
-    final String displayAddress =
+    final String displayAddressRaw =
         _profile?.address.formattedAddress.isNotEmpty == true
             ? _profile!.address.formattedAddress
             : '-';
+    // Show address in a more readable multi-line format by breaking on commas.
+    final String displayAddress =
+        displayAddressRaw == '-' ? '-' : displayAddressRaw.replaceAll(', ', '\n');
     final String roleDisplay = _profile != null
         ? StringUtils.staffTypeToDisplayRole(_profile!.staffType)
         : _loginPersona;
@@ -267,9 +271,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return GlobalScaffold(
         hasBackButton: true,
-        body: RefreshIndicator(
+        body: CustomRefreshIndicator(
           onRefresh: _initProfileLoad,
-          color: AppColors.primaryColor,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
@@ -733,8 +736,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ),
                           const SizedBox(height: 16),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               CustomTextWidget(
                                 text: 'Address',
@@ -742,16 +744,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 fontWeight: FontWeight.w400,
                                 height: 16 / 13,
                               ),
-                              // const Text(
-                              //   'Address',
-                              //   style: TextStyle(
-                              //     fontFamily: 'Manrope',
-                              //     fontSize: 13,
-                              //     fontWeight: FontWeight.w400,
-                              //     color: Color(0xff573353),
-                              //     height: 16 / 13,
-                              //   ),
-                              // ),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: CustomTextWidget(
                                   text: displayAddress,
@@ -760,20 +753,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   height: 19 / 14,
                                   unlimitedLines: true,
                                   overflow: TextOverflow.visible,
+                                  textAlign: TextAlign.right,
                                 ),
                               ),
-                              // Text(
-                              //   widget.userAddress,
-                              //   style: const TextStyle(
-                              //     fontFamily: 'Manrope',
-                              //     fontSize: 14,
-                              //     fontWeight: FontWeight.w500,
-                              //     color: Color(0xff573353),
-                              //     height: 19 / 14,
-                              //   ),
-                              //   maxLines: 2,
-                              //   overflow: TextOverflow.ellipsis,
-                              // ),
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing),

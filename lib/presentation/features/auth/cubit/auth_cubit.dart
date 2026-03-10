@@ -319,12 +319,44 @@ class AuthCubit extends Cubit<AuthState> {
       final updated =
           Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
       updated[organizationCode] = schoolList;
+
+      // Also update organization display name (orgNames) when API
+      // returns organizationName in the payload. This ensures that
+      // Select Organization / Select School screens can show a human-
+      // readable org name instead of the raw code, even after app
+      // restart when only the school-names API was called.
+      List<String> nextOrgNames = prev?.orgNames ?? const [];
+      final orgNameFromSchools = result.organizationName.trim();
+      if (orgNameFromSchools.isNotEmpty) {
+        // Derive canonical org-code order from roles (deduped, first occurrence).
+        final codesFromRoles = <String>[];
+        for (final r in login.roles) {
+          final code = r.organizationCode;
+          if (code.isNotEmpty && !codesFromRoles.contains(code)) {
+            codesFromRoles.add(code);
+          }
+        }
+        if (codesFromRoles.isNotEmpty) {
+          // Ensure orgNames list matches length of codes list.
+          if (nextOrgNames.length != codesFromRoles.length) {
+            // Start from empty list sized to match codes length.
+            nextOrgNames = List<String>.filled(codesFromRoles.length, '');
+          } else {
+            nextOrgNames = List<String>.from(nextOrgNames);
+          }
+          final idx = codesFromRoles.indexOf(organizationCode);
+          if (idx != -1) {
+            nextOrgNames[idx] = orgNameFromSchools;
+          }
+        }
+      }
+
       emit(AuthLoaded(
         loginResponse: login,
         schoolsByOrg: updated,
         isPrefetchingSchools: false,
         lastErrorMessage: null,
-        orgNames: prev?.orgNames ?? const [],
+        orgNames: nextOrgNames,
         hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
         redirectUrl: prev?.redirectUrl,
       ));

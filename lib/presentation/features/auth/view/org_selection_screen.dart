@@ -281,7 +281,7 @@ class _OrganizationSelectionScreenState
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
                       child: CustomButtonLayout(
-                        confirmButtonLabel: 'Continue',
+                        confirmButtonLabel: 'Next',
                         showCancelButton: false,
                         isForm: false,
                         onPressedConfirm: isNextEnabled

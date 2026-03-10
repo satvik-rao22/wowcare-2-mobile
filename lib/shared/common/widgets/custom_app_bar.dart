@@ -76,6 +76,24 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final bool hasTabs =
         tabs != null && tabController != null && tabs!.isNotEmpty;
 
+    // Determine whether the logged-in user has access to multiple organizations.
+    // If there's only one organization, we hide the "Switch Organisation" menu item.
+    bool hasMultipleOrganizations = false;
+    try {
+      final authCubit = context.read<AuthCubit>();
+      final state = authCubit.state;
+      if (state is AuthLoaded) {
+        final orgCodes = state.loginResponse.roles
+            .map((r) => r.organizationCode)
+            .where((c) => c.isNotEmpty)
+            .toSet();
+        hasMultipleOrganizations = orgCodes.length > 1;
+      }
+    } catch (_) {
+      // If AuthCubit is not available, default to not showing the switch org item.
+      hasMultipleOrganizations = false;
+    }
+
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -237,27 +255,30 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
             ),
-            PopupMenuItem<int>(
-              value: 4,
-              child: Row(
-                children: [
-                  Icon(Icons.business, color: AppColors.primaryColor.withValues(alpha: 0.5)),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Switch Organisation',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
+            if (hasMultipleOrganizations)
+              PopupMenuItem<int>(
+                value: 4,
+                child: Row(
+                  children: [
+                    Icon(Icons.business,
+                        color:
+                            AppColors.primaryColor.withValues(alpha: 0.5)),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Switch Organisation',
+                      style: TextStyle(
+                        color: AppColors.primaryColor,
+                        fontFamily: 'Manrope',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  //const Text('My Profile'),
-                ],
+                    //const Text('My Profile'),
+                  ],
+                ),
               ),
-            ),
             PopupMenuItem<int>(
               value: 5,
               child: Row(

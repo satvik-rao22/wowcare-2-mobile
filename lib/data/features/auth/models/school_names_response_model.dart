@@ -4,6 +4,9 @@ class SchoolNamesResponseModel {
   final List<String> data;
   /// Full list of {schoolCode, schoolName} when API returns objects.
   final List<Map<String, String>> dataWithCodes;
+  /// Optional organization display name when API returns
+  /// { organizationName, schools: [...] }.
+  final String organizationName;
   final String timestamp;
 
   SchoolNamesResponseModel({
@@ -11,6 +14,7 @@ class SchoolNamesResponseModel {
     required this.message,
     required this.data,
     this.dataWithCodes = const [],
+    this.organizationName = '',
     required this.timestamp,
   });
 
@@ -18,9 +22,11 @@ class SchoolNamesResponseModel {
     // API returns data as object: {organizationName, schools: [{code, name, ...}]}
     List<dynamic> rawList = [];
     final data = json['data'];
+    String orgName = '';
     if (data is List) {
       rawList = data;
     } else if (data is Map<String, dynamic>) {
+      orgName = (data['organizationName'] ?? '').toString().trim();
       final schools = data['schools'];
       rawList = schools is List ? schools : [];
     }
@@ -47,6 +53,7 @@ class SchoolNamesResponseModel {
       message: json['message'] as String? ?? '',
       data: names,
       dataWithCodes: withCodes,
+      organizationName: orgName,
       timestamp: json['timestamp'] as String? ?? '',
     );
   }
