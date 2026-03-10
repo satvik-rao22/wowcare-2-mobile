@@ -410,6 +410,33 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<String> changeUserEmail({
+    required String userCode,
+    required String oldEmail,
+    required String newEmail,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final message = await _remoteDataSource.changeUserEmail(
+      userCode: userCode,
+      oldEmail: oldEmail,
+      newEmail: newEmail,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
+    return message;
+  }
+
+  @override
+  Future<String> getStaffSignInPin({
+    required String staffCode,
+  }) async {
+    return _remoteDataSource.getStaffSignInPin(
+      staffCode: staffCode,
+    );
+  }
+
+  @override
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode) async {
     final payload = await _cacheManager.loadCache(_staffProfileCacheKey(staffCode));
     if (payload == null) return null;

@@ -371,6 +371,38 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
         'addressCountry': _selectedCountry ?? '',
       };
 
+      // If email changed, call email-change API before updating profile.
+      try {
+        final storage = serviceLocator<StorageService>();
+        final userCode =
+            (await storage.getString(StorageKeys.userCode) ?? '').trim();
+        final oldEmail =
+            (await storage.getString(StorageKeys.email) ?? '').trim();
+        final organizationCode =
+            (await storage.getString(StorageKeys.organizationCode) ?? '')
+                .trim();
+        final schoolCode =
+            (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+        if (userCode.isNotEmpty &&
+            oldEmail.isNotEmpty &&
+            oldEmail.toLowerCase() != email &&
+            organizationCode.isNotEmpty &&
+            schoolCode.isNotEmpty) {
+          await repo.changeUserEmail(
+            userCode: userCode,
+            oldEmail: oldEmail,
+            newEmail: email,
+            organizationCode: organizationCode,
+            schoolCode: schoolCode,
+          );
+          // Keep local storage in sync with new email.
+          await storage.saveString(StorageKeys.email, email);
+        }
+      } catch (_) {
+        // Non-blocking: email-change failure should not block profile save.
+      }
+
       await repo.updateMyProfile(
         staffCode: staffCode,
         fields: body,

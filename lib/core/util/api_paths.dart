@@ -9,6 +9,11 @@ class ApiPaths {
   static const String authForgotPassword = '/api/v1/auth/forgot-password';
   static const String authLoginContext = '/api/v1/auth/login-context';
 
+  // Users
+  static const String userRoot = '/api/v1/users';
+  static String userEmailChange(String userCode) =>
+      '$userRoot/$userCode/email-change';
+
   // School - {organizationCode} in path
   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
   static String schoolNamesByOrgPath(String orgCode) =>

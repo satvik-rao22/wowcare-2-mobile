@@ -26,6 +26,16 @@ class _OrganizationSelectionScreenState
   String? _selectedOrgCode;
   bool _hasTriggeredOrgNamesLoad = false;
 
+  String _formatRole(String role) {
+    if (role.isEmpty) return '';
+    final cleaned = role.toLowerCase().replaceAll('_', ' ');
+    return cleaned
+        .split(' ')
+        .map((word) =>
+            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -87,8 +97,9 @@ class _OrganizationSelectionScreenState
           final userName = login.displayName.isNotEmpty
               ? login.displayName
               : login.email;
-          final userRole =
+          final rawRole =
               login.roles.isNotEmpty ? login.roles.first.role : '';
+          final userRole = _formatRole(rawRole);
 
           // Always use roles for org codes; org names from API (no cache)
           final orgCodes = state.loginResponse.roles

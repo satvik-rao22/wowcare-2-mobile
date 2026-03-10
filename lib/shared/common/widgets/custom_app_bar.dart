@@ -18,6 +18,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 
 class TabBarStyle {
@@ -217,20 +218,30 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               child: Row(
                 children: [
                   Transform.rotate(angle: -pi / 4,
-                  child: Icon(Icons.vpn_key, color: AppColors.primaryColor.withValues(alpha: 0.5))),
+                      child: Icon(Icons.vpn_key,
+                          color: AppColors.primaryColor.withValues(alpha: 0.5))),
                   const SizedBox(width: 12),
-                  Text(
-                    'Sign-in pin : 5769', // hardcoded for now
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  FutureBuilder<String?>(
+                    future: serviceLocator<StorageService>()
+                        .getString(StorageKeys.staffPin),
+                    builder: (context, snapshot) {
+                      final pin = (snapshot.data ?? '').trim();
+                      final text = pin.isNotEmpty
+                          ? 'Sign-in pin : $pin'
+                          : 'Sign-in pin';
+                      return Text(
+                        text,
+                        style: TextStyle(
+                          color: AppColors.primaryColor,
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    },
                   ),
-                  //const Text('My Profile'),
                 ],
               ),
             ),

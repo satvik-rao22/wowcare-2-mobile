@@ -211,8 +211,16 @@ class AuthCubit extends Cubit<AuthState> {
                     StorageKeys.staffType,
                     profile.staffType,
                   );
+                  // Also prefetch sign-in PIN for custom app bar.
+                  try {
+                    final pin =
+                        await staffRepository.getStaffSignInPin(staffCode: trimmed);
+                    if (pin.trim().isNotEmpty) {
+                      await storage.saveString(StorageKeys.staffPin, pin.trim());
+                    }
+                  } catch (_) {}
                 } catch (_) {
-                  // Non-blocking: profile prefetch failure should not affect login flow.
+                  // Non-blocking: profile/pin prefetch failure should not affect login flow.
                 }
               }
             } catch (_) {
@@ -492,6 +500,14 @@ class AuthCubit extends Cubit<AuthState> {
           StorageKeys.staffType,
           profile.staffType,
         );
+        // Also prefetch PIN whenever we prefetch profile for a new org/school.
+        try {
+          final pin =
+              await staffRepository.getStaffSignInPin(staffCode: trimmed);
+          if (pin.trim().isNotEmpty) {
+            await storage.saveString(StorageKeys.staffPin, pin.trim());
+          }
+        } catch (_) {}
       } catch (_) {
         // Non-blocking
       }
