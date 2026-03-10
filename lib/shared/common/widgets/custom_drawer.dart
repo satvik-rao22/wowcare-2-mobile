@@ -19,9 +19,13 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
- import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
 
@@ -31,11 +35,49 @@ class CustomDrawer extends StatefulWidget {
 
 class _CustomDrawerState extends State<CustomDrawer> {
   String _currentRoute = '';
+  bool _isSchoolDropdownOpen = false;
+  bool _isLoadingSchools = true;
+  String? _currentOrgCode;
+  String? _selectedSchoolCode;
+  String? _selectedSchoolName;
+  List<Map<String, String>> _schoolsForOrg = const <Map<String, String>>[];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _currentRoute = ModalRoute.of(context)?.settings.name ?? '';
+    // Load school context once we have a BuildContext and DI is ready.
+    _loadSchoolContext();
+  }
+
+  Future<void> _loadSchoolContext() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final authLocal = serviceLocator<AuthLocalDataSource>();
+      final orgCode = await storage.getString(StorageKeys.organizationCode);
+      final schoolCode = await storage.getString(StorageKeys.schoolCode);
+      final selectedName =
+          await storage.getString(StorageKeys.selectedSchoolName);
+      final orgSchools = await authLocal.getOrganizationsAndSchools();
+
+      final schoolsForOrg = orgSchools
+          .where((e) => e['organizationCode'] == (orgCode ?? ''))
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _currentOrgCode = orgCode;
+        _schoolsForOrg = schoolsForOrg;
+        _selectedSchoolCode = schoolCode;
+        _selectedSchoolName = selectedName;
+        _isLoadingSchools = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingSchools = false;
+      });
+    }
   }
 
   Widget _header() {
@@ -66,18 +108,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: Text(
-                      'Demo School',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  // School switcher dropdown (for current organization)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildSchoolSwitcher(),
                   ),
                 ],
               ),
@@ -86,6 +120,199 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ),
       ),
     );
+  }
+
+  Widget _buildSchoolSwitcher() {
+    if (_isLoadingSchools) {
+      return const SizedBox(
+        height: 20,
+        width: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        ),
+      );
+    }
+
+    if (_currentOrgCode == null || _currentOrgCode!.isEmpty) {
+      return const Text(
+        'No organization selected',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+    }
+
+    if (_schoolsForOrg.isEmpty) {
+      return const Text(
+        'No schools found',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+    }
+
+    // Resolve a human-friendly school name. Prefer the name from the
+    // cached org/school list, falling back to selectedSchoolName and
+    // finally to a generic placeholder.
+    String currentName = 'Select school';
+    if (_selectedSchoolCode != null && _selectedSchoolCode!.isNotEmpty) {
+      final match = _schoolsForOrg.firstWhere(
+        (e) => e['schoolCode'] == _selectedSchoolCode,
+        orElse: () => const <String, String>{},
+      );
+      final fromList = match['schoolName'];
+      if (fromList != null && fromList.isNotEmpty) {
+        currentName = fromList;
+      } else if (_selectedSchoolName != null &&
+          _selectedSchoolName!.isNotEmpty &&
+          _selectedSchoolName != _selectedSchoolCode) {
+        // Only use stored name if it's not just the code.
+        currentName = _selectedSchoolName!;
+      }
+    } else {
+      currentName = _schoolsForOrg.first['schoolName'] ?? 'Select school';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _isSchoolDropdownOpen = !_isSchoolDropdownOpen;
+            });
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  currentName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(
+                _isSchoolDropdownOpen
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+                color: Colors.white,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+        if (_isSchoolDropdownOpen) ...[
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _schoolsForOrg.length,
+              itemBuilder: (context, index) {
+                final school = _schoolsForOrg[index];
+                final code = school['schoolCode'] ?? '';
+                final name = school['schoolName'] ?? code;
+                final isSelected = code == _selectedSchoolCode;
+                return InkWell(
+                  onTap: () => _onSchoolSelected(code, name),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.white.withOpacity(0.15)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(
+                            Icons.check,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _onSchoolSelected(String schoolCode, String schoolName) async {
+    if (_currentOrgCode == null || _currentOrgCode!.isEmpty) return;
+
+    final authLocal = serviceLocator<AuthLocalDataSource>();
+    final authCubit = context.read<AuthCubit>();
+
+    // Persist new selection locally (used by all APIs).
+    await authLocal.setSelectedOrgAndSchool(
+      organizationCode: _currentOrgCode!,
+      schoolCode: schoolCode,
+      schoolName: schoolName,
+    );
+
+    // Best-effort: update backend login-context with new school.
+    await authCubit.updateLoginContext(
+      lastLoginOrganizationCode: _currentOrgCode!,
+      lastLoginSchoolCode: schoolCode,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _selectedSchoolCode = schoolCode;
+      _selectedSchoolName = schoolName;
+      _isSchoolDropdownOpen = false;
+    });
+
+    // Close drawer and send user to Dashboard for the newly selected school.
+    Navigator.pop(context);
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
   }
 
   @override

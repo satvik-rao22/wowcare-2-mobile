@@ -1,16 +1,17 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
+import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -331,6 +332,14 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           onSelected: (value) async {
             switch (value) {
               case 4:
+                // Ensure AuthCubit has cached login data loaded so that
+                // OrganizationSelectionScreen can render immediately without
+                // getting stuck in a loading state after app reopen.
+                final authCubit = context.read<AuthCubit>();
+                if (authCubit.state is! AuthLoaded) {
+                  await authCubit.loadCachedData();
+                  if (!context.mounted) return;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -366,10 +375,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 }
                 break;
               case 8:
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Logout tapped',
-                );
+                // Same logout UX as drawer: open the SignOutScreen dialog,
+                // which calls AuthCubit.logoutSession and clears local data.
+                SignOutScreen.show(context);
                 break;
             }
           },

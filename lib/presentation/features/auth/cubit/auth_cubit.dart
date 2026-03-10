@@ -89,10 +89,26 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final cachedResponse = await _localDataSource.getCachedLoginResponse();
       if (cachedResponse != null) {
+        // When app starts and we already have a cached login response,
+        // immediately expose it as AuthLoaded so org/school selection
+        // screens (and others) can render without an extra loading state.
+        emit(
+          AuthLoaded(
+            loginResponse: cachedResponse,
+            schoolsByOrg: const <String, List<Map<String, String>>>{},
+            isPrefetchingSchools: false,
+            lastErrorMessage: null,
+            orgNames: const [],
+            hasLastSchoolFromContext: false,
+            redirectUrl: null,
+          ),
+        );
+      } else {
         emit(const AuthInitial());
       }
     } catch (e) {
-      // Silently fail - no cached data available
+      // Silently fall back to initial state if anything goes wrong.
+      emit(const AuthInitial());
     }
   }
 
