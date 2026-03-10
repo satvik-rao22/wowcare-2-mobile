@@ -267,10 +267,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return GlobalScaffold(
         hasBackButton: true,
-        body: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
+        body: RefreshIndicator(
+          onRefresh: _initProfileLoad,
+          color: AppColors.primaryColor,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
               // Top profile header (name + role) with 4px horizontal gap
               Card(
                 margin: const EdgeInsets.symmetric(vertical: 15, horizontal: 4),
@@ -542,8 +545,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               //     letterSpacing: -0.03 * 16,
                               //   ),
                               // ),
-                              GestureDetector(
-                                onTap: () {
+                          GestureDetector(
+                                onTap: () async {
                                   // Prefer loaded profile data; fall back to login name/email.
                                   final fullName = (_profile?.fullName ?? '').trim().isNotEmpty
                                       ? _profile!.fullName.trim()
@@ -555,10 +558,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       ? _profile!.email.trim()
                                       : _loginEmail;
                                   final initialPhoneNo = (_profile?.phoneNumber ?? '').trim();
-                                  final initialAddress = _profile?.address.formattedAddress ?? '';
+                                  final address = _profile?.address;
+                                  final initialStreet =
+                                      (address?.street ?? '').trim();
+                                  final initialLine2 =
+                                      (address?.line2 ?? '').trim();
+                                  final initialCity =
+                                      (address?.city ?? '').trim();
+                                  final initialState =
+                                      (address?.state ?? '').trim();
+                                  final initialCountry =
+                                      (address?.country ?? '').trim();
+                                  final initialZip =
+                                      (address?.zipCode ?? '').trim();
                                   final role = displayPersona;
 
-                                  Navigator.push(
+                                  final updated = await Navigator.push<bool>(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => EditUserProfileScreen(
@@ -566,18 +581,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         initialLastName: initialLastName,
                                         initialEmail: initialEmail,
                                         initialPhoneNo: initialPhoneNo,
-                                        initialAddressLine2: initialAddress,
+                                        initialAddressLine2: initialLine2,
                                         role: role,
-                                        initialStreet: '',
-                                        initialCity: '',
-                                        // Leave state & country empty so edit screen dropdowns show "Select"
-                                        // when there is no real data from profile.
-                                        initialState: '',
-                                        initialCountry: '',
-                                        initialZipCode: '',
+                                        initialStreet: initialStreet,
+                                        initialCity: initialCity,
+                                        initialState: initialState,
+                                        initialCountry: initialCountry,
+                                        initialZipCode: initialZip,
                                       ),
                                     ),
                                   );
+                                  // If profile was updated, reload latest data so
+                                  // the multiline address and other fields reflect changes.
+                                  if (updated == true && mounted) {
+                                    await _initProfileLoad();
+                                  }
                                 },
                                 child: Container(
                                   width: 38,
@@ -734,11 +752,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               //     height: 16 / 13,
                               //   ),
                               // ),
-                              CustomTextWidget(
-                                text: displayAddress,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                height: 19 / 14,
+                              Expanded(
+                                child: CustomTextWidget(
+                                  text: displayAddress,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  height: 19 / 14,
+                                  unlimitedLines: true,
+                                  overflow: TextOverflow.visible,
+                                ),
                               ),
                               // Text(
                               //   widget.userAddress,
@@ -765,7 +787,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               )
             ],
           ),
-        )
+          ),
+        ),
     );
   }
 }

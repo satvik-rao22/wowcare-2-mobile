@@ -375,7 +375,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       setState(() {
         _isSubmitting = false;
       });
-      Navigator.pop(context);
+      // Pop with result so caller can refresh profile details.
+      Navigator.pop(context, true);
     } catch (e) {
       CoreUtils.logApiError(e.toString());
       if (!mounted) return;
