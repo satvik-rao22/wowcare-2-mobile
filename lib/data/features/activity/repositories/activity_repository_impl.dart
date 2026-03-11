@@ -74,6 +74,35 @@ class ActivityRepositoryImpl implements ActivityRepository {
       displayOrder: model.displayOrder,
     );
   }
+
+  @override
+  Future<String> createActivity({
+    required String activityTypeCode,
+    required String classroomCode,
+    required List<String> studentCodes,
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+    required String activityDate,
+    required String description,
+    List<Map<String, dynamic>> parameterValues = const [],
+    List<Map<String, dynamic>> attachments = const [],
+  }) async {
+    final request = ActivityCreateRequestModel(
+      activityTypeCode: activityTypeCode,
+      classroomCode: classroomCode,
+      studentCodes: studentCodes,
+      staffCode: staffCode,
+      schoolCode: schoolCode,
+      organizationCode: organizationCode,
+      activityDate: activityDate,
+      description: description,
+      parameterValues: parameterValues,
+      attachments: attachments,
+    );
+
+    return _remoteDataSource.createActivity(request: request);
+  }
 }
 
 

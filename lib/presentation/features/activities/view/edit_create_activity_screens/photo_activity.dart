@@ -10,6 +10,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/theme/colors.dart';
+import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
@@ -108,6 +109,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
             Padding(
@@ -117,7 +119,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  widget.isPhoto ?'Photo' : 'Video',
+                  widget.isPhoto ? 'Photo' : 'Video',
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: responsive.titleFontSize,
@@ -128,31 +130,16 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               ),
             ),
             SizedBox(height: responsive.isTablet ? 32.0 : 10.0),
-            Container(
-              width: responsive.containerWidth,
-              margin: EdgeInsets.symmetric(
-                  horizontal: responsive.horizontalSpacing
-              ),
-              padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.all(
-                  Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.horizontalSpacing,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 10,),
+                  const SizedBox(height: 10),
                   // Select All
-                  if(widget.isEdit) ...[
+                  if (widget.isEdit) ...[
                     Align(
                       alignment: Alignment.centerLeft,
                       child: CustomCheckbox(
@@ -172,7 +159,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 12,),
+                    const SizedBox(height: 12),
                   ],
                   GridView.builder(
                     physics: const NeverScrollableScrollPhysics(),
@@ -182,60 +169,94 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                       crossAxisCount: responsive.isTablet ? 3 : 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      childAspectRatio: responsive.isTablet ? 3.8 : widget.isEdit ? 4.2 : 3.0,
+                      childAspectRatio: responsive.isTablet
+                          ? 3.8
+                          : widget.isEdit
+                              ? 4.2
+                              : 3.0,
                     ),
                     itemCount: _selectedStudents.length,
                     itemBuilder: (context, index) {
                       final String name = _selectedStudents[index];
                       final bool isSelected = _studentsToEdit.contains(name);
 
-                      return widget.isEdit ?
-                      StudentTile(
-                        name: name,
-                        isSelected: isSelected,
-                        onSelected: (bool? selected){
-                          ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                          setState(() {
-                            if(selected == true){
-                              _studentsToEdit.add(name);
-                            } else {
-                              _studentsToEdit.remove(name);
-                            }
-                            _updateSelectAllState();
-                          });
-                        },
-                      )
-                          :SelectedStudentTile(
-                        name: name,
-                        onTap: () => _removeStudent(name),
-                      );
+                      return widget.isEdit
+                          ? StudentTile(
+                              name: name,
+                              isSelected: isSelected,
+                              onSelected: (bool? selected) {
+                                ScaffoldMessenger.of(context)
+                                    .removeCurrentSnackBar();
+                                setState(() {
+                                  if (selected == true) {
+                                    _studentsToEdit.add(name);
+                                  } else {
+                                    _studentsToEdit.remove(name);
+                                  }
+                                  _updateSelectAllState();
+                                });
+                              },
+                            )
+                          : SelectedStudentTile(
+                              name: name,
+                              onTap: () => _removeStudent(name),
+                            );
                     },
                   ),
-                  SizedBox(height: responsive.verticalSpacing,),
+                  SizedBox(height: responsive.verticalSpacing),
                   Row(
                     children: [
                       Flexible(
-                        child:
-                        widget.isEdit ?
-                        DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
-                            :
-                        DateWidget(isEditable: true, isRequired: true,),
+                        child: widget.isEdit
+                            ? DateWidget(
+                                isEditable: true,
+                                isRequired: true,
+                                initialDate: widget.activityData?.date,
+                              )
+                            : const DateWidget(
+                                isEditable: true,
+                                isRequired: true,
+                              ),
                       ),
-                      const SizedBox(width: 10,),
+                      const SizedBox(width: 10),
                       Flexible(
-                          child: widget.isEdit ?
-                          TimeWidget(isEditable: true, isRequired: true, prefilledTime: widget.activityData?.time,)
-                              : TimeWidget(isRequired: true, isEditable: true,)
+                        child: widget.isEdit
+                            ? TimeWidget(
+                                isEditable: true,
+                                isRequired: true,
+                                prefilledTime: widget.activityData?.time,
+                              )
+                            : const TimeWidget(
+                                isRequired: true,
+                                isEditable: true,
+                              ),
                       ),
                     ],
                   ),
-                  SizedBox(height: responsive.verticalSpacing,),
-                  MediaUploader(isRequired: true,allowVideo: !widget.isPhoto, allowPhoto: widget.isPhoto, onMediaChanged: _onMediaChanged, initialPhotoUrls: widget.isEdit ? _existingPhotoUrls :[], initialVideoUrl: widget.isEdit ? _existingVideoUrl: null,),
-                  SizedBox(height: responsive.verticalSpacing,),
-                  StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.createdBy ?? '':'Staff A', isEditable: false,),
-                  SizedBox(height: responsive.verticalSpacing,),
-                  InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description'),
-                  SizedBox(height: responsive.verticalSpacing,),
+                  SizedBox(height: responsive.verticalSpacing),
+                  MediaUploader(
+                    isRequired: true,
+                    allowVideo: !widget.isPhoto,
+                    allowPhoto: widget.isPhoto,
+                    onMediaChanged: _onMediaChanged,
+                    initialPhotoUrls:
+                        widget.isEdit ? _existingPhotoUrls : const [],
+                    initialVideoUrl:
+                        widget.isEdit ? _existingVideoUrl : null,
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  StaffPresentWidget(
+                    staffName:
+                        widget.isEdit ? widget.activityData?.createdBy ?? '' : 'Staff A',
+                    isEditable: false,
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  InputWidget(
+                    controller: _descriptionController,
+                    height: 100,
+                    hint: 'Enter Description',
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
                 ],
               ),
             ),
@@ -280,35 +301,50 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           ),
         ),
         child: TextButton(
-          onPressed: _hasMedia ? (){
-           // Navigator.of(context).popUntil((route) => route.isFirst);
-            //Navigator.of(context).pop();
-            if (widget.isEdit && _studentsToEdit.isEmpty ){
-              CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Please select at least one student',
-                  isWarning: true
-              );
-              return;
-            }
-            Navigator.of(context).popUntil((route) {
-              return route.settings.name == ActivityFeedScreen.routeName;
-            });
-          } : (){
-            if (widget.isEdit && _studentsToEdit.isEmpty ){
-              CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Please select at least one student',
-                  isWarning: true
-              );
-              return;
-            }
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: widget.isPhoto ? 'Please upload a photo before adding activity.' : 'Please upload a video before adding activity.',
-              isWarning: true
-            );
-          },
+          onPressed: _hasMedia
+              ? () {
+                  if (widget.isEdit && _studentsToEdit.isEmpty) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Please select at least one student',
+                      isWarning: true,
+                    );
+                    return;
+                  }
+                  try {
+                    // When this screen is wired to POST /activities for
+                    // photo/video, wrap the use case call here and surface
+                    // the backend 'message' field on failure.
+                    Navigator.of(context).popUntil((route) {
+                      return route.settings.name ==
+                          ActivityFeedScreen.routeName;
+                    });
+                  } catch (error) {
+                    final message = ApiErrorHandler.extractErrorMessage(error);
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: message,
+                      isError: true,
+                    );
+                  }
+                }
+              : () {
+                  if (widget.isEdit && _studentsToEdit.isEmpty) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Please select at least one student',
+                      isWarning: true,
+                    );
+                    return;
+                  }
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: widget.isPhoto
+                        ? 'Please upload a photo before adding activity.'
+                        : 'Please upload a video before adding activity.',
+                    isWarning: true,
+                  );
+                },
           style: TextButton.styleFrom(overlayColor: Colors.transparent),
           child: Text(
             widget.isEdit ?'Save':'Add',

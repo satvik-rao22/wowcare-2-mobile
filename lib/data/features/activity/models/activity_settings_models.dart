@@ -109,4 +109,46 @@ class ActivitySettingsListModel {
   }
 }
 
+/// Request body model for creating a new activity via
+/// `POST /api/v1/activities`.
+class ActivityCreateRequestModel {
+  ActivityCreateRequestModel({
+    required this.activityTypeCode,
+    required this.classroomCode,
+    required this.studentCodes,
+    required this.staffCode,
+    required this.schoolCode,
+    required this.organizationCode,
+    required this.activityDate,
+    required this.description,
+    this.parameterValues = const [],
+    this.attachments = const [],
+  });
+
+  final String activityTypeCode;
+  final String classroomCode;
+  final List<String> studentCodes;
+  final String staffCode;
+  final String schoolCode;
+  final String organizationCode;
+  final String activityDate;
+  final String description;
+  final List<Map<String, dynamic>> parameterValues;
+  final List<Map<String, dynamic>> attachments;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'activityTypeCode': activityTypeCode,
+      'classroomCode': classroomCode,
+      'studentCodes': studentCodes,
+      'staffCode': staffCode,
+      'schoolCode': schoolCode,
+      'organizationCode': organizationCode,
+      'activityDate': activityDate,
+      'description': description,
+      if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
+      if (attachments.isNotEmpty) 'attachments': attachments,
+    };
+  }
+}
 

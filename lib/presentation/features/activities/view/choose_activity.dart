@@ -3,6 +3,8 @@ import 'package:wowcare/app/theme/colors.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/media_res.dart';
+import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
@@ -117,9 +119,13 @@ class _ChooseActivityState extends State<ChooseActivity> {
         _enabledActivities = enabled.isEmpty ? null : enabled;
         _multiStudentAllowed = multiAllowed.isEmpty ? null : multiAllowed;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      // Keep UI usable with default behaviour even if settings fail.
+      final message = ApiErrorHandler.extractErrorMessage(error);
+      CoreUtils.logApiError('Failed to load activity settings: $message');
+      // Keep UI usable with default behaviour even if settings fail,
+      // but surface backend message to the user.
+      _showWarningMessage(message);
     }
   }
 
@@ -195,31 +201,11 @@ class _ChooseActivityState extends State<ChooseActivity> {
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      final snackBar = SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade50,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Colors.orange.shade100),
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     });
   }
 

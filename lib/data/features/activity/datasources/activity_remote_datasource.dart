@@ -10,6 +10,11 @@ abstract class ActivityRemoteDataSource {
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
     required String classroomCode,
   });
+
+  /// Creates a new activity via `POST /api/v1/activities`.
+  Future<String> createActivity({
+    required ActivityCreateRequestModel request,
+  });
 }
 
 class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
@@ -40,6 +45,33 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         .map(ActivitySettingModel.fromJson)
         .toList();
+  }
+
+  @override
+  Future<String> createActivity({
+    required ActivityCreateRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.activities,
+      ApiConstants.activityBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected create-activity API response format');
+    }
+
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+
+    return 'Activity created successfully';
   }
 }
 

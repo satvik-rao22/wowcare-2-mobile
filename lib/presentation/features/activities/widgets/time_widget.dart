@@ -13,7 +13,8 @@ class TimeWidget extends StatefulWidget {
     this.prefilledTime,
     this.isRequired = false,
     this.label = 'Time',
-    this.doNotShowTime =false
+    this.doNotShowTime = false,
+    this.onTimeChanged,
   });
 
   final bool isEditable;
@@ -22,6 +23,7 @@ class TimeWidget extends StatefulWidget {
   final TimeOfDay? initialTime; // Optional initial time
   final bool isRequired;
   final bool doNotShowTime;
+  final ValueChanged<TimeOfDay>? onTimeChanged;
 
   @override
   State<TimeWidget> createState() => _TimeWidgetState();
@@ -29,13 +31,15 @@ class TimeWidget extends StatefulWidget {
 
 class _TimeWidgetState extends State<TimeWidget> {
   late TimeOfDay _selectedTime;
-  bool _hasPrefilledTime = false;
 
   @override
   void initState() {
     super.initState();
     _selectedTime = _parseTimeOfDay(widget.prefilledTime) ?? widget.initialTime ?? TimeOfDay.now();
-    _hasPrefilledTime = widget.prefilledTime != null && widget.prefilledTime!.trim().isNotEmpty;
+    // Notify initial value.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onTimeChanged?.call(_selectedTime);
+    });
   }
 
   TimeOfDay? _parseTimeOfDay(String? timeStr) {
@@ -87,6 +91,7 @@ class _TimeWidgetState extends State<TimeWidget> {
       setState(() {
         _selectedTime = picked;
       });
+      widget.onTimeChanged?.call(_selectedTime);
     }
   }
 

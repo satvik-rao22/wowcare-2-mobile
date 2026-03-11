@@ -6,6 +6,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
@@ -116,33 +118,13 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   }
 
   void _showWarningMessage(String message) {
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      if(!mounted) return;
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      final snackBar = SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade50,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Colors.orange.shade100),
-        ),
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     });
   }
 
@@ -189,8 +171,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       if (_selectedClassroom != null) {
         await _loadStudentsForCurrentFilters();
       }
-    } catch (_) {
-      _showWarningMessage('Failed to load filters. Please try again.');
+    } catch (error) {
+      final message = ApiErrorHandler.extractErrorMessage(error);
+      CoreUtils.logApiError('Failed to load activity filters: $message');
+      _showWarningMessage(message);
     } finally {
       if (mounted) {
         setState(() {
@@ -203,26 +187,32 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   Future<void> _loadClassrooms() async {
     if (_schoolCode == null || _schoolCode!.trim().isEmpty) return;
 
-    final classrooms = await _getActiveClassroomsUseCase(
-      schoolCode: _schoolCode!,
-      onlyTypeClassroom: true,
-    );
+    try {
+      final classrooms = await _getActiveClassroomsUseCase(
+        schoolCode: _schoolCode!,
+        onlyTypeClassroom: true,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _classroomOptions = classrooms.map((c) => c.name).toList();
-      _classroomCodeByName
-        ..clear()
-        ..addEntries(
-          classrooms.map(
-            (c) => MapEntry(c.name, c.code),
-          ),
-        );
+      setState(() {
+        _classroomOptions = classrooms.map((c) => c.name).toList();
+        _classroomCodeByName
+          ..clear()
+          ..addEntries(
+            classrooms.map(
+              (c) => MapEntry(c.name, c.code),
+            ),
+          );
 
-      _selectedClassroom ??=
-          _classroomOptions.isNotEmpty ? _classroomOptions.first : null;
-    });
+        _selectedClassroom ??=
+            _classroomOptions.isNotEmpty ? _classroomOptions.first : null;
+      });
+    } catch (error) {
+      final message = ApiErrorHandler.extractErrorMessage(error);
+      CoreUtils.logApiError('Failed to load classrooms: $message');
+      _showWarningMessage(message);
+    }
   }
 
   Future<void> _loadTags() async {
@@ -238,8 +228,11 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           ..addAll(nameCodeMap);
         _tagOptions = nameCodeMap.keys.toList()..sort();
       });
-    } catch (_) {
-      // Non-critical for this screen; ignore errors.
+    } catch (error) {
+      final message = ApiErrorHandler.extractErrorMessage(error);
+      CoreUtils.logApiError('Failed to load tags: $message');
+      // Tags are non-critical, but still show backend message once.
+      _showWarningMessage(message);
     }
   }
 
@@ -281,13 +274,15 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         _studentsError = null;
       });
       _updateSelectAllState();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      final message = ApiErrorHandler.extractErrorMessage(error);
+      CoreUtils.logApiError('Failed to load students: $message');
       setState(() {
         _isLoadingStudents = false;
-        _studentsError = 'Failed to load students';
+        _studentsError = message;
       });
-      _showWarningMessage('Failed to load students. Please try again.');
+      _showWarningMessage(message);
     }
   }
 
@@ -310,18 +305,18 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
     return StaffFormLayout(
       title: 'Add Activity',
-      child: Column(
+                  child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+                    children: [
           Text(
-            'Select Students',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
-            ),
-          ),
+                                  'Select Students',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xff573353),
+                                  ),
+                                ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -331,9 +326,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               border: Border.all(color: Colors.grey),
             ),
             child: TextField(
-              controller: _searchController,
+                                    controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search Students',
+                                    hintText: 'Search Students',
                 hintStyle: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 14,
@@ -346,7 +341,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                     ? null
                     : IconButton(
                         onPressed: () {
-                          _searchController.clear();
+                                          _searchController.clear();
                           _applyFilters();
                           _updateSelectAllState();
                         },
@@ -355,62 +350,62 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               ),
               onChanged: (_) {
                 _applyFilters();
-                _updateSelectAllState();
-              },
-            ),
-          ),
+                                          _updateSelectAllState();
+                                      },
+                                ),
+                            ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCustomDropdown(
-                  'Classroom',
-                  _classroomOptions,
-                  _selectedClassroom,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildCustomDropdown(
+                                    'Classroom',
+                                    _classroomOptions,
+                                    _selectedClassroom,
                   (v) {
                     setState(() {
-                      _selectedClassroom = v;
+                                      _selectedClassroom = v;
                       // Students across classrooms cannot be selected together
                       _selectedStudents.clear();
-                      _selectAll = false;
+                                      _selectAll = false;
                     });
                     _loadStudentsForCurrentFilters();
                   },
-                ),
-              ),
+                                  ),
+                                ),
               const SizedBox(width: 12),
-              Expanded(
-                child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tagOptions,
-                  selectedItems: _selectedTags,
-                  gapHeight: 40,
-                  onChanged: (selectedItems) {
-                    setState(() {
-                      _selectedTags = selectedItems;
-                    });
+                                Expanded(
+                                  child: CustomMultiSelectDropdown(
+                                    hintText: 'Tags',
+                                    items: _tagOptions,
+                                    selectedItems: _selectedTags,
+                                    gapHeight: 40,
+                                    onChanged: (selectedItems) {
+                                      setState(() {
+                                        _selectedTags = selectedItems;
+                                      });
                     _loadStudentsForCurrentFilters();
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
           Row(
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  value: _selectAll,
-                  onChanged: (v) {
-                    final newVal = v ?? false;
-                    setState(() {
-                      _selectAll = newVal;
-                      if (newVal) {
+                              child: CustomCheckbox(
+                                value: _selectAll,
+                                onChanged: (v) {
+                                  final newVal = v ?? false;
+                                  setState(() {
+                                    _selectAll = newVal;
+                                    if (newVal) {
                         for (final student in _filteredStudents) {
-                          _selectedStudents.add({
+                                        _selectedStudents.add({
                             'name': student.fullName,
-                            'classroom': _selectedClassroom!,
+                                          'classroom': _selectedClassroom!,
                             'classroomCode': student.classroomCode,
                             'studentCode': student.studentCode,
                             'profilePictureUrl': student.profilePictureUrl,
@@ -425,14 +420,14 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                             'medication': student.medication,
                             'allergies': student.allergies,
                             'dietaryRestriction': student.dietaryRestriction,
-                          });
-                        }
-                      } else {
-                        _selectedStudents.removeWhere(
+                                        });
+                                      }
+                                    } else {
+                                      _selectedStudents.removeWhere(
                           (s) => s['classroom'] == _selectedClassroom,
                         );
-                      }
-                    });
+                                    }
+                                  });
                   },
                   borderColor: AppColors.themeColor,
                 ),
@@ -461,28 +456,28 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                   _loadStudentsForCurrentFilters();
                 },
                 child: const Text('Clear'),
-              ),
+                              ),
             ],
-          ),
+                            ),
           const SizedBox(height: 12),
           Expanded(
             child: _isLoadingFilters || _isLoadingStudents
                 ? const Center(child: PrimaryCircularLoader())
                 : _filteredStudents.isEmpty
-                    ? Center(
-                        child: Text(
-                          _selectedClassroom == null
-                              ? 'Select a classroom to view students or use the search bar'
+                                ? Center(
+                              child: Text(
+                                _selectedClassroom == null
+                                    ? 'Select a classroom to view students or use the search bar'
                               : (_studentsError ??
                                   'No students match the selected filters'),
-                          style: TextStyle(
-                            color: Colors.grey[600],
+                                style: TextStyle(
+                                  color: Colors.grey[600],
                             fontSize: 14,
                             fontFamily: 'Manrope',
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
                     : CustomRefreshIndicator(
                         onRefresh: _refreshStudents,
                         child: GridView.builder(
@@ -490,14 +485,14 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                           physics: const AlwaysScrollableScrollPhysics(),
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: responsive.isTablet ? 3 : 2,
+                                    crossAxisCount: responsive.isTablet ? 3 : 2,
                             crossAxisSpacing: responsive.isTablet ? 16 : 12,
                             mainAxisSpacing: responsive.isTablet ? 16 : 12,
                             mainAxisExtent: 52,
-                          ),
-                          itemCount: _filteredStudents.length,
-                          itemBuilder: (context, index) {
-                            final student = _filteredStudents[index];
+                                ),
+                                itemCount: _filteredStudents.length,
+                                itemBuilder: (context, index) {
+                                  final student = _filteredStudents[index];
                             final String name = student.fullName;
                             final bool isNapping = student.nap;
                             final String studentCode = student.studentCode;
@@ -507,16 +502,16 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                             );
 
                             return _ActivityStudentListItem(
-                              name: name,
-                              isSelected: isSelected,
+                                    name: name,
+                                    isSelected: isSelected,
                               onSelectionChanged: (selected) {
                                 ScaffoldMessenger.of(context)
                                     .removeCurrentSnackBar();
-                                setState(() {
+                                      setState(() {
                                   if (selected == true) {
                                     _selectedStudents.add({
                                       'name': name,
-                                      'classroom': _selectedClassroom!,
+                                                'classroom': _selectedClassroom!,
                                       'classroomCode': student.classroomCode,
                                       'studentCode': student.studentCode,
                                       'profilePictureUrl':
@@ -534,22 +529,22 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                       'dietaryRestriction':
                                           student.dietaryRestriction,
                                     });
-                                  } else {
+                                        } else {
                                     _selectedStudents.removeWhere(
                                       (s) =>
                                           s['studentCode'] == studentCode,
                                     );
-                                  }
-                                  _updateSelectAllState();
-                                });
-                              },
-                            );
+                                        }
+                                        _updateSelectAllState();
+                                      });
+                                    },
+                                  );
                           },
-                        ),
-                      ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
       bottomBar: Padding(
         padding: EdgeInsets.only(bottom: safeAreaBottom),
         child: CustomButtonLayout(
@@ -658,17 +653,17 @@ class _ActivityStudentListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => onSelectionChanged(!isSelected),
-      child: Container(
-        decoration: BoxDecoration(
+            child: Container(
+              decoration: BoxDecoration(
           border: Border.all(
             color: AppColors.themeColor,
-          ),
+                ),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
               : Colors.white,
-        ),
-        child: Padding(
+              ),
+              child: Padding(
           padding: const EdgeInsets.only(right: 4),
           child: Row(
             children: [
@@ -685,9 +680,9 @@ class _ActivityStudentListItem extends StatelessWidget {
                 name: name,
                 size: 32,
                 fontSize: 14,
-              ),
+          ),
               const SizedBox(width: 8),
-              Expanded(
+          Expanded(
                 child: Text(
                   name.split(' ').first,
                   overflow: TextOverflow.ellipsis,
@@ -695,10 +690,10 @@ class _ActivityStudentListItem extends StatelessWidget {
                     color: AppColors.primaryColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
-            ],
+            ),
+          ),
+        ],
           ),
         ),
       ),
