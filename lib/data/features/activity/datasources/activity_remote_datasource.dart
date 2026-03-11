@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../models/activity_settings_models.dart';
 
@@ -20,8 +21,11 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
     required String classroomCode,
   }) async {
-    final base = ApiPaths.url(ApiPaths.classroomActivitySettingsRoot);
-    final endpoint = '$activityBaseUrl/$classroomCode/activity-settings';
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.classroomActivitySettingsRoot,
+      ApiConstants.activityBaseUrl,
+    );
+    final endpoint = '$base/$classroomCode/activity-settings';
 
     final response = await _client.get<dynamic>(endpoint);
     final body = response.data;
