@@ -6,11 +6,10 @@ import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/theme/colors.dart';
-import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../../../../shared/common/widgets/custom_app_bar.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../activity_daily_tab.dart';

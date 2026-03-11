@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
-import 'package:wowcare/shared/common/widgets/student_tile.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
-import '../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
-import '../../../../shared/common/widgets/custom_search_bar.dart';
+import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 class ActivityStudentSelection extends StatefulWidget {
   const ActivityStudentSelection({super.key});
@@ -194,290 +192,254 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   @override
   void initState() {
     super.initState();
-    //_applyFilters();
-    _searchController.addListener(_applyFilters);
     _selectedClassroom = _classroomOptions.first;
   }
 
-  void _applyFilters(){
-    setState(() {});
-  }
+  void _applyFilters() => setState(() {});
 
   @override
   void dispose() {
-    //_searchController.removeListener(_applyFilters);
-    //_searchController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const CustomAppBar(hasBackButton: true),
-      body: Stack(
+    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+
+    return StaffFormLayout(
+      title: 'Add Activity',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
+          Text(
+            'Select Students',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff573353),
             ),
           ),
-          Column(
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F7FA),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.grey),
+            ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search Students',
+                hintStyle: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.grey[700],
+                ),
+                border: InputBorder.none,
+                icon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon: _searchController.text.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          _applyFilters();
+                          _updateSelectAllState();
+                        },
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                      ),
+              ),
+              onChanged: (_) {
+                _applyFilters();
+                _updateSelectAllState();
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
               Expanded(
-                child: SingleChildScrollView(
-                  physics: AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Add Activity',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: responsive.titleFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff573353),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                      Container(
-                        width: responsive.containerWidth,
-                        margin: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Text(
-                                  'Select Students',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: CustomSearchBar(
-                                    controller: _searchController,
-                                    hintText: 'Search Students',
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  height: 38,
-                                  child: CustomClearAllChip(
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedClassroom = _classroomOptions.first;
-                                          _selectedStudents.clear();
-                                          _searchController.clear();
-                                          //_selectedTags.clear();
-                                          _selectedTags = [];
-                                          _updateSelectAllState();
-
-                                        });
-                                        //print(_filterTags);
-                                      },
-                                      label: 'Clear All'),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildCustomDropdown(
-                                    'Classroom',
-                                    _classroomOptions,
-                                    _selectedClassroom,
-                                        (v) => setState(() {
-                                      _selectedClassroom = v;
-                                      _selectedStudents.clear(); // students across classrooms can not be selected together
-                                      _selectAll = false;
-                                    }),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: CustomMultiSelectDropdown(
-                                    hintText: 'Tags',
-                                    items: _tagOptions,
-                                    selectedItems: _selectedTags,
-                                    gapHeight: 40,
-                                    onChanged: (selectedItems) {
-                                      setState(() {
-                                        _selectedTags = selectedItems;
-                                        _updateSelectAllState();
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            // Select All
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: CustomCheckbox(
-                                label: 'Select All',
-                                value: _selectAll,
-                                borderColor: AppColors.themeColor,
-                                onChanged: (v) {
-                                  final newVal = v ?? false;
-                                  setState(() {
-                                    _selectAll = newVal;
-                                    if (newVal) {
-                                      for (final entry in _filteredStudents) {
-                                        final name = entry.key;
-                                        final info = entry.value;
-                                        final bool isNapping = info['nappingStatus'] as bool;
-
-                                        _selectedStudents.add({
-                                          'name': name,
-                                          'classroom': _selectedClassroom!,
-                                          'tags': info['tags'],
-                                          'nappingStatus': isNapping,
-                                        });
-                                      }
-                                    } else {
-                                      _selectedStudents.removeWhere(
-                                              (s) => s['classroom'] == _selectedClassroom);
-                                    }
-                                  });
-                                  // setState(() {
-                                  //   _selectAll = newVal;
-                                  //   if(newVal){
-                                  //     _selectedStudents.addAll(_filteredStudents.map((e) => e.key,));
-                                  //   } else {
-                                  //     _selectedStudents.removeAll(_filteredStudents.map((e) => e.key));
-                                  //   }
-                                  // });
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 12,),
-                            _filteredStudents.isEmpty
-                                ? Center(
-                              child: Text(
-                                _selectedClassroom == null
-                                    ? 'Select a classroom to view students or use the search bar'
-                                    : 'No students match the selected filters',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                                :
-                            GridView.builder(
-                                shrinkWrap: true,
-                                padding: EdgeInsets.all(10),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: responsive.isTablet ? 3 : 2,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    //childAspectRatio: 3.8
-                                    childAspectRatio: responsive.isTablet ? 3.8 : 4.2
-                                ),
-                                itemCount: _filteredStudents.length,
-                                itemBuilder: (context, index) {
-                                  final student = _filteredStudents[index];
-                                  final String name = student.key;
-                                  final Map<String, dynamic> studentInfo = student.value;
-                                  final bool isNapping = studentInfo['nappingStatus'] ;
-                                  final bool isSelected = _selectedStudents.any((s) => s['name'] == name && s['classroom'] == _selectedClassroom);
-
-                                  return StudentTile(
-                                    name: name,
-                                    isSelected: isSelected,
-                                    onSelected: (bool? selected){
-                                      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                                      setState(() {
-                                        if(selected == true){
-                                          _selectedStudents.add(
-                                              {
-                                                'name' : name,
-                                                'classroom': _selectedClassroom!,
-                                                'tags' : studentInfo['tags'],
-                                                'nappingStatus': isNapping
-                                              }
-                                          );
-                                        } else {
-                                          _selectedStudents.removeWhere((s) => s['name'] == name && s['classroom'] == _selectedClassroom);
-                                        }
-                                        _updateSelectAllState();
-                                      });
-                                    },
-                                  );
-                                }
-                            ),
-                            const SizedBox(height: 30,),
-                            // Expanded(  // Use Expanded instead of Flexible for the list area
-                            //   child: ListView(
-                            //     padding: EdgeInsets.zero,
-                            //     children: [
-                            //       StudentTile(name: 'Lex'),  // Example – replace with your actual list later
-                            //       StudentTile(name: 'Ajay'),
-                            //       StudentTile(name: 'Brinder'),
-                            //       // ... more tiles
-                            //       const SizedBox(height: 20), // optional bottom padding
-                            //     ],
-                            //   ),
-                            // ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                    ],
-                  ),
+                child: _buildCustomDropdown(
+                  'Classroom',
+                  _classroomOptions,
+                  _selectedClassroom,
+                  (v) => setState(() {
+                    _selectedClassroom = v;
+                    _selectedStudents.clear(); // students across classrooms can not be selected together
+                    _selectAll = false;
+                    _updateSelectAllState();
+                  }),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CustomMultiSelectDropdown(
+                  hintText: 'Tags',
+                  items: _tagOptions,
+                  selectedItems: _selectedTags,
+                  gapHeight: 40,
+                  onChanged: (selectedItems) {
+                    setState(() {
+                      _selectedTags = selectedItems;
+                      _updateSelectAllState();
+                    });
+                  },
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: CustomCheckbox(
+                  value: _selectAll,
+                  onChanged: (v) {
+                    final newVal = v ?? false;
+                    setState(() {
+                      _selectAll = newVal;
+                      if (newVal) {
+                        for (final entry in _filteredStudents) {
+                          final name = entry.key;
+                          final info = entry.value;
+                          final bool isNapping =
+                              info['nappingStatus'] as bool;
+
+                          _selectedStudents.add({
+                            'name': name,
+                            'classroom': _selectedClassroom!,
+                            'tags': info['tags'],
+                            'nappingStatus': isNapping,
+                          });
+                        }
+                      } else {
+                        _selectedStudents.removeWhere(
+                          (s) => s['classroom'] == _selectedClassroom,
+                        );
+                      }
+                    });
+                  },
+                  borderColor: AppColors.themeColor,
+                ),
+              ),
+              Text(
+                'Select All',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff573353),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedClassroom = _classroomOptions.first;
+                    _selectedStudents.clear();
+                    _searchController.clear();
+                    _selectedTags = [];
+                    _selectAll = false;
+                    _updateSelectAllState();
+                  });
+                },
+                child: const Text('Clear'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _filteredStudents.isEmpty
+                ? Center(
+                    child: Text(
+                      _selectedClassroom == null
+                          ? 'Select a classroom to view students or use the search bar'
+                          : 'No students match the selected filters',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                        fontFamily: 'Manrope',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                : GridView.builder(
+                    shrinkWrap: false,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: responsive.isTablet ? 3 : 2,
+                      crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                      mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                      mainAxisExtent: 52,
+                    ),
+                    itemCount: _filteredStudents.length,
+                    itemBuilder: (context, index) {
+                      final student = _filteredStudents[index];
+                      final String name = student.key;
+                      final Map<String, dynamic> studentInfo = student.value;
+                      final bool isNapping = studentInfo['nappingStatus'];
+                      final bool isSelected = _selectedStudents.any(
+                        (s) =>
+                            s['name'] == name &&
+                            s['classroom'] == _selectedClassroom,
+                      );
+
+                      return _ActivityStudentListItem(
+                        name: name,
+                        isSelected: isSelected,
+                        onSelectionChanged: (selected) {
+                          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                          setState(() {
+                            if (selected == true) {
+                              _selectedStudents.add({
+                                'name': name,
+                                'classroom': _selectedClassroom!,
+                                'tags': studentInfo['tags'],
+                                'nappingStatus': isNapping,
+                              });
+                            } else {
+                              _selectedStudents.removeWhere(
+                                (s) =>
+                                    s['name'] == name &&
+                                    s['classroom'] == _selectedClassroom,
+                              );
+                            }
+                            _updateSelectAllState();
+                          });
+                        },
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(context, responsive),
+      bottomBar: Padding(
+        padding: EdgeInsets.only(bottom: safeAreaBottom),
+        child: CustomButtonLayout(
+          confirmButtonLabel: 'Next',
+          cancelButtonLabel: 'Cancel',
+          onPressedCancel: () => Navigator.of(context).pop(),
+          onPressedConfirm: () {
+            if (_selectedStudents.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChooseActivity(
+                    selectedStudents: _selectedStudents.toList(),
+                  ),
+                ),
+              );
+            } else {
+              _showWarningMessage('Select at least one student.');
+            }
+          },
+        ),
+      ),
     );
   }
 
@@ -547,111 +509,66 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   //   );
   // }
 
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
+}
+
+class _ActivityStudentListItem extends StatelessWidget {
+  final String name;
+  final bool isSelected;
+  final ValueChanged<bool?> onSelectionChanged;
+
+  const _ActivityStudentListItem({
+    required this.name,
+    required this.isSelected,
+    required this.onSelectionChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onSelectionChanged(!isSelected),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: AppColors.themeColor,
           ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          borderRadius: BorderRadius.circular(8),
+          color: isSelected
+              ? const Color.fromARGB(255, 249, 245, 250)
+              : Colors.white,
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          Expanded(
-            child: Container(
-              height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(
-                  responsive.isTablet ? 16.0 : 8.0,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: CustomCheckbox(
+                  borderColor: AppColors.themeColor,
+                  value: isSelected,
+                  onChanged: onSelectionChanged,
                 ),
               ),
-              child: Padding(
-                padding: EdgeInsets.all(1),
-                child: Container(
-                  //alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(
-                      responsive.isTablet ? 16.0 : 8.0,
-                    ),
-                  ),
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      overlayColor: Colors.transparent,
-                    ),
-                    child: ShaderMask(
-                      shaderCallback: (bounds) {
-                        return AppColors.buildPrimaryGradient().createShader(
-                          bounds,
-                        );
-                      },
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: responsive.buttonFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              DocumentImageWidget(
+                fileUuid: '',
+                name: name,
+                size: 32,
+                fontSize: 14,
               ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(
-                  responsive.isTablet ? 16.0 : 8.0,
-                ),
-              ),
-              child: TextButton(
-                onPressed: (){
-                  if(_selectedStudents.isNotEmpty){
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChooseActivity(selectedStudents: _selectedStudents.toList(),)));
-                  } else {
-                    _showWarningMessage('Select at least one student.');
-                  }
-                  
-                },
-                style: TextButton.styleFrom(overlayColor: Colors.transparent),
+              const SizedBox(width: 8),
+              Expanded(
                 child: Text(
-                  'Next',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: responsive.buttonFontSize,
+                  name.split(' ').first,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
