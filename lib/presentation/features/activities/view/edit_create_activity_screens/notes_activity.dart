@@ -5,11 +5,10 @@ import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/theme/colors.dart';
-import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../../../../shared/common/widgets/custom_app_bar.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../../widgets/upload_photo_video.dart';
@@ -79,203 +78,150 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const CustomAppBar(hasBackButton: true),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
+    return StaffFormLayout(
+      title: 'Notes',
+      child: SingleChildScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.horizontalSpacing,
               ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
-          ),
-          Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 10),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Notes',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: responsive.titleFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff573353),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: responsive.isTablet ? 32.0 : 10.0),
-                      Container(
-                        width: responsive.containerWidth,
-                        margin: EdgeInsets.symmetric(
-                            horizontal: responsive.horizontalSpacing
-                        ),
-                        padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 10,),
-                            // Select All
-                            if(widget.isEdit) ...[
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: CustomCheckbox(
-                                  label: 'Select All',
-                                  value: _selectAll,
-                                  borderColor: AppColors.themeColor,
-                                  onChanged: (v) {
-                                    final newVal = v ?? false;
-                                    setState(() {
-                                      _selectAll = newVal;
-                                      if (newVal) {
-                                        _studentsToEdit = List.from(_selectedStudents);
-                                      } else {
-                                        _studentsToEdit.clear();
-                                      }
-                                    });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 12,),
-                            ],
-                            GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              shrinkWrap: true,
-                              padding: const EdgeInsets.all(10),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: responsive.isTablet ? 3 : 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: responsive.isTablet ? 3.8 : widget.isEdit ? 4.2 : 3.0,
-                              ),
-                              itemCount: _selectedStudents.length,
-                              itemBuilder: (context, index) {
-                                final String name = _selectedStudents[index];
-                                final bool isSelected = _studentsToEdit.contains(name);
-
-                                return widget.isEdit ?
-                                StudentTile(
-                                  name: name,
-                                  isSelected: isSelected,
-                                  onSelected: (bool? selected){
-                                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                                    setState(() {
-                                      if(selected == true){
-                                        _studentsToEdit.add(name);
-                                      } else {
-                                        _studentsToEdit.remove(name);
-                                      }
-                                      _updateSelectAllState();
-                                    });
-                                  },
-                                )
-                                    :SelectedStudentTile(
-                                  name: name,
-                                  onTap: () => _removeStudent(name),
-                                );
-                              },
-                            ),
-                            // GridView.builder(
-                            //   physics: const NeverScrollableScrollPhysics(),
-                            //   shrinkWrap: true,
-                            //   padding: const EdgeInsets.all(10),
-                            //   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            //     crossAxisCount: responsive.isTablet ? 3 : 2,
-                            //     crossAxisSpacing: 12,
-                            //     mainAxisSpacing: 12,
-                            //     childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
-                            //   ),
-                            //   itemCount: _selectedStudents.length,
-                            //   itemBuilder: (context, index) {
-                            //     final String name = _selectedStudents[index];
-                            //
-                            //     return SelectedStudentTile(
-                            //       name: name,
-                            //       onTap: () => _removeStudent(name),
-                            //     );
-                            //   },
-                            // ),
-                            SizedBox(height: responsive.verticalSpacing,),
-                            Row(
-                              children: [
-                                Flexible(
-                                  child:
-                                  widget.isEdit ?
-                                  DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
-                                      :
-                                  DateWidget(isEditable: true, isRequired: true,),
-                                ),
-                                const SizedBox(width: 10,),
-                                Flexible(
-                                    child: widget.isEdit ?
-                                    TimeWidget(isEditable: true, isRequired: true, prefilledTime: widget.activityData?.time,)
-                                        : TimeWidget(isRequired: true, isEditable: true,)
-                                ),
-                              ],
-                            ),
-                            // Row(
-                            //   children: [
-                            //     Flexible(child: DateWidget(isEditable: false, isRequired: true,)),
-                            //     const SizedBox(width: 10,),
-                            //     Flexible(child: TimeWidget(isEditable: true, isRequired: true,)),
-                            //   ],
-                            // ),
-
-                            SizedBox(height: responsive.verticalSpacing,),
-                            StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.createdBy ?? '':'Staff A', isEditable: false,),
-                            SizedBox(height: responsive.verticalSpacing,),
-                            InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description', isRequired: true,),
-                            SizedBox(height: responsive.verticalSpacing,),
-                            if(widget.isEdit)
-                              MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, limit: 10, label: 'Upload Photo',initialPhotoUrls: [?widget.activityData?.photoUrl],)
-                            else
-                              MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, limit: 10, label: 'Upload Photo',),
-                            SizedBox(height: responsive.verticalSpacing,),
-
-
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Notes',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.titleFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff573353),
                   ),
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+            SizedBox(height: responsive.isTablet ? 32.0 : 10.0),
+            Container(
+              width: responsive.containerWidth,
+              margin: EdgeInsets.symmetric(
+                  horizontal: responsive.horizontalSpacing
+              ),
+              padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.all(
+                  Radius.circular(responsive.isTablet ? 30.0 : 20.0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 10,),
+                  // Select All
+                  if(widget.isEdit) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: CustomCheckbox(
+                        label: 'Select All',
+                        value: _selectAll,
+                        borderColor: AppColors.themeColor,
+                        onChanged: (v) {
+                          final newVal = v ?? false;
+                          setState(() {
+                            _selectAll = newVal;
+                            if (newVal) {
+                              _studentsToEdit = List.from(_selectedStudents);
+                            } else {
+                              _studentsToEdit.clear();
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12,),
+                  ],
+                  GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(10),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: responsive.isTablet ? 3 : 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: responsive.isTablet ? 3.8 : widget.isEdit ? 4.2 : 3.0,
+                    ),
+                    itemCount: _selectedStudents.length,
+                    itemBuilder: (context, index) {
+                      final String name = _selectedStudents[index];
+                      final bool isSelected = _studentsToEdit.contains(name);
+
+                      return widget.isEdit ?
+                      StudentTile(
+                        name: name,
+                        isSelected: isSelected,
+                        onSelected: (bool? selected){
+                          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                          setState(() {
+                            if(selected == true){
+                              _studentsToEdit.add(name);
+                            } else {
+                              _studentsToEdit.remove(name);
+                            }
+                            _updateSelectAllState();
+                          });
+                        },
+                      )
+                          :SelectedStudentTile(
+                        name: name,
+                        onTap: () => _removeStudent(name),
+                      );
+                    },
+                  ),
+                  SizedBox(height: responsive.verticalSpacing,),
+                  Row(
+                    children: [
+                      Flexible(
+                        child:
+                        widget.isEdit ?
+                        DateWidget(isEditable: true, isRequired: true, initialDate: widget.activityData?.date,)
+                            :
+                        DateWidget(isEditable: true, isRequired: true,),
+                      ),
+                      const SizedBox(width: 10,),
+                      Flexible(
+                          child: widget.isEdit ?
+                          TimeWidget(isEditable: true, isRequired: true, prefilledTime: widget.activityData?.time,)
+                              : TimeWidget(isRequired: true, isEditable: true,)
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: responsive.verticalSpacing,),
+                  StaffPresentWidget(staffName: widget.isEdit ? widget.activityData?.createdBy ?? '':'Staff A', isEditable: false,),
+                  SizedBox(height: responsive.verticalSpacing,),
+                  InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description', isRequired: true,),
+                  SizedBox(height: responsive.verticalSpacing,),
+                  if(widget.isEdit)
+                    MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, limit: 10, label: 'Upload Photo',initialPhotoUrls: [?widget.activityData?.photoUrl],)
+                  else
+                    MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, limit: 10, label: 'Upload Photo',),
+                  SizedBox(height: responsive.verticalSpacing,),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
-      bottomNavigationBar: _buildBottomBar(context, responsive),
+      bottomBar: _buildBottomBar(context, responsive),
     );
   }
 
