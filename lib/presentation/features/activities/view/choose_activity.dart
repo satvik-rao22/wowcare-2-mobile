@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
+import '../../../../app/di/di.dart';
 import '../../../../app/theme/media_res.dart';
+import '../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
@@ -52,13 +55,95 @@ class ChooseActivity extends StatefulWidget {
 }
 
 class _ChooseActivityState extends State<ChooseActivity> {
+  late final GetClassroomActivitySettingsUseCase
+      _getClassroomActivitySettingsUseCase;
+
   bool get _isMultipleStudentsSelected => widget.selectedStudents.length > 1;
   String? _selectedActivity;
 
+  // Activity settings fetched from /api/v1/classrooms/{classroomCode}/activity-settings
+  Set<String>? _enabledActivities; // normalized (lowercase) names
+  Set<String>? _multiStudentAllowed; // normalized (lowercase) names
+
+  String? get _classroomCode {
+    if (widget.selectedStudents.isEmpty) return null;
+    final first = widget.selectedStudents.first;
+    final dynamic code = first['classroomCode'] ?? first['classroomcode'];
+    if (code is String && code.trim().isNotEmpty) return code;
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _getClassroomActivitySettingsUseCase =
+        serviceLocator<GetClassroomActivitySettingsUseCase>();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadActivitySettingsForClassroom();
+    });
+  }
+
+  Future<void> _loadActivitySettingsForClassroom() async {
+    final classroomCode = _classroomCode;
+    if (classroomCode == null || classroomCode.trim().isEmpty) return;
+
+    try {
+      final List<ActivitySetting> settings =
+          await _getClassroomActivitySettingsUseCase(
+        classroomCode: classroomCode,
+      );
+
+      final enabled = <String>{};
+      final multiAllowed = <String>{};
+
+      for (final setting in settings) {
+        final name = setting.activityTypeName.trim();
+        if (name.isEmpty) continue;
+
+        final normalized = name.toLowerCase();
+
+        if (setting.isEnabled) {
+          enabled.add(normalized);
+        }
+        if (setting.isMultiStudent) {
+          multiAllowed.add(normalized);
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _enabledActivities = enabled.isEmpty ? null : enabled;
+        _multiStudentAllowed = multiAllowed.isEmpty ? null : multiAllowed;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Keep UI usable with default behaviour even if settings fail.
+    }
+  }
+
   bool _isActivityDisabled(String activityName) {
-    if (activityName == 'Incident' && _isMultipleStudentsSelected) {
+    final normalized = activityName.toLowerCase();
+
+    // If we have classroom-specific enabled list, hide activities not enabled.
+    if (_enabledActivities != null &&
+        !_enabledActivities!.contains(normalized)) {
       return true;
     }
+
+    // If multiple students are selected, enforce per-activity multi-student flag when available.
+    if (_isMultipleStudentsSelected && _multiStudentAllowed != null) {
+      if (!_multiStudentAllowed!.contains(normalized)) {
+        return true;
+      }
+    }
+
+    // Fallback rule for Incident if settings are not yet loaded.
+    if (_enabledActivities == null && activityName == 'Incident' && _isMultipleStudentsSelected) {
+      return true;
+    }
+
     return false;
   }
 

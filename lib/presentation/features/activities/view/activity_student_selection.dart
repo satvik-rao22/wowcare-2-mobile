@@ -5,13 +5,15 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
+import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
+import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -43,29 +45,24 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   final Map<String, String> _tagCodeByName = {};
 
   // API + storage
-  late final ApiClient _apiClient;
   late final StorageService _storageService;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   String? _schoolCode;
 
   // Students from /api/v1/student-classroom for current filters
-  List<Map<String, dynamic>> _studentsForCurrentFilters = [];
+  List<StudentClassroomItem> _studentsForCurrentFilters = [];
   bool _isLoadingFilters = false;
   bool _isLoadingStudents = false;
   String? _studentsError;
 
-  // Simple in-memory cache: key = classroomCode|tagCode1,tagCode2,...
-  final Map<String, List<Map<String, dynamic>>> _studentsCache = {};
-
-  List<Map<String, dynamic>> get _filteredStudents {
+  List<StudentClassroomItem> get _filteredStudents {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) return _studentsForCurrentFilters;
 
     return _studentsForCurrentFilters.where((student) {
-      final firstName = (student['firstName'] as String?) ?? '';
-      final lastName = (student['lastName'] as String?) ?? '';
-      final fullName = ('$firstName $lastName').trim().toLowerCase();
+      final fullName = student.fullName.toLowerCase();
       return fullName.contains(query);
     }).toList();
   }
@@ -113,13 +110,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     }
 
     _selectAll = students.every((student) {
-      final code = student['studentCode'] as String?;
-      if (code == null || code.isEmpty) {
-        final name = (student['name'] as String?) ?? '';
-        return _selectedStudents.any(
-          (s) => s['name'] == name && s['classroom'] == _selectedClassroom,
-        );
-      }
+      final code = student.studentCode;
       return _selectedStudents.any((s) => s['studentCode'] == code);
     });
   }
@@ -159,11 +150,12 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   @override
   void initState() {
     super.initState();
-    _apiClient = serviceLocator<ApiClient>();
     _storageService = serviceLocator<StorageService>();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _getStudentClassroomListUseCase =
+        serviceLocator<GetStudentClassroomListUseCase>();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initFiltersAndLoad();
@@ -251,12 +243,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     }
   }
 
-  String _buildCacheKey(String classroomCode, List<String> tagCodes) {
-    final sortedTags = List<String>.from(tagCodes)..sort();
-    return '$classroomCode|${sortedTags.join(',')}';
-  }
-
-  Future<void> _loadStudentsForCurrentFilters() async {
+  Future<void> _loadStudentsForCurrentFilters({bool refresh = false}) async {
     if (_schoolCode == null ||
         _schoolCode!.trim().isEmpty ||
         _selectedClassroom == null) {
@@ -271,82 +258,25 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         .whereType<String>()
         .toList();
 
-    final cacheKey = _buildCacheKey(classroomCode, tagCodes);
-    final cached = _studentsCache[cacheKey];
-    if (cached != null) {
-      setState(() {
-        _studentsForCurrentFilters = cached;
-        _studentsError = null;
-      });
-      _updateSelectAllState();
-      return;
-    }
-
     setState(() {
       _isLoadingStudents = true;
       _studentsError = null;
     });
 
     try {
-      final endpoint = ApiPaths.url(ApiPaths.studentClassroom);
-
-      final queryParameters = <String, dynamic>{
-        'schoolCode': _schoolCode,
-        'classroomCode': classroomCode,
-        // Backend expects array status, example: status=ACTIVE
-        'status': ['ACTIVE'],
-        'attendanceStatus': 'SIGNED_IN',
-      };
-
-      if (tagCodes.isNotEmpty) {
-        queryParameters['tagCodes'] = tagCodes;
-      }
-
-      final response = await _apiClient.client.get<dynamic>(
-        endpoint,
-        queryParameters: queryParameters,
+      final students = await _getStudentClassroomListUseCase(
+        schoolCode: _schoolCode!,
+        classroomCode: classroomCode,
+        tagCodes: tagCodes,
+        status: const ['ACTIVE'],
+        attendanceStatus: 'SIGNED_IN',
+        refresh: refresh,
       );
-
-      final body = response.data;
-      if (body is! Map<String, dynamic>) {
-        throw Exception('Unexpected student-classroom response shape');
-      }
-
-      final List<dynamic> data = body['data'] as List<dynamic>? ?? const [];
-
-      final students = data.map<Map<String, dynamic>>((raw) {
-        final m = raw as Map<String, dynamic>;
-        final firstName = (m['firstName'] as String?) ?? '';
-        final lastName = (m['lastName'] as String?) ?? '';
-        final fullName = ('$firstName $lastName').trim();
-
-        return <String, dynamic>{
-          'name': fullName,
-          'firstName': firstName,
-          'lastName': lastName,
-          'classroomCode': m['classroomCode'],
-          'studentCode': m['studentCode'],
-          'profilePictureUrl': m['profilePictureUrl'],
-          'status': m['status'],
-          'expectedToday': m['expectedToday'],
-          'signedIn': m['signedIn'],
-          'absent': m['absent'],
-          'notMarked': m['notMarked'],
-          'nap': m['nap'],
-          'nappingStatus': m['nap'],
-          'photoPermission': m['photoPermission'],
-          'notes': m['notes'],
-          'medication': m['medication'],
-          'allergies': m['allergies'],
-          'dietaryRestriction': m['dietaryRestriction'],
-        };
-      }).toList();
 
       if (!mounted) return;
 
       setState(() {
         _studentsForCurrentFilters = students;
-        _studentsCache[cacheKey] = students;
         _isLoadingStudents = false;
         _studentsError = null;
       });
@@ -362,6 +292,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   }
 
   void _applyFilters() => setState(() {});
+
+  Future<void> _refreshStudents() async {
+    await _loadStudentsForCurrentFilters(refresh: true);
+  }
 
   @override
   void dispose() {
@@ -474,29 +408,23 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                       _selectAll = newVal;
                       if (newVal) {
                         for (final student in _filteredStudents) {
-                          final name = (student['name'] as String?) ?? '';
-                          final bool isNapping =
-                              (student['nappingStatus'] as bool?) ?? false;
-                          final String? studentCode =
-                              student['studentCode'] as String?;
-
                           _selectedStudents.add({
-                            'name': name,
+                            'name': student.fullName,
                             'classroom': _selectedClassroom!,
-                            'classroomCode': student['classroomCode'],
-                            'studentCode': studentCode,
-                            'profilePictureUrl': student['profilePictureUrl'],
-                            'status': student['status'],
-                            'expectedToday': student['expectedToday'],
-                            'signedIn': student['signedIn'],
-                            'absent': student['absent'],
-                            'notMarked': student['notMarked'],
-                            'nappingStatus': isNapping,
-                            'photoPermission': student['photoPermission'],
-                            'notes': student['notes'],
-                            'medication': student['medication'],
-                            'allergies': student['allergies'],
-                            'dietaryRestriction': student['dietaryRestriction'],
+                            'classroomCode': student.classroomCode,
+                            'studentCode': student.studentCode,
+                            'profilePictureUrl': student.profilePictureUrl,
+                            'status': student.status,
+                            'expectedToday': student.expectedToday,
+                            'signedIn': student.signedIn,
+                            'absent': student.absent,
+                            'notMarked': student.notMarked,
+                            'nappingStatus': student.nap,
+                            'photoPermission': student.photoPermission,
+                            'notes': student.notes,
+                            'medication': student.medication,
+                            'allergies': student.allergies,
+                            'dietaryRestriction': student.dietaryRestriction,
                           });
                         }
                       } else {
@@ -539,7 +467,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           const SizedBox(height: 12),
           Expanded(
             child: _isLoadingFilters || _isLoadingStudents
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PrimaryCircularLoader())
                 : _filteredStudents.isEmpty
                     ? Center(
                         child: Text(
@@ -555,87 +483,69 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : GridView.builder(
-                        shrinkWrap: false,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: responsive.isTablet ? 3 : 2,
-                          crossAxisSpacing: responsive.isTablet ? 16 : 12,
-                          mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                          mainAxisExtent: 52,
-                        ),
-                        itemCount: _filteredStudents.length,
-                        itemBuilder: (context, index) {
-                          final student = _filteredStudents[index];
-                          final String name =
-                              (student['name'] as String?) ?? '';
-                          final bool isNapping =
-                              (student['nappingStatus'] as bool?) ?? false;
-                          final String? studentCode =
-                              student['studentCode'] as String?;
+                    : CustomRefreshIndicator(
+                        onRefresh: _refreshStudents,
+                        child: GridView.builder(
+                          shrinkWrap: false,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: responsive.isTablet ? 3 : 2,
+                            crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                            mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                            mainAxisExtent: 52,
+                          ),
+                          itemCount: _filteredStudents.length,
+                          itemBuilder: (context, index) {
+                            final student = _filteredStudents[index];
+                            final String name = student.fullName;
+                            final bool isNapping = student.nap;
+                            final String studentCode = student.studentCode;
 
-                          final bool isSelected = studentCode != null
-                              ? _selectedStudents.any(
-                                  (s) => s['studentCode'] == studentCode,
-                                )
-                              : _selectedStudents.any(
-                                  (s) =>
-                                      s['name'] == name &&
-                                      s['classroom'] == _selectedClassroom,
-                                );
+                            final bool isSelected = _selectedStudents.any(
+                              (s) => s['studentCode'] == studentCode,
+                            );
 
-                          return _ActivityStudentListItem(
-                            name: name,
-                            isSelected: isSelected,
-                            onSelectionChanged: (selected) {
-                              ScaffoldMessenger.of(context)
-                                  .removeCurrentSnackBar();
-                              setState(() {
-                                if (selected == true) {
-                                  _selectedStudents.add({
-                                    'name': name,
-                                    'classroom': _selectedClassroom!,
-                                    'classroomCode':
-                                        student['classroomCode'],
-                                    'studentCode': studentCode,
-                                    'profilePictureUrl':
-                                        student['profilePictureUrl'],
-                                    'status': student['status'],
-                                    'expectedToday':
-                                        student['expectedToday'],
-                                    'signedIn': student['signedIn'],
-                                    'absent': student['absent'],
-                                    'notMarked': student['notMarked'],
-                                    'nappingStatus': isNapping,
-                                    'photoPermission':
-                                        student['photoPermission'],
-                                    'notes': student['notes'],
-                                    'medication': student['medication'],
-                                    'allergies': student['allergies'],
-                                    'dietaryRestriction':
-                                        student['dietaryRestriction'],
-                                  });
-                                } else {
-                                  if (studentCode != null) {
+                            return _ActivityStudentListItem(
+                              name: name,
+                              isSelected: isSelected,
+                              onSelectionChanged: (selected) {
+                                ScaffoldMessenger.of(context)
+                                    .removeCurrentSnackBar();
+                                setState(() {
+                                  if (selected == true) {
+                                    _selectedStudents.add({
+                                      'name': name,
+                                      'classroom': _selectedClassroom!,
+                                      'classroomCode': student.classroomCode,
+                                      'studentCode': student.studentCode,
+                                      'profilePictureUrl':
+                                          student.profilePictureUrl,
+                                      'status': student.status,
+                                      'expectedToday': student.expectedToday,
+                                      'signedIn': student.signedIn,
+                                      'absent': student.absent,
+                                      'notMarked': student.notMarked,
+                                      'nappingStatus': isNapping,
+                                      'photoPermission': student.photoPermission,
+                                      'notes': student.notes,
+                                      'medication': student.medication,
+                                      'allergies': student.allergies,
+                                      'dietaryRestriction':
+                                          student.dietaryRestriction,
+                                    });
+                                  } else {
                                     _selectedStudents.removeWhere(
                                       (s) =>
                                           s['studentCode'] == studentCode,
                                     );
-                                  } else {
-                                    _selectedStudents.removeWhere(
-                                      (s) =>
-                                          s['name'] == name &&
-                                          s['classroom'] ==
-                                              _selectedClassroom,
-                                    );
                                   }
-                                }
-                                _updateSelectAllState();
-                              });
-                            },
-                          );
-                        },
+                                  _updateSelectAllState();
+                                });
+                              },
+                            );
+                          },
+                        ),
                       ),
           ),
         ],
