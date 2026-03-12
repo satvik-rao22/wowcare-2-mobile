@@ -184,20 +184,55 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   StaffPage _mapPageModelToEntity(StaffPageModel model) {
-    final items = model.items
-        .map(
-          (m) => StaffMember(
-            code: m.code,
-            name: m.name,
-            primaryClassroomCode: m.primaryClassroomCode,
-            allowedClassroomCodes: m.allowedClassroomCodes,
-            designation: m.designation,
-            phoneNumber: m.phoneNumber,
-            status: m.status,
-            email: m.email,
-          ),
-        )
-        .toList();
+    String _formatTimeOfDay(int hour, int minute) {
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+      final displayMinute = minute.toString().padLeft(2, '0');
+      return '$displayHour:$displayMinute$period';
+    }
+
+    String _formatRange(int startHour, int startMinute, int endHour, int endMinute) {
+      final start = _formatTimeOfDay(startHour, startMinute);
+      final end = _formatTimeOfDay(endHour, endMinute);
+      return '$start - $end';
+    }
+
+    final items = model.items.map((m) {
+      final workByDay = <String, String>{};
+      for (final ws in m.workSchedules) {
+        if (ws.dayOfWeek.isEmpty) continue;
+        workByDay[ws.dayOfWeek] = _formatRange(
+          ws.workStartTime.hour,
+          ws.workStartTime.minute,
+          ws.workEndTime.hour,
+          ws.workEndTime.minute,
+        );
+      }
+
+      final breakByDay = <String, String>{};
+      for (final bs in m.breakSchedules) {
+        if (bs.dayOfWeek.isEmpty) continue;
+        breakByDay[bs.dayOfWeek] = _formatRange(
+          bs.breakStartTime.hour,
+          bs.breakStartTime.minute,
+          bs.breakEndTime.hour,
+          bs.breakEndTime.minute,
+        );
+      }
+
+      return StaffMember(
+        code: m.code,
+        name: m.name,
+        primaryClassroomCode: m.primaryClassroomCode,
+        allowedClassroomCodes: m.allowedClassroomCodes,
+        designation: m.designation,
+        phoneNumber: m.phoneNumber,
+        status: m.status,
+        email: m.email,
+        workScheduleByDay: workByDay,
+        breakScheduleByDay: breakByDay,
+      );
+    }).toList();
 
     return StaffPage(
       items: items,

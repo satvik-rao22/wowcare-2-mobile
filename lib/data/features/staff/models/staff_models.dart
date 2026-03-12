@@ -10,6 +10,8 @@ class StaffListItemModel extends Equatable {
     required this.phoneNumber,
     required this.status,
     required this.email,
+    this.workSchedules = const <StaffProfileWorkScheduleModel>[],
+    this.breakSchedules = const <StaffProfileBreakScheduleModel>[],
   });
 
   final String code;
@@ -22,6 +24,10 @@ class StaffListItemModel extends Equatable {
   final String phoneNumber;
   final String status;
   final String email;
+  /// Optional work schedules returned by staff list API.
+  final List<StaffProfileWorkScheduleModel> workSchedules;
+  /// Optional break schedules returned by staff list API.
+  final List<StaffProfileBreakScheduleModel> breakSchedules;
 
   factory StaffListItemModel.fromJson(Map<String, dynamic> json) {
     String _extractClassroomCode(dynamic value) {
@@ -51,6 +57,12 @@ class StaffListItemModel extends Equatable {
             .toList() ??
         const <String>[];
 
+    // Optional schedule arrays on list API
+    final workSchedulesJson =
+        json['workSchedules'] as List<dynamic>? ?? const <dynamic>[];
+    final breakSchedulesJson =
+        json['breakSchedules'] as List<dynamic>? ?? const <dynamic>[];
+
     return StaffListItemModel(
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
@@ -62,6 +74,14 @@ class StaffListItemModel extends Equatable {
       phoneNumber: json['phoneNumber'] as String? ?? '',
       status: json['status'] as String? ?? '',
       email: json['email'] as String? ?? '',
+      workSchedules: workSchedulesJson
+          .whereType<Map<String, dynamic>>()
+          .map(StaffProfileWorkScheduleModel.fromJson)
+          .toList(),
+      breakSchedules: breakSchedulesJson
+          .whereType<Map<String, dynamic>>()
+          .map(StaffProfileBreakScheduleModel.fromJson)
+          .toList(),
     );
   }
 
@@ -75,6 +95,8 @@ class StaffListItemModel extends Equatable {
       'phoneNumber': phoneNumber,
       'status': status,
       'email': email,
+      'workSchedules': workSchedules.map((e) => e.toJson()).toList(),
+      'breakSchedules': breakSchedules.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -89,6 +111,8 @@ class StaffListItemModel extends Equatable {
         phoneNumber,
         status,
         email,
+        workSchedules,
+        breakSchedules,
       ];
 }
 

@@ -130,41 +130,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
 
       final organizationCode =
           (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      var schoolCode =
+      final schoolCode =
           (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-
-      // Fallback: login-context may not include LastLoginSchoolCode (null),
-      // but staff-code API still needs a schoolCode. If the user is an
-      // ORGANIZATION_ADMIN for the selected org, backend expects schoolCode='-'.
-      if (schoolCode.isEmpty) {
-        try {
-          final rolesJson = await storage.getString(StorageKeys.roles);
-          if (rolesJson != null && rolesJson.isNotEmpty) {
-            final roles = jsonDecode(rolesJson);
-            if (roles is List) {
-              final matching = roles
-                  .whereType<Map<String, dynamic>>()
-                  .where((r) =>
-                      (r['organizationCode'] ?? '').toString().trim() ==
-                      organizationCode)
-                  .toList();
-              final isOrgAdmin = matching.any((r) =>
-                  (r['role'] ?? '').toString().toUpperCase() ==
-                  'ORGANIZATION_ADMIN');
-              if (isOrgAdmin) {
-                schoolCode = '-';
-              } else {
-                final firstSchool = matching
-                    .map((r) => (r['schoolCode'] ?? '').toString().trim())
-                    .firstWhere((c) => c.isNotEmpty, orElse: () => '');
-                if (firstSchool.isNotEmpty) {
-                  schoolCode = firstSchool;
-                }
-              }
-            }
-          }
-        } catch (_) {}
-      }
 
       if (currentUserCode.isEmpty ||
           organizationCode.isEmpty ||

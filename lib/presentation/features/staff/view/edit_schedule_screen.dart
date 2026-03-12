@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
@@ -87,21 +85,49 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   }
 
   TimeOfDay _parseTime(String timeString) {
-    // Parse time string like "07:30 AM" to TimeOfDay
-    final parts = timeString.split(' ');
-    final timePart = parts[0].split(':');
-    final period = parts[1];
-    
-    int hour = int.parse(timePart[0]);
-    final minute = int.parse(timePart[1]);
-    
-    if (period == 'PM' && hour != 12) {
-      hour += 12;
-    } else if (period == 'AM' && hour == 12) {
-      hour = 0;
+    // Accept common formats:
+    // - "07:30 AM", "7:30 PM"
+    // - "07:30AM", "7:30PM"
+    // - "19:30" (24h)
+    // - "07:30" (assume 24h)
+    final raw = timeString.trim();
+    if (raw.isEmpty) {
+      return const TimeOfDay(hour: 0, minute: 0);
     }
-    
-    return TimeOfDay(hour: hour, minute: minute);
+
+    // Normalize spaces (also handles "07:30AM" -> "07:30 AM")
+    final normalized = raw
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAllMapped(
+          RegExp(r'^(\d{1,2}:\d{2})(AM|PM)$', caseSensitive: false),
+          (m) => '${m[1]} ${m[2]!.toUpperCase()}',
+        );
+
+    final parts = normalized.split(' ');
+    final timePart = parts.first;
+    final period = parts.length > 1 ? parts[1].toUpperCase() : null;
+
+    final hm = timePart.split(':');
+    if (hm.length < 2) {
+      return const TimeOfDay(hour: 0, minute: 0);
+    }
+    int hour = int.tryParse(hm[0]) ?? 0;
+    final minute = int.tryParse(hm[1]) ?? 0;
+
+    // Clamp minute/hour to sensible ranges
+    hour = hour.clamp(0, 23);
+    final clampedMinute = minute.clamp(0, 59);
+
+    if (period == 'AM' || period == 'PM') {
+      // Convert 12h to 24h
+      if (period == 'PM' && hour != 12) {
+        hour = (hour + 12).clamp(0, 23);
+      } else if (period == 'AM' && hour == 12) {
+        hour = 0;
+      }
+    }
+
+    return TimeOfDay(hour: hour, minute: clampedMinute);
   }
 
   String _capitalizeFirst(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
@@ -199,6 +225,12 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   Future<void> _saveSchedule() async {
     if (_isSubmitting) return;
 
+    String _formatLocalTime(TimeOfDay time) {
+      final h = time.hour.toString().padLeft(2, '0');
+      final m = time.minute.toString().padLeft(2, '0');
+      return '$h:$m:00';
+    }
+
     // Build API payload for work and break schedules
     final List<Map<String, dynamic>> workSchedules = [];
     final List<Map<String, dynamic>> breakSchedules = [];
@@ -210,18 +242,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       if (schedule.workStartTime != null && schedule.workEndTime != null) {
         workSchedules.add({
           'dayOfWeek': dayOfWeek,
-          'workStartTime': {
-            'hour': schedule.workStartTime!.hour,
-            'minute': schedule.workStartTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
-          'workEndTime': {
-            'hour': schedule.workEndTime!.hour,
-            'minute': schedule.workEndTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
+          // Backend expects java.time.LocalTime which deserializes from string (e.g. "12:05:00")
+          'workStartTime': _formatLocalTime(schedule.workStartTime!),
+          'workEndTime': _formatLocalTime(schedule.workEndTime!),
         });
       }
 
@@ -229,18 +252,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
         breakSchedules.add({
           'dayOfWeek': dayOfWeek,
           'breakType': 'LUNCH',
-          'breakStartTime': {
-            'hour': schedule.breakStartTime!.hour,
-            'minute': schedule.breakStartTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
-          'breakEndTime': {
-            'hour': schedule.breakEndTime!.hour,
-            'minute': schedule.breakEndTime!.minute,
-            'second': 0,
-            'nano': 0,
-          },
+          'breakStartTime': _formatLocalTime(schedule.breakStartTime!),
+          'breakEndTime': _formatLocalTime(schedule.breakEndTime!),
         });
       }
     }
@@ -303,29 +316,23 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
+          
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
-                  child: Text(
-                    'Apply Previous Time',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
-                    ),
-                  ),
-                ),
                 CustomToggle(
-                  label: '',
+                  label: 'Copy to all days',
                   isToggled: _copyToAllDays,
+                  labelOnLeftSide: true,
                   onToggle: (v) {
                     setState(() {
                       _copyToAllDays = v;
-                      if (_copyToAllDays && _selectedDay != null) {
-                        _copyDayScheduleToAll(_selectedDay!);
+                      if (_copyToAllDays) {
+                        if (_selectedDay != null) {
+                          _copyDayScheduleToAll(_selectedDay!);
+                        }
                       }
                     });
                   },
@@ -333,45 +340,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               ],
             ),
           ),
-          // Header row (only for tablet/large screens)
-          if (responsive.isTablet) ...[
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: const [
-                  SizedBox(width: 120),
-                  Expanded(
-                    child: Text(
-                      'Work Time',
-                      textAlign: TextAlign.left,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xff573353),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Break Time',
-                      textAlign: TextAlign.left,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xff573353),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          ..._allDays.map((day) => _buildDaySchedule(day, responsive)),
+          SizedBox(height: responsive.verticalSpacing),
+          ..._allDays.map((day) => _buildDayScheduleCard(day, responsive)),
           const SizedBox(height: 12),
         ],
       ),
@@ -416,211 +386,102 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     );
   }
 
-  Widget _buildDaySchedule(String day, ResponsiveHelper responsive) {
+  Widget _buildDayScheduleCard(String day, ResponsiveHelper responsive) {
     final schedule = _schedules[day]!;
     final isEnabled = schedule.isEnabled;
-    // Mobile: stacked sections; Tablet: horizontal three-column row
-    if (!responsive.isTablet) {
-      return Container(
-        margin: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing, vertical: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0x0d573353),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0x1a573353)),
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: responsive.horizontalSpacing,
+        vertical: 8,
+      ),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isEnabled
+            ? AppColors.primaryColor.withOpacity(0.05)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isEnabled
+              ? AppColors.primaryColor.withOpacity(0.3)
+              : Colors.grey.shade300,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: () => setState(() {
-                final curr = _schedules[day]!;
-                final newEnabled = !curr.isEnabled;
-                _schedules[day] = curr.copyWith(
-                  isEnabled: newEnabled,
-                  // Clear times when disabling
-                  workStartTime: newEnabled ? curr.workStartTime : null,
-                  workEndTime: newEnabled ? curr.workEndTime : null,
-                  breakStartTime: newEnabled ? curr.breakStartTime : null,
-                  breakEndTime: newEnabled ? curr.breakEndTime : null,
-                );
-              }),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isEnabled ? const Color.fromRGBO(177, 175, 233, 0.45) : const Color.fromRGBO(177, 175, 233, 0.2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: isEnabled ? Border.all(color: const Color(0xff573353).withOpacity(0.5)) : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      day,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353).withOpacity(isEnabled ? 1 : 0.5),
-                        decoration: isEnabled ? TextDecoration.none : TextDecoration.lineThrough,
-                      ),
-                    ),
-                    if (!isEnabled)
-                      const Text(
-                        'Holiday',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xff573353),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildTimeSection(
-              'Work Time',
-              schedule.workStartTime,
-              schedule.workEndTime,
-              (timeType) => _selectTime(context, day, timeType),
-              responsive,
-              day,
-              enabled: isEnabled,
-            ),
-            const SizedBox(height: 12),
-            _buildTimeSection(
-              'Break Time',
-              schedule.breakStartTime,
-              schedule.breakEndTime,
-              (timeType) => _selectTime(context, day, timeType),
-              responsive,
-              day,
-              enabled: isEnabled,
-            ),
-          ],
-        ),
-      );
-    }
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing, vertical: 8),
-      child: Row(
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => setState(() {
-              final curr = _schedules[day]!;
-              final newEnabled = !curr.isEnabled;
-              _schedules[day] = curr.copyWith(
-                isEnabled: newEnabled,
-                workStartTime: newEnabled ? curr.workStartTime : null,
-                workEndTime: newEnabled ? curr.workEndTime : null,
-                breakStartTime: newEnabled ? curr.breakStartTime : null,
-                breakEndTime: newEnabled ? curr.breakEndTime : null,
-              );
-            }),
-            child: Container(
-              width: 120,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: isEnabled ? const Color.fromRGBO(177, 175, 233, 0.45) : const Color.fromRGBO(177, 175, 233, 0.2),
-                borderRadius: BorderRadius.circular(16),
-                border: isEnabled ? Border.all(color: const Color(0xff573353).withOpacity(0.5)) : null,
-              ),
-              child: Text(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
                 day,
-                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Manrope',
-                  fontSize: 14,
+                  fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353).withOpacity(isEnabled ? 1 : 0.5),
-                  decoration: isEnabled ? TextDecoration.none : TextDecoration.lineThrough,
+                  color: const Color(0xff573353),
+                  decoration:
+                      isEnabled ? TextDecoration.none : TextDecoration.lineThrough,
                 ),
               ),
-            ),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    final curr = _schedules[day]!;
+                    final newEnabled = !curr.isEnabled;
+                    _schedules[day] = curr.copyWith(
+                      isEnabled: newEnabled,
+                      workStartTime: newEnabled ? curr.workStartTime : null,
+                      workEndTime: newEnabled ? curr.workEndTime : null,
+                      breakStartTime: newEnabled ? curr.breakStartTime : null,
+                      breakEndTime: newEnabled ? curr.breakEndTime : null,
+                    );
+                  });
+                },
+                child: Text(
+                  isEnabled ? 'Mark Holiday' : 'Enable',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isEnabled ? Colors.redAccent : AppColors.primaryColor,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStartEndRow(
-              startTime: isEnabled ? schedule.workStartTime : null,
-              endTime: schedule.workEndTime,
-              onStartPicked: (t) => _onTimePicked(day, TimeType.workStart, t),
-              onEndPicked: (t) => _onTimePicked(day, TimeType.workEnd, t),
+          if (!isEnabled)
+            Text(
+              'Holiday',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
             ),
+          const SizedBox(height: 12),
+          _buildTimeSection(
+            'Work Time',
+            schedule.workStartTime,
+            schedule.workEndTime,
+            (timeType) => _selectTime(context, day, timeType),
+            responsive,
+            day,
+            enabled: isEnabled,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStartEndRow(
-              startTime: isEnabled ? schedule.breakStartTime : null,
-              endTime: schedule.breakEndTime,
-              onStartPicked: (t) => _onTimePicked(day, TimeType.breakStart, t),
-              onEndPicked: (t) => _onTimePicked(day, TimeType.breakEnd, t),
-            ),
+          const SizedBox(height: 12),
+          _buildTimeSection(
+            'Break Time',
+            schedule.breakStartTime,
+            schedule.breakEndTime,
+            (timeType) => _selectTime(context, day, timeType),
+            responsive,
+            day,
+            enabled: isEnabled,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildStartEndRow({
-    required TimeOfDay? startTime,
-    required TimeOfDay? endTime,
-    required ValueChanged<TimeOfDay> onStartPicked,
-    required ValueChanged<TimeOfDay> onEndPicked,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: const [
-            Expanded(
-              child: Text(
-                'Start',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xff573353),
-                ),
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'End',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xff573353),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              child: GradientTimePickerField(
-                label: '',
-                time: startTime,
-                onTimeSelected: onStartPicked,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: GradientTimePickerField(
-                label: '',
-                time: endTime,
-                onTimeSelected: onEndPicked,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -672,64 +533,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTimeField(
-    String label,
-    String time,
-    VoidCallback onTap,
-    ResponsiveHelper responsive,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          padding: EdgeInsets.symmetric(
-            horizontal: responsive.isTablet ? 16.0 : 12.0,
-            vertical: responsive.isTablet ? 16.0 : 12.0,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                  child: Text(
-                    time,
-                  style: const TextStyle(
-                      color: Colors.black,
-                    fontSize: 15,
-                      fontFamily: 'Manrope',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                SvgPicture.asset(
-                  MediaRes.clock_icon,
-                  height: responsive.isTablet ? 20.0 : 18.0,
-                  colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
-                ),
-              ],
-              ),
-          ),
-        ),
-      ],
     );
   }
 }

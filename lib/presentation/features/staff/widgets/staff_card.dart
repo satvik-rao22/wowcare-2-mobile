@@ -28,6 +28,8 @@ class StaffCard extends StatefulWidget {
     this.onSelected,
     required this.availableClassrooms,
     required this.classroomCodeByName,
+    this.workScheduleByDay = const <String, String>{},
+    this.breakScheduleByDay = const <String, String>{},
   });
 
   final String staffCode;
@@ -47,6 +49,10 @@ class StaffCard extends StatefulWidget {
   final ValueChanged<bool?>? onSelected;
   final List<String> availableClassrooms;
   final Map<String, String> classroomCodeByName;
+  /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" work time.
+  final Map<String, String> workScheduleByDay;
+  /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" break time.
+  final Map<String, String> breakScheduleByDay;
 
   @override
   State<StaffCard> createState() => _StaffCardState();
@@ -274,18 +280,53 @@ class _StaffCardState extends State<StaffCard> {
                                   runSpacing: 4,
                                   alignment: WrapAlignment.start,
                                   children: [
-                                      ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) {
-                                        final isActive = widget.schedule.contains(day);
-                                        final dayChip = Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(
+                                      (shortDay) {
+                                        String enumDay;
+                                        switch (shortDay) {
+                                          case 'Mon':
+                                            enumDay = 'MONDAY';
+                                            break;
+                                          case 'Tue':
+                                            enumDay = 'TUESDAY';
+                                            break;
+                                          case 'Wed':
+                                            enumDay = 'WEDNESDAY';
+                                            break;
+                                          case 'Thu':
+                                            enumDay = 'THURSDAY';
+                                            break;
+                                          case 'Fri':
+                                          default:
+                                            enumDay = 'FRIDAY';
+                                            break;
+                                        }
+
+                                        final work =
+                                            widget.workScheduleByDay[enumDay];
+                                        final brk =
+                                            widget.breakScheduleByDay[enumDay];
+                                        final hasWork = work != null &&
+                                            work.trim().isNotEmpty;
+                                        final hasBreak = brk != null &&
+                                            brk.trim().isNotEmpty;
+                                        final isActive = hasWork || hasBreak;
+
+                                        final chip = Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0xFF6C7FD8).withOpacity(0.12)
+                                                ? const Color(0xFF6C7FD8)
+                                                    .withOpacity(0.12)
                                                 : const Color(0xFFF3F4FB),
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: Text(
-                                            day,
+                                            shortDay,
                                             style: TextStyle(
                                               fontFamily: 'Manrope',
                                               fontWeight: FontWeight.w600,
@@ -296,12 +337,32 @@ class _StaffCardState extends State<StaffCard> {
                                             ),
                                           ),
                                         );
-                                        if (!isActive) return dayChip;
+
+                                        if (!isActive) {
+                                          // Greyed-out, non-interactive for days without schedule.
+                                          return Opacity(
+                                            opacity: 0.4,
+                                            child: chip,
+                                          );
+                                        }
+
+                                        final tooltipLines = <String>[];
+                                        if (hasWork) {
+                                          tooltipLines.add('Work: $work');
+                                        }
+                                        if (hasBreak) {
+                                          tooltipLines.add('Break: $brk');
+                                        }
+                                        final tooltipText = tooltipLines.isEmpty
+                                            ? '$shortDay: Scheduled'
+                                            : '$shortDay\n${tooltipLines.join('\n')}';
+
                                         return Tooltip(
-                                          message: 'Work - 09:50 AM - 04:50 PM\nBreak - 12:50 PM - 01:50 PM',
-                                          child: dayChip,
+                                          message: tooltipText,
+                                          child: chip,
                                         );
-                                      }),
+                                      },
+                                    ),
                                   ],
                                 ),
                               ],

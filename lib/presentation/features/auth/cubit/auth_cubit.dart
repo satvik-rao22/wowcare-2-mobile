@@ -140,6 +140,32 @@ class AuthCubit extends Cubit<AuthState> {
           // Non-fatal: if caching fails, login can still proceed.
         }
 
+        // If the user is associated with exactly 1 organization AND 1 school,
+        // auto-select them from the login response and persist to local storage.
+        // This ensures every screen can rely on StorageKeys.schoolCode (no guessing from roles).
+        try {
+          final orgCodes = response.roles
+              .map((r) => r.organizationCode.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList();
+          final schoolCodes = response.roles
+              .map((r) => r.schoolCode.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList();
+
+          if (orgCodes.length == 1 && schoolCodes.length == 1) {
+            await _localDataSource.setSelectedOrgAndSchool(
+              organizationCode: orgCodes.first,
+              schoolCode: schoolCodes.first,
+              schoolName: schoolCodes.first,
+            );
+          }
+        } catch (_) {
+          // Non-blocking
+        }
+
         // If role is ORGANIZATION_ADMIN, activate the demo school before fetching login-context.
         // (Backend requirement for org-admin flow.)
         try {
@@ -168,27 +194,61 @@ class AuthCubit extends Cubit<AuthState> {
           await _localDataSource.saveLoginContext(contextData);
           hasLastSchoolFromContext =
               await _localDataSource.saveOrgAndSchoolFromContext(contextData);
-          
+
+          // Raw values from login-context (may be null/empty, especially LastLoginSchoolCode).
+          final String contextOrgCode =
+              (contextData['LastLoginOrganizationCode'] as String?)
+                      ?.trim() ??
+                  '';
+          final String contextSchoolCode =
+              (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
+
           // When orgCode or schoolCode is null (or both), use redirectUrl to decide where to open.
-          final String orgCode = (contextData['LastLoginOrganizationCode'] as String?)?.trim() ?? '';
-          final String schoolCode = (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
-          if (orgCode.isEmpty || schoolCode.isEmpty) {
+          if (contextOrgCode.isEmpty || contextSchoolCode.isEmpty) {
             final rawRedirect = contextData['redirectUrl'];
             redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
-            // Save orgCode only if present (needed when redirect is select-school)
-            if (orgCode.isNotEmpty) {
-              await _localDataSource.setSelectedOrgAndSchool(
-                organizationCode: orgCode,
-                schoolCode: schoolCode,
-                schoolName: '',
-              );
+            // IMPORTANT: do NOT overwrite non-empty schoolCode from login with an empty value.
+            // If org is present, ensure at least organizationCode is in storage; keep existing school.
+            if (contextOrgCode.isNotEmpty) {
+              final storage = serviceLocator<StorageService>();
+              final existingSchool =
+                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+              if (existingSchool.isNotEmpty) {
+                await _localDataSource.setSelectedOrgAndSchool(
+                  organizationCode: contextOrgCode,
+                  schoolCode: existingSchool,
+                  schoolName: existingSchool,
+                );
+              } else {
+                // Fall back to contextSchoolCode only when it's non-empty.
+                if (contextSchoolCode.isNotEmpty) {
+                  await _localDataSource.setSelectedOrgAndSchool(
+                    organizationCode: contextOrgCode,
+                    schoolCode: contextSchoolCode,
+                    schoolName: contextSchoolCode,
+                  );
+                }
+              }
             }
           }
 
           // After login-context, resolve staffCode for this user (if they have a staff profile)
           // using `/api/v1/staff/code?userCode=...&organizationCode=...&schoolCode=...`.
-          if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
-            try {
+          try {
+            final storage = serviceLocator<StorageService>();
+            // Prefer explicit org/school from context when both are present; otherwise
+            // fall back to the org/school persisted from login (or prior selection).
+            String orgCode = contextOrgCode;
+            String schoolCode = contextSchoolCode;
+            if (orgCode.isEmpty || schoolCode.isEmpty) {
+              orgCode =
+                  (await storage.getString(StorageKeys.organizationCode) ?? '')
+                      .trim();
+              schoolCode =
+                  (await storage.getString(StorageKeys.schoolCode) ?? '')
+                      .trim();
+            }
+            if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
               final staffRepository = serviceLocator<StaffRepository>();
               // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
               // for the staff-code API as required by backend.
@@ -223,15 +283,14 @@ class AuthCubit extends Cubit<AuthState> {
                     staffCode: trimmed,
                   );
                   // Save staffType for quick persona display in ProfileMenuHeader.
-                  final storage = serviceLocator<StorageService>();
                   await storage.saveString(
                     StorageKeys.staffType,
                     profile.staffType,
                   );
                   // Also prefetch sign-in PIN for custom app bar.
                   try {
-                    final pin =
-                        await staffRepository.getStaffSignInPin(staffCode: trimmed);
+                    final pin = await staffRepository.getStaffSignInPin(
+                        staffCode: trimmed);
                     if (pin.trim().isNotEmpty) {
                       await storage.saveString(StorageKeys.staffPin, pin.trim());
                     }
@@ -240,12 +299,12 @@ class AuthCubit extends Cubit<AuthState> {
                   // Non-blocking: profile/pin prefetch failure should not affect login flow.
                 }
               }
-            } catch (_) {
-              // Non-blocking: profile screen can still work without staffCode.
             }
+          } catch (_) {
+            // Non-blocking: profile screen can still work without staffCode.
           }
         } catch (_) {
-        // Do not block login if context or staff/profile APIs fail.
+          // Do not block login if context or staff/profile APIs fail.
         }
 
         // Only login + login-context during login flow. No school prefetch.

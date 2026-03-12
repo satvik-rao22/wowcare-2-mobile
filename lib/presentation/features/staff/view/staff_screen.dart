@@ -95,23 +95,23 @@ class _StaffScreenState extends State<StaffScreen> {
     super.dispose();
   }
 
-  /// Returns true when any non-default filter or search is applied.
-  bool _hasActiveFilters(StaffState state) {
-    final status = (state.statusFilter ?? '').trim().toUpperCase();
-    final designation = (state.designationFilter ?? '').trim();
-    final hasClassroomFilter =
-        (state.primaryClassroomCodes?.isNotEmpty ?? false) ||
-        (state.classCodes?.isNotEmpty ?? false);
-    final hasNonDefaultStatus =
-        status.isNotEmpty && status != 'ACTIVE'; // ACTIVE is the default
-    final hasDesignation = designation.isNotEmpty;
-    final hasSearch = (state.searchQuery ?? '').trim().isNotEmpty;
-
-    return hasNonDefaultStatus ||
-        hasDesignation ||
-        hasClassroomFilter ||
-        hasSearch;
-  }
+  // (Unused for now) Helper that can detect active filters/search on staff list.
+  // bool _hasActiveFilters(StaffState state) {
+  //   final status = (state.statusFilter ?? '').trim().toUpperCase();
+  //   final designation = (state.designationFilter ?? '').trim();
+  //   final hasClassroomFilter =
+  //       (state.primaryClassroomCodes?.isNotEmpty ?? false) ||
+  //       (state.classCodes?.isNotEmpty ?? false);
+  //   final hasNonDefaultStatus =
+  //       status.isNotEmpty && status != 'ACTIVE'; // ACTIVE is the default
+  //   final hasDesignation = designation.isNotEmpty;
+  //   final hasSearch = (state.searchQuery ?? '').trim().isNotEmpty;
+  //
+  //   return hasNonDefaultStatus ||
+  //       hasDesignation ||
+  //       hasClassroomFilter ||
+  //       hasSearch;
+  // }
 
   // Helper to get classroom names and code mapping from cubit state
   List<String> _getClassroomNames(ClassroomState state) {
@@ -726,6 +726,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 name: staff.name,
                                 classroom: primaryClassroomName,
                                 allowedClassrooms: allowedClassroomNames,
+                                // Days with any work/break schedule from staff list API.
                                 schedule: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                                 designation: staff.designation,
                                 email: staff.email,
@@ -734,6 +735,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                 status: staff.status,
                                 availableClassrooms: classroomNames,
                                 classroomCodeByName: classroomNameByCode,
+                                workScheduleByDay: staff.workScheduleByDay,
+                                breakScheduleByDay: staff.breakScheduleByDay,
                                 onPrimaryAction: () async {
                                   try {
                                     final message = isActive
