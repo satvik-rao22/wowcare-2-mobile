@@ -108,6 +108,29 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
     return const Color.fromARGB(255, 242, 238, 176);
   }
 
+  /// Formats enum-style strings from the API into human readable labels.
+  /// Examples:
+  /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
+  /// - "FULL_TIME" -> "Full-Time"
+  /// - "PART_TIME" -> "Part-Time"
+  String _formatEnumLabel(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    final upper = value.trim().toUpperCase();
+
+    // Special cases for job type
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+
+    // Generic: split on underscores/spaces and title‑case each part.
+    final parts = upper.split(RegExp(r'[_\s]+'));
+    final words = parts.map((part) {
+      if (part.isEmpty) return '';
+      final lower = part.toLowerCase();
+      return lower[0].toUpperCase() + lower.substring(1);
+    }).where((w) => w.isNotEmpty);
+    return words.join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final chipColors = <Color>[
@@ -157,9 +180,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                         : (widget.classroomNameByCode?[
                                 profile.primaryClassroomCode] ??
                             profile.primaryClassroomCode);
-                final designation = profile.designation.isEmpty
-                    ? '-'
-                    : profile.designation;
+                final designation = _formatEnumLabel(profile.designation);
                 widget.onProfileSummaryChanged!(
                   displayName,
                   primaryClassroomName,
@@ -295,7 +316,10 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
               trailing: _buildStatusChip(profile.status),
             ),
             const SizedBox(height: 12),
-            _Field(label: 'Designation', value: profile.designation.isEmpty ? '-' : profile.designation),
+            _Field(
+              label: 'Designation',
+              value: _formatEnumLabel(profile.designation),
+            ),
             const SizedBox(height: 16),
             _Field(label: 'Email', value: profile.email.isEmpty ? '-' : profile.email),
             const SizedBox(height: 16),
@@ -320,7 +344,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
             const SizedBox(height: 16),
             _Field(
               label: 'Job Tag',
-              value: profile.jobTag.isEmpty ? '-' : profile.jobTag,
+              value: _formatEnumLabel(profile.jobTag),
             ),
             const SizedBox(height: 16),
             _Field(

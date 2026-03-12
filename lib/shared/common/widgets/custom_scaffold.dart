@@ -200,39 +200,12 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
   bool _showBars = true;
 
   bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical) return false;
-
-    // If there's effectively no scrollable content, always show bars.
-    if (notification.metrics.maxScrollExtent <= 32) {
-      if (!_showBars) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_showBars) {
-            setState(() => _showBars = true);
-          }
-        });
-      }
-      return false;
-    }
-
-    if (notification is ScrollUpdateNotification &&
-        notification.scrollDelta != null) {
-      final delta = notification.scrollDelta!;
-      // Small threshold to avoid jitter.
-      if (delta > 2 && _showBars) {
-        // scrolling down → hide (schedule after current frame)
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _showBars) {
-            setState(() => _showBars = false);
-          }
-        });
-      } else if (delta < -2 && !_showBars) {
-        // scrolling up → show (schedule after current frame)
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_showBars) {
-            setState(() => _showBars = true);
-          }
-        });
-      }
+    // Do not auto-hide the app bar or bottom navigation on scroll.
+    // Keeping _showBars always true ensures the blue header divider
+    // remains pinned below the system status bar, and the list content
+    // never scrolls above it.
+    if (!_showBars) {
+      setState(() => _showBars = true);
     }
     return false;
   }
@@ -262,8 +235,13 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
               ),
         drawer: const CustomDrawer(),
         drawerEnableOpenDragGesture: false,
-        body: SafeArea(
-          child: GradientBackground(
+        body: GradientBackground(
+          child: SafeArea(
+            // Let the Scaffold's appBar handle the top inset; we only
+            // inset for bottom so content never goes behind system bars,
+            // while always starting directly under the blue header.
+            top: false,
+            bottom: true,
             child: NotificationListener<ScrollNotification>(
               onNotification: _handleScrollNotification,
               child: Padding(

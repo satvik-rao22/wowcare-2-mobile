@@ -47,12 +47,34 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   late String _displayDesignation;
   late String _displayClassroom;
 
+  /// Formats enum-style strings from the API into human readable labels.
+  /// Examples:
+  /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
+  /// - "FULL_TIME" -> "Full-Time"
+  /// - "PART_TIME" -> "Part-Time"
+  String _formatEnumLabel(String value) {
+    if (value.trim().isEmpty) return '-';
+    final upper = value.trim().toUpperCase();
+
+    // Special cases for job type
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+
+    final parts = upper.split(RegExp(r'[_\s]+'));
+    final words = parts.map((part) {
+      if (part.isEmpty) return '';
+      final lower = part.toLowerCase();
+      return lower[0].toUpperCase() + lower.substring(1);
+    }).where((w) => w.isNotEmpty);
+    return words.join(' ');
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _displayName = widget.name;
-    _displayDesignation = widget.designation;
+    _displayDesignation = _formatEnumLabel(widget.designation);
     _displayClassroom = widget.classroom;
   }
 
@@ -134,7 +156,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       (String name, String classroom, String designation) {
                     setState(() {
                       _displayName = name;
-                      _displayDesignation = designation;
+                      _displayDesignation = _formatEnumLabel(designation);
                       _displayClassroom = classroom;
                     });
                   },

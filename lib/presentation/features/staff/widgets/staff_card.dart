@@ -61,6 +61,29 @@ class StaffCard extends StatefulWidget {
 class _StaffCardState extends State<StaffCard> {
   bool isExpanded = false;
 
+  /// Formats enum-style strings from the API into human readable labels.
+  /// Examples:
+  /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
+  /// - "FULL_TIME" -> "Full-Time"
+  /// - "PART_TIME" -> "Part-Time"
+  String _formatEnumLabel(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    final upper = value.trim().toUpperCase();
+
+    // Special cases for job type
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+
+    // Generic: split on underscores/spaces and title‑case each part.
+    final parts = upper.split(RegExp(r'[_\s]+'));
+    final words = parts.map((part) {
+      if (part.isEmpty) return '';
+      final lower = part.toLowerCase();
+      return lower[0].toUpperCase() + lower.substring(1);
+    }).where((w) => w.isNotEmpty);
+    return words.join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -383,7 +406,7 @@ class _StaffCardState extends State<StaffCard> {
                                   ),
                                 ),
                                 Text(
-                                  widget.designation,
+                                  _formatEnumLabel(widget.designation),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,

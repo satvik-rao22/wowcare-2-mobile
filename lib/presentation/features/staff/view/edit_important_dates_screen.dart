@@ -47,7 +47,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   DateTime? _selectedBackgroundRecordCheckExpirationDate;
   DateTime? _selectedPhysicalCheckupDate;
   String? _selectedPhysicalCheckupStatus;
-  static const List<String> _initialPhysicalStatusOptions = ['Scheduled', 'Completed'];
+  // For Physical Checkup:
+  // - If there's no existing physical date (first time), only "Scheduled" is allowed.
+  // - If a physical date already exists, allow all three options in the dropdown.
+  static const List<String> _initialPhysicalStatusOptions = ['Scheduled'];
   static const List<String> _editPhysicalStatusOptions = ['Due', 'Scheduled', 'Completed'];
   late List<String> _physicalCheckupStatusOptions;
 
@@ -66,7 +69,15 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     _selectedFirstAidCprExpirationDate = widget.initialFirstAidCprExpirationDate;
     _selectedBackgroundRecordCheckExpirationDate = widget.initialBackgroundRecordCheckExpirationDate;
     _selectedPhysicalCheckupDate = widget.initialPhysicalCheckupDate;
-    // Map initial physical status from API value to display value and choose options list.
+
+    // Decide which options to show in the dropdown based on whether
+    // there is already a physical checkup date on record.
+    final hasExistingPhysicalDate = widget.initialPhysicalCheckupDate != null;
+    _physicalCheckupStatusOptions = hasExistingPhysicalDate
+        ? _editPhysicalStatusOptions
+        : _initialPhysicalStatusOptions;
+
+    // Map initial physical status from API value to display value.
     final initialStatus = widget.initialPhysicalCheckupStatus;
     if (initialStatus != null && initialStatus.isNotEmpty) {
       final upper = initialStatus.toUpperCase();
@@ -79,12 +90,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       } else {
         _selectedPhysicalCheckupStatus = initialStatus;
       }
-      // When editing an existing record, allow Due/Scheduled/Completed.
-      _physicalCheckupStatusOptions = _editPhysicalStatusOptions;
     } else {
-      // When creating a new record, only allow Scheduled/Completed.
       _selectedPhysicalCheckupStatus = null;
-      _physicalCheckupStatusOptions = _initialPhysicalStatusOptions;
     }
   }
 
@@ -97,17 +104,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   void _saveImportantDates() {
     final today = _todayDateOnly();
 
-    if (_selectedHireDate == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Hire Date is required',
-        isError: true,
-      );
-      return;
-    }
-
-    // Hire Date: only today or past.
-    if (_selectedHireDate!.isAfter(today)) {
+    // Hire Date: only today or past (optional field).
+    if (_selectedHireDate != null && _selectedHireDate!.isAfter(today)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Hire Date cannot be in the future',
@@ -184,7 +182,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
 
     final dates = <Map<String, String>>[];
 
-    // Hire Date (required)
+    // Hire Date (optional)
     if (_selectedHireDate != null) {
       dates.add({
         'importantDateType': ImportantDateType.hireDate.value,
@@ -444,16 +442,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label with required asterisk - keeping original styling
-        RichText(
-          text: TextSpan(
-            style: labelStyle,
-            children: [
-              TextSpan(text: label),
-              if (fieldName == 'hire') const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
+        // Simple label (no required asterisk; all fields are optional)
+        Text(label, style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         // Date field container with CustomDropdown styling
         GestureDetector(

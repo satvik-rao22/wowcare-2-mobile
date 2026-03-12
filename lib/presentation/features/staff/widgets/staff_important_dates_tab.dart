@@ -250,6 +250,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
 
   List<Widget> _buildRows(List<Map<String, String>> items) {
     final rows = <Widget>[];
+    bool hasPhysicalCheckup = false;
 
     for (final item in items) {
       final type = (item['importantDateType'] ?? '').toUpperCase();
@@ -257,6 +258,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
       final status = (item['status'] ?? '').toString();
 
       if (type == 'PHYSICAL_CHECKUP') {
+        hasPhysicalCheckup = true;
         final upperStatus = status.toUpperCase();
         // If completed (or missing), keep existing UI style (same as other rows).
         if (upperStatus == 'COMPLETED' || upperStatus.isEmpty) {
@@ -293,6 +295,17 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
           ),
         );
       }
+    }
+
+    // If there is no physical checkup record at all, still show the label
+    // with "-" as the value, consistent with other date rows.
+    if (!hasPhysicalCheckup) {
+      rows.add(
+        _DateRow(
+          label: _mapTypeToLabel('PHYSICAL_CHECKUP'),
+          text: '-',
+        ),
+      );
     }
 
     // interleave spacing

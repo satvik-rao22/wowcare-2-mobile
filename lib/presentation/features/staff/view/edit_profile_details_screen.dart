@@ -93,11 +93,26 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   bool _isSubmitting = false;
 
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
+  // Full designation list (union of admin + staff) for mapping helpers.
   final List<String> _designationOptions = [
     'Director',
     'Admin',
     'Assistant Director',
     'Owner',
+    'Lead teacher',
+    'Associate Teacher',
+    'Assistant teacher',
+    'Floater',
+  ];
+  // Admin-only designations (used when role is admin).
+  static const List<String> _adminDesignationOptions = [
+    'Director',
+    'Admin',
+    'Assistant Director',
+    'Owner',
+  ];
+  // Staff-only designations (used when role is staff).
+  static const List<String> _staffDesignationOptions = [
     'Lead teacher',
     'Associate Teacher',
     'Assistant teacher',
@@ -619,7 +634,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
   String? _mapDesignationFromApiOrLabel(String? value) {
     if (value == null || value.isEmpty) return null;
-    // If it's already a friendly label from dropdown, just return it.
+    // If it's already a friendly label from dropdown (admin or staff), just return it.
     if (_designationOptions.contains(value)) return value;
 
     // Reverse mapping from known API enums to UI labels.
@@ -840,7 +855,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                         _buildCustomDropdown(
                           "Designation",
                           "Select",
-                          _designationOptions,
+                          // Show only admin or staff designations based on current role.
+                          _isAdminSelected
+                              ? _adminDesignationOptions
+                              : _staffDesignationOptions,
                           _selectedDesignation,
                           (v) {
                             setState(() {
