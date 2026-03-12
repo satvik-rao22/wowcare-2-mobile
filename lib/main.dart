@@ -215,8 +215,6 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
       final seenOnboarding =
           await storage.getBool(StorageKeys.onboardingSeen) ?? false;
-      final loginCompleted =
-          await storage.getBool(StorageKeys.loginCompleted) ?? false;
 
       if (!seenOnboarding) {
         // Very first app launch: always show onboarding once and clear any old auth.
@@ -224,47 +222,65 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         Navigator.pushReplacementNamed(context, '/first-screen');
       } else {
         // After onboarding:
-        // - Always call login-context on app start if we already have a login,
-        //   so backend can tell us which org/school should be active.
-        if (loginCompleted) {
-          String? redirectUrl;
-          try {
-            final authLocal = serviceLocator<AuthLocalDataSource>();
-            final cachedLogin = await authLocal.getCachedLoginResponse();
-            if (cachedLogin != null) {
-              final authRemote = serviceLocator<AuthRemoteDataSource>();
-              final contextData = await authRemote.getLoginContext(
-                accessToken: cachedLogin.accessToken,
-              );
-              await authLocal.saveLoginContext(contextData);
+        // - Always call login-context on app start whenever we have a cached login,
+        //   and always use its redirectUrl (if any) to decide navigation.
+        String? redirectUrl;
+        bool hasCachedLogin = false;
+        try {
+          final authLocal = serviceLocator<AuthLocalDataSource>();
+          final cachedLogin = await authLocal.getCachedLoginResponse();
+          if (cachedLogin != null) {
+            hasCachedLogin = true;
+            final authRemote = serviceLocator<AuthRemoteDataSource>();
+            final contextData = await authRemote.getLoginContext(
+              accessToken: cachedLogin.accessToken,
+            );
+            await authLocal.saveLoginContext(contextData);
 
-              // Sync org/school from login-context (LastLoginOrganizationCode,
-              // LastLoginSchoolCode) into storage so all APIs use them.
-              await authLocal.saveOrgAndSchoolFromContext(contextData);
+            // Sync org/school from login-context (LastLoginOrganizationCode,
+            // LastLoginSchoolCode) into storage so all APIs use them.
+            await authLocal.saveOrgAndSchoolFromContext(contextData);
 
-              // Backend may return redirectUrl to tell us where to go
-              // (select-school, select-organization, select-app).
-              final rawRedirect = contextData['redirectUrl'];
-              redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
+            // Backend may return redirectUrl to tell us where to go
+            // (select-school, select-organization, select-app, dashboard, etc).
+            final rawRedirect = contextData['redirectUrl'];
+            redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
 
-              final String orgCode =
-                  (contextData['LastLoginOrganizationCode'] as String?)?.trim() ?? '';
-              final String schoolCode =
-                  (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
+            final String orgCode =
+                (contextData['LastLoginOrganizationCode'] as String?)?.trim() ??
+                    '';
+            final String schoolCode =
+                (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
 
-              // Save org if present (needed for SchoolSelectionScreen when redirect is select-school)
-              if (orgCode.isNotEmpty) {
+            // Save org/school selection from login-context, but:
+            // - do NOT overwrite an existing local schoolCode with null/empty
+            // - if context schoolCode is empty, reuse the locally stored one
+            //   so APIs can continue to use the last known school.
+            if (orgCode.isNotEmpty) {
+              final existingSchoolCode =
+                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+              final effectiveSchoolCode =
+                  schoolCode.isNotEmpty ? schoolCode : existingSchoolCode;
+
+              if (effectiveSchoolCode.isNotEmpty) {
                 await authLocal.setSelectedOrgAndSchool(
                   organizationCode: orgCode,
-                  schoolCode: schoolCode,
+                  schoolCode: effectiveSchoolCode,
                   schoolName: '',
                 );
+              } else {
+                // We only know the organization; keep any existing school selection
+                // and just ensure organizationCode is stored.
+                await storage.saveString(StorageKeys.organizationCode, orgCode);
               }
             }
-          } catch (_) {
-            // Non-fatal: if context fetch fails, we still navigate to dashboard.
           }
+        } catch (_) {
+          // Non-fatal: if context fetch fails, we still decide navigation below.
+        }
 
+        // If we have a cached login, navigation always follows login-context:
+        if (hasCachedLogin) {
           if (redirectUrl != null && redirectUrl.isNotEmpty) {
             final url = redirectUrl.toLowerCase();
             if (url.contains('select-school')) {
@@ -308,11 +324,17 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
               );
               return;
             }
+            if (url.contains('dashboard') || url.contains('select-app')) {
+              // Backend explicitly says to go to dashboard/app selection.
+              Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+              return;
+            }
           }
 
+          // No redirectUrl or unrecognized value: default to dashboard when logged in.
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
         } else {
-          // Not logged in yet: go to Login, which will call login-context after success.
+          // No cached login at all: go to Login, which will call login-context after success.
           Navigator.pushReplacementNamed(context, SignInScreen.routeName);
         }
       }

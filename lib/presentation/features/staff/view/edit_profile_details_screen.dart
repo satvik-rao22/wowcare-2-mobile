@@ -165,6 +165,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final codeToName = {
         for (final e in _classroomCodeByName.entries) e.value: e.key,
       };
+      final hasCodeToName = codeToName.isNotEmpty;
       final a = profile.address;
       setState(() {
         _firstNameController.text = profile.firstName;
@@ -172,22 +173,48 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _emailController.text = profile.email;
         _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
         _selectedStatus = _statusApiToLabel(profile.status);
-        _selectedDesignation = _mapDesignationFromApiOrLabel(profile.designation);
-        _selectedAllowedClassrooms = profile.allowedClassroomCodes
-            .map((c) => codeToName[c] ?? c)
+        _selectedDesignation =
+            _mapDesignationFromApiOrLabel(profile.designation);
+
+        // Derive allowed classrooms display names:
+        // 1) Prefer mapping from code -> name using cached metadata.
+        // 2) Fallback to already-passed initialAllowedClassrooms when mapping is missing.
+        final mappedAllowed = profile.allowedClassroomCodes
+            .map((c) => hasCodeToName ? (codeToName[c] ?? c) : c)
             .toList();
-        _selectedPrimaryClassroom = profile.primaryClassroomCode.isEmpty
-            ? null
-            : (codeToName[profile.primaryClassroomCode] ?? profile.primaryClassroomCode);
+        if (mappedAllowed.isNotEmpty) {
+          _selectedAllowedClassrooms = mappedAllowed;
+        } else if (widget.initialAllowedClassrooms != null &&
+            widget.initialAllowedClassrooms!.isNotEmpty) {
+          _selectedAllowedClassrooms =
+              List<String>.from(widget.initialAllowedClassrooms!);
+        } else {
+          _selectedAllowedClassrooms = const <String>[];
+        }
+
+        // Derive primary classroom display name:
+        // 1) Prefer mapping from primaryClassroomCode using cached metadata.
+        // 2) Fallback to initialPrimaryClassroom passed into the screen.
+        if (profile.primaryClassroomCode.isNotEmpty && hasCodeToName) {
+          _selectedPrimaryClassroom =
+              codeToName[profile.primaryClassroomCode] ??
+                  profile.primaryClassroomCode;
+        } else {
+          _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
+        }
+
+        // Ensure dropdown options contain any preselected values.
         if (_classroomOptions.isEmpty) {
           _classroomOptions.addAll(
             Set<String>.from(_selectedAllowedClassrooms).toList(),
           );
-          if (_selectedPrimaryClassroom != null &&
-              !_classroomOptions.contains(_selectedPrimaryClassroom)) {
-            _classroomOptions.add(_selectedPrimaryClassroom!);
-          }
         }
+        if (_selectedPrimaryClassroom != null &&
+            _selectedPrimaryClassroom!.isNotEmpty &&
+            !_classroomOptions.contains(_selectedPrimaryClassroom)) {
+          _classroomOptions.add(_selectedPrimaryClassroom!);
+        }
+
         _selectedBirthDate = profile.birthDate.isEmpty
             ? null
             : DateTime.tryParse(profile.birthDate);

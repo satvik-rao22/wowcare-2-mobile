@@ -9,7 +9,6 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -153,13 +152,9 @@ class _SignInScreenState extends State<SignInScreen>
         }
       }
 
-      // Login-context returned last school: go straight to Dashboard.
-      // Otherwise: Role selection -> Dashboard.
-      if (state.hasLastSchoolFromContext) {
-        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-      } else {
-        Navigator.pushReplacementNamed(context, RoleSelectionScreen.routeName);
-      }
+      // After login-context, always go straight to Dashboard.
+      // Role selection screen is no longer part of the flow.
+      Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
     } else if (state is AuthError) {
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(
