@@ -145,6 +145,11 @@ class _SignInScreenState extends State<SignInScreen>
           // Navigate to dashboard
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
           return;
+        } else if (url.contains('dashboard')) {
+          // Backend may return a dashboard redirect even when LastLoginSchoolCode is null.
+          // In that case, do NOT force role selection — go straight to Dashboard.
+          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          return;
         }
       }
 

@@ -140,6 +140,23 @@ class AuthCubit extends Cubit<AuthState> {
           // Non-fatal: if caching fails, login can still proceed.
         }
 
+        // If role is ORGANIZATION_ADMIN, activate the demo school before fetching login-context.
+        // (Backend requirement for org-admin flow.)
+        try {
+          const orgAdminRole = 'ORGANIZATION_ADMIN';
+          final isOrgAdmin = response.roles
+              .any((r) => r.role.toUpperCase() == orgAdminRole);
+          if (isOrgAdmin) {
+            await _remoteDataSource.patchSchoolStatus(
+              accessToken: response.accessToken,
+              schoolCode: 'SCH_CFC23E05-6',
+              status: 'ACTIVE',
+            );
+          }
+        } catch (_) {
+          // Non-blocking: do not fail login if this call fails.
+        }
+
         // Immediately fetch login-context with this token so backend can tell
         // us which org/school (last school) should be active for this user.
         bool hasLastSchoolFromContext = false;

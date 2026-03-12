@@ -20,6 +20,10 @@ class ApiPaths {
       '$schoolNamesByOrg/$orgCode';
   static const String organizationNames = '/api/v1/organizations/names';
 
+  // Schools
+  static const String schools = '/api/v1/schools';
+  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
+
   // Staff
   static const String staffList = '/api/v1/staff';
   static const String staffCount = '/api/v1/staff/count';

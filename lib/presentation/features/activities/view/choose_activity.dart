@@ -179,15 +179,15 @@ class _ChooseActivityState extends State<ChooseActivity> {
               color: Colors.black87,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(
+                child: Text(
               _getDisabledActivityTooltip(activityName),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
       ),
     );
 
@@ -215,9 +215,9 @@ class _ChooseActivityState extends State<ChooseActivity> {
 
     return StaffFormLayout(
       title: 'Choose Activity',
-      child: Column(
+              child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+                children: [
           Expanded(
             child: GridView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -227,12 +227,12 @@ class _ChooseActivityState extends State<ChooseActivity> {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 mainAxisExtent: 52,
-              ),
+                      ),
               itemCount: ChooseActivity.activityIcons.length,
-              itemBuilder: (context, index) {
+                      itemBuilder: (context, index) {
                 final entry = ChooseActivity.activityIcons.entries.toList()[index];
-                final iconPath = entry.value;
-                final String activityName = entry.key;
+                        final iconPath = entry.value;
+                        final String activityName = entry.key;
                 final bool isDisabled = _isActivityDisabled(activityName);
                 final bool isSelected = _selectedActivity == activityName;
 
@@ -290,9 +290,9 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                       ? Colors.grey
                                       : AppColors.primaryColor,
                                 ),
-                              ),
-                            ),
-                          ],
+              ),
+            ),
+          ],
                         ),
                       ),
                     );
