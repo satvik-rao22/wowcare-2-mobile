@@ -456,6 +456,34 @@ class StaffProfileModel extends Equatable {
     final workSchedulesJson = data['workSchedules'] as List<dynamic>? ?? const [];
     final breakSchedulesJson = data['breakSchedules'] as List<dynamic>? ?? const [];
 
+    String _extractClassroomCode(dynamic value) {
+      // New backend shape: { "code": "...", "name": "..." }
+      if (value is Map<String, dynamic>) {
+        return value['code']?.toString() ?? '';
+      }
+      // Legacy: "CLS_..."
+      return value?.toString() ?? '';
+    }
+
+    final primaryFromObject = _extractClassroomCode(data['primaryClassroom']);
+    final primaryClassroomCode = primaryFromObject.isNotEmpty
+        ? primaryFromObject
+        : (data['primaryClassroomCode'] as String? ?? '');
+
+    // New backend shape:
+    // - allowedClassrooms: [{code,name}, ...]
+    // Legacy fallback:
+    // - allowedClassroomCodes: ["CLS_...", ...]
+    final allowedCodes = (data['allowedClassrooms'] as List<dynamic>?)
+            ?.map(_extractClassroomCode)
+            .where((c) => c.trim().isNotEmpty)
+            .toList() ??
+        (data['allowedClassroomCodes'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((c) => c.trim().isNotEmpty)
+            .toList() ??
+        const <String>[];
+
     return StaffProfileModel(
       staffCode: data['staffCode'] as String? ?? '',
       userCode: data['userCode'] as String? ?? '',
@@ -473,11 +501,8 @@ class StaffProfileModel extends Equatable {
       designation: data['designation'] as String? ?? '',
       jobTag: data['jobTag'] as String? ?? '',
       clockPin: data['clockPin'] as String? ?? '',
-      primaryClassroomCode: data['primaryClassroomCode'] as String? ?? '',
-      allowedClassroomCodes: (data['allowedClassroomCodes'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
+      primaryClassroomCode: primaryClassroomCode,
+      allowedClassroomCodes: allowedCodes,
       address: StaffProfileAddressModel.fromJson(addressJson),
       workSchedules: workSchedulesJson
           .map((e) => StaffProfileWorkScheduleModel.fromJson(e as Map<String, dynamic>))

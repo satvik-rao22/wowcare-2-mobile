@@ -173,6 +173,14 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       ..clear()
       ..addAll(widget.initialClassroomCodeByName ?? {});
 
+    // Prefill selected classrooms from navigation args immediately.
+    // (These are display names when available; if they are codes we will
+    // normalize them once classroom metadata loads.)
+    _selectedAllowedClassrooms = List<String>.from(
+      widget.initialAllowedClassrooms ?? const <String>[],
+    );
+    _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
+
     // Load classrooms via cubit using role-aware filter:
     // - Staff: type=CLASSROOM (onlyTypeClassroom=true)
     // - Admin: all active locations (onlyTypeClassroom=false)
@@ -206,6 +214,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     for (final c in state.classrooms) {
       codeByName[c.name] = c.code;
     }
+    // Build reverse map (code -> name) so we can normalize selections
+    // even when initial values were passed as codes.
+    final nameByCode = <String, String>{
+      for (final e in codeByName.entries) e.value: e.key,
+    };
 
     setState(() {
       _classroomOptions
@@ -214,6 +227,21 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       _classroomCodeByName
         ..clear()
         ..addAll(codeByName);
+
+      // Normalize selected allowed classrooms:
+      // If an entry looks like a code and we can resolve it, replace with name.
+      if (_selectedAllowedClassrooms.isNotEmpty) {
+        _selectedAllowedClassrooms = _selectedAllowedClassrooms
+            .map((v) => nameByCode[v] ?? v)
+            .where((v) => v.trim().isNotEmpty)
+            .toList();
+      }
+
+      // Normalize selected primary classroom.
+      if ((_selectedPrimaryClassroom ?? '').trim().isNotEmpty) {
+        _selectedPrimaryClassroom =
+            nameByCode[_selectedPrimaryClassroom!] ?? _selectedPrimaryClassroom;
+      }
     });
   }
 
@@ -249,9 +277,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         // Derive allowed classrooms display names:
         // 1) Prefer mapping from code -> name using cached metadata.
         // 2) Fallback to already-passed initialAllowedClassrooms when mapping is missing.
-        final mappedAllowed = profile.allowedClassroomCodes
-            .map((c) => hasCodeToName ? (codeToName[c] ?? c) : c)
-            .toList();
+        final mappedAllowed = hasCodeToName
+            ? profile.allowedClassroomCodes
+                .map((c) => codeToName[c] ?? c)
+                .toList()
+            : const <String>[];
         if (mappedAllowed.isNotEmpty) {
           _selectedAllowedClassrooms = mappedAllowed;
         } else if (widget.initialAllowedClassrooms != null &&

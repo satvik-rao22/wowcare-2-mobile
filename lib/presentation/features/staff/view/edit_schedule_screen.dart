@@ -424,30 +424,40 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                       isEnabled ? TextDecoration.none : TextDecoration.lineThrough,
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    final curr = _schedules[day]!;
-                    final newEnabled = !curr.isEnabled;
-                    _schedules[day] = curr.copyWith(
-                      isEnabled: newEnabled,
-                      workStartTime: newEnabled ? curr.workStartTime : null,
-                      workEndTime: newEnabled ? curr.workEndTime : null,
-                      breakStartTime: newEnabled ? curr.breakStartTime : null,
-                      breakEndTime: newEnabled ? curr.breakEndTime : null,
-                    );
-                  });
-                },
-                child: Text(
-                  isEnabled ? 'Mark Holiday' : 'Enable',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isEnabled ? Colors.redAccent : AppColors.primaryColor,
-                  ),
-                ),
-              ),
+              isEnabled
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      color: Colors.redAccent,
+                      onPressed: () {
+                        setState(() {
+                          final curr = _schedules[day]!;
+                          _schedules[day] = curr.copyWith(
+                            isEnabled: false,
+                            workStartTime: null,
+                            workEndTime: null,
+                            breakStartTime: null,
+                            breakEndTime: null,
+                          );
+                        });
+                      },
+                    )
+                  : TextButton(
+                      onPressed: () {
+                        setState(() {
+                          final curr = _schedules[day]!;
+                          _schedules[day] = curr.copyWith(isEnabled: true);
+                        });
+                      },
+                      child: const Text(
+                        'Enable',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
             ],
           ),
           if (!isEnabled)

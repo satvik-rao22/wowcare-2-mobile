@@ -30,7 +30,10 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
           isFromCache: true,
         ),
       );
-      // If we have a fresh enough cache, don't auto-hit the API.
+      // Stale-while-revalidate: show cached immediately, but still refresh from API
+      // so UI fields stay in sync with backend shape changes.
+      // ignore: unawaited_futures
+      refresh(staffCode);
       return;
     }
 

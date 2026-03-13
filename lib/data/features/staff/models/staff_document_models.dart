@@ -9,6 +9,7 @@ class StaffDocumentRequestModel extends Equatable {
     required this.mimeType,
     required this.expiryDate,
     this.documentNotes,
+    this.updatedBy,
   });
 
   final String documentType;
@@ -18,6 +19,8 @@ class StaffDocumentRequestModel extends Equatable {
   final String mimeType;
   final String expiryDate; // ISO date string or empty when optional
   final String? documentNotes;
+  /// Name or code of staff/admin who uploaded/last updated the document.
+  final String? updatedBy;
 
   Map<String, dynamic> toJson() {
     return {
@@ -28,12 +31,13 @@ class StaffDocumentRequestModel extends Equatable {
       'mimeType': mimeType,
       'expiryDate': expiryDate,
       if (documentNotes != null && documentNotes!.isNotEmpty) 'documentNotes': documentNotes,
+      if (updatedBy != null && updatedBy!.isNotEmpty) 'updatedBy': updatedBy,
     };
   }
 
   @override
   List<Object?> get props =>
-      [documentType, documentName, documentUrl, documentSizeKb, mimeType, expiryDate, documentNotes];
+      [documentType, documentName, documentUrl, documentSizeKb, mimeType, expiryDate, documentNotes, updatedBy];
 }
 
 class StaffDocumentResponseModel extends Equatable {
@@ -74,6 +78,8 @@ class StaffDocumentItemModel extends Equatable {
     this.documentNotes,
     required this.expired,
     required this.createdAt,
+    required this.updatedBy,
+    required this.updatedAt,
   });
 
   final String documentUuid;
@@ -86,6 +92,8 @@ class StaffDocumentItemModel extends Equatable {
   final String? documentNotes;
   final bool expired;
   final String createdAt;
+  final String updatedBy;
+  final String updatedAt;
 
   factory StaffDocumentItemModel.fromJson(Map<String, dynamic> json) {
     return StaffDocumentItemModel(
@@ -99,6 +107,8 @@ class StaffDocumentItemModel extends Equatable {
       documentNotes: json['documentNotes'] as String?,
       expired: json['expired'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
+      updatedBy: json['updatedBy'] as String? ?? '',
+      updatedAt: json['updatedAt'] as String? ?? '',
     );
   }
 
@@ -114,6 +124,8 @@ class StaffDocumentItemModel extends Equatable {
       if (documentNotes != null) 'documentNotes': documentNotes,
       'expired': expired,
       'createdAt': createdAt,
+      'updatedBy': updatedBy,
+      'updatedAt': updatedAt,
     };
   }
 
@@ -129,6 +141,8 @@ class StaffDocumentItemModel extends Equatable {
         documentNotes,
         expired,
         createdAt,
+        updatedBy,
+        updatedAt,
       ];
 }
 

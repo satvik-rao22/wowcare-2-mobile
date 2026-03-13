@@ -257,6 +257,8 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       mimeType: document.mimeType,
       expiryDate: document.expiryDate ?? '',
       documentNotes: document.documentNotes,
+      // Backend expects "updatedBy" in body; use staffCode as a stable identifier.
+      updatedBy: staffCode,
     );
 
     final response = await _remoteDataSource.addStaffDocument(
@@ -285,6 +287,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       mimeType: document.mimeType,
       expiryDate: document.expiryDate ?? '',
       documentNotes: document.documentNotes,
+      updatedBy: staffCode,
     );
 
     final response = await _remoteDataSource.updateStaffDocument(
@@ -352,6 +355,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             documentNotes: m.documentNotes,
             expired: m.expired,
             createdAt: m.createdAt,
+            uploadedBy: m.updatedBy,
           ),
         )
         .toList();
