@@ -87,9 +87,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String? _selectedPrimaryClassroom;
   DateTime? _selectedBirthDate;
   String? _selectedJobTag;
-  String? _selectedGender;
   String? _selectedState;
-  String? _selectedCountry;
+  String? _selectedCountry = 'United States';
   bool _isSubmitting = false;
 
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
@@ -121,7 +120,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   // Backed by classroom names; populated from widget.initialClassroomNames/CodeByName.
   final List<String> _classroomOptions = [];
   final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
-  final List<String> _genderOptions = ['Male', 'Female'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
   final List<String> _countryOptions =
@@ -336,15 +334,13 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           );
           _selectedState = match.name;
         }
-        if (a.country.isNotEmpty) {
-          final match = COUNTRY_LIST.firstWhere(
-            (c) =>
-                c.name.toLowerCase() == a.country.toLowerCase() ||
-                c.code.toLowerCase() == a.country.toLowerCase(),
-            orElse: () => COUNTRY_LIST.first,
-          );
-          _selectedCountry = match.name;
-        }
+        // Country is fixed to "United States" for Edit Staff flow and cannot be changed.
+        // We intentionally ignore any existing non-US country value from the profile.
+        final usCountry = COUNTRY_LIST.firstWhere(
+          (c) => c.name.toLowerCase() == 'united states',
+          orElse: () => COUNTRY_LIST.first,
+        );
+        _selectedCountry = usCountry.name;
       });
     } catch (_) {
       // Ignore; form stays empty
@@ -531,16 +527,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final designationApi = _mapDesignationToApiValue(_selectedDesignation);
       final jobTagApi =
           _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
-      String? genderApi;
-      if (_selectedGender != null && _selectedGender!.isNotEmpty) {
-        final g = _selectedGender!.toLowerCase();
-        if (g == 'male') {
-          genderApi = 'MALE';
-        } else if (g == 'female') {
-          genderApi = 'FEMALE';
-        }
-      }
-
       final primaryClassroomCode = _selectedPrimaryClassroom == null
           ? null
           : (_classroomCodeByName[_selectedPrimaryClassroom!] ??
@@ -555,7 +541,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'status': statusApi,
         'phoneNumber': phoneDigits,
         'designation': designationApi,
-        if (genderApi != null) 'gender': genderApi,
         if (jobTagApi != null) 'jobTag': jobTagApi,
         if (_selectedBirthDate != null)
           'birthdate': _selectedBirthDate!.toIso8601String(),
@@ -875,14 +860,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           ],
                         ),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown(
-                          "Gender",
-                          "Select",
-                          _genderOptions,
-                          _selectedGender,
-                          (v) => setState(() => _selectedGender = v),
-                          isRequired: false,
-                        ),
+                        // Gender field intentionally hidden: gender is not editable.
+                        // (Kept in state/model for potential future use.)
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
@@ -1046,7 +1025,28 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
+                        // Country is locked to "United States" and not editable in Edit Staff flow.
+                        Opacity(
+                          opacity: 0.6,
+                          child: IgnorePointer(
+                            ignoring: true,
+                            child: CustomDropdown(
+                              label: "Country",
+                              hintText: 'Select',
+                              items: const ['United States'],
+                              selectedItem: 'United States',
+                              labelStyle: TextStyle(
+                                fontSize: responsive.labelFontSize,
+                                fontFamily: "Manrope",
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xff573353),
+                              ),
+                              showAsterisk: true,
+                              labelBottomSpacing:
+                                  responsive.isTablet ? 8.0 : 6.0,
+                            ),
+                          ),
+                        ),
           SizedBox(height: responsive.verticalSpacing),
           _buildInputField(
             "Zip Code",

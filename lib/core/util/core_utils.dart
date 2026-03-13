@@ -479,81 +479,87 @@ class CoreUtils {
         );
       return;
     }
-    final topInset = MediaQuery.of(context).padding.top;
-    final leftInset = MediaQuery.of(context).padding.left;
-    final rightInset = MediaQuery.of(context).padding.right;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final mediaQuery = MediaQuery.of(context);
+    final topInset = mediaQuery.padding.top;
+    final leftInset = mediaQuery.padding.left;
+    final rightInset = mediaQuery.padding.right;
     const horizontalMargin = 16.0;
-    const topMargin = 12.0;
-    const maxBannerWidth = 280.0;
-
-    // Keep the banner fully on-screen for narrow devices.
-    final minLeft = leftInset + horizontalMargin;
-    final desiredLeft =
-        screenWidth - maxBannerWidth - rightInset - horizontalMargin;
-    final left = math.max(minLeft, desiredLeft);
+    // Push the banner clearly below the status bar so it never "sticks" to
+    // the very top edge of the device (as in the screenshot the user shared).
+    const extraTopMargin = 20.0;
 
     late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: topInset + topMargin,
+        top: topInset + extraTopMargin,
+        left: leftInset + horizontalMargin,
         right: rightInset + horizontalMargin,
-        left: left,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isError
-                    ? Colors.red.shade100
-                    : isWarning
-                        ? Colors.orange.shade100
-                        : isSuccess
-                            ? successBackgroundColor
-                            : Colors.black,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  isError || isWarning ? Icons.error : Icons.check,
-                  color: contentColor,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: RichText(
-                    text: TextSpan(
-                      style: TextStyle(
-                        color: contentColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isError
+                          ? Colors.red.shade100
+                          : isWarning
+                              ? Colors.orange.shade100
+                              : isSuccess
+                                  ? successBackgroundColor
+                                  : Colors.black,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                      children: [
-                        TextSpan(
-                          text: message,
-                          style: TextStyle(
-                            color: contentColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        isError || isWarning ? Icons.error : Icons.check,
+                        color: contentColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              color: contentColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: message,
+                                style: TextStyle(
+                                  color: contentColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

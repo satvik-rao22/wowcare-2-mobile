@@ -12,6 +12,8 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.da
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/shared/constants/location_constants.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 
 class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
@@ -92,8 +94,10 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
   String _getStatusLabel(String? status) {
     if (status == null || status.isEmpty) return '-';
-    if (status.toUpperCase() == 'ACTIVE' || status == 'A') return 'Active';
-    if (status.toUpperCase() == 'INACTIVE' || status == 'I') return 'Inactive';
+    final upper = status.toUpperCase();
+    if (upper == 'ACTIVE' || status == 'A') return 'Active';
+    if (upper == 'INACTIVE' || status == 'I') return 'Inactive';
+    if (upper == 'UPCOMING' || status == 'U') return 'Upcoming';
     return status;
   }
 
@@ -142,6 +146,50 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
       return lower[0].toUpperCase() + lower.substring(1);
     }).where((w) => w.isNotEmpty);
     return words.join(' ');
+  }
+
+  /// Builds a human-readable address string with the state's FULL name
+  /// instead of the abbreviation stored in the profile address.
+  String _formatFullAddress(StaffProfileAddress address) {
+    String formatUsZip(String raw) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return '';
+      final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+      // US ZIP formats:
+      // - 5 digits: 12345
+      // - ZIP+4: 12345-6789
+      if (digits.length == 5) return digits;
+      if (digits.length == 9) {
+        return '${digits.substring(0, 5)}-${digits.substring(5)}';
+      }
+      // Unknown format; preserve what backend sent.
+      return trimmed;
+    }
+
+    // Resolve full state name from abbreviation or keep as-is when not found.
+    String stateFull = address.state.trim();
+    if (stateFull.isNotEmpty) {
+      final lower = stateFull.toLowerCase();
+      final match = US_STATES.firstWhere(
+        (s) =>
+            s.abbreviation.toLowerCase() == lower ||
+            s.name.toLowerCase() == lower,
+        orElse: () => UsState(name: stateFull, abbreviation: stateFull),
+      );
+      stateFull = match.name;
+    }
+
+    final parts = <String>[
+      address.street.trim(),
+      address.line2.trim(),
+      address.city.trim(),
+      stateFull,
+      formatUsZip(address.zipCode),
+      address.country.trim(),
+    ].where((p) => p.isNotEmpty).toList();
+
+    if (parts.isEmpty) return '-';
+    return parts.join(', ');
   }
 
   @override
@@ -347,7 +395,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
             const SizedBox(height: 16),
             _Field(
               label: 'Address',
-              value: profile.address.formattedAddress.isEmpty ? '-' : profile.address.formattedAddress,
+              value: _formatFullAddress(profile.address),
             ),
             const SizedBox(height: 16),
             _Field(
@@ -571,9 +619,31 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
   Widget _buildStatusChip(String? status) {
     final label = _getStatusLabel(status);
+    final upperStatus = status?.toUpperCase() ?? '';
+
+    // Custom "Upcoming" chip to match design reference (soft orange pill).
+    if (upperStatus == 'UPCOMING' || status == 'U' || label == 'Upcoming') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4E0), // soft orange background
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          'Upcoming',
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFFF9A825), // orange text
+          ),
+        ),
+      );
+    }
+
     final labelColor = _getStatusColor(status);
     final bgColor = _getStatusBgColor(status);
-    final icon = (status?.toUpperCase() == 'ACTIVE' || status == 'A')
+    final icon = (upperStatus == 'ACTIVE' || status == 'A')
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 
