@@ -374,6 +374,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     final street = _streetController.text.trim();
     final city = _cityController.text.trim();
     final zip = _zipCodeController.text.trim();
+    final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -492,7 +493,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (!RegExp(r'^\d{3,10}$').hasMatch(zip)) {
+    // Accept ZIP values that come prefilled with formatting (e.g. "03060-1234")
+    // by validating on digits-only.
+    if (!RegExp(r'^\d{3,10}$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code must contain only numbers (3–10 digits)',
@@ -584,7 +587,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'addressLine2': _street2Controller.text.trim(),
         'addressCity': _cityController.text.trim(),
         'addressState': stateCode,
-        'addressZipCode': _zipCodeController.text.trim(),
+        // Send digits-only to backend for consistent storage.
+        'addressZipCode': zipDigits,
         'addressCountry': countryCode,
       };
 

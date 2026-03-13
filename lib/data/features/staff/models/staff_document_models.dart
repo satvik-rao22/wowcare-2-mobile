@@ -30,8 +30,10 @@ class StaffDocumentRequestModel extends Equatable {
       'documentSizeKb': documentSizeKb,
       'mimeType': mimeType,
       'expiryDate': expiryDate,
-      if (documentNotes != null && documentNotes!.isNotEmpty) 'documentNotes': documentNotes,
-      if (updatedBy != null && updatedBy!.isNotEmpty) 'updatedBy': updatedBy,
+      if (documentNotes != null && documentNotes!.isNotEmpty)
+        'documentNotes': documentNotes,
+      // Backend contract: field is named "uploadedBy" in the request body.
+      if (updatedBy != null && updatedBy!.isNotEmpty) 'uploadedBy': updatedBy,
     };
   }
 

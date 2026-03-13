@@ -73,8 +73,21 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
   String _formatPhoneNumber(String? number) {
     if (number == null || number.isEmpty) return '-';
     final digits = number.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return number;
-    return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}';
+    // Prefer US-style formatting when we can derive a 10-digit local number.
+    // Supports:
+    // - "9876543212"
+    // - "+1 9876543212"
+    // - "1-987-654-3212"
+    String local10 = digits;
+    if (digits.length == 11 && digits.startsWith('1')) {
+      local10 = digits.substring(1);
+    } else if (digits.length > 11) {
+      // If backend sends E.164 with country code, keep last 10 digits as a best-effort.
+      local10 = digits.substring(digits.length - 10);
+    }
+
+    if (local10.length != 10) return number;
+    return '(${local10.substring(0, 3)}) ${local10.substring(3, 6)}-${local10.substring(6, 10)}';
   }
 
   String _getStatusLabel(String? status) {
