@@ -16,6 +16,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
@@ -58,6 +59,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   bool _isSubmitting = false;
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
+  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
 
 
@@ -66,6 +68,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     super.initState();
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getActivityTypeDetailsUseCase =
+        serviceLocator<GetActivityTypeDetailsUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     // Create a mutable copy of the incoming list
     //_selectedStudents = List.from(widget.selectedStudents);
@@ -286,6 +290,50 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     });
 
     try {
+      // Build parameterValues in backend-required shape:
+      // [{ "parameterCode": "...", "value": ... }, ...]
+      final details =
+          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+
+      String? findParamCode(String contains) {
+        final target = contains.toLowerCase();
+        for (final p in details.parameters) {
+          final name = p.parameterName.toLowerCase();
+          if (name.contains(target)) return p.code;
+        }
+        return null;
+      }
+
+      final dateParamCode = findParamCode('date');
+      final timeParamCode = findParamCode('time');
+      final staffParamCode = findParamCode('staff');
+      final descParamCode = findParamCode('description');
+      final amountParamCode = findParamCode('amount') ??
+          findParamCode('ounce') ??
+          findParamCode('oz') ??
+          findParamCode('consumed');
+
+      String two(int v) => v.toString().padLeft(2, '0');
+      final localDate =
+          '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
+      final localTime =
+          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+
+      final parameterValues = <Map<String, dynamic>>[
+        if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
+          {'parameterCode': dateParamCode, 'value': localDate},
+        if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
+          {'parameterCode': timeParamCode, 'value': localTime},
+        if (staffParamCode != null &&
+            staffParamCode.trim().isNotEmpty &&
+            staffCode.trim().isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffCode},
+        if (descParamCode != null && descParamCode.trim().isNotEmpty)
+          {'parameterCode': descParamCode, 'value': description},
+        if (amountParamCode != null && amountParamCode.trim().isNotEmpty)
+          {'parameterCode': amountParamCode, 'value': amountOz.toString()},
+      ];
+
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
@@ -295,6 +343,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
+        parameterValues: parameterValues,
+        attachments: const [],
       );
 
       if (!mounted) return;

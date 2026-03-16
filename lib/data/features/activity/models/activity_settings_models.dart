@@ -146,8 +146,9 @@ class ActivityCreateRequestModel {
       'organizationCode': organizationCode,
       'activityDate': activityDate,
       'description': description,
-      if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
-      if (attachments.isNotEmpty) 'attachments': attachments,
+      // Backend expects keys to be present (even if empty arrays).
+      'parameterValues': parameterValues,
+      'attachments': attachments,
     };
   }
 }

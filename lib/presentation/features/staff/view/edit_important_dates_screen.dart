@@ -48,9 +48,9 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   DateTime? _selectedPhysicalCheckupDate;
   String? _selectedPhysicalCheckupStatus;
   // For Physical Checkup:
-  // - If there's no existing physical date (first time), only "Scheduled" is allowed.
+  // - If there's no existing physical date (first time), only "Completed" is allowed by default.
   // - If a physical date already exists, allow all three options in the dropdown.
-  static const List<String> _initialPhysicalStatusOptions = ['Scheduled'];
+  static const List<String> _initialPhysicalStatusOptions = ['Completed'];
   static const List<String> _editPhysicalStatusOptions = ['Due', 'Scheduled', 'Completed'];
   late List<String> _physicalCheckupStatusOptions;
 

@@ -3,12 +3,19 @@ import 'package:dio/dio.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../models/activity_settings_models.dart';
+import '../models/activity_type_details_model.dart';
 
 abstract class ActivityRemoteDataSource {
   /// Fetches activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
     required String classroomCode,
+  });
+
+  /// Fetches activity type details via
+  /// `GET /api/v1/activity-types/{code}`.
+  Future<ActivityTypeDetailsModel> getActivityTypeDetails({
+    required String code,
   });
 
   /// Creates a new activity via `POST /api/v1/activities`.
@@ -45,6 +52,31 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         .map(ActivitySettingModel.fromJson)
         .toList();
+  }
+
+  @override
+  Future<ActivityTypeDetailsModel> getActivityTypeDetails({
+    required String code,
+  }) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activityTypesRoot,
+      ApiConstants.activityBaseUrl,
+    );
+    final endpoint = '$base/$code';
+
+    final response = await _client.get<dynamic>(endpoint);
+    final body = response.data;
+
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected activity-type API response format');
+    }
+
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected activity-type API data format');
+    }
+
+    return ActivityTypeDetailsModel.fromJson(data);
   }
 
   @override

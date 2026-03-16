@@ -14,6 +14,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
@@ -36,6 +37,15 @@ class MedicationActivityScreen extends StatefulWidget {
 }
 
 class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
+  /// Temporary fallbacks to keep create-activity usable when staff context is
+  /// missing in storage.
+  ///
+  /// Dynamic values from storage will ALWAYS override these when present.
+  /// TODO: Remove/disable these once staff context is reliably persisted.
+  static const String _fallbackStaffCode = 'STAFF_CODE';
+  static const String _fallbackSchoolCode = 'SCHOOL_CODE';
+  static const String _fallbackOrganizationCode = 'ORG_CODE';
+
   late final List<Map<String, dynamic>> _selectedStudentsData;
   late final List<String> _selectedStudents;
   List<String> _studentsToEdit = [];
@@ -51,6 +61,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
   bool _isSubmitting = false;
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
+  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
 
   @override
@@ -58,6 +69,8 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     super.initState();
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getActivityTypeDetailsUseCase =
+        serviceLocator<GetActivityTypeDetailsUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
 
     // Create a mutable copy of the incoming list
@@ -110,10 +123,12 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
-      _staffCode = staffCode.isNotEmpty ? staffCode : null;
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      // Dynamic when available; otherwise use temporary static fallbacks.
+      _staffCode = staffCode.isNotEmpty ? staffCode : _fallbackStaffCode;
+      _schoolCode = schoolCode.isNotEmpty ? schoolCode : _fallbackSchoolCode;
+      _organizationCode = organizationCode.isNotEmpty
+          ? organizationCode
+          : _fallbackOrganizationCode;
     });
   }
 
@@ -264,6 +279,44 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     });
 
     try {
+      // Build parameterValues in backend-required shape:
+      // [{ "parameterCode": "...", "value": ... }, ...]
+      final details =
+          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+
+      String? findParamCode(String contains) {
+        final target = contains.toLowerCase();
+        for (final p in details.parameters) {
+          final name = p.parameterName.toLowerCase();
+          if (name.contains(target)) return p.code;
+        }
+        return null;
+      }
+
+      final dateParamCode = findParamCode('date');
+      final timeParamCode = findParamCode('time');
+      final staffParamCode = findParamCode('staff');
+      final descParamCode = findParamCode('description');
+
+      String two(int v) => v.toString().padLeft(2, '0');
+      final localDate =
+          '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
+      final localTime =
+          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+
+      final parameterValues = <Map<String, dynamic>>[
+        if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
+          {'parameterCode': dateParamCode, 'value': localDate},
+        if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
+          {'parameterCode': timeParamCode, 'value': localTime},
+        if (staffParamCode != null &&
+            staffParamCode.trim().isNotEmpty &&
+            staffCode.trim().isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffCode},
+        if (descParamCode != null && descParamCode.trim().isNotEmpty)
+          {'parameterCode': descParamCode, 'value': description},
+      ];
+
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
@@ -273,6 +326,8 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
+        parameterValues: parameterValues,
+        attachments: const [],
       );
 
       if (!mounted) return;

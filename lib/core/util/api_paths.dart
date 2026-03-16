@@ -129,6 +129,7 @@ class ApiPaths {
 
   // Activities
   static const String activities = '/api/v1/activities';
+  static const String activityTypesRoot = '/api/v1/activity-types';
 
   // Pickup
   static const String pickup = '/api/v1/pickup';

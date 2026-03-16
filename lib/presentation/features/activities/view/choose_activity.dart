@@ -6,6 +6,7 @@ import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -59,13 +60,16 @@ class ChooseActivity extends StatefulWidget {
 class _ChooseActivityState extends State<ChooseActivity> {
   late final GetClassroomActivitySettingsUseCase
       _getClassroomActivitySettingsUseCase;
+  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
 
   bool get _isMultipleStudentsSelected => widget.selectedStudents.length > 1;
   String? _selectedActivity;
+  bool _isLoadingNext = false;
 
   // Activity settings fetched from /api/v1/classrooms/{classroomCode}/activity-settings
   Set<String>? _enabledActivities; // normalized (lowercase) names
   Set<String>? _multiStudentAllowed; // normalized (lowercase) names
+  final Map<String, String> _activityTypeCodeByName = {}; // normalized name -> code
 
   String? get _classroomCode {
     if (widget.selectedStudents.isEmpty) return null;
@@ -80,6 +84,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
     super.initState();
     _getClassroomActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getActivityTypeDetailsUseCase =
+        serviceLocator<GetActivityTypeDetailsUseCase>();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadActivitySettingsForClassroom();
@@ -94,6 +100,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
       final List<ActivitySetting> settings =
           await _getClassroomActivitySettingsUseCase(
         classroomCode: classroomCode,
+        refresh: true,
       );
 
       final enabled = <String>{};
@@ -104,6 +111,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
         if (name.isEmpty) continue;
 
         final normalized = name.toLowerCase();
+        _activityTypeCodeByName[normalized] = setting.activityTypeCode;
 
         if (setting.isEnabled) {
           enabled.add(normalized);
@@ -309,10 +317,39 @@ class _ChooseActivityState extends State<ChooseActivity> {
           confirmButtonLabel: 'Next',
           cancelButtonLabel: 'Cancel',
           onPressedCancel: () => Navigator.of(context).pop(),
-          onPressedConfirm: () {
+          onPressedConfirm: _isLoadingNext
+              ? null
+              : () async {
             if (_selectedActivity == null) {
               _showWarningMessage('Select an activity.');
               return;
+            }
+
+            // Always hit: GET /api/v1/activity-types/{code}
+            final code = _activityTypeCodeByName[_selectedActivity!.toLowerCase()];
+            if (code == null || code.trim().isEmpty) {
+              _showWarningMessage('Unable to resolve activity code.');
+              return;
+            }
+
+            setState(() {
+              _isLoadingNext = true;
+            });
+
+            try {
+              await _getActivityTypeDetailsUseCase(code: code);
+              // NOTE: We fetch details (including parameters) here so the next
+              // screen can use cached/stateful details later. We'll wire
+              // parameter-values mapping into create screens next.
+            } catch (e) {
+              _showWarningMessage(e.toString());
+              return;
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _isLoadingNext = false;
+                });
+              }
             }
 
             final destinationBuilder =

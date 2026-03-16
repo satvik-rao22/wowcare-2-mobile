@@ -1,10 +1,17 @@
 import '../entities/activity_setting.dart';
+import '../entities/activity_type_details.dart';
 
 abstract class ActivityRepository {
   /// Returns enabled activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySetting>> getClassroomActivitySettings({
     required String classroomCode,
+    bool refresh,
+  });
+
+  /// Returns activity type details via `GET /api/v1/activity-types/{code}`.
+  Future<ActivityTypeDetails> getActivityTypeDetails({
+    required String code,
   });
 
   /// Creates a new activity via `POST /api/v1/activities`.

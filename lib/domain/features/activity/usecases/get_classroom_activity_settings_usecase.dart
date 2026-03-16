@@ -8,9 +8,11 @@ class GetClassroomActivitySettingsUseCase {
 
   Future<List<ActivitySetting>> call({
     required String classroomCode,
+    bool refresh = false,
   }) {
     return _repository.getClassroomActivitySettings(
       classroomCode: classroomCode,
+      refresh: refresh,
     );
   }
 }

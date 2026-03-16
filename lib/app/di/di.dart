@@ -74,6 +74,7 @@ import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
@@ -339,6 +340,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetClassroomActivitySettingsUseCase>(
     () => GetClassroomActivitySettingsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
+    () => GetActivityTypeDetailsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUseCase>(
     () => CreateActivityUseCase(serviceLocator()),

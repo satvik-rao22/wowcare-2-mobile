@@ -578,7 +578,7 @@ class _DocumentDetailRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+            label,
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 13,
@@ -587,20 +587,20 @@ class _DocumentDetailRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: Text(
+          Expanded(
+            child: Text(
             value.isEmpty ? '-' : value,
             textAlign: TextAlign.right,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+              style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 13,
-              fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w500,
               color: Color(0xff573353),
             ),
           ),
-        ),
+          ),
       ],
     );
   }

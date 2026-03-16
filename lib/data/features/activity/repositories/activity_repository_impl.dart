@@ -2,6 +2,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../domain/features/activity/repositories/activity_repository.dart';
 import '../datasources/activity_remote_datasource.dart';
 import '../models/activity_settings_models.dart';
@@ -27,15 +28,18 @@ class ActivityRepositoryImpl implements ActivityRepository {
   @override
   Future<List<ActivitySetting>> getClassroomActivitySettings({
     required String classroomCode,
+    bool refresh = false,
   }) async {
-    // 1. Try cache first.
-    final cachedPayload = await _cacheManager.loadCache(
-      _activitySettingsCacheKey(classroomCode),
-    );
-    if (cachedPayload != null) {
-      final listModel =
-          ActivitySettingsListModel.fromCacheJson(cachedPayload);
-      return listModel.items.map(_mapModelToEntity).toList();
+    if (!refresh) {
+      // 1. Try cache first.
+      final cachedPayload = await _cacheManager.loadCache(
+        _activitySettingsCacheKey(classroomCode),
+      );
+      if (cachedPayload != null) {
+        final listModel =
+            ActivitySettingsListModel.fromCacheJson(cachedPayload);
+        return listModel.items.map(_mapModelToEntity).toList();
+      }
     }
 
     // 2. Load from remote.
@@ -73,6 +77,14 @@ class ActivityRepositoryImpl implements ActivityRepository {
       isFavorite: model.isFavorite,
       displayOrder: model.displayOrder,
     );
+  }
+
+  @override
+  Future<ActivityTypeDetails> getActivityTypeDetails({
+    required String code,
+  }) async {
+    final model = await _remoteDataSource.getActivityTypeDetails(code: code);
+    return model.toEntity();
   }
 
   @override

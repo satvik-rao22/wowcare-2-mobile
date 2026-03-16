@@ -428,18 +428,18 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   ? IconButton(
                       icon: const Icon(Icons.close, size: 20),
                       color: Colors.redAccent,
-                      onPressed: () {
-                        setState(() {
-                          final curr = _schedules[day]!;
-                          _schedules[day] = curr.copyWith(
+                onPressed: () {
+                  setState(() {
+                    final curr = _schedules[day]!;
+                    _schedules[day] = curr.copyWith(
                             isEnabled: false,
                             workStartTime: null,
                             workEndTime: null,
                             breakStartTime: null,
                             breakEndTime: null,
-                          );
-                        });
-                      },
+                    );
+                  });
+                },
                     )
                   : TextButton(
                       onPressed: () {
@@ -450,14 +450,14 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                       },
                       child: const Text(
                         'Enable',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
-                        ),
-                      ),
-                    ),
+                  ),
+                ),
+              ),
             ],
           ),
           if (!isEnabled)
