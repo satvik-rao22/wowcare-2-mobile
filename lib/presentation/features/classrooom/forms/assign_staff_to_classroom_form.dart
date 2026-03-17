@@ -7,9 +7,12 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -47,11 +50,13 @@ class Staff {
 class AssignStaffToClassroomForm extends StatefulWidget {
   const AssignStaffToClassroomForm({
     required this.selectedRoomName,
+    required this.classroomCode,
     required this.onStaffsAssigned,
     super.key,
   });
 
   final String selectedRoomName;
+  final String classroomCode;
   final VoidCallback onStaffsAssigned;
 
   @override
@@ -212,21 +217,6 @@ class _AssignStaffToClassroomFormState
         : _filteredStaffs;
   }
 
-  Widget _buildShimmerGrid() {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 69,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) => const ShimmerLoaderCard(
-        child: SizedBox(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -381,6 +371,7 @@ class _AssignStaffToClassroomFormState
                     builder: (_, controller) => StaffConfirmationForm(
                       selectedStaffs: selectedStaffs,
                       selectedRoomName: widget.selectedRoomName,
+                      classroomCode: widget.classroomCode,
                       onStaffsAssigned: widget.onStaffsAssigned,
                     ),
                   ),
@@ -397,12 +388,14 @@ class _AssignStaffToClassroomFormState
 class StaffConfirmationForm extends StatefulWidget {
   final Set<Staff> selectedStaffs;
   final String selectedRoomName;
+  final String classroomCode;
   final VoidCallback onStaffsAssigned;
 
   const StaffConfirmationForm({
     Key? key,
     required this.selectedStaffs,
     required this.selectedRoomName,
+    required this.classroomCode,
     required this.onStaffsAssigned,
   }) : super(key: key);
 
@@ -412,6 +405,7 @@ class StaffConfirmationForm extends StatefulWidget {
 
 class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
   late Set<Staff> currentSelectedStaffs;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -528,16 +522,52 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
             confirmButtonLabel: 'Submit',
             cancelButtonLabel: 'Cancel',
             onPressedCancel: () => Navigator.pop(context),
-            onPressedConfirm: () {
+            onPressedConfirm: _isSubmitting
+                ? () {}
+                : () async {
               if (currentSelectedStaffs.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please select at least one staff member')),
                 );
                 return;
               }
-              // UI-only: simulate success and close
-              widget.onStaffsAssigned();
-              Navigator.pop(context);
+              setState(() => _isSubmitting = true);
+              try {
+                final storage = serviceLocator<StorageService>();
+                final schoolCode = await storage.getString(StorageKeys.schoolCode);
+                if (schoolCode == null || schoolCode.trim().isEmpty) {
+                  throw 'Missing schoolCode. Please sign in / select a school again.';
+                }
+
+                final staffCodes =
+                    currentSelectedStaffs.map((s) => s.id.toString()).toList();
+
+                final message =
+                    await serviceLocator<AssignStaffToClassroomUseCase>()(
+                  schoolCode: schoolCode,
+                  classroomCode: widget.classroomCode,
+                  staffCodes: staffCodes,
+                );
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      message.isEmpty ? 'Assigned successfully' : message,
+                    ),
+                  ),
+                );
+
+                widget.onStaffsAssigned();
+                Navigator.pop(context);
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())),
+                );
+              } finally {
+                if (mounted) setState(() => _isSubmitting = false);
+              }
             },
           ),
         ],
@@ -634,7 +664,6 @@ class StaffProfileImage extends StatefulWidget {
 
 class _StaffProfileImageState extends State<StaffProfileImage> {
   // UI-only: remove backend image fetching; keep shimmer interface if needed
-  static final Map<String, Uint8List?> _imageCache = {};
   StreamSubscription? _subscription; // not used in UI-only
   Uint8List? _currentImage;
   bool _isLoading = false;

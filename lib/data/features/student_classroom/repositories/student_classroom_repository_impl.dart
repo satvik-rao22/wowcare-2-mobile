@@ -19,7 +19,11 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
   static String _studentClassroomCacheKey({
     required String schoolCode,
     required String classroomCode,
+    String? firstName,
+    String? lastName,
+    String? search,
     List<String>? tagCodes,
+    List<String>? guardianCodes,
     List<String>? status,
     String? attendanceStatus,
   }) {
@@ -28,7 +32,26 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
       classroomCode.trim(),
     ];
 
+    final normFirst = (firstName ?? '').trim().toLowerCase();
+    final normLast = (lastName ?? '').trim().toLowerCase();
+    final normSearch = (search ?? '').trim().toLowerCase();
+
+    if (normFirst.isNotEmpty) {
+      parts.add('first=$normFirst');
+    }
+    if (normLast.isNotEmpty) {
+      parts.add('last=$normLast');
+    }
+    if (normSearch.isNotEmpty) {
+      parts.add('search=$normSearch');
+    }
+
     final normTags = (tagCodes ?? [])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList()
+      ..sort();
+    final normGuardians = (guardianCodes ?? [])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList()
@@ -42,6 +65,9 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
 
     if (normTags.isNotEmpty) {
       parts.add('tags=${normTags.join(',')}');
+    }
+    if (normGuardians.isNotEmpty) {
+      parts.add('guardians=${normGuardians.join(',')}');
     }
     if (normStatus.isNotEmpty) {
       parts.add('status=${normStatus.join(',')}');
@@ -63,7 +89,11 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
   Future<List<StudentClassroomItem>> getStudentClassroomList({
     required String schoolCode,
     required String classroomCode,
+    String? firstName,
+    String? lastName,
+    String? search,
     List<String>? tagCodes,
+    List<String>? guardianCodes,
     List<String>? status,
     String? attendanceStatus,
     bool refresh = false,
@@ -71,7 +101,11 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     final cacheKey = _studentClassroomCacheKey(
       schoolCode: schoolCode,
       classroomCode: classroomCode,
+      firstName: firstName,
+      lastName: lastName,
+      search: search,
       tagCodes: tagCodes,
+      guardianCodes: guardianCodes,
       status: status,
       attendanceStatus: attendanceStatus,
     );
@@ -88,7 +122,11 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     final models = await _remoteDataSource.getStudentClassroomList(
       schoolCode: schoolCode,
       classroomCode: classroomCode,
+      firstName: firstName,
+      lastName: lastName,
+      search: search,
       tagCodes: tagCodes,
+      guardianCodes: guardianCodes,
       status: status,
       attendanceStatus: attendanceStatus,
     );
@@ -97,6 +135,29 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     await _cacheManager.saveCache(cacheKey, listModel.toJson());
 
     return models.map(_mapModelToEntity).toList();
+  }
+
+  @override
+  Future<String> assignStudentsToClassroom({
+    required String schoolCode,
+    required String classroomCode,
+    required List<String> studentCodes,
+  }) async {
+    final response = await _remoteDataSource.assignStudentsToClassroom(
+      classroomCode: classroomCode,
+      studentCodes: studentCodes,
+    );
+
+    // Best-effort cache invalidation for the default (unfiltered) list.
+    // Other filtered cache variants (tags/status/search) will naturally refresh
+    // when requested with refresh=true.
+    final defaultCacheKey = _studentClassroomCacheKey(
+      schoolCode: schoolCode,
+      classroomCode: classroomCode,
+    );
+    await _cacheManager.invalidateCache(defaultCacheKey);
+
+    return response.message;
   }
 
   StudentClassroomItem _mapModelToEntity(

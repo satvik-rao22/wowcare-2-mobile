@@ -107,4 +107,26 @@ class StudentClassroomListModel {
   }
 }
 
+class StudentClassroomAssignResponseModel {
+  const StudentClassroomAssignResponseModel({
+    required this.success,
+    required this.message,
+    required this.timestamp,
+  });
+
+  final bool success;
+  final String message;
+  final String timestamp;
+
+  factory StudentClassroomAssignResponseModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return StudentClassroomAssignResponseModel(
+      success: json['success'] as bool? ?? false,
+      message: json['message'] as String? ?? '',
+      timestamp: json['timestamp'] as String? ?? '',
+    );
+  }
+}
+
 

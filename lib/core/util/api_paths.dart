@@ -26,6 +26,9 @@ class ApiPaths {
 
   // Staff
   static const String staffList = '/api/v1/staff';
+  static const String staffClassrooms = '/api/v1/staff-classrooms';
+  static const String staffClassroomsAssignStaff =
+      '/api/v1/staff-classrooms/assign-staff';
   static const String staffCount = '/api/v1/staff/count';
   static const String staffProfile = '/api/v1/staff';
   /// My-profile controller: `PATCH /api/v1/staff/my-profile/{staffCode}`
@@ -49,6 +52,8 @@ class ApiPaths {
   // Student
   static const String studentList = '/api/v1/student';
   static const String studentClassroom = '/api/v1/student-classroom';
+  static const String studentClassroomAssignStudent =
+      '/api/v1/student-classroom/assign-student';
   static const String studentDocuments = '/api/v1/student-documents';
   static String studentProfile(String code) => '/api/v1/student/$code';
   static String studentProfileUpdate(String code) => '/api/v1/student/$code/profile';

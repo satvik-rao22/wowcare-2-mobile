@@ -9,7 +9,11 @@ class GetStudentClassroomListUseCase {
   Future<List<StudentClassroomItem>> call({
     required String schoolCode,
     required String classroomCode,
+    String? firstName,
+    String? lastName,
+    String? search,
     List<String>? tagCodes,
+    List<String>? guardianCodes,
     List<String>? status,
     String? attendanceStatus,
     bool refresh = false,
@@ -17,7 +21,11 @@ class GetStudentClassroomListUseCase {
     return _repository.getStudentClassroomList(
       schoolCode: schoolCode,
       classroomCode: classroomCode,
+      firstName: firstName,
+      lastName: lastName,
+      search: search,
       tagCodes: tagCodes,
+      guardianCodes: guardianCodes,
       status: status,
       attendanceStatus: attendanceStatus,
       refresh: refresh,

@@ -10,10 +10,24 @@ abstract class StudentClassroomRepository {
   Future<List<StudentClassroomItem>> getStudentClassroomList({
     required String schoolCode,
     required String classroomCode,
+    String? firstName,
+    String? lastName,
+    String? search,
     List<String>? tagCodes,
+    List<String>? guardianCodes,
     List<String>? status,
     String? attendanceStatus,
     bool refresh,
+  });
+
+  /// Assigns the given students to a classroom via
+  /// `POST /api/v1/student-classroom/assign-student`.
+  ///
+  /// [schoolCode] is used for cache invalidation.
+  Future<String> assignStudentsToClassroom({
+    required String schoolCode,
+    required String classroomCode,
+    required List<String> studentCodes,
   });
 }
 

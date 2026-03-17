@@ -2,23 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/decorations.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
-import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
-
-// UI-only lightweight models
-class RoomDTO {
-  final int id;
-  final String name;
-  const RoomDTO({required this.id, required this.name});
-}
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
+import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
+import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_state.dart';
 
 class Staff {
-  final int id;
+  const Staff({
+    required this.staffCode,
+    required this.name,
+    required this.designation,
+    required this.email,
+    this.photoUuid = '',
+    this.isExpectedToday = false,
+    this.isSignedIn = false,
+    this.isAbsent = false,
+    this.profileStatus = 'A',
+  });
+
+  final String staffCode;
   final String name;
   final String designation;
   final String email;
@@ -26,21 +33,8 @@ class Staff {
   final bool isExpectedToday;
   final bool isSignedIn;
   final bool isAbsent;
-  final String profileStatus; // 'A' | 'Upcoming'
-  final int primaryRoomId;
-
-  const Staff({
-    required this.id,
-    required this.name,
-    required this.designation,
-    required this.email,
-    this.photoUuid = '',
-    this.isExpectedToday = true,
-    this.isSignedIn = false,
-    this.isAbsent = false,
-    this.profileStatus = 'A',
-    required this.primaryRoomId,
-  });
+  /// UI uses legacy values: 'A' | 'Upcoming'
+  final String profileStatus;
 }
 
 class ClassroomStaffTabCard extends StatefulWidget {
@@ -51,7 +45,7 @@ class ClassroomStaffTabCard extends StatefulWidget {
   });
 
   final ScrollController scrollController;
-  final RoomDTO? selectedRoom;
+  final Classroom? selectedRoom;
 
   static const routeName = '/classroom-staff-screen';
 
@@ -61,6 +55,7 @@ class ClassroomStaffTabCard extends StatefulWidget {
 
 class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   final TextEditingController _searchController = TextEditingController();
+  late final ClassroomStaffCubit _cubit;
   bool isSelectAllChecked = false;
   Map<String, bool> staffSelections = {};
   List<String> _selectedDesignation = [];
@@ -81,55 +76,37 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     'Floater',
   ];
 
-  void _loadDummyStaff() {
-    final roomId = widget.selectedRoom?.id ?? 0;
-    _allStaff = const [
-      Staff(
-        id: 1,
-        name: 'Ava Johnson',
-        designation: 'Lead Teacher',
-        email: 'ava@example.com',
-        isSignedIn: true,
-        primaryRoomId: 1,
-      ),
-      Staff(
-        id: 2,
-        name: 'Michael Chen',
-        designation: 'Assistant Teacher',
-        email: 'michael@example.com',
-        isAbsent: false,
-        isExpectedToday: true,
-        primaryRoomId: 1,
-      ),
-      Staff(
-        id: 3,
-        name: 'Priya Patel',
-        designation: 'Floater',
-        email: 'priya@example.com',
-        isExpectedToday: true,
-        primaryRoomId: 2,
-      ),
-    ].map((s) => Staff(
-          id: s.id,
-          name: s.name,
-          designation: s.designation,
-          email: s.email,
-          photoUuid: s.photoUuid,
-          isExpectedToday: s.isExpectedToday,
-          isSignedIn: s.isSignedIn,
-          isAbsent: s.isAbsent,
-          profileStatus: s.profileStatus,
-          primaryRoomId: roomId == 0 ? s.primaryRoomId : roomId,
-        ))
-        .toList();
-    _filterStaff();
+  void _loadForSelectedRoom({required bool refresh}) {
+    final classroomCode = widget.selectedRoom?.code ?? '';
+    if (classroomCode.trim().isEmpty) return;
+
+    final search =
+        _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
+
+    final designation =
+        _selectedDesignation.isEmpty ? null : List<String>.from(_selectedDesignation);
+
+    if (refresh) {
+      _cubit.refresh(
+        classroomCode: classroomCode,
+        search: search,
+        designation: designation,
+      );
+    } else {
+      _cubit.loadInitial(
+        classroomCode: classroomCode,
+        search: search,
+        designation: designation,
+      );
+    }
   }
 
   @override
   void initState() {
     super.initState();
-    _loadDummyStaff();
+    _cubit = serviceLocator<ClassroomStaffCubit>();
     _searchController.addListener(_onSearchChanged);
+    _loadForSelectedRoom(refresh: false);
   }
 
   @override
@@ -142,23 +119,38 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         _searchController.clear();
         _selectedDesignation = [];
         _filteredStaff = [];
+        _allStaff = [];
         _currentFilterData = null;
         _selectedStatusList = [];
         _selectedAttendanceStatusList = [];
       });
-      _loadDummyStaff();
+      _loadForSelectedRoom(refresh: false);
     }
   }
 
-  @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    _filterStaff();
+  void _onSearchChanged() => _filterStaff();
+
+  Staff _mapApiToUi(StaffClassroomItem item) {
+    final statusUpper = item.status.trim().toUpperCase();
+    final profileStatus = statusUpper == 'UPCOMING' ? 'Upcoming' : 'A';
+    return Staff(
+      staffCode: item.staffCode,
+      name: item.fullName,
+      designation: item.designation,
+      email: '',
+      photoUuid: item.profilePictureUrl ?? '',
+      isExpectedToday: item.expectedToday,
+      isSignedIn: item.signedIn,
+      isAbsent: item.absent,
+      profileStatus: profileStatus,
+    );
   }
 
   List<Staff> _filterStaff() {
@@ -202,20 +194,20 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   void _initializeStaffSelections(List<Staff> staff) {
     for (var member in staff) {
-      if (!staffSelections.containsKey(member.name)) {
-        staffSelections[member.name] = false;
+      if (!staffSelections.containsKey(member.staffCode)) {
+        staffSelections[member.staffCode] = false;
       }
     }
   }
 
-  void _toggleStaffSelection(String name, bool? value) {
+  void _toggleStaffSelection(String staffCode, bool? value) {
     if (value == null) return;
 
     setState(() {
-      staffSelections[name] = value;
+      staffSelections[staffCode] = value;
       final List<Staff> visibleStaff = _getVisibleStaff();
       isSelectAllChecked = visibleStaff.every(
-        (staff) => staffSelections[staff.name] == true,
+        (staff) => staffSelections[staff.staffCode] == true,
       );
     });
   }
@@ -268,12 +260,22 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Column(
+    return BlocProvider.value(
+      value: _cubit,
+      child: BlocListener<ClassroomStaffCubit, ClassroomStaffState>(
+        listener: (context, state) {
+          final apiItems = state.staff.map(_mapApiToUi).toList();
+          setState(() {
+            _allStaff = apiItems;
+          });
+          _filterStaff();
+        },
+        child: Stack(
           children: [
-            Expanded(
-              child: Card(
+            Column(
+              children: [
+                Expanded(
+                  child: Card(
                 elevation: 0,
                 margin: const EdgeInsets.all(0),
                 shape: const Border(
@@ -422,7 +424,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                         child: Scrollbar(
                           controller: widget.scrollController,
                           child: CustomRefreshIndicator(
-                            onRefresh: () async => _loadDummyStaff(),
+                            onRefresh: () async => _loadForSelectedRoom(refresh: true),
                                 child: ListView.builder(
                               padding:
                                   const EdgeInsets.only(left: 16, right: 16),
@@ -436,9 +438,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   child: _StaffListItem(
                                           staff: staff,
                                           isSelected:
-                                        staffSelections[staff.name] ?? false,
+                                        staffSelections[staff.staffCode] ?? false,
                                           onSelectionChanged: (bool? value) {
-                                      _toggleStaffSelection(staff.name, value);
+                                      _toggleStaffSelection(staff.staffCode, value);
                                           },
                                       ),
                                     );
@@ -450,12 +452,14 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                     ),
                   ],
                 ),
-              ),
+                  ),
+                ),
+              ],
             ),
+            // FAB handled at screen level for tab-aware visibility
           ],
         ),
-        // FAB handled at screen level for tab-aware visibility
-      ],
+      ),
     );
   }
 }
@@ -578,7 +582,6 @@ class _DesignationMultiSelectDropdown extends StatefulWidget {
   final List<String> items;
   final List<String> selectedItems;
   final ValueChanged<List<String>> onChanged;
-  final double? width;
 
   const _DesignationMultiSelectDropdown({
     Key? key,
@@ -586,7 +589,6 @@ class _DesignationMultiSelectDropdown extends StatefulWidget {
     required this.items,
     required this.selectedItems,
     required this.onChanged,
-    this.width,
   }) : super(key: key);
 
   @override
@@ -616,7 +618,6 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
 
     return SizedBox(
       height: 32,
-      width: widget.width,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
