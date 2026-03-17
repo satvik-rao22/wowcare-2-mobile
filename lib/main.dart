@@ -23,13 +23,6 @@ import 'shared/common/app/providers/splash_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-// TEMP: Login bypass for local/dev testing.
-// Set to false to restore normal Splash -> onboarding/login-context flow.
-const bool kBypassLogin = true;
-const String kBypassOrganizationCode = 'ORG_49C7E2C8-8';
-const String kBypassSchoolCode = 'SCH_EE387C14-9';
-const String kBypassStaffCode = 'STF_C7899FBB-3';
-
 // NOTE: Login bypass removed. App always starts from Splash and follows
 // onboarding/login-context redirect flow.
 // Create a global instance of NotificationService that will be initialized later
@@ -219,20 +212,6 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
       final storage = serviceLocator<StorageService>();
-
-      // TEMP: Hard bypass login/onboarding and force org/school/staff for local/dev.
-      if (kBypassLogin) {
-        await storage.saveBool(StorageKeys.onboardingSeen, true);
-        await storage.saveString(
-          StorageKeys.organizationCode,
-          kBypassOrganizationCode,
-        );
-        await storage.saveString(StorageKeys.schoolCode, kBypassSchoolCode);
-        await storage.saveString(StorageKeys.staffCode, kBypassStaffCode);
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-        return;
-      }
 
       final seenOnboarding =
           await storage.getBool(StorageKeys.onboardingSeen) ?? false;
