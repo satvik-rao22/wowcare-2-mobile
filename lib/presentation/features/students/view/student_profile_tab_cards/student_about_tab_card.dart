@@ -82,8 +82,16 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     if (address['country'] != null && address['country'].toString().isNotEmpty) {
       parts.add(address['country'].toString());
     }
-    if (address['zipCode'] != null && address['zipCode'].toString().isNotEmpty) {
-      parts.add(address['zipCode'].toString());
+    // API sometimes returns postalCode; older UI used zipCode.
+    final zipRaw = (address['zipCode'] ?? address['postalCode'])?.toString() ?? '';
+    final zipDigits = zipRaw.replaceAll(RegExp(r'\D'), '');
+    if (zipDigits.isNotEmpty) {
+      // Format ZIP+4: 9 digits -> #####-####
+      if (zipDigits.length == 9) {
+        parts.add('${zipDigits.substring(0, 5)}-${zipDigits.substring(5)}');
+      } else {
+        parts.add(zipRaw);
+      }
     }
     return parts.isEmpty ? '-' : parts.join(', ');
   }

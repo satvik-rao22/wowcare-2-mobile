@@ -56,6 +56,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   final TextEditingController _lastNameController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
+  static const int _nameMaxLength = 50;
+
   String? _selectedStatus;
   String? _selectedClassroom;
   DateTime? _selectedBirthdate;
@@ -212,11 +214,29 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       );
       return;
     }
+
+    if (_firstNameController.text.length > _nameMaxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be at most $_nameMaxLength characters',
+        isError: true,
+      );
+      return;
+    }
     
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last name is required',
+        isError: true,
+      );
+      return;
+    }
+
+    if (_lastNameController.text.length > _nameMaxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be at most $_nameMaxLength characters',
         isError: true,
       );
       return;
@@ -780,8 +800,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             "E.g. John",
             _firstNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
-              LengthLimitingTextInputFormatter(100),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -794,8 +814,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             "E.g. Smith",
             _lastNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
-              LengthLimitingTextInputFormatter(100),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],

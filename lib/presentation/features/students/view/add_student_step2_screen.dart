@@ -17,7 +17,6 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 
 class AddStudentStep2Screen extends StatefulWidget {
   const AddStudentStep2Screen({
@@ -67,6 +66,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   final TextEditingController _relationOtherController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
+  static const int _nameMaxLength = 50;
+
   bool _selectFromExisting = false;
   List<String> _selectedExistingParents = [];
   String? _selectedRelation;
@@ -75,7 +76,15 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   File? _profilePhoto;
   bool _isSubmitting = false;
 
-  final List<String> _relationOptions = ['Mother', 'Father', 'Guardian', 'Other'];
+  final List<String> _relationOptions = [
+    'Mother',
+    'Father',
+    'Grandmother',
+    'Grandfather',
+    'Stepmother',
+    'Stepfather',
+    'Other',
+  ];
   List<String> _existingParents = const [];
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
@@ -279,10 +288,28 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
+      if (_firstNameController.text.length > _nameMaxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'First name must be at most $_nameMaxLength characters',
+          isError: true,
+        );
+        return;
+      }
+
       if (_lastNameController.text.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Last name is required',
+          isError: true,
+        );
+        return;
+      }
+
+      if (_lastNameController.text.length > _nameMaxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Last name must be at most $_nameMaxLength characters',
           isError: true,
         );
         return;
@@ -717,7 +744,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             _firstNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
-              LengthLimitingTextInputFormatter(50),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -731,7 +758,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             _lastNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
-              LengthLimitingTextInputFormatter(50),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],

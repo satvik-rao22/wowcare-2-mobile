@@ -392,7 +392,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
   Widget _buildCustomDropdown() {
     return CustomDropdown(
-      label: "Document Type *",
+      label: "Document Type",
       hintText: "Select",
       items: _documentTypes,
       selectedItem: _selectedDocumentType,

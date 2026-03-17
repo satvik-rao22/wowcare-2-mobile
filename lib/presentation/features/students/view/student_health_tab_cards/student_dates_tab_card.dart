@@ -38,6 +38,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   late Future<List<StudentPhysicalExamModel>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
+  bool _disableAddPhysicalExam = false;
 
   @override
   void initState() {
@@ -79,6 +80,11 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
         final lower = raw.toLowerCase();
         return lower.isEmpty ? raw : lower[0].toUpperCase() + lower.substring(1);
     }
+  }
+
+  bool _isCompletedStatus(String? status) {
+    final upper = (status ?? '').trim().toUpperCase();
+    return upper == 'COMPLETED';
   }
 
   DateTime? _parseIsoDate(String? iso) {
@@ -406,6 +412,14 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
             }
 
             final exams = snapshot.data ?? const <StudentPhysicalExamModel>[];
+            final bool hasCompletedExam =
+                exams.any((e) => _isCompletedStatus(e.status));
+            if (_disableAddPhysicalExam != hasCompletedExam) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                setState(() => _disableAddPhysicalExam = hasCompletedExam);
+              });
+            }
 
               return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
@@ -413,7 +427,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   GestureDetector(
-                    onTap: () async {
+                    onTap: _disableAddPhysicalExam
+                        ? null
+                        : () async {
                       final code = widget.studentCode;
                       if (code == null || code.isEmpty) return;
                       await Navigator.of(context).push<bool>(
@@ -436,7 +452,14 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            gradient: AppColors.buildPrimaryGradient(),
+                            gradient: _disableAddPhysicalExam
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFFC9C5CE),
+                                      Color(0xFFB8B3BE),
+                                    ],
+                                  )
+                                : AppColors.buildPrimaryGradient(),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           alignment: Alignment.center,
@@ -463,8 +486,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                     status: _prettyStatus(e.status),
                     checkupDate: _formatExamDate(e.examDate),
                     notes: (e.notes ?? '').trim(),
-                        showMore: true,
-                        onMore: () => _openEditPhysicalBottomSheet(
+                        showMore: !_isCompletedStatus(e.status),
+                        onMore: _isCompletedStatus(e.status)
+                            ? null
+                            : () => _openEditPhysicalBottomSheet(
                           initialDate: _parseIsoDate(e.examDate),
                           initialStatusUi: _prettyStatus(e.status),
                           examCode: e.code,
