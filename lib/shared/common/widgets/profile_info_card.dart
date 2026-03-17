@@ -141,7 +141,7 @@ class ProfileField extends StatelessWidget {
         ? const TextStyle(
       fontFamily: 'Manrope',
       fontSize: 15,
-      color: Color(0x99573353),
+      color: Color(0xff573353),
       fontWeight: FontWeight.w400,
       letterSpacing: -0.03 * 15,
     )

@@ -17,8 +17,9 @@ class CustomCancelButton extends StatelessWidget {
       height: 48,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.primaryColor),
+        gradient: AppColors.buildPrimaryGradient(), // gradient border
       ),
+      padding: const EdgeInsets.all(1),
       child: TextButton(
         onPressed: onPressedCancel ?? () => Navigator.pop(context),
         style: TextButton.styleFrom(

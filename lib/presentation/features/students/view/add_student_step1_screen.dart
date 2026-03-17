@@ -24,6 +24,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -57,6 +59,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   final ImagePicker _picker = ImagePicker();
 
   static const int _nameMaxLength = 50;
+  static const int _duplicateQueryPageSize = 25;
+  static const int _duplicateQueryMaxPages = 10; // safety cap (25 * 10 = 250 scanned)
 
   String? _selectedStatus;
   String? _selectedClassroom;
@@ -203,7 +207,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     _lastNameController.text = _lastNameController.text.trim();
   }
 
-  void _onNext() {
+  Future<void> _onNext() async {
     _trimAllInputs();
     
     if (_firstNameController.text.isEmpty) {
@@ -269,6 +273,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       return;
     }
 
+    final proceed = await _confirmIfDuplicateNameExists(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+    );
+    if (!proceed) return;
+
     final step1Data = {
       'status': _selectedStatus,
       'firstName': _firstNameController.text.trim(),
@@ -295,6 +305,96 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         _handleStep2Result(step1Data, [step2Result]);
       }
     });
+  }
+
+  Future<bool> _confirmIfDuplicateNameExists({
+    required String firstName,
+    required String lastName,
+  }) async {
+    if (firstName.isEmpty || lastName.isEmpty) return true;
+
+    // Best-effort duplicate check. If it fails, do not block the flow.
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return true;
+
+      final repo = serviceLocator<StudentRepository>();
+
+      String norm(String s) => s.trim().toLowerCase();
+      final firstNorm = norm(firstName);
+      final lastNorm = norm(lastName);
+
+      // Paginate to avoid missing duplicates beyond first page.
+      final matches = <Student>[];
+      int pageIndex = 0;
+      bool hasMore = true;
+      while (hasMore && pageIndex < _duplicateQueryMaxPages) {
+        final page = await repo.getStudentPage(
+          schoolCode: schoolCode,
+          firstName: firstName,
+          lastName: lastName,
+          page: pageIndex,
+          size: _duplicateQueryPageSize,
+        );
+
+        for (final s in page.items) {
+          if (norm(s.firstName) == firstNorm && norm(s.lastName) == lastNorm) {
+            matches.add(s);
+          }
+        }
+
+        // If backend correctly filters by first+last, there shouldn't be many results,
+        // but this keeps us safe if it returns broader matches.
+        hasMore = page.hasMore;
+        pageIndex++;
+
+        // Early exit: if we already found at least one exact match and this page
+        // returned fewer than page size, there are no further pages.
+        if (!page.hasMore) break;
+      }
+
+      if (matches.isEmpty) return true;
+
+      // Show bottom sheet with clickable matches.
+      final enteredName = '$firstName $lastName'.trim();
+      final result = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) {
+          return DuplicateStudentBottomSheet(
+            enteredName: enteredName,
+            matches: matches.map((m) => m.fullName.isNotEmpty ? m.fullName : enteredName).toList(),
+            onTapMatch: (matchName) {
+              final match = matches.firstWhere(
+                (m) => (m.fullName.isNotEmpty ? m.fullName : enteredName) == matchName,
+                orElse: () => matches.first,
+              );
+              Navigator.of(ctx).pop(false);
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StudentProfileScreen(
+                    name: match.fullName.isNotEmpty ? match.fullName : enteredName,
+                    classroom: match.classroom,
+                    tags: match.tags,
+                    schedule: match.schedule,
+                    sibling: const {},
+                    studentCode: match.code,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+
+      // true => add anyway. null/false => cancel.
+      return result == true;
+    } catch (e) {
+      CoreUtils.logApiError('Duplicate name check failed: $e');
+      return true;
+    }
   }
 
   void _handleStep2Result(Map<String, dynamic> step1Data, List<dynamic> parents) async {
