@@ -288,7 +288,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       return;
     }
 
-    if (_selectedStatus == null) {
+    if (!_isAdminSelected && _selectedStatus == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select a status',
@@ -377,7 +377,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       email: email,
       role: role,
       designation: _mapDesignationToApiValue(_selectedDesignation),
-      status: _selectedStatus,
+      // Admin: no status UI — backend always receives ACTIVE.
+      status: _isAdminSelected ? 'Active' : _selectedStatus,
       primaryClassroomCode: primaryClassroomCode,
       allowedClassroomCodes: allowedClassroomCodes,
     );
@@ -432,7 +433,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             _selectedPrimaryClassroomName == null) {
           _selectedPrimaryClassroomName = _classrooms.first;
         }
-        _selectedStatus ??= 'Active';
       }
     });
   }
@@ -742,7 +742,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                   if (_classrooms.isNotEmpty) {
                                     _selectedPrimaryClassroomName = _classrooms.first;
                                   }
-                                  _selectedStatus ??= 'Active';
                                 } else {
                                   _selectedAllowedClassroomNames = [];
                                   _selectedPrimaryClassroomName = null;
@@ -923,23 +922,25 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                               ),
                             ),
                                 SizedBox(height: responsive.verticalSpacing),
-                          CustomDropdown(
-                            label: "Status",
-                            hintText: 'Select',
-                            items: const ['Active', 'Upcoming'],
-                            selectedItem: _selectedStatus,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
+                          if (!_isAdminSelected) ...[
+                            CustomDropdown(
+                              label: "Status",
+                              hintText: 'Select',
+                              items: const ['Active', 'Upcoming'],
+                              selectedItem: _selectedStatus,
+                              labelStyle: TextStyle(
+                                fontSize: responsive.labelFontSize,
+                                fontFamily: "Manrope",
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xff573353),
+                              ),
+                              showAsterisk: true,
+                              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                              onSelect: (val) =>
+                                  setState(() => _selectedStatus = val ?? _selectedStatus),
                             ),
-                            showAsterisk: true,
-                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            onSelect: (val) =>
-                                setState(() => _selectedStatus = val ?? _selectedStatus),
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
+                            SizedBox(height: responsive.verticalSpacing),
+                          ],
                           // Country (fixed: United States, non-editable)
                           Opacity(
                             opacity: 0.6,

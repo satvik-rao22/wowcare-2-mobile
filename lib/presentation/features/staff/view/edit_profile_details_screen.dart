@@ -150,6 +150,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         adminDesignations.contains(_selectedDesignation);
   }
 
+  /// Staff: Active / Inactive / Upcoming. Admin: no Upcoming option.
+  List<String> get _statusOptionsForCurrentRole => _isAdminSelected
+      ? <String>['Active', 'Inactive']
+      : _statusOptions;
+
   @override
   void initState() {
     super.initState();
@@ -270,9 +275,13 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _lastNameController.text = profile.lastName;
         _emailController.text = profile.email;
         _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
-        _selectedStatus = _statusApiToLabel(profile.status);
         _selectedDesignation =
             _mapDesignationFromApiOrLabel(profile.designation);
+        _selectedStatus = _statusApiToLabel(profile.status);
+        // Admin roles cannot be Upcoming — normalize to Active if API returned it.
+        if (_isAdminSelected && _selectedStatus == 'Upcoming') {
+          _selectedStatus = 'Active';
+        }
 
         // Derive allowed classrooms display names:
         // 1) Prefer mapping from code -> name using cached metadata.
@@ -886,7 +895,14 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           isRequired: false,
                         ),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
+                        _buildCustomDropdown(
+                          "Status",
+                          "Select",
+                          _statusOptionsForCurrentRole,
+                          _selectedStatus,
+                          (v) => setState(() => _selectedStatus = v),
+                          isRequired: true,
+                        ),
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
                           "Designation",
@@ -899,6 +915,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           (v) {
                             setState(() {
                               _selectedDesignation = v;
+                              // Upcoming is not valid for admin designations.
+                              if (_isAdminSelected &&
+                                  _selectedStatus == 'Upcoming') {
+                                _selectedStatus = 'Active';
+                              }
                             });
                             // Reload classrooms when switching between admin/staff
                             // so we use the correct API (with or without type filter).
