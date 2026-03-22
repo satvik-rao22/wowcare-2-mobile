@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -62,6 +64,11 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     Navigator.pop(context);
   }
 
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
   Future<void> _submitAsync() async {
     final attendanceCode = widget.studentAttendance.attendanceRecordCode;
     if (attendanceCode == null || attendanceCode.isEmpty) {
@@ -74,8 +81,17 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       return;
     }
 
-    // TODO: Replace hardcoded staffCode with value from StorageService when available.
-    const staffCode = 'STF_001';
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+      return;
+    }
 
     final date = widget.attendanceDate;
     DateTime? signedInAt;

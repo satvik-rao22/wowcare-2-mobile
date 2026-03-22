@@ -12,6 +12,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -84,6 +86,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     });
   }
 
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
     if (currentStudents.isEmpty) {
@@ -117,15 +124,49 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       selectedTime.minute,
     ).toUtc();
 
-    // TODO: Replace hardcoded staffCode and classroomCode with real values.
-    const staffCode = 'STF_001';
-    const defaultClassroomCode = 'CLS_001';
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
-    final studentCodes = currentStudents.map((s) => s.studentCode).toList();
+    final studentCodes = currentStudents
+        .map((s) => s.studentCode.trim())
+        .where((code) => code.isNotEmpty)
+        .toList();
+    if (studentCodes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Student code missing for selected students'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
     final classroomCodeByStudentCode = <String, String>{
-      for (final s in currentStudents) s.studentCode: defaultClassroomCode,
+      for (final s in currentStudents)
+        if (s.studentCode.trim().isNotEmpty && s.classroomCode.trim().isNotEmpty)
+          s.studentCode.trim(): s.classroomCode.trim(),
     };
+    final defaultClassroomCode = classroomCodeByStudentCode.values.isNotEmpty
+        ? classroomCodeByStudentCode.values.first
+        : '';
+    if (defaultClassroomCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Classroom code missing for selected students'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,

@@ -709,8 +709,26 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                     }
 
                                     try {
-                                      // TODO: Replace hardcoded staffCode with value from StorageService when available.
-                                      const staffCode = 'STF_001';
+                                      final storageService =
+                                          serviceLocator<StorageService>();
+                                      final staffCode = (await storageService
+                                                  .getString(
+                                                StorageKeys.staffCode,
+                                              ) ??
+                                              '')
+                                          .trim();
+                                      if (staffCode.isEmpty) {
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Unable to resolve staffCode. Please re-login.',
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
 
                                       final apiClient =
                                           serviceLocator<ApiClient>().client;

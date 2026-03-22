@@ -10,8 +10,10 @@ import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'staff_entity.dart';
 
 class StaffSignOutForm extends StatefulWidget {
@@ -39,6 +41,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       name: 'Staff Member',
       primaryRoomId: 1,
     );
+  }
+
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
   }
 
   Future<void> _handleSubmit() async {
@@ -74,18 +81,33 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       selectedTime.minute,
     ).toUtc();
 
-    // For now use a hardcoded acting staffCode, and fall back to it if entity has no code.
-    const fallbackStaffCode = 'STF_001';
-    final staffCode = currentStaff!.staffCode ?? fallbackStaffCode;
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
-    // Single staff sign-out: staffCodes contains just this staff.
-    final staffCodes = <String>[staffCode];
-
-    // TODO: Replace hardcoded classroomCode with real classroom mapping.
-    const classroomCode = 'CLS_001';
+    final targetStaffCode = (currentStaff!.staffCode ?? '').trim();
+    if (targetStaffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Target staff code is missing. Please refresh list.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+    final staffCodes = <String>[targetStaffCode];
+    const classroomCode = '';
 
     final classroomCodeByStaffCode = <String, String>{
-      for (final code in staffCodes) code: classroomCode,
+      for (final code in staffCodes) code: classroomCode
     };
 
     final payload = <String, dynamic>{

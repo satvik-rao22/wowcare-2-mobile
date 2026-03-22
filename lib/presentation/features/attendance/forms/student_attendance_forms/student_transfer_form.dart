@@ -10,6 +10,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 
 // Student entity for Transfer UI & API payload
 class StudentEntity {
@@ -114,6 +116,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     _submitTransfer();
   }
 
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
   Future<void> _submitTransfer() async {
     if (_isSubmitting) return;
     if (currentStudents.isEmpty || selectedClassroom == null) {
@@ -141,13 +148,47 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     final transferredAt = DateTime.now().toUtc();
 
-    // TODO: Replace hardcoded staffCode and classroom codes with real values.
-    const staffCode = 'STF_001';
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
-    // For now map to a hardcoded classroom code; later we will map from selectedClassroom.
-    const toClassroomCode = 'CLS_002';
+    final studentCodes = currentStudents
+        .map((s) => s.studentCode.trim())
+        .where((code) => code.isNotEmpty)
+        .toList();
+    if (studentCodes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Student code missing for selected students'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
-    final studentCodes = currentStudents.map((s) => s.studentCode).toList();
+    // TODO: wire selectedClassroom (display label) to actual classroomCode.
+    final toClassroomCode = currentStudents
+        .map((s) => s.roomId.toString().trim())
+        .firstWhere((code) => code.isNotEmpty, orElse: () => '');
+    if (toClassroomCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Selected classroom is not linked to a classroom code yet.',
+          ),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
     final toClassroomCodeByStudentCode = <String, String>{
       for (final s in currentStudents) s.studentCode: toClassroomCode,

@@ -8,8 +8,10 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'staff_entity.dart';
 
 class StaffTransferForm extends StatefulWidget {
@@ -57,6 +59,11 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     _submitTransfer();
   }
 
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
   Future<void> _submitTransfer() async {
     if (_isSubmitting) return;
     if (currentStaff == null || selectedClassroom == null) {
@@ -79,15 +86,32 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       ApiConstants.attendanceBaseUrl,
     );
 
-    // For now use a hardcoded acting staffCode, and fall back to it if entity has no code.
-    const fallbackStaffCode = 'STF_001';
-    final staffCode = currentStaff!.staffCode ?? fallbackStaffCode;
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
-    // Single staff transfer: staffCodes contains just this staff.
-    final staffCodes = <String>[staffCode];
+    final targetStaffCode = (currentStaff!.staffCode ?? '').trim();
+    if (targetStaffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Target staff code is missing. Please refresh list.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+    final staffCodes = <String>[targetStaffCode];
 
-    // TODO: Map selectedClassroom to a real classroom code. For now, keep a placeholder.
-    const toClassroomCode = 'CLS_002';
+    // TODO: Map selectedClassroom display label to a real classroom code.
+    const toClassroomCode = '';
 
     final toClassroomCodeByStaffCode = <String, String>{
       for (final code in staffCodes) code: toClassroomCode,

@@ -8,6 +8,8 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import 'staff_entity.dart';
 
@@ -37,13 +39,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   void initState() {
     super.initState();
     _markStaffAbsentUseCase = serviceLocator<MarkStaffAbsentUseCase>();
-    currentStaff = widget.staff ??
-        StaffEntity(
-          id: 1,
-          name: 'Staff Member',
-          primaryRoomId: 1,
-          staffCode: 'STF_002',
-        );
+    currentStaff = widget.staff;
   }
 
   @override
@@ -79,16 +75,37 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
     final staff = currentStaff;
     if (staff == null) return;
 
-    // For testing, hardcode marker staffCode as requested in examples.
-    const markerStaffCode = 'STF_001';
-    final targetStaffCode = (staff.staffCode ?? '').trim().isNotEmpty
-        ? staff.staffCode!.trim()
-        : 'STF_002';
+    final markerStaffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (markerStaffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+    final targetStaffCode = (staff.staffCode ?? '').trim();
+    if (targetStaffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Target staff code is missing. Please refresh list.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
 
     final absenceFromDate = _formatDate(startDate);
     final absenceToDate = _formatDate(endDate);

@@ -11,7 +11,6 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -135,8 +134,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   }
 
   Future<String> _resolveStaffCode() async {
-    // TEMP: Hardcoded for testing as requested.
-    return 'STF_001';
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
   }
 
   Future<void> _handleSubmit() async {

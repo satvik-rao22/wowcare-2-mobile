@@ -107,6 +107,7 @@ class _StaffSelectionSignOutFormState
           primaryRoomId: 0,
           photoUuid: null,
           designation: item.designation.isNotEmpty ? item.designation.first : 'Staff',
+          staffCode: item.staffCode,
         );
       }).toList();
 
