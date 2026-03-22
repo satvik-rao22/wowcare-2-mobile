@@ -97,6 +97,21 @@ abstract class StaffRepository {
     required Map<String, dynamic> fields,
   });
 
+  /// Changes the login email for a user via
+  /// `POST /api/v1/users/{userCode}/email-change`.
+  Future<String> changeUserEmail({
+    required String userCode,
+    required String oldEmail,
+    required String newEmail,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// Fetches the staff sign-in PIN via my-profile pin API.
+  Future<String> getStaffSignInPin({
+    required String staffCode,
+  });
+
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
   ///
   /// Returns a list of map entries shaped as:

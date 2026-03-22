@@ -1,0 +1,246 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+
+class EditStudentPhysicalExamScreen extends StatefulWidget {
+  const EditStudentPhysicalExamScreen({
+    super.key,
+    required this.studentCode,
+    this.initialDate,
+    this.initialStatus,
+  });
+
+  final String studentCode;
+  final DateTime? initialDate;
+  final String? initialStatus;
+
+  @override
+  State<EditStudentPhysicalExamScreen> createState() =>
+      _EditStudentPhysicalExamScreenState();
+}
+
+class _EditStudentPhysicalExamScreenState
+    extends State<EditStudentPhysicalExamScreen> {
+  DateTime? _examDate;
+  String? _status;
+  bool _isSaving = false;
+
+  static const List<String> _statusOptions = <String>[
+    'Completed',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _examDate = widget.initialDate;
+    final initial = widget.initialStatus;
+    if (initial != null && initial.isNotEmpty) {
+      final upper = initial.toUpperCase();
+      if (upper == 'COMPLETED') {
+        _status = 'Completed';
+      } else if (upper == 'SCHEDULED') {
+        _status = 'Scheduled';
+      } else if (upper == 'DUE') {
+        _status = 'Due';
+      } else {
+        _status = initial;
+      }
+    }
+  }
+
+  Future<void> _pickDate() async {
+    try {
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => const CalendarDialog(
+          isRangePicker: false,
+          isTimePicker: false,
+        ),
+      );
+
+      if (result != null && result['date'] != null) {
+        setState(() {
+          _examDate = result['date'] as DateTime;
+        });
+      }
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+    }
+  }
+
+  Future<void> _save() async {
+    if (_isSaving) return;
+
+    if (_examDate == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Physical Checkup Date is required',
+        isError: true,
+      );
+      return;
+    }
+    if (_status == null || _status!.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Physical Checkup Status is required',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+
+      // Map display status text back to API enum values.
+      String apiStatus;
+      switch ((_status ?? '').toUpperCase()) {
+        case 'COMPLETED':
+          apiStatus = 'COMPLETED';
+          break;
+        case 'SCHEDULED':
+          apiStatus = 'SCHEDULED';
+          break;
+        case 'DUE':
+        default:
+          apiStatus = 'DUE';
+      }
+
+      await repo.addStudentPhysicalExam(
+        studentCode: widget.studentCode,
+        examDate: _examDate!,
+        status: apiStatus,
+      );
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Physical exam added successfully',
+        isSuccess: true,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to add physical exam',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final bottomSafe = media.padding.bottom == 0 ? 16.0 : media.padding.bottom;
+    final selectedDateText = _examDate != null
+        ? DateFormat('MMM dd, yyyy').format(_examDate!)
+        : 'Select Date';
+
+    return StaffFormLayout(
+      title: 'Edit Physical Exam',
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const Text(
+            'Physical Checkup Date *',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+            ),
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: _pickDate,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0x66573353)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    selectedDateText,
+                    style: TextStyle(
+                      color: _examDate == null ? Colors.grey : Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Manrope',
+                    ),
+                  ),
+                  const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 18,
+                    color: AppColors.primaryColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          CustomDropdown(
+            label: 'Physical Checkup Status',
+            hintText: 'Select an option',
+            items: _statusOptions,
+            selectedItem: _status,
+            labelStyle: const TextStyle(
+              fontSize: 15,
+              fontFamily: 'Manrope',
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+            ),
+            labelBottomSpacing: 6,
+            onSelect: (val) => setState(() => _status = val ?? _status),
+          ),
+        ],
+      ),
+      bottomBar: Container(
+        padding: EdgeInsets.only(
+          bottom: bottomSafe,
+          left: 16,
+          right: 16,
+          top: 8,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              offset: Offset(0, -4),
+              blurRadius: 16,
+            ),
+          ],
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: CustomButtonLayout(
+          confirmButtonLabel: 'Save',
+          onPressedConfirm: _isSaving ? null : _save,
+          showCancelButton: false,
+          isForm: false,
+          isLoading: _isSaving,
+        ),
+      ),
+    );
+  }
+}
+
+

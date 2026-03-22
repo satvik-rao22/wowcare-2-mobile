@@ -29,6 +29,8 @@ class StorageKeys {
   /// UserCode that owns the cached staffCode; used to invalidate
   /// staffCode when a different user logs in.
   static const String staffCodeUser = 'staffCodeUser';
+  /// Optional cached staff sign-in PIN (from my-profile pin API).
+  static const String staffPin = 'staffPin';
 
   /// JSON list of {organizationCode, schoolCode, schoolName} - all org+school combos user has access to.
   static const String organizationsAndSchools = 'organizationsAndSchools';

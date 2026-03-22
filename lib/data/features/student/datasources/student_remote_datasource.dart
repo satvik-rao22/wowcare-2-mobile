@@ -206,6 +206,15 @@ abstract class StudentRemoteDataSource {
     required String schoolCode,
   });
 
+  /// Links an existing guardian to a student via `POST /api/v1/guardian/existing`.
+  ///
+  /// Query params: guardianCode, studentCode
+  /// Returns the backend `message` field.
+  Future<String> linkExistingGuardian({
+    required String guardianCode,
+    required String studentCode,
+  });
+
   /// Fetches tags for a school via `GET /api/v1/tags`.
   ///
   /// Returns the `content` list from the paginated `data` payload, each item
@@ -228,6 +237,27 @@ abstract class StudentRemoteDataSource {
     required String code,
   });
 
+  /// Updates a student's regular schedules via `PATCH /api/v1/regular-schedules`.
+  ///
+  /// Expected body shape:
+  /// {
+  ///   "schoolCode": "string",
+  ///   "studentCode": "string",
+  ///   "schedule": [
+  ///     {
+  ///       "dayOfWeek": "MONDAY",
+  ///       "startTime": { "hour": 9, "minute": 0, "second": 0, "nano": 0 },
+  ///       "halfDay":  { "hour": 13, "minute": 0, "second": 0, "nano": 0 },
+  ///       "endTime":  { "hour": 17, "minute": 0, "second": 0, "nano": 0 }
+  ///     }
+  ///   ]
+  /// }
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
+  });
+
   /// Fetches student health record via
   /// `GET /api/v1/student/{code}/health`.
   Future<StudentHealthModel> getStudentHealth({
@@ -245,6 +275,35 @@ abstract class StudentRemoteDataSource {
   /// `GET /api/v1/student/{code}/immunization`.
   Future<List<StudentImmunizationModel>> getStudentImmunizations({
     required String code,
+  });
+
+  /// Partially updates a single immunization dose record via
+  /// `PATCH /api/v1/student/{studentCode}/immunization/{recordCode}`.
+  Future<StudentImmunizationModel> updateStudentImmunizationRecord({
+    required String studentCode,
+    required String recordCode,
+    required Map<String, dynamic> body,
+  });
+
+  /// Fetches all physical-exam records for a student via
+  /// `GET /api/v1/student/{studentCode}/physical-exam`.
+  Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
+    required String code,
+  });
+
+  /// Creates a new physical exam record for a student via
+  /// `POST /api/v1/student/{studentCode}/physical-exam`.
+  Future<StudentPhysicalExamModel> addStudentPhysicalExam({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Partially updates an existing physical exam record via
+  /// `PATCH /api/v1/student/{studentCode}/physical-exam/{examCode}`.
+  Future<StudentPhysicalExamModel> updateStudentPhysicalExam({
+    required String studentCode,
+    required String examCode,
+    required Map<String, dynamic> body,
   });
 
   /// Updates student important dates via
@@ -1032,6 +1091,32 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<String> linkExistingGuardian({
+    required String guardianCode,
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianExisting,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'guardianCode': guardianCode,
+        'studentCode': studentCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian existing API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Guardian linked successfully';
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> getTagsBySchool({
     required String schoolCode,
   }) async {
@@ -1091,6 +1176,36 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     // Backend returns `"data": null` when no important dates are set.
     // Treat this as an empty important-dates model instead of throwing.
     return StudentImportantDatesModel.fromJson(data);
+  }
+
+  @override
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentRegularSchedules,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final body = <String, dynamic>{
+      'schoolCode': schoolCode,
+      'studentCode': studentCode,
+      'schedule': schedule,
+    };
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student regular schedules API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Student schedule updated successfully';
   }
 
   @override
@@ -1218,6 +1333,119 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         .map(StudentImmunizationModel.fromJson)
         .toList(growable: false);
+  }
+
+  @override
+  Future<StudentImmunizationModel> updateStudentImmunizationRecord({
+    required String studentCode,
+    required String recordCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImmunizationRecord(studentCode, recordCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected update immunization API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload for update immunization');
+    }
+
+    return StudentImmunizationModel.fromJson(data);
+  }
+
+  @override
+  Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentPhysicalExams(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student physical exam API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <StudentPhysicalExamModel>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StudentPhysicalExamModel.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<StudentPhysicalExamModel> addStudentPhysicalExam({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentPhysicalExams(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected add physical exam API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload for add physical exam');
+    }
+
+    return StudentPhysicalExamModel.fromJson(data);
+  }
+
+  @override
+  Future<StudentPhysicalExamModel> updateStudentPhysicalExam({
+    required String studentCode,
+    required String examCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentPhysicalExam(studentCode, examCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected update physical exam API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload for update physical exam');
+    }
+
+    return StudentPhysicalExamModel.fromJson(data);
   }
 }
 

@@ -1,6 +1,8 @@
 part of 'student_cubit.dart';
 
 class StudentState extends Equatable {
+  static const Object _unset = Object();
+
   const StudentState({
     required this.items,
     required this.currentPage,
@@ -64,13 +66,13 @@ class StudentState extends Equatable {
     bool? isLoadingMore,
     bool? isFromCache,
     String? searchQuery,
-    String? statusFilter,
-    String? codeFilter,
-    String? firstNameFilter,
-    String? lastNameFilter,
-    List<String>? classroomCodesFilter,
-    List<String>? tagCodesFilter,
-    List<String>? guardianCodesFilter,
+    Object? statusFilter = _unset,
+    Object? codeFilter = _unset,
+    Object? firstNameFilter = _unset,
+    Object? lastNameFilter = _unset,
+    Object? classroomCodesFilter = _unset,
+    Object? tagCodesFilter = _unset,
+    Object? guardianCodesFilter = _unset,
     String? errorMessage,
   }) {
     return StudentState(
@@ -82,13 +84,24 @@ class StudentState extends Equatable {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isFromCache: isFromCache ?? this.isFromCache,
       searchQuery: searchQuery ?? this.searchQuery,
-      statusFilter: statusFilter ?? this.statusFilter,
-      codeFilter: codeFilter ?? this.codeFilter,
-      firstNameFilter: firstNameFilter ?? this.firstNameFilter,
-      lastNameFilter: lastNameFilter ?? this.lastNameFilter,
-      classroomCodesFilter: classroomCodesFilter ?? this.classroomCodesFilter,
-      tagCodesFilter: tagCodesFilter ?? this.tagCodesFilter,
-      guardianCodesFilter: guardianCodesFilter ?? this.guardianCodesFilter,
+      statusFilter:
+          statusFilter == _unset ? this.statusFilter : statusFilter as String?,
+      codeFilter: codeFilter == _unset ? this.codeFilter : codeFilter as String?,
+      firstNameFilter: firstNameFilter == _unset
+          ? this.firstNameFilter
+          : firstNameFilter as String?,
+      lastNameFilter: lastNameFilter == _unset
+          ? this.lastNameFilter
+          : lastNameFilter as String?,
+      classroomCodesFilter: classroomCodesFilter == _unset
+          ? this.classroomCodesFilter
+          : classroomCodesFilter as List<String>?,
+      tagCodesFilter: tagCodesFilter == _unset
+          ? this.tagCodesFilter
+          : tagCodesFilter as List<String>?,
+      guardianCodesFilter: guardianCodesFilter == _unset
+          ? this.guardianCodesFilter
+          : guardianCodesFilter as List<String>?,
       errorMessage: errorMessage,
     );
   }

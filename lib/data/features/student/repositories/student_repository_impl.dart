@@ -134,6 +134,13 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         identifier: studentCode,
       );
 
+  static String _studentPhysicalExamsCacheKey(String studentCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'physical_exams',
+        identifier: studentCode,
+      );
+
   @override
   Future<StudentPage> getStudentPage({
     required String schoolCode,
@@ -493,6 +500,126 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     return models;
   }
 
+  Future<StudentImmunizationModel> updateStudentImmunizationRecord({
+    required String studentCode,
+    required StudentImmunizationModel record,
+    required DateTime date,
+    required String status,
+    String? exemptionReason,
+  }) async {
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+
+    final body = <String, dynamic>{
+      'code': record.code,
+      'studentCode': record.studentCode,
+      'vaccineName': record.vaccineName,
+      'vaccineDoseCode': record.vaccineDoseCode,
+      'doseNumber': record.doseNumber,
+      // For COMPLETED we treat [date] as administeredDate,
+      // otherwise as dueDate. Backend enforces detailed rules.
+      if (status == 'COMPLETED')
+        'administeredDate': dateFormatter.format(date)
+      else
+        'dueDate': dateFormatter.format(date),
+      'status': status,
+      if (exemptionReason != null && exemptionReason.trim().isNotEmpty)
+        'exemptionReason': exemptionReason.trim(),
+    };
+
+    final model = await _remoteDataSource.updateStudentImmunizationRecord(
+      studentCode: studentCode,
+      recordCode: record.code,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentImmunizationCacheKey(studentCode),
+    );
+
+    return model;
+  }
+
+  Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
+    required String studentCode,
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh) {
+      final cached = await _cacheManager
+          .loadCache(_studentPhysicalExamsCacheKey(studentCode));
+      if (cached != null) {
+        final items = cached['items'];
+        if (items is List) {
+          return items
+              .whereType<Map<String, dynamic>>()
+              .map(StudentPhysicalExamModel.fromJson)
+              .toList(growable: false);
+        }
+      }
+    }
+
+    final models =
+        await _remoteDataSource.getStudentPhysicalExams(code: studentCode);
+
+    await _cacheManager.saveCache(
+      _studentPhysicalExamsCacheKey(studentCode),
+      {
+        'items': models.map((e) => e.toJson()).toList(),
+      },
+    );
+
+    return models;
+  }
+
+  Future<StudentPhysicalExamModel> addStudentPhysicalExam({
+    required String studentCode,
+    required DateTime examDate,
+    required String status,
+    String? notes,
+  }) async {
+    final body = <String, dynamic>{
+      'examDate': DateFormat('yyyy-MM-dd').format(examDate),
+      'status': status,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    };
+
+    final model = await _remoteDataSource.addStudentPhysicalExam(
+      code: studentCode,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentPhysicalExamsCacheKey(studentCode),
+    );
+
+    return model;
+  }
+
+  Future<StudentPhysicalExamModel> updateStudentPhysicalExam({
+    required String studentCode,
+    required String examCode,
+    required DateTime examDate,
+    required String status,
+    String? notes,
+  }) async {
+    final body = <String, dynamic>{
+      'examDate': DateFormat('yyyy-MM-dd').format(examDate),
+      'status': status,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    };
+
+    final model = await _remoteDataSource.updateStudentPhysicalExam(
+      studentCode: studentCode,
+      examCode: examCode,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(
+      _studentPhysicalExamsCacheKey(studentCode),
+    );
+
+    return model;
+  }
+
   @override
   Future<Map<String, String>> getTagNameCodeMapForSchool({
     required String schoolCode,
@@ -686,6 +813,22 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }
 
   @override
+  Future<String> linkExistingGuardian({
+    required String guardianCode,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.linkExistingGuardian(
+      guardianCode: guardianCode,
+      studentCode: studentCode,
+    );
+
+    // Existing guardian linked – invalidate guardians cache so next load is fresh.
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
   Future<List<String>> getTagNamesForSchool({
     required String schoolCode,
   }) async {
@@ -838,16 +981,21 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   // Map model to entity
   StudentPage _mapPageModelToEntity(StudentPageModel model) {
     return StudentPage(
-      items: model.items.map((m) => Student(
-        code: m.code,
-        firstName: m.firstName,
-        lastName: m.lastName,
-        status: m.status,
-        classroom: m.classroom,
-        dob: m.dob,
-        movementDate: m.movementDate,
-        tags: m.tags,
-      )).toList(),
+      items: model.items
+          .map(
+            (m) => Student(
+              code: m.code,
+              firstName: m.firstName,
+              lastName: m.lastName,
+              status: m.status,
+              classroom: m.classroom,
+              dob: m.dob,
+              movementDate: m.movementDate,
+              tags: m.tags,
+              schedule: m.schedule,
+            ),
+          )
+          .toList(),
       page: model.page,
       size: model.size,
       totalPages: model.totalPages,

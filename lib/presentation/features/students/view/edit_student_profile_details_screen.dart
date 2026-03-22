@@ -112,6 +112,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   // Allow letters, digits, spaces, basic punctuation; first char must be non-space.
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z0-9][A-Za-z0-9\-'\s]{0,49}$");
   static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
+  static final RegExp _zipDigitsRegex = RegExp(r'^\d{5}(\d{4})?$'); // 5 or 9 digits (ZIP / ZIP+4)
+
+  static String _digitsOnly(String input) => input.replaceAll(RegExp(r'\D'), '');
 
   @override
   void initState() {
@@ -156,7 +159,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       _selectedCountry = match.name;
     }
 
-    _zipCodeController.text = widget.initialZipCode ?? '';
+    // Accept legacy stored formats: "12345", "123456789", or "12345-6789"
+    final initialZipRaw = widget.initialZipCode ?? '';
+    _zipCodeController.text = _digitsOnly(initialZipRaw);
     // Default address type to CURRENT; can be changed via dropdown.
     _selectedAddressType = _addressTypeOptions.first;
 
@@ -367,7 +372,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
     final street = _streetController.text.trim();
     final city = _cityController.text.trim();
-    final zip = _zipCodeController.text.trim();
+    final zipDigits = _digitsOnly(_zipCodeController.text);
 
     if (street.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -401,7 +406,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (zip.isEmpty) {
+    if (zipDigits.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code is required',
@@ -409,10 +414,10 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (!RegExp(r'^\d{3,10}$').hasMatch(zip)) {
+    if (!_zipDigitsRegex.hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code must contain only numbers (3–10 digits)',
+        message: 'Zip Code must be 5 digits or 9 digits (ZIP+4)',
         isError: true,
       );
       return;
@@ -555,7 +560,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         'city': city,
         'state': stateCode,
         'country': countryCode,
-        'postalCode': zip,
+        // Backend uses postalCode; UI display layer will format as needed.
+        'postalCode': zipDigits,
         'addressType': _mapAddressTypeToApiValue(_selectedAddressType!),
       };
 
@@ -877,13 +883,13 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Zip Code",
-                          "Eg. 85001",
+                          "Eg. 85001 or 850012222",
                           _zipCodeController,
                           isRequired: true,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(10),
+                            LengthLimitingTextInputFormatter(9),
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing),

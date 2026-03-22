@@ -10,6 +10,8 @@ class StaffMember extends Equatable {
     required this.phoneNumber,
     required this.status,
     required this.email,
+    this.workScheduleByDay = const <String, String>{},
+    this.breakScheduleByDay = const <String, String>{},
   });
 
   final String code;
@@ -20,6 +22,10 @@ class StaffMember extends Equatable {
   final String phoneNumber;
   final String status;
   final String email;
+  /// Map of dayOfWeek (e.g. MONDAY) -> "start - end" (e.g. "12:05PM - 7:04PM").
+  final Map<String, String> workScheduleByDay;
+  /// Map of dayOfWeek (e.g. MONDAY) -> "start - end" for break, if any.
+  final Map<String, String> breakScheduleByDay;
 
   /// Backward-compatible alias for older UI code.
   List<String> get classroomCodes => allowedClassroomCodes;
@@ -44,6 +50,8 @@ class StaffMember extends Equatable {
         phoneNumber,
         status,
         email,
+        workScheduleByDay,
+        breakScheduleByDay,
       ];
 }
 

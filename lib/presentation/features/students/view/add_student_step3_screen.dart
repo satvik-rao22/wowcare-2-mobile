@@ -4,16 +4,26 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
     super.key,
     this.initialSchedule,
+    this.title,
+    this.primaryButtonLabel,
+    this.showSkip = true,
   });
 
   static const String routeName = '/add-student-step3-screen';
 
   final Map<String, Map<String, TimeOfDay>>? initialSchedule;
+  /// Optional heading; defaults to "Add Student - Step 3 of 3 (Optional)".
+  final String? title;
+  /// Optional primary CTA label; defaults to "Next".
+  final String? primaryButtonLabel;
+  /// Whether to show the "Skip" button in the bottom bar. Defaults to true.
+  final bool showSkip;
 
   @override
   _AddStudentStep3ScreenState createState() => _AddStudentStep3ScreenState();
@@ -22,6 +32,7 @@ class AddStudentStep3Screen extends StatefulWidget {
 class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   // Schedule data: day -> {start: TimeOfDay, end: TimeOfDay}
   Map<String, Map<String, TimeOfDay>> _schedule = {};
+  bool _copyToAllDays = false;
 
   // School working days and hours (should come from settings/API)
   final List<String> _workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -109,6 +120,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
             }
           }
 
+          if (_copyToAllDays) {
+            _copyScheduleFromDay(day);
+          }
         });
       }
     } catch (e) {
@@ -138,6 +152,32 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
     final totalMinutes = time.hour * 60 + time.minute + minutes;
     return TimeOfDay(hour: (totalMinutes ~/ 60) % 24, minute: totalMinutes % 60);
+  }
+
+  void _copyScheduleFromDay(String sourceDay) {
+    final source = _schedule[sourceDay];
+    if (source == null) return;
+    final start = source['start'];
+    final end = source['end'];
+    if (start == null || end == null) return;
+
+    for (final day in _workingDays) {
+      if (day == sourceDay) continue;
+      _schedule[day] = {
+        'start': TimeOfDay(hour: start.hour, minute: start.minute),
+        'end': TimeOfDay(hour: end.hour, minute: end.minute),
+      };
+    }
+  }
+
+  void _copyFromFirstAvailableDay() {
+    for (final day in _workingDays) {
+      final s = _schedule[day];
+      if (s != null && s['start'] != null && s['end'] != null) {
+        _copyScheduleFromDay(day);
+        break;
+      }
+    }
   }
 
   String _formatTime(TimeOfDay time) {
@@ -221,7 +261,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Add Student - Step 3 of 3 (Optional)',
+                      widget.title ?? 'Add Student - Step 3 of 3 (Optional)',
                       style: TextStyle(
                         fontFamily: "Manrope",
                         fontSize: responsive.titleFontSize,
@@ -275,6 +315,25 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                   fontFamily: 'Manrope',
                                 ),
                               ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  CustomToggle(
+                                    label: 'Copy to all days',
+                                    isToggled: _copyToAllDays,
+                                    labelOnLeftSide: true,
+                                    onToggle: (v) {
+                                      setState(() {
+                                        _copyToAllDays = v;
+                                        if (_copyToAllDays) {
+                                          _copyFromFirstAvailableDay();
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
                               SizedBox(height: responsive.verticalSpacing),
                               // Day selection and time pickers
                               ..._workingDays.map((day) => _buildDayScheduleCard(day, responsive)),
@@ -314,6 +373,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
           ),
           child: Row(
             children: [
+              if (widget.showSkip) ...[
               Expanded(
                 child: Container(
                   height: responsive.buttonHeight,
@@ -336,6 +396,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 ),
               ),
               const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Container(
                   height: responsive.buttonHeight,
@@ -346,7 +407,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   child: TextButton(
                     onPressed: _onNext,
                     child: Text(
-                      'Next',
+                      widget.primaryButtonLabel ?? 'Next',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: responsive.buttonFontSize,
@@ -436,6 +497,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         'start': _schoolStartTime,
                         'end': _addMinutes(_schoolStartTime, 60),
                       };
+                      if (_copyToAllDays) {
+                        _copyScheduleFromDay(day);
+                      }
                     });
                   },
                   style: TextButton.styleFrom(

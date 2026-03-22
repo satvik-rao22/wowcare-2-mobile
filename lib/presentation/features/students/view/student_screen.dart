@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -11,7 +10,6 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -65,7 +63,7 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
-        _loadTagNameCodeMap();
+        // NOTE: Do not call tags API for now (as requested).
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
       }
@@ -85,26 +83,6 @@ class _StudentScreenState extends State<StudentScreen> {
     context.read<StudentCubit>().updateSearch(query);
     // Refresh to apply search filter
     context.read<StudentCubit>().refreshWithCacheReset();
-  }
-
-  Future<void> _loadTagNameCodeMap() async {
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          await storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) return;
-
-      final useCase =
-          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-      final map = await useCase(schoolCode: schoolCode);
-      if (!mounted) return;
-
-      setState(() {
-        _tagNameToCode = map;
-      });
-    } catch (_) {
-      // Non-critical for filters; ignore errors.
-    }
   }
 
   Future<void> _loadGuardianNameCodeMap() async {
@@ -134,7 +112,7 @@ class _StudentScreenState extends State<StudentScreen> {
           await storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final useCase = serviceLocator() as GetStudentCountsUseCase;
+      final useCase = serviceLocator<GetStudentCountsUseCase>();
       final counts = await useCase(schoolCode: schoolCode);
       if (!mounted) return;
 
@@ -344,23 +322,14 @@ class _StudentScreenState extends State<StudentScreen> {
 
   // Convert Student entity to map format for compatibility with existing UI
   Map<String, dynamic> _studentToMap(Student student) {
-    // Format birthdate as MM/dd/yyyy if possible; otherwise keep raw.
-    String formattedDob = student.dob;
-    if (student.dob.isNotEmpty) {
-      try {
-        final parsed = DateTime.parse(student.dob);
-        formattedDob = DateFormat('MM/dd/yyyy').format(parsed);
-      } catch (_) {
-        formattedDob = student.dob;
-      }
-    }
-
     return {
       'name': student.fullName,
       'Classroom': student.classroom,
       'Tags': student.tags,
-      'schedule': <String>[], // API doesn't provide schedule yet
-      'birthDate': formattedDob,
+      // Use schedule derived from regularSchedules if available; otherwise empty.
+      'schedule': student.schedule,
+      // Keep raw DOB; card widget is responsible for display formatting
+      'birthDate': student.dob,
       'movementDate': student.movementDate,
       'Status': student.status,
       'Attendance': 'Expected', // API doesn't provide attendance yet
@@ -466,10 +435,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                 child: StudentProfileScreen(
                                   name: studentMap['name'] as String? ?? "Unknown Student",
                                   sibling: studentMap['sibling'] as Map<String, dynamic>,
-                                  schedule : (studentMap['schedule'] as List<dynamic>?)
-                                      ?.map((e) => e.toString())
-                                      .toList() ??
-                                      ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                                  schedule: (studentMap['schedule'] as List<dynamic>?)
+                                          ?.map((e) => e.toString())
+                                          .toList() ??
+                                      <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                                   classroom: studentMap['Classroom'] as String? ?? "Unknown Class",
                                   tags: (studentMap['Tags'] as List<dynamic>?)
                                       ?.map((e) => e.toString())
@@ -508,6 +477,9 @@ class _StudentScreenState extends State<StudentScreen> {
                 context
                     .read<ClassroomCubit>()
                     .loadActiveClassrooms(force: true),
+                // Keep these in sync on refresh as well (but DO NOT call tags API).
+                _loadGuardianNameCodeMap(),
+                _loadStudentCounts(),
               ]);
             },
             child: NotificationListener<ScrollNotification>(

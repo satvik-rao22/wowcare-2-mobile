@@ -8,10 +8,17 @@ import '../../../../shared/common/widgets/calendar_dialog.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 
 class DateWidget extends StatefulWidget {
-  const DateWidget({super.key, this.isEditable = true, this.isRequired = false, this.initialDate});
+  const DateWidget({
+    super.key,
+    this.isEditable = true,
+    this.isRequired = false,
+    this.initialDate,
+    this.onDateChanged,
+  });
   final bool isEditable;
   final bool isRequired;
   final String? initialDate;
+  final ValueChanged<DateTime?>? onDateChanged;
 
   @override
   State<DateWidget> createState() => _DateWidgetState();
@@ -37,6 +44,10 @@ class _DateWidgetState extends State<DateWidget> {
     } else {
       _selectedDate = DateTime.now();
     }
+    // Notify initial value.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onDateChanged?.call(_selectedDate);
+    });
   }
 
 
@@ -70,6 +81,7 @@ class _DateWidgetState extends State<DateWidget> {
               setState(() {
                 _selectedDate = date;
               });
+              widget.onDateChanged?.call(_selectedDate);
             },
           ),
         ),

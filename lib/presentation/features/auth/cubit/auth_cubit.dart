@@ -6,6 +6,7 @@ import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/auth/usecases/login_usecase.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/data/static/static_school_catalog.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -88,10 +89,26 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final cachedResponse = await _localDataSource.getCachedLoginResponse();
       if (cachedResponse != null) {
+        // When app starts and we already have a cached login response,
+        // immediately expose it as AuthLoaded so org/school selection
+        // screens (and others) can render without an extra loading state.
+        emit(
+          AuthLoaded(
+            loginResponse: cachedResponse,
+            schoolsByOrg: const <String, List<Map<String, String>>>{},
+            isPrefetchingSchools: false,
+            lastErrorMessage: null,
+            orgNames: const [],
+            hasLastSchoolFromContext: false,
+            redirectUrl: null,
+          ),
+        );
+      } else {
         emit(const AuthInitial());
       }
     } catch (e) {
-      // Silently fail - no cached data available
+      // Silently fall back to initial state if anything goes wrong.
+      emit(const AuthInitial());
     }
   }
 
@@ -123,6 +140,49 @@ class AuthCubit extends Cubit<AuthState> {
           // Non-fatal: if caching fails, login can still proceed.
         }
 
+        // If the user is associated with exactly 1 organization AND 1 school,
+        // auto-select them from the login response and persist to local storage.
+        // This ensures every screen can rely on StorageKeys.schoolCode (no guessing from roles).
+        try {
+          final orgCodes = response.roles
+              .map((r) => r.organizationCode.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList();
+          final schoolCodes = response.roles
+              .map((r) => r.schoolCode.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList();
+
+          if (orgCodes.length == 1 && schoolCodes.length == 1) {
+            await _localDataSource.setSelectedOrgAndSchool(
+              organizationCode: orgCodes.first,
+              schoolCode: schoolCodes.first,
+              schoolName: schoolCodes.first,
+            );
+          }
+        } catch (_) {
+          // Non-blocking
+        }
+
+        // If role is ORGANIZATION_ADMIN, activate the demo school before fetching login-context.
+        // (Backend requirement for org-admin flow.)
+        try {
+          const orgAdminRole = 'ORGANIZATION_ADMIN';
+          final isOrgAdmin = response.roles
+              .any((r) => r.role.toUpperCase() == orgAdminRole);
+          if (isOrgAdmin) {
+            await _remoteDataSource.patchSchoolStatus(
+              accessToken: response.accessToken,
+              schoolCode: 'SCH_CFC23E05-6',
+              status: 'ACTIVE',
+            );
+          }
+        } catch (_) {
+          // Non-blocking: do not fail login if this call fails.
+        }
+
         // Immediately fetch login-context with this token so backend can tell
         // us which org/school (last school) should be active for this user.
         bool hasLastSchoolFromContext = false;
@@ -134,27 +194,61 @@ class AuthCubit extends Cubit<AuthState> {
           await _localDataSource.saveLoginContext(contextData);
           hasLastSchoolFromContext =
               await _localDataSource.saveOrgAndSchoolFromContext(contextData);
-          
+
+          // Raw values from login-context (may be null/empty, especially LastLoginSchoolCode).
+          final String contextOrgCode =
+              (contextData['LastLoginOrganizationCode'] as String?)
+                      ?.trim() ??
+                  '';
+          final String contextSchoolCode =
+              (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
+
           // When orgCode or schoolCode is null (or both), use redirectUrl to decide where to open.
-          final String orgCode = (contextData['LastLoginOrganizationCode'] as String?)?.trim() ?? '';
-          final String schoolCode = (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
-          if (orgCode.isEmpty || schoolCode.isEmpty) {
+          if (contextOrgCode.isEmpty || contextSchoolCode.isEmpty) {
             final rawRedirect = contextData['redirectUrl'];
             redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
-            // Save orgCode only if present (needed when redirect is select-school)
-            if (orgCode.isNotEmpty) {
-              await _localDataSource.setSelectedOrgAndSchool(
-                organizationCode: orgCode,
-                schoolCode: schoolCode,
-                schoolName: '',
-              );
+            // IMPORTANT: do NOT overwrite non-empty schoolCode from login with an empty value.
+            // If org is present, ensure at least organizationCode is in storage; keep existing school.
+            if (contextOrgCode.isNotEmpty) {
+              final storage = serviceLocator<StorageService>();
+              final existingSchool =
+                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+              if (existingSchool.isNotEmpty) {
+                await _localDataSource.setSelectedOrgAndSchool(
+                  organizationCode: contextOrgCode,
+                  schoolCode: existingSchool,
+                  schoolName: existingSchool,
+                );
+              } else {
+                // Fall back to contextSchoolCode only when it's non-empty.
+                if (contextSchoolCode.isNotEmpty) {
+                  await _localDataSource.setSelectedOrgAndSchool(
+                    organizationCode: contextOrgCode,
+                    schoolCode: contextSchoolCode,
+                    schoolName: contextSchoolCode,
+                  );
+                }
+              }
             }
           }
 
           // After login-context, resolve staffCode for this user (if they have a staff profile)
           // using `/api/v1/staff/code?userCode=...&organizationCode=...&schoolCode=...`.
-          if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
-            try {
+          try {
+            final storage = serviceLocator<StorageService>();
+            // Prefer explicit org/school from context when both are present; otherwise
+            // fall back to the org/school persisted from login (or prior selection).
+            String orgCode = contextOrgCode;
+            String schoolCode = contextSchoolCode;
+            if (orgCode.isEmpty || schoolCode.isEmpty) {
+              orgCode =
+                  (await storage.getString(StorageKeys.organizationCode) ?? '')
+                      .trim();
+              schoolCode =
+                  (await storage.getString(StorageKeys.schoolCode) ?? '')
+                      .trim();
+            }
+            if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
               final staffRepository = serviceLocator<StaffRepository>();
               // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
               // for the staff-code API as required by backend.
@@ -189,21 +283,28 @@ class AuthCubit extends Cubit<AuthState> {
                     staffCode: trimmed,
                   );
                   // Save staffType for quick persona display in ProfileMenuHeader.
-                  final storage = serviceLocator<StorageService>();
                   await storage.saveString(
                     StorageKeys.staffType,
                     profile.staffType,
                   );
+                  // Also prefetch sign-in PIN for custom app bar.
+                  try {
+                    final pin = await staffRepository.getStaffSignInPin(
+                        staffCode: trimmed);
+                    if (pin.trim().isNotEmpty) {
+                      await storage.saveString(StorageKeys.staffPin, pin.trim());
+                    }
+                  } catch (_) {}
                 } catch (_) {
-                  // Non-blocking: profile prefetch failure should not affect login flow.
+                  // Non-blocking: profile/pin prefetch failure should not affect login flow.
                 }
               }
-            } catch (_) {
-              // Non-blocking: profile screen can still work without staffCode.
             }
+          } catch (_) {
+            // Non-blocking: profile screen can still work without staffCode.
           }
         } catch (_) {
-        // Do not block login if context or staff/profile APIs fail.
+          // Do not block login if context or staff/profile APIs fail.
         }
 
         // Only login + login-context during login flow. No school prefetch.
@@ -266,6 +367,11 @@ class AuthCubit extends Cubit<AuthState> {
       codes = schoolCodes;
     }
 
+    final staticFallback = staticSchoolSelectionEntriesForOrg(
+      organizationCode: organizationCode,
+      restrictToSchoolCodes: isAdmin ? const <String>[] : codes,
+    );
+
     final prev = state is AuthLoaded ? state as AuthLoaded : null;
     emit(AuthLoaded(
       loginResponse: login,
@@ -284,33 +390,87 @@ class AuthCubit extends Cubit<AuthState> {
         isAdmin: isAdmin,
         accessToken: login.accessToken,
       );
-      final schoolList = result.dataWithCodes.isNotEmpty
+      var schoolList = result.dataWithCodes.isNotEmpty
           ? result.dataWithCodes
           : result.data
               .map((n) => {'schoolCode': n, 'schoolName': n})
               .toList();
+
+      // If API returns empty (or unexpected payload), fallback to static catalog.
+      if (schoolList.isEmpty && staticFallback.isNotEmpty) {
+        schoolList = staticFallback;
+      }
       final updated =
           Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
       updated[organizationCode] = schoolList;
+
+      // Also update organization display name (orgNames) when API
+      // returns organizationName in the payload. This ensures that
+      // Select Organization / Select School screens can show a human-
+      // readable org name instead of the raw code, even after app
+      // restart when only the school-names API was called.
+      List<String> nextOrgNames = prev?.orgNames ?? const [];
+      final orgNameFromSchools = result.organizationName.trim();
+      if (orgNameFromSchools.isNotEmpty) {
+        // Derive canonical org-code order from roles (deduped, first occurrence).
+        final codesFromRoles = <String>[];
+        for (final r in login.roles) {
+          final code = r.organizationCode;
+          if (code.isNotEmpty && !codesFromRoles.contains(code)) {
+            codesFromRoles.add(code);
+          }
+        }
+        if (codesFromRoles.isNotEmpty) {
+          // Ensure orgNames list matches length of codes list.
+          if (nextOrgNames.length != codesFromRoles.length) {
+            // Start from empty list sized to match codes length.
+            nextOrgNames = List<String>.filled(codesFromRoles.length, '');
+          } else {
+            nextOrgNames = List<String>.from(nextOrgNames);
+          }
+          final idx = codesFromRoles.indexOf(organizationCode);
+          if (idx != -1) {
+            nextOrgNames[idx] = orgNameFromSchools;
+          }
+        }
+      }
+
       emit(AuthLoaded(
         loginResponse: login,
         schoolsByOrg: updated,
         isPrefetchingSchools: false,
         lastErrorMessage: null,
-        orgNames: prev?.orgNames ?? const [],
+        orgNames: nextOrgNames,
         hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
         redirectUrl: prev?.redirectUrl,
       ));
     } catch (e) {
-      emit(AuthLoaded(
-        loginResponse: login,
-        schoolsByOrg: prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
-        isPrefetchingSchools: false,
-        lastErrorMessage: e.toString(),
-        orgNames: prev?.orgNames ?? const [],
-        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-        redirectUrl: prev?.redirectUrl,
-      ));
+      // Fallback to static catalog when API fails so user can still continue.
+      if (staticFallback.isNotEmpty) {
+        final updated =
+            Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
+        updated[organizationCode] = staticFallback;
+        emit(AuthLoaded(
+          loginResponse: login,
+          schoolsByOrg: updated,
+          isPrefetchingSchools: false,
+          lastErrorMessage: null,
+          orgNames: prev?.orgNames ?? const [],
+          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+          redirectUrl: prev?.redirectUrl,
+        ));
+      } else {
+        emit(AuthLoaded(
+          loginResponse: login,
+          schoolsByOrg:
+              prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
+          isPrefetchingSchools: false,
+          lastErrorMessage: e.toString(),
+          orgNames: prev?.orgNames ?? const [],
+          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+          redirectUrl: prev?.redirectUrl,
+        ));
+      }
     }
   }
 
@@ -355,6 +515,80 @@ class AuthCubit extends Cubit<AuthState> {
       emit(const AuthInitial());
     } catch (e) {
       emit(AuthError('Failed to clear cache: $e'));
+    }
+  }
+
+  /// Resolves staffCode and prefetches the staff profile for the given
+  /// organization/school combination using the my-profile controller.
+  ///
+  /// This is used when switching organisations/schools so that
+  /// `UserProfileScreen` can render immediately from cache without
+  /// showing long loading states.
+  Future<void> prefetchStaffProfileForOrgAndSchool({
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    try {
+      LoginResponseModel? login;
+      if (state is AuthLoaded) {
+        login = (state as AuthLoaded).loginResponse;
+      } else {
+        login = await _localDataSource.getCachedLoginResponse();
+      }
+      if (login == null) return;
+
+      // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
+      // for the staff-code API as required by backend.
+      String effectiveSchoolCode = schoolCode;
+      const orgAdminRole = 'ORGANIZATION_ADMIN';
+      final rolesForOrg = login.roles
+          .where((r) => r.organizationCode == organizationCode)
+          .toList();
+      final isOrgAdmin = rolesForOrg
+          .any((r) => r.role.toUpperCase() == orgAdminRole);
+      if (isOrgAdmin) {
+        effectiveSchoolCode = '-';
+      }
+
+      final staffRepository = serviceLocator<StaffRepository>();
+      final staffCode = await staffRepository.getStaffCodeForUser(
+        userCode: login.userCode,
+        organizationCode: organizationCode,
+        schoolCode: effectiveSchoolCode,
+      );
+      final trimmed = (staffCode ?? '').trim();
+      if (trimmed.isEmpty) return;
+
+      // Persist resolved staffCode for later screens.
+      await _localDataSource.saveStaffCode(
+        userCode: login.userCode,
+        staffCode: trimmed,
+      );
+
+      // Prefetch staff profile once using the my-profile controller so
+      // profile screens can render from cache.
+      try {
+        final profile = await staffRepository.getStaffProfile(
+          staffCode: trimmed,
+        );
+        final storage = serviceLocator<StorageService>();
+        await storage.saveString(
+          StorageKeys.staffType,
+          profile.staffType,
+        );
+        // Also prefetch PIN whenever we prefetch profile for a new org/school.
+        try {
+          final pin =
+              await staffRepository.getStaffSignInPin(staffCode: trimmed);
+          if (pin.trim().isNotEmpty) {
+            await storage.saveString(StorageKeys.staffPin, pin.trim());
+          }
+        } catch (_) {}
+      } catch (_) {
+        // Non-blocking
+      }
+    } catch (_) {
+      // Non-blocking: do not fail switch flow on profile prefetch errors.
     }
   }
 

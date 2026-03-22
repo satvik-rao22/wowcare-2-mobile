@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_staff_tab_card.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
@@ -12,16 +15,7 @@ import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
-// Backend/bloc imports disabled for UI-only mode
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:wowcare/core/extentions/context_extentions.dart';
-// import 'package:wowcare/core/services/injection_container.dart';
-// import 'package:wowcare/core/util/core_utils.dart';
-// import 'package:wowcare/core/util/typedefs.dart';
-// import 'package:wowcare/features/...';
-// import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
-// import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_staff_tab_card.dart';
-// import 'package:wowcare/src/communication/domain/entities/classroom_chat_models.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class ClassroomScreen extends StatefulWidget {
   const ClassroomScreen({
@@ -43,16 +37,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   final ScrollController _studentsScrollController = ScrollController();
   final ScrollController _staffScrollController = ScrollController();
   final ScrollController _notesScrollController = ScrollController();
-  RoomDTO? selectedRoom;
-  bool isRoomDataLoaded = false;
-  bool hasRoomBeenSet = false;
-  String? roomName;
-  String? displayRoomName;
-  final List<RoomDTO> _dummyRooms = const [
-    RoomDTO(id: 1, name: 'Room A'),
-    RoomDTO(id: 2, name: 'Room B'),
-    RoomDTO(id: 3, name: 'Room C'),
-  ];
+  Classroom? selectedRoom;
 
   @override
   void initState() {
@@ -69,17 +54,6 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!hasRoomBeenSet) {
-      selectedRoom = _dummyRooms.first;
-      displayRoomName = selectedRoom?.name;
-      hasRoomBeenSet = true;
-      getClassroomsData();
-    }
-  }
-
-  @override
   void dispose() {
     _tabController.dispose();
     _studentsScrollController.dispose();
@@ -87,9 +61,6 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     _notesScrollController.dispose();
     super.dispose();
   }
-
-  // Backend disabled: classrooms data provided via dummy list
-  void getClassroomsData() {}
 
   // Backend disabled: always 0 unread
   Stream<int> getClassroomNotesUnreadCountStream() => Stream.value(0);
@@ -182,122 +153,142 @@ class _ClassroomScreenState extends State<ClassroomScreen>
 
   @override
   Widget build(BuildContext context) {
-    return GlobalScaffold(
-      floatingActionButton: _buildTabFab(context),
-      body: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: ClassroomDropdown(
-                  items: _dummyRooms.map((room) => room.name).toList(),
-                  value: selectedRoom?.name ?? _dummyRooms.first.name,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedRoom =
-                          _dummyRooms.firstWhere((room) => room.name == value);
-                      displayRoomName = selectedRoom!.name;
-                    });
-                  },
-                ),
-              ),
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ClassroomInfoScreen(),
-                      settings: RouteSettings(arguments: selectedRoom),
-                    ),
-                  );
-                },
-                icon: SvgPicture.asset(
-                  MediaRes.infoButtonSelectedIcon,
-                  height: 32,
-                ),
-              ),
-            ],
-          ),
-          Transform.translate(
-            offset: const Offset(0, 4),
-            child: TabBar(
-              controller: _tabController,
-              dividerHeight: 0,
-              indicator: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                border: Border.all(
-                  color: AppColors.classroomStudentTabColor
-                      .withValues(alpha: 1),
-                ),
-              ),
-              labelStyle: TextTheme.of(context).titleSmall!.copyWith(
-                    color: AppColors.primaryColor,
-                    fontSize: 15,
-                  ),
-              unselectedLabelStyle: TextTheme.of(context)
-                  .titleSmall!
-                  .copyWith(
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: 15,
-                  ),
-              labelPadding: const EdgeInsets.all(0),
-              indicatorPadding: _tabController.index == 0
-                  ? const EdgeInsets.only(right: 4)
-                  : _tabController.index == 1
-                      ? const EdgeInsets.symmetric(horizontal: 2)
-                      : const EdgeInsets.only(left: 4),
-              splashFactory: NoSplash.splashFactory,
-              tabs: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: _buildTab(
-                    label: 'Students',
-                    color: AppColors.classroomStudentTabColor,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: _buildTab(
-                    label: 'Staff',
-                    color: AppColors.classroomStaffTabColor,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: _builtNotesTab(
-                    label: 'Notes',
-                    color: AppColors.classroomNotesTabColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
+    return BlocProvider<ClassroomCubit>(
+      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+        builder: (context, state) {
+          final classrooms = state.classrooms;
+          if (classrooms.isNotEmpty && selectedRoom == null) {
+            selectedRoom = classrooms.first;
+          }
+
+          final isInitialLoading = state.isLoading && classrooms.isEmpty;
+          final dropdownItems = classrooms.map((c) => c.name).toList();
+
+          return GlobalScaffold(
+            floatingActionButton: _buildTabFab(context),
+            body: Column(
               children: [
-                ClassroomStudentsTabCard(
-                  scrollController: _studentsScrollController,
-                  // Pass null to avoid cross-file RoomDTO type mismatch
-                  selectedRoom: null,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: ClassroomDropdown(
+                        items: dropdownItems.isEmpty
+                            ? const ['Loading...']
+                            : dropdownItems,
+                        value: dropdownItems.isEmpty
+                            ? 'Loading...'
+                            : (selectedRoom?.name ?? dropdownItems.first),
+                        onChanged: (value) {
+                          if (dropdownItems.isEmpty) return;
+                          setState(() {
+                            selectedRoom =
+                                classrooms.firstWhere((c) => c.name == value);
+                          });
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        if (selectedRoom == null) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ClassroomInfoScreen(),
+                            settings: RouteSettings(arguments: selectedRoom),
+                          ),
+                        );
+                      },
+                      icon: SvgPicture.asset(
+                        MediaRes.infoButtonSelectedIcon,
+                        height: 32,
+                      ),
+                    ),
+                  ],
                 ),
-                ClassroomStaffTabCard(
-                  scrollController: _staffScrollController,
-                  // Pass null to avoid cross-file RoomDTO type mismatch
-                  selectedRoom: null,
+                Transform.translate(
+                  offset: const Offset(0, 4),
+                  child: TabBar(
+                    controller: _tabController,
+                    dividerHeight: 0,
+                    indicator: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      border: Border.all(
+                        color: AppColors.classroomStudentTabColor
+                            .withValues(alpha: 1),
+                      ),
+                    ),
+                    labelStyle: TextTheme.of(context).titleSmall!.copyWith(
+                          color: AppColors.primaryColor,
+                          fontSize: 15,
+                        ),
+                    unselectedLabelStyle: TextTheme.of(context)
+                        .titleSmall!
+                        .copyWith(
+                          color:
+                              AppColors.primaryColor.withValues(alpha: 0.5),
+                          fontSize: 15,
+                        ),
+                    labelPadding: const EdgeInsets.all(0),
+                    indicatorPadding: _tabController.index == 0
+                        ? const EdgeInsets.only(right: 4)
+                        : _tabController.index == 1
+                            ? const EdgeInsets.symmetric(horizontal: 2)
+                            : const EdgeInsets.only(left: 4),
+                    splashFactory: NoSplash.splashFactory,
+                    tabs: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: _buildTab(
+                          label: 'Students',
+                          color: AppColors.classroomStudentTabColor,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: _buildTab(
+                          label: 'Staff',
+                          color: AppColors.classroomStaffTabColor,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: _builtNotesTab(
+                          label: 'Notes',
+                          color: AppColors.classroomNotesTabColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                ClassroomNotesTabCard(
-                  scrollController: _notesScrollController,
-                  // Pass null to avoid cross-file RoomDTO type mismatch
-                  selectedRoom: null,
+                Expanded(
+                  child: isInitialLoading
+                      ? const Center(child: PrimaryCircularLoader())
+                      : TabBarView(
+                          controller: _tabController,
+                          children: [
+                            ClassroomStudentsTabCard(
+                              scrollController: _studentsScrollController,
+                              selectedRoom: selectedRoom,
+                            ),
+                            ClassroomStaffTabCard(
+                              scrollController: _staffScrollController,
+                              selectedRoom: selectedRoom,
+                            ),
+                            ClassroomNotesTabCard(
+                              scrollController: _notesScrollController,
+                              selectedRoom: selectedRoom,
+                            ),
+                          ],
+                        ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -322,6 +313,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
               minChildSize: 0.6,
               builder: (_, controller) => AssignStudentToClassroomForm(
                 selectedRoomName: selectedRoom!.name,
+                classroomCode: selectedRoom!.code,
                 onStudentsAssigned: () {
                   // no-op for UI-only; could trigger a UI refresh callback if needed
                 },
@@ -346,6 +338,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
               minChildSize: 0.6,
               builder: (_, controller) => AssignStaffToClassroomForm(
                 selectedRoomName: selectedRoom!.name,
+                classroomCode: selectedRoom!.code,
                 onStaffsAssigned: () {
                   // no-op for UI-only; could trigger a UI refresh callback if needed
                 },
@@ -359,11 +352,4 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     }
     return null;
   }
-}
-
-// Lightweight RoomDTO for UI-only
-class RoomDTO {
-  final int id;
-  final String name;
-  const RoomDTO({required this.id, required this.name});
 }

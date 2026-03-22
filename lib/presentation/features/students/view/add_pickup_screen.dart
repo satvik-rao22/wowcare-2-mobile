@@ -12,6 +12,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 
 class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
@@ -37,12 +40,20 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _relationController = TextEditingController();
 
-  // Mock - should come from API (same UI as AddStudentStep2Screen "Select from existing").
-  final List<String> _existingCarers = const [
-    'John Smith (john@example.com)',
-    'Jane Doe (jane@example.com)',
-    'Mike Johnson (mike@example.com)',
-  ];
+  // Loaded from guardian API (same as filters & AddStudentStep2Screen).
+  List<String> _existingCarers = const [];
+
+  late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
+  late final StorageService _storageService;
+
+  @override
+  void initState() {
+    super.initState();
+    _getGuardianNamesForSchoolUseCase =
+        serviceLocator<GetGuardianNamesForSchoolUseCase>();
+    _storageService = serviceLocator<StorageService>();
+    _loadExistingCarers();
+  }
 
   @override
   void dispose() {
@@ -56,6 +67,31 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   bool _isSubmitting = false;
 
+  Future<void> _loadExistingCarers() async {
+    try {
+      // Use same guardian names API & payload as filters.
+      String schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) {
+        return;
+      }
+
+      final names =
+          await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _existingCarers = names;
+        if (_selectedCarer != null &&
+            !_existingCarers.contains(_selectedCarer)) {
+          _selectedCarer = null;
+        }
+      });
+    } catch (_) {
+      // Non-critical for pickups; keep list empty on error.
+    }
+  }
+
   Future<void> _onSave() async {
     if (_selectFromExisting) {
       if (_selectedCarer == null || _selectedCarer!.isEmpty) {
@@ -67,8 +103,56 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         return;
       }
 
-      // TODO: In future, POST a different endpoint to attach an existing carer.
-      Navigator.pop(context, true);
+      if (_isSubmitting) return;
+      setState(() {
+        _isSubmitting = true;
+      });
+
+      try {
+        // Call the same pickup POST API, using the selected guardian name
+        // as first/last name. Other fields are left blank or defaulted,
+        // but the payload shape matches the normal pickup create.
+        final display = _selectedCarer!.trim();
+        String first = display;
+        String last = '';
+        if (display.contains(' ')) {
+          final parts = display.split(' ');
+          first = parts.first;
+          if (parts.length > 1) {
+            last = parts.sublist(1).join(' ').trim();
+          }
+        }
+
+        final repo =
+            serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+        final message = await repo.addPickup(
+          studentCode: widget.studentCode,
+          firstName: first,
+          lastName: last,
+          email: '',
+          phoneNumber: '',
+          relation: '',
+        );
+
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isSuccess: true,
+        );
+        Navigator.pop(context, true);
+      } catch (e) {
+        if (!mounted) return;
+        final msg = ApiErrorHandler.extractErrorMessage(e);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: msg,
+          isError: true,
+        );
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
 

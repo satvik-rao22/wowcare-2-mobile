@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
 
 
@@ -76,86 +77,52 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
         child: FutureBuilder<StudentHealthModel?>(
           future: _healthFuture,
           builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Padding(
-              padding: EdgeInsets.only(top: 24),
-              child: Center(child: PrimaryCircularLoader()),
-            );
-          }
-
-          if (snapshot.hasError) {
-            final message = snapshot.error.toString();
-            CoreUtils.logApiError(message);
-            if (!_hasShownErrorSnackBar) {
-              _hasShownErrorSnackBar = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: message,
-                  isError: true,
-                );
-              });
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: Center(child: PrimaryCircularLoader()),
+              );
             }
-            // Do not show an inline error widget; just keep the card hidden.
-            return const SizedBox.shrink();
-          }
+
+            if (snapshot.hasError) {
+              final message = snapshot.error.toString();
+              CoreUtils.logApiError(message);
+              if (!_hasShownErrorSnackBar) {
+                _hasShownErrorSnackBar = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: message,
+                    isError: true,
+                  );
+                });
+              }
+              // Do not show an inline error widget; just keep the card hidden.
+              return const SizedBox.shrink();
+            }
 
             final health = snapshot.data;
 
-            return Column(
-              children: [
-                _HealthCard(
-                  allergies: health?.allergy,
-                  medication: health?.medications,
-                  dietRestrictions: health?.dietRestrictions,
-                  photoPermission: _photoPermission,
-                  onTogglePhotoPermission: (v) async {
-                  final code = widget.studentCode;
-                  if (code == null || code.isEmpty) return;
-                  setState(() {
-                    _photoPermission = v;
-                  });
-                  try {
-                    final repo =
-                        serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-                    final body = {
-                      'allergy': health?.allergy ?? '',
-                      'medications': health?.medications ?? '',
-                      'dietRestrictions': health?.dietRestrictions ?? '',
-                      'photoPermission': v,
-                    };
-                    await repo.updateStudentHealth(
-                      studentCode: code,
-                      body: body,
-                    );
-                  } catch (e) {
-                    CoreUtils.logApiError(e.toString());
-                    if (!mounted) return;
-                    CoreUtils.showTopSnackBar(
-                      context: context,
-                      message: 'Failed to update photo permission',
-                      isError: true,
-                    );
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () async {
-                    final code = widget.studentCode;
-                    if (code == null || code.isEmpty) return;
-                    final currentHealth = health;
-                    final result = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => EditStudentHealthScreen(
-                          studentCode: code,
-                          initialHealth: currentHealth,
+            return Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final code = widget.studentCode;
+                      if (code == null || code.isEmpty) return;
+                      final currentHealth = health;
+                      final result = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => EditStudentHealthScreen(
+                            studentCode: code,
+                            initialHealth: currentHealth,
+                          ),
                         ),
-                      ),
-                    );
+                      );
                       if (result == true && mounted) {
                         setState(() {
                           _healthFuture = _buildHealthFuture();
@@ -163,19 +130,69 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         });
                       }
                     },
-                    child: const Text(
-                      'Edit health details',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryColor,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Health',
+                          style: AppTextStyles.title,
+                        ),
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.buildPrimaryGradient(),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.edit,
+                            size: 22,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                SizedBox(height: 24 + bottomSafe),
-              ],
+                  const SizedBox(height: 16),
+                  _HealthCard(
+                    allergies: health?.allergy,
+                    medication: health?.medications,
+                    dietRestrictions: health?.dietRestrictions,
+                    photoPermission: _photoPermission,
+                    onTogglePhotoPermission: (v) async {
+                      final code = widget.studentCode;
+                      if (code == null || code.isEmpty) return;
+                      setState(() {
+                        _photoPermission = v;
+                      });
+                      try {
+                        final repo = serviceLocator<StudentRepository>()
+                            as StudentRepositoryImpl;
+                        final body = {
+                          'allergy': health?.allergy ?? '',
+                          'medications': health?.medications ?? '',
+                          'dietRestrictions': health?.dietRestrictions ?? '',
+                          'photoPermission': v,
+                        };
+                        await repo.updateStudentHealth(
+                          studentCode: code,
+                          body: body,
+                        );
+                      } catch (e) {
+                        CoreUtils.logApiError(e.toString());
+                        if (!mounted) return;
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: 'Failed to update photo permission',
+                          isError: true,
+                        );
+                      }
+                    },
+                  ),
+                  SizedBox(height: 24 + bottomSafe),
+                ],
+              ),
             );
           },
         ),

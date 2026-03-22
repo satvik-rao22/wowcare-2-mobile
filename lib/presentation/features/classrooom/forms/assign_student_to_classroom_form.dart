@@ -7,15 +7,12 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
-// import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
-// import 'package:wowcare/core/services/injection_container.dart'; // UI-only
-// import 'package:wowcare/core/util/core_utils.dart'; // UI-only
-// import 'package:wowcare/core/util/typedefs.dart'; // UI-only
-// import 'package:wowcare/features/...'; // UI-only
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
 import 'package:shimmer/shimmer.dart';
 
 // UI-only lightweight types
@@ -50,10 +47,12 @@ class StudentEntity {
 class AssignStudentToClassroomForm extends StatefulWidget {
   final VoidCallback onStudentsAssigned; // Add this line
   final String selectedRoomName;
+  final String classroomCode;
 
   const AssignStudentToClassroomForm({
     required this.onStudentsAssigned,
     required this.selectedRoomName,
+    required this.classroomCode,
     super.key,
   });
 
@@ -213,21 +212,6 @@ class _AssignStudentToClassroomFormState
         : _filteredStudents;
   }
 
-  Widget _buildShimmerGrid() {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 69,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) => const ShimmerLoaderCard(
-        child: SizedBox(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -383,6 +367,7 @@ class _AssignStudentToClassroomFormState
                     builder: (_, controller) => StudentConfirmationForm(
                       selectedStudents: selectedStudents,
                       selectedRoomName: widget.selectedRoomName,
+                      classroomCode: widget.classroomCode,
                       onStudentsAssigned: widget.onStudentsAssigned,
                     ),
                   ),
@@ -399,12 +384,14 @@ class _AssignStudentToClassroomFormState
 class StudentConfirmationForm extends StatefulWidget {
   final Set<StudentEntity> selectedStudents;
   final String selectedRoomName;
+  final String classroomCode;
   final VoidCallback onStudentsAssigned;
 
   const StudentConfirmationForm({
     Key? key,
     required this.selectedStudents,
     required this.selectedRoomName,
+    required this.classroomCode,
     required this.onStudentsAssigned,
   }) : super(key: key);
 
@@ -415,6 +402,7 @@ class StudentConfirmationForm extends StatefulWidget {
 
 class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
   late Set<StudentEntity> currentSelectedStudents;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -530,16 +518,54 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
             confirmButtonLabel: 'Submit',
             cancelButtonLabel: 'Cancel',
             onPressedCancel: () => Navigator.pop(context),
-            onPressedConfirm: () {
+            onPressedConfirm: _isSubmitting
+                ? () {}
+                : () async {
               if (currentSelectedStudents.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please select at least one student')),
                 );
                 return;
               }
-              // UI-only: no backend. Simulate success and close.
-              widget.onStudentsAssigned();
-              Navigator.pop(context);
+
+              setState(() => _isSubmitting = true);
+              try {
+                final storage = serviceLocator<StorageService>();
+                final schoolCode = await storage.getString(StorageKeys.schoolCode);
+                if (schoolCode == null || schoolCode.trim().isEmpty) {
+                  throw 'Missing schoolCode. Please sign in / select a school again.';
+                }
+
+                // NOTE: In this UI module we only have the selected room name.
+                // The backend expects classroomCode; we pass the selectedRoomName
+                // as the code until the classroom code is wired into this form.
+                final classroomCode = widget.classroomCode.trim();
+                final studentCodes = currentSelectedStudents
+                    .map((s) => s.id.toString())
+                    .toList();
+
+                final message =
+                    await serviceLocator<AssignStudentsToClassroomUseCase>()(
+                  schoolCode: schoolCode,
+                  classroomCode: classroomCode,
+                  studentCodes: studentCodes,
+                );
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message.isEmpty ? 'Assigned successfully' : message)),
+                );
+
+                widget.onStudentsAssigned();
+                Navigator.pop(context);
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())),
+                );
+              } finally {
+                if (mounted) setState(() => _isSubmitting = false);
+              }
             },
           ),
         ],
@@ -631,7 +657,6 @@ class StudentProfileImage extends StatefulWidget {
 
 class _StudentProfileImageState extends State<StudentProfileImage> {
   // UI-only: remove backend image fetching; keep shimmer to preserve UI feel
-  static final Map<String, Uint8List?> _imageCache = {};
   StreamSubscription? _subscription; // not used in UI-only
   Uint8List? _currentImage;
   bool _isLoading = false;

@@ -9,14 +9,26 @@ class ApiPaths {
   static const String authForgotPassword = '/api/v1/auth/forgot-password';
   static const String authLoginContext = '/api/v1/auth/login-context';
 
+  // Users
+  static const String userRoot = '/api/v1/users';
+  static String userEmailChange(String userCode) =>
+      '$userRoot/$userCode/email-change';
+
   // School - {organizationCode} in path
   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
   static String schoolNamesByOrgPath(String orgCode) =>
       '$schoolNamesByOrg/$orgCode';
   static const String organizationNames = '/api/v1/organizations/names';
 
+  // Schools
+  static const String schools = '/api/v1/schools';
+  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
+
   // Staff
   static const String staffList = '/api/v1/staff';
+  static const String staffClassrooms = '/api/v1/staff-classrooms';
+  static const String staffClassroomsAssignStaff =
+      '/api/v1/staff-classrooms/assign-staff';
   static const String staffCount = '/api/v1/staff/count';
   static const String staffProfile = '/api/v1/staff';
   /// My-profile controller: `PATCH /api/v1/staff/my-profile/{staffCode}`
@@ -39,9 +51,27 @@ class ApiPaths {
 
   // Student
   static const String studentList = '/api/v1/student';
+  static const String studentClassroom = '/api/v1/student-classroom';
+  static const String studentClassroomAssignStudent =
+      '/api/v1/student-classroom/assign-student';
   static const String studentDocuments = '/api/v1/student-documents';
   static String studentProfile(String code) => '/api/v1/student/$code';
   static String studentProfileUpdate(String code) => '/api/v1/student/$code/profile';
+  /// Regular schedules for students (school-wide endpoint).
+  /// PATCH body shape:
+  /// {
+  ///   "schoolCode": "string",
+  ///   "studentCode": "string",
+  ///   "schedule": [
+  ///     {
+  ///       "dayOfWeek": "MONDAY",
+  ///       "startTime": { "hour": 0, "minute": 0, "second": 0, "nano": 0 },
+  ///       "halfDay":  { "hour": 0, "minute": 0, "second": 0, "nano": 0 },
+  ///       "endTime":  { "hour": 0, "minute": 0, "second": 0, "nano": 0 }
+  ///     }
+  ///   ]
+  /// }
+  static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '/api/v1/student/$code/address';
   static String studentSiblings(String code) => '/api/v1/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
@@ -52,6 +82,12 @@ class ApiPaths {
   static String studentHealth(String code) => '/api/v1/student/$code/health';
   static String studentImmunization(String code) =>
       '/api/v1/student/$code/immunization';
+  static String studentImmunizationRecord(String studentCode, String recordCode) =>
+      '/api/v1/student/$studentCode/immunization/$recordCode';
+  static String studentPhysicalExams(String code) =>
+      '/api/v1/student/$code/physical-exam';
+  static String studentPhysicalExam(String studentCode, String examCode) =>
+      '/api/v1/student/$studentCode/physical-exam/$examCode';
 
   // Physicians
   static const String physicians = '/api/v1/physicians';
@@ -59,6 +95,7 @@ class ApiPaths {
   // Guardian / Parent users
   static const String guardianUser = '/api/v1/guardian-user';
   static const String guardian = '/api/v1/guardian';
+  static const String guardianExisting = '/api/v1/guardian/existing';
 
   // Tags
   static const String tags = '/api/v1/tags';
@@ -124,6 +161,11 @@ class ApiPaths {
 
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';
+  static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
+
+  // Activities
+  static const String activities = '/api/v1/activities';
+  static const String activityTypesRoot = '/api/v1/activity-types';
 
   // Pickup
   static const String pickup = '/api/v1/pickup';

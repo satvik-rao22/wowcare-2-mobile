@@ -38,6 +38,16 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
   String? _selectedSchoolCode;
   bool _hasTriggeredLoad = false;
 
+  String _formatRole(String role) {
+    if (role.isEmpty) return '';
+    final cleaned = role.toLowerCase().replaceAll('_', ' ');
+    return cleaned
+        .split(' ')
+        .map((word) =>
+            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -98,8 +108,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
           final userName = login?.displayName.isNotEmpty == true
               ? login!.displayName
               : (login?.email ?? '');
-          final userRole =
-              login?.roles.isNotEmpty == true ? login!.roles.first.role : '';
+          final rawRole = login?.roles.isNotEmpty == true
+              ? login!.roles.first.role
+              : '';
+          final userRole = _formatRole(rawRole);
 
           // Get organization codes and names to find the display name
           final orgCodes = (login?.roles ?? [])
@@ -355,7 +367,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
                       child: CustomButtonLayout(
-                        confirmButtonLabel: 'Continue',
+                        confirmButtonLabel: 'Next',
                         showCancelButton: false,
                         isForm: false,
                         onPressedConfirm: isNextEnabled
@@ -381,6 +393,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                     selectedSchoolCode: _selectedSchoolCode,
                                   );
                                 }
+                                // After selecting org/school (either during login
+                                // or when switching organisation), prefetch the
+                                // staff profile for this context so that My Profile
+                                // loads instantly from cache.
+                                await authCubit.prefetchStaffProfileForOrgAndSchool(
+                                  organizationCode: widget.selectedOrg,
+                                  schoolCode: schoolCode,
+                                );
                                 if (!context.mounted) return;
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -24,6 +25,16 @@ class _OrganizationSelectionScreenState
     extends State<OrganizationSelectionScreen> {
   String? _selectedOrgCode;
   bool _hasTriggeredOrgNamesLoad = false;
+
+  String _formatRole(String role) {
+    if (role.isEmpty) return '';
+    final cleaned = role.toLowerCase().replaceAll('_', ' ');
+    return cleaned
+        .split(' ')
+        .map((word) =>
+            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
 
   @override
   void didChangeDependencies() {
@@ -53,7 +64,16 @@ class _OrganizationSelectionScreenState
 
     void onBack() {
       if (widget.isSwitchFlow) {
-        Navigator.of(context).pop();
+        // When opened as a "switch organisation" flow:
+        // - If there's a previous route (e.g. from Dashboard), just pop back.
+        // - If this is the root route (e.g. app opened directly into
+        //   Select Organization via login-context), exit the app instead
+        //   of leaving a blank screen.
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          SystemNavigator.pop();
+        }
       } else {
         context.read<AuthCubit>().logout();
         Navigator.pushReplacementNamed(context, SignInScreen.routeName);
@@ -77,8 +97,9 @@ class _OrganizationSelectionScreenState
           final userName = login.displayName.isNotEmpty
               ? login.displayName
               : login.email;
-          final userRole =
+          final rawRole =
               login.roles.isNotEmpty ? login.roles.first.role : '';
+          final userRole = _formatRole(rawRole);
 
           // Always use roles for org codes; org names from API (no cache)
           final orgCodes = state.loginResponse.roles
@@ -281,7 +302,7 @@ class _OrganizationSelectionScreenState
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
                       child: CustomButtonLayout(
-                        confirmButtonLabel: 'Continue',
+                        confirmButtonLabel: 'Next',
                         showCancelButton: false,
                         isForm: false,
                         onPressedConfirm: isNextEnabled

@@ -10,10 +10,14 @@ import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
+import '../add_student_step3_screen.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -78,8 +82,16 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     if (address['country'] != null && address['country'].toString().isNotEmpty) {
       parts.add(address['country'].toString());
     }
-    if (address['zipCode'] != null && address['zipCode'].toString().isNotEmpty) {
-      parts.add(address['zipCode'].toString());
+    // API sometimes returns postalCode; older UI used zipCode.
+    final zipRaw = (address['zipCode'] ?? address['postalCode'])?.toString() ?? '';
+    final zipDigits = zipRaw.replaceAll(RegExp(r'\D'), '');
+    if (zipDigits.isNotEmpty) {
+      // Format ZIP+4: 9 digits -> #####-####
+      if (zipDigits.length == 9) {
+        parts.add('${zipDigits.substring(0, 5)}-${zipDigits.substring(5)}');
+      } else {
+        parts.add(zipRaw);
+      }
     }
     return parts.isEmpty ? '-' : parts.join(', ');
   }
@@ -324,7 +336,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         ),
 
         ProfileField(
-          label: 'Child Custody',
+        label: 'Child Custody',
         value: (() {
           final custodians = widget.studentProfile?.legalCustodians ?? [];
           final names = <String>[];
@@ -429,63 +441,281 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           isStudentStyle: true,
         ),
 
-        ProfileField(
-          label: 'Schedule',
-          valueWidget: Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    'Monday',
-                    'Tuesday',
-                    'Wednesday',
-                    'Thursday',
-                    'Friday',
-                  ].map((fullDay) {
-                    const dayMap = {
-                      'Monday': 'Mon',
-                      'Tuesday': 'Tue',
-                      'Wednesday': 'Wed',
-                      'Thursday': 'Thu',
-                      'Friday': 'Fri',
-                    };
-                    final shortDay = dayMap[fullDay]!;
-                    final isAvailable = widget.schedule.contains(shortDay);
-                    final timeText = '07:00AM–05:30PM';
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () async {
+            final profile = widget.studentProfile;
+            if (profile == null) return;
 
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _ScheduleChip(
-                          width: 110,
-                          label: fullDay,
-                          labelColor: isAvailable
-                              ? const Color.fromRGBO(27, 35, 126, 1)
-                              : Colors.grey.shade700,
-                          color: isAvailable
-                              ? const Color(0x4DB1AFE9)
-                              : const Color(0xFFF3F4FB),
-                        ),
-                        if (isAvailable) ...[
-                          const SizedBox(height: 6),
-                          _ScheduleChip(
-                            width: 110,
-                            label: timeText,
-                            labelColor: const Color.fromRGBO(27, 35, 126, 1),
-                            color: Colors.transparent,
-                            isTimeChip: true,
-                          ),
-                        ],
-                      ],
-                    );
-                  }).toList(),
+            // Build initial schedule map from existing regularSchedules if available.
+            Map<String, Map<String, TimeOfDay>>? initialSchedule;
+            try {
+              final Map<String, Map<String, TimeOfDay>> temp = {};
+
+              String _dayOfWeekToFullName(String day) {
+                switch (day.toUpperCase()) {
+                  case 'MONDAY':
+                    return 'Monday';
+                  case 'TUESDAY':
+                    return 'Tuesday';
+                  case 'WEDNESDAY':
+                    return 'Wednesday';
+                  case 'THURSDAY':
+                    return 'Thursday';
+                  case 'FRIDAY':
+                    return 'Friday';
+                  case 'SATURDAY':
+                    return 'Saturday';
+                  case 'SUNDAY':
+                    return 'Sunday';
+                  default:
+                    return day;
+                }
+              }
+
+              TimeOfDay? _parseLocalTime(dynamic value) {
+                if (value == null) return null;
+                if (value is String) {
+                  final parts = value.split(':');
+                  if (parts.length >= 2) {
+                    final hour = int.tryParse(parts[0]) ?? 0;
+                    final minute = int.tryParse(parts[1]) ?? 0;
+                    return TimeOfDay(hour: hour, minute: minute);
+                  }
+                  return null;
+                }
+                if (value is Map) {
+                  final hour = int.tryParse(value['hour']?.toString() ?? '');
+                  final minute = int.tryParse(value['minute']?.toString() ?? '');
+                  if (hour != null && minute != null) {
+                    return TimeOfDay(hour: hour, minute: minute);
+                  }
+                }
+                return null;
+              }
+
+              for (final raw in profile.regularSchedules) {
+                if (raw is! Map<String, dynamic>) continue;
+                final dayOfWeekRaw = (raw['dayOfWeek'] ?? '').toString();
+                if (dayOfWeekRaw.isEmpty) continue;
+
+                final fullDay = _dayOfWeekToFullName(dayOfWeekRaw);
+                final start = _parseLocalTime(raw['startTime']);
+                final end = _parseLocalTime(raw['endTime']);
+
+                if (start == null || end == null) continue;
+
+                temp[fullDay] = {
+                  'start': start,
+                  'end': end,
+                };
+              }
+
+              if (temp.isNotEmpty) {
+                initialSchedule = temp;
+              }
+            } catch (_) {
+              initialSchedule = null;
+            }
+
+            final result = await Navigator.push<Map<String, Map<String, TimeOfDay>>?>(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddStudentStep3Screen(
+                  title: 'Edit Schedule',
+                  primaryButtonLabel: 'Save',
+                  showSkip: false,
+                  initialSchedule: initialSchedule,
                 ),
               ),
-            ],
+            );
+
+            if (result == null || result.isEmpty) return;
+
+            try {
+              final List<Map<String, dynamic>> payloadSchedule = [];
+
+              String _formatLocalTime(TimeOfDay time) {
+                final h = time.hour.toString().padLeft(2, '0');
+                final m = time.minute.toString().padLeft(2, '0');
+                return '$h:$m:00';
+              }
+
+              for (final entry in result.entries) {
+                final dayName = entry.key.toString();
+                final timesMap = Map<String, TimeOfDay>.from(entry.value);
+                final start = timesMap['start'];
+                final end = timesMap['end'];
+
+                if (start == null || end == null) {
+                  continue;
+                }
+
+                final startMinutes = start.hour * 60 + start.minute;
+                final endMinutes = end.hour * 60 + end.minute;
+                final midMinutes = ((startMinutes + endMinutes) / 2).floor();
+                final halfDay = TimeOfDay(
+                  hour: (midMinutes ~/ 60) % 24,
+                  minute: midMinutes % 60,
+                );
+
+                payloadSchedule.add({
+                  'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
+                  'startTime': _formatLocalTime(start),
+                  'halfDay': _formatLocalTime(halfDay),
+                  'endTime': _formatLocalTime(end),
+                });
+              }
+
+              if (payloadSchedule.isEmpty) return;
+
+              final remote = serviceLocator<StudentRemoteDataSource>();
+              await remote.updateStudentRegularSchedules(
+                schoolCode: profile.schoolCode,
+                studentCode: profile.code,
+                schedule: payloadSchedule,
+              );
+
+              await widget.onRefresh?.call();
+
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Schedule updated successfully',
+                isSuccess: true,
+              );
+            } catch (e) {
+              final message = ApiErrorHandler.extractErrorMessage(e);
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isError: true,
+              );
+            }
+          },
+          child: ProfileField(
+            label: 'Schedule',
+            valueWidget: Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      'Monday',
+                      'Tuesday',
+                      'Wednesday',
+                      'Thursday',
+                      'Friday',
+                    ].map((fullDay) {
+                      // Build a lookup of time ranges from regularSchedules.
+                      String? _findTimeRangeForDay(String dayLabel) {
+                        final profile = widget.studentProfile;
+                        final schedules = profile?.regularSchedules ?? [];
+                        if (schedules.isEmpty) return null;
+
+                        String _fullToEnum(String full) {
+                          switch (full) {
+                            case 'Monday':
+                              return 'MONDAY';
+                            case 'Tuesday':
+                              return 'TUESDAY';
+                            case 'Wednesday':
+                              return 'WEDNESDAY';
+                            case 'Thursday':
+                              return 'THURSDAY';
+                            case 'Friday':
+                              return 'FRIDAY';
+                            default:
+                              return full.toUpperCase();
+                          }
+                        }
+
+                        TimeOfDay? _parseLocalTime(dynamic value) {
+                          if (value == null) return null;
+                          if (value is String) {
+                            final parts = value.split(':');
+                            if (parts.length >= 2) {
+                              final hour = int.tryParse(parts[0]) ?? 0;
+                              final minute = int.tryParse(parts[1]) ?? 0;
+                              return TimeOfDay(hour: hour, minute: minute);
+                            }
+                            return null;
+                          }
+                          if (value is Map) {
+                            final hour =
+                                int.tryParse(value['hour']?.toString() ?? '');
+                            final minute =
+                                int.tryParse(value['minute']?.toString() ?? '');
+                            if (hour != null && minute != null) {
+                              return TimeOfDay(hour: hour, minute: minute);
+                            }
+                          }
+                          return null;
+                        }
+
+                        String _formatTimeOfDay(TimeOfDay time) {
+                          final now = DateTime.now();
+                          final dt = DateTime(
+                            now.year,
+                            now.month,
+                            now.day,
+                            time.hour,
+                            time.minute,
+                          );
+                          return DateFormat('hh:mma').format(dt);
+                        }
+
+                        final targetEnum = _fullToEnum(dayLabel);
+                        for (final raw in schedules) {
+                          if (raw is! Map<String, dynamic>) continue;
+                          final dow =
+                              (raw['dayOfWeek'] ?? '').toString().toUpperCase();
+                          if (dow != targetEnum) continue;
+
+                          final start = _parseLocalTime(raw['startTime']);
+                          final end = _parseLocalTime(raw['endTime']);
+                          if (start == null || end == null) continue;
+
+                          return '${_formatTimeOfDay(start)}–${_formatTimeOfDay(end)}';
+                        }
+                        return null;
+                      }
+
+                      final timeText = _findTimeRangeForDay(fullDay);
+                      final isAvailable = timeText != null;
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ScheduleChip(
+                            width: 110,
+                            label: fullDay,
+                            labelColor: isAvailable
+                                ? const Color.fromRGBO(27, 35, 126, 1)
+                                : Colors.grey.shade700,
+                            color: isAvailable
+                                ? const Color(0x4DB1AFE9)
+                                : const Color(0xFFF3F4FB),
+                          ),
+                          if (isAvailable) ...[
+                            const SizedBox(height: 6),
+                            _ScheduleChip(
+                              width: 110,
+                              label: timeText,
+                              labelColor: const Color.fromRGBO(27, 35, 126, 1),
+                              color: Colors.transparent,
+                              isTimeChip: true,
+                            ),
+                          ],
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+            isStudentStyle: true,
           ),
-          isStudentStyle: true,
         ),
 
         ProfileField(

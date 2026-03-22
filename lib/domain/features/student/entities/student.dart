@@ -10,6 +10,7 @@ class Student extends Equatable {
     this.dob = '',
     this.movementDate = '',
     this.tags = const <String>[],
+    this.schedule = const <String>[],
   });
 
   final String code;
@@ -20,6 +21,8 @@ class Student extends Equatable {
   final String dob;
   final String movementDate;
   final List<String> tags;
+  /// Abbreviated weekdays for regular schedule, e.g. ["Mon", "Tue"].
+  final List<String> schedule;
 
   String get fullName => '$firstName $lastName'.trim();
 
@@ -33,6 +36,7 @@ class Student extends Equatable {
         dob,
         movementDate,
         tags,
+        schedule,
       ];
 }
 

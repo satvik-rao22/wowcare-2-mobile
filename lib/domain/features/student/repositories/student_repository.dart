@@ -176,6 +176,14 @@ abstract class StudentRepository {
     required String schoolCode,
     required List<String> tagCodes,
   });
+
+  /// Links an existing guardian to a student via `/api/v1/guardian/existing`.
+  ///
+  /// Returns the backend `message` field.
+  Future<String> linkExistingGuardian({
+    required String guardianCode,
+    required String studentCode,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

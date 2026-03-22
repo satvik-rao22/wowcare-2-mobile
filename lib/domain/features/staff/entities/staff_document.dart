@@ -12,6 +12,7 @@ class StaffDocument extends Equatable {
     this.documentNotes,
     this.expired = false,
     this.createdAt,
+    this.uploadedBy,
   });
 
   final String? documentUuid;
@@ -25,6 +26,8 @@ class StaffDocument extends Equatable {
   final String? documentNotes;
   final bool expired;
   final String? createdAt;
+  /// Backend field: `updatedBy` (name of staff/admin/system who last uploaded/updated).
+  final String? uploadedBy;
 
   @override
   List<Object?> get props => [
@@ -38,6 +41,7 @@ class StaffDocument extends Equatable {
         documentNotes,
         expired,
         createdAt,
+        uploadedBy,
       ];
 }
 

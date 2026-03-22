@@ -140,10 +140,10 @@ class ProfileField extends StatelessWidget {
     final valueStyle = isStudentStyle
         ? const TextStyle(
       fontFamily: 'Manrope',
-      fontSize: 16,
+      fontSize: 15,
       color: Color(0xff573353),
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.03 * 16,
+      fontWeight: FontWeight.w400,
+      letterSpacing: -0.03 * 15,
     )
         : const TextStyle(
       fontFamily: 'Manrope',

@@ -10,6 +10,8 @@ class StaffListItemModel extends Equatable {
     required this.phoneNumber,
     required this.status,
     required this.email,
+    this.workSchedules = const <StaffProfileWorkScheduleModel>[],
+    this.breakSchedules = const <StaffProfileBreakScheduleModel>[],
   });
 
   final String code;
@@ -22,6 +24,10 @@ class StaffListItemModel extends Equatable {
   final String phoneNumber;
   final String status;
   final String email;
+  /// Optional work schedules returned by staff list API.
+  final List<StaffProfileWorkScheduleModel> workSchedules;
+  /// Optional break schedules returned by staff list API.
+  final List<StaffProfileBreakScheduleModel> breakSchedules;
 
   factory StaffListItemModel.fromJson(Map<String, dynamic> json) {
     String _extractClassroomCode(dynamic value) {
@@ -51,6 +57,12 @@ class StaffListItemModel extends Equatable {
             .toList() ??
         const <String>[];
 
+    // Optional schedule arrays on list API
+    final workSchedulesJson =
+        json['workSchedules'] as List<dynamic>? ?? const <dynamic>[];
+    final breakSchedulesJson =
+        json['breakSchedules'] as List<dynamic>? ?? const <dynamic>[];
+
     return StaffListItemModel(
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
@@ -62,6 +74,14 @@ class StaffListItemModel extends Equatable {
       phoneNumber: json['phoneNumber'] as String? ?? '',
       status: json['status'] as String? ?? '',
       email: json['email'] as String? ?? '',
+      workSchedules: workSchedulesJson
+          .whereType<Map<String, dynamic>>()
+          .map(StaffProfileWorkScheduleModel.fromJson)
+          .toList(),
+      breakSchedules: breakSchedulesJson
+          .whereType<Map<String, dynamic>>()
+          .map(StaffProfileBreakScheduleModel.fromJson)
+          .toList(),
     );
   }
 
@@ -75,6 +95,8 @@ class StaffListItemModel extends Equatable {
       'phoneNumber': phoneNumber,
       'status': status,
       'email': email,
+      'workSchedules': workSchedules.map((e) => e.toJson()).toList(),
+      'breakSchedules': breakSchedules.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -89,6 +111,8 @@ class StaffListItemModel extends Equatable {
         phoneNumber,
         status,
         email,
+        workSchedules,
+        breakSchedules,
       ];
 }
 
@@ -432,6 +456,34 @@ class StaffProfileModel extends Equatable {
     final workSchedulesJson = data['workSchedules'] as List<dynamic>? ?? const [];
     final breakSchedulesJson = data['breakSchedules'] as List<dynamic>? ?? const [];
 
+    String _extractClassroomCode(dynamic value) {
+      // New backend shape: { "code": "...", "name": "..." }
+      if (value is Map<String, dynamic>) {
+        return value['code']?.toString() ?? '';
+      }
+      // Legacy: "CLS_..."
+      return value?.toString() ?? '';
+    }
+
+    final primaryFromObject = _extractClassroomCode(data['primaryClassroom']);
+    final primaryClassroomCode = primaryFromObject.isNotEmpty
+        ? primaryFromObject
+        : (data['primaryClassroomCode'] as String? ?? '');
+
+    // New backend shape:
+    // - allowedClassrooms: [{code,name}, ...]
+    // Legacy fallback:
+    // - allowedClassroomCodes: ["CLS_...", ...]
+    final allowedCodes = (data['allowedClassrooms'] as List<dynamic>?)
+            ?.map(_extractClassroomCode)
+            .where((c) => c.trim().isNotEmpty)
+            .toList() ??
+        (data['allowedClassroomCodes'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((c) => c.trim().isNotEmpty)
+            .toList() ??
+        const <String>[];
+
     return StaffProfileModel(
       staffCode: data['staffCode'] as String? ?? '',
       userCode: data['userCode'] as String? ?? '',
@@ -449,11 +501,8 @@ class StaffProfileModel extends Equatable {
       designation: data['designation'] as String? ?? '',
       jobTag: data['jobTag'] as String? ?? '',
       clockPin: data['clockPin'] as String? ?? '',
-      primaryClassroomCode: data['primaryClassroomCode'] as String? ?? '',
-      allowedClassroomCodes: (data['allowedClassroomCodes'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
+      primaryClassroomCode: primaryClassroomCode,
+      allowedClassroomCodes: allowedCodes,
       address: StaffProfileAddressModel.fromJson(addressJson),
       workSchedules: workSchedulesJson
           .map((e) => StaffProfileWorkScheduleModel.fromJson(e as Map<String, dynamic>))

@@ -10,6 +10,7 @@ class StudentListItemModel extends Equatable {
     this.dob = '',
     this.movementDate = '',
     this.tags = const <String>[],
+    this.schedule = const <String>[],
   });
 
   final String code;
@@ -20,6 +21,9 @@ class StudentListItemModel extends Equatable {
   final String dob;
   final String movementDate;
   final List<String> tags;
+  /// Convenience list of abbreviated weekdays derived from `regularSchedules`,
+  /// e.g. ["Mon", "Tue"]. Used by UI schedule chips.
+  final List<String> schedule;
 
   String get fullName => '$firstName $lastName'.trim();
 
@@ -51,6 +55,45 @@ class StudentListItemModel extends Equatable {
       }
     }
 
+    // Map regularSchedules -> ["Mon", "Tue", ...] for UI schedule chips.
+    final scheduleDays = <String>[];
+    final rawSchedules = json['regularSchedules'];
+    if (rawSchedules is List) {
+      for (final item in rawSchedules) {
+        if (item is! Map) continue;
+        final dow = (item['dayOfWeek'] ?? '').toString().toUpperCase().trim();
+        String? label;
+        switch (dow) {
+          case 'MONDAY':
+            label = 'Mon';
+            break;
+          case 'TUESDAY':
+            label = 'Tue';
+            break;
+          case 'WEDNESDAY':
+            label = 'Wed';
+            break;
+          case 'THURSDAY':
+            label = 'Thu';
+            break;
+          case 'FRIDAY':
+            label = 'Fri';
+            break;
+          case 'SATURDAY':
+            label = 'Sat';
+            break;
+          case 'SUNDAY':
+            label = 'Sun';
+            break;
+          default:
+            label = null;
+        }
+        if (label != null && !scheduleDays.contains(label)) {
+          scheduleDays.add(label);
+        }
+      }
+    }
+
     return StudentListItemModel(
       code: json['code'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
@@ -60,6 +103,7 @@ class StudentListItemModel extends Equatable {
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
       tags: tags,
+      schedule: scheduleDays,
     );
   }
 
@@ -73,6 +117,7 @@ class StudentListItemModel extends Equatable {
       'dob': dob,
       'movementDate': movementDate,
       'tags': tags,
+      'schedule': schedule,
     };
   }
 
@@ -86,6 +131,7 @@ class StudentListItemModel extends Equatable {
         dob,
         movementDate,
         tags,
+        schedule,
       ];
 }
 
@@ -245,6 +291,43 @@ class StudentHealthModel extends Equatable {
         medications,
         dietRestrictions,
       ];
+}
+
+class StudentPhysicalExamModel extends Equatable {
+  const StudentPhysicalExamModel({
+    required this.code,
+    this.examDate,
+    this.status,
+    this.notes,
+  });
+
+  final String code;
+  /// ISO date string `YYYY-MM-DD` (per backend contract).
+  final String? examDate;
+  /// e.g. `COMPLETED`, `DUE`.
+  final String? status;
+  final String? notes;
+
+  factory StudentPhysicalExamModel.fromJson(Map<String, dynamic> json) {
+    return StudentPhysicalExamModel(
+      code: json['code'] as String? ?? '',
+      examDate: json['examDate'] as String?,
+      status: json['status'] as String?,
+      notes: json['notes'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'code': code,
+      if (examDate != null) 'examDate': examDate,
+      if (status != null) 'status': status,
+      if (notes != null) 'notes': notes,
+    };
+  }
+
+  @override
+  List<Object?> get props => [code, examDate, status, notes];
 }
 
 class StudentImmunizationModel extends Equatable {

@@ -31,6 +31,15 @@ class StudentCubit extends Cubit<StudentState> {
     if (_schoolCode != null) return _schoolCode!;
     // Take school from login-context API (saved in storage) only.
     _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+
+    // If schoolCode is still empty, surface a clear error instead of using any
+    // hard-coded fallback. Caller should ensure org/school selection is done.
+    if (_schoolCode!.trim().isEmpty) {
+      throw StateError(
+        'School code is not set. Make sure login and school selection are completed.',
+      );
+    }
+
     return _schoolCode!;
   }
 

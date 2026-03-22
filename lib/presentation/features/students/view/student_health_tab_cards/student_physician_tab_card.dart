@@ -215,6 +215,21 @@ class _PhysicianCard extends StatelessWidget{
   final String? notes;
   final String? phoneNumber;
   final Future<void> Function()? onChanged;
+
+  String _formatPhoneNumber(String? raw) {
+    if (raw == null) return '-';
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '-';
+    String local10 = digits;
+    if (digits.length == 11 && digits.startsWith('1')) {
+      local10 = digits.substring(1);
+    } else if (digits.length > 11) {
+      local10 = digits.substring(digits.length - 10);
+    }
+    if (local10.length != 10) return raw;
+    return '(${local10.substring(0, 3)}) ${local10.substring(3, 6)}-${local10.substring(6, 10)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -284,7 +299,7 @@ class _PhysicianCard extends StatelessWidget{
                           ),
                         ),
                         Text(
-                          phoneNumber!,
+                          _formatPhoneNumber(phoneNumber),
                           style: AppTextStyles.value.copyWith(
                             fontSize: 15,
                           ),

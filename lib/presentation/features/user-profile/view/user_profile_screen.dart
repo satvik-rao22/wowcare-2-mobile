@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
@@ -255,10 +256,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _profile?.phoneNumber.isNotEmpty == true
             ? _formatPhoneForDisplay(_profile!.phoneNumber)
             : '-';
-    final String displayAddress =
+    final String displayAddressRaw =
         _profile?.address.formattedAddress.isNotEmpty == true
             ? _profile!.address.formattedAddress
             : '-';
+    // Show address in a more readable multi-line format by breaking on commas.
+    final String displayAddress =
+        displayAddressRaw == '-' ? '-' : displayAddressRaw.replaceAll(', ', '\n');
     final String roleDisplay = _profile != null
         ? StringUtils.staffTypeToDisplayRole(_profile!.staffType)
         : _loginPersona;
@@ -267,10 +271,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return GlobalScaffold(
         hasBackButton: true,
-        body: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
+        body: CustomRefreshIndicator(
+          onRefresh: _initProfileLoad,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
               // Top profile header (name + role) with 4px horizontal gap
               Card(
                 margin: const EdgeInsets.symmetric(vertical: 15, horizontal: 4),
@@ -542,8 +548,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               //     letterSpacing: -0.03 * 16,
                               //   ),
                               // ),
-                              GestureDetector(
-                                onTap: () {
+                          GestureDetector(
+                                onTap: () async {
                                   // Prefer loaded profile data; fall back to login name/email.
                                   final fullName = (_profile?.fullName ?? '').trim().isNotEmpty
                                       ? _profile!.fullName.trim()
@@ -555,10 +561,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       ? _profile!.email.trim()
                                       : _loginEmail;
                                   final initialPhoneNo = (_profile?.phoneNumber ?? '').trim();
-                                  final initialAddress = _profile?.address.formattedAddress ?? '';
+                                  final address = _profile?.address;
+                                  final initialStreet =
+                                      (address?.street ?? '').trim();
+                                  final initialLine2 =
+                                      (address?.line2 ?? '').trim();
+                                  final initialCity =
+                                      (address?.city ?? '').trim();
+                                  final initialState =
+                                      (address?.state ?? '').trim();
+                                  final initialCountry =
+                                      (address?.country ?? '').trim();
+                                  final initialZip =
+                                      (address?.zipCode ?? '').trim();
                                   final role = displayPersona;
 
-                                  Navigator.push(
+                                  final updated = await Navigator.push<bool>(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => EditUserProfileScreen(
@@ -566,18 +584,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         initialLastName: initialLastName,
                                         initialEmail: initialEmail,
                                         initialPhoneNo: initialPhoneNo,
-                                        initialAddressLine2: initialAddress,
+                                        initialAddressLine2: initialLine2,
                                         role: role,
-                                        initialStreet: '',
-                                        initialCity: '',
-                                        // Leave state & country empty so edit screen dropdowns show "Select"
-                                        // when there is no real data from profile.
-                                        initialState: '',
-                                        initialCountry: '',
-                                        initialZipCode: '',
+                                        initialStreet: initialStreet,
+                                        initialCity: initialCity,
+                                        initialState: initialState,
+                                        initialCountry: initialCountry,
+                                        initialZipCode: initialZip,
                                       ),
                                     ),
                                   );
+                                  // If profile was updated, reload latest data so
+                                  // the multiline address and other fields reflect changes.
+                                  if (updated == true && mounted) {
+                                    await _initProfileLoad();
+                                  }
                                 },
                                 child: Container(
                                   width: 38,
@@ -715,8 +736,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ),
                           const SizedBox(height: 16),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               CustomTextWidget(
                                 text: 'Address',
@@ -724,34 +744,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 fontWeight: FontWeight.w400,
                                 height: 16 / 13,
                               ),
-                              // const Text(
-                              //   'Address',
-                              //   style: TextStyle(
-                              //     fontFamily: 'Manrope',
-                              //     fontSize: 13,
-                              //     fontWeight: FontWeight.w400,
-                              //     color: Color(0xff573353),
-                              //     height: 16 / 13,
-                              //   ),
-                              // ),
-                              CustomTextWidget(
-                                text: displayAddress,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                height: 19 / 14,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: CustomTextWidget(
+                                  text: displayAddress,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  height: 19 / 14,
+                                  unlimitedLines: true,
+                                  overflow: TextOverflow.visible,
+                                  textAlign: TextAlign.right,
+                                ),
                               ),
-                              // Text(
-                              //   widget.userAddress,
-                              //   style: const TextStyle(
-                              //     fontFamily: 'Manrope',
-                              //     fontSize: 14,
-                              //     fontWeight: FontWeight.w500,
-                              //     color: Color(0xff573353),
-                              //     height: 19 / 14,
-                              //   ),
-                              //   maxLines: 2,
-                              //   overflow: TextOverflow.ellipsis,
-                              // ),
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing),
@@ -765,7 +769,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               )
             ],
           ),
-        )
+          ),
+        ),
     );
   }
 }

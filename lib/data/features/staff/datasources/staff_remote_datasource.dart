@@ -115,6 +115,30 @@ abstract class StaffRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// Changes the login email for a user via
+  /// `POST /api/v1/users/{userCode}/email-change`.
+  ///
+  /// Expects body:
+  /// {
+  ///   "oldEmail": "string",
+  ///   "newEmail": "string",
+  ///   "organizationCode": "string",
+  ///   "schoolCode": "string"
+  /// }
+  Future<String> changeUserEmail({
+    required String userCode,
+    required String oldEmail,
+    required String newEmail,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// Fetches the staff sign-in PIN via
+  /// `GET /api/v1/staff/my-profile/{staffCode}/pin`.
+  Future<String> getStaffSignInPin({
+    required String staffCode,
+  });
+
   /// Fetches staff important dates via `GET /api/v1/staff-dates/{staffCode}`.
   ///
   /// Returns a list of [ImportantDateRequestModel]-shaped items:
@@ -527,6 +551,54 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Profile updated successfully';
+  }
+
+  @override
+  Future<String> changeUserEmail({
+    required String userCode,
+    required String oldEmail,
+    required String newEmail,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.userEmailChange(userCode));
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'oldEmail': oldEmail,
+        'newEmail': newEmail,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected email-change API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Email updated successfully';
+  }
+
+  @override
+  Future<String> getStaffSignInPin({
+    required String staffCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffMyProfile}/$staffCode/pin',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff pin API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final pin = data['data']?.toString() ?? '';
+    return pin;
   }
 
   @override
