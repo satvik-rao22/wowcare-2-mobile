@@ -878,7 +878,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String staffCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '/api/v1/student-attendance-records/$attendanceRecordCode',
+      ApiPaths.studentAttendanceRecord(attendanceRecordCode),
       ApiConstants.attendanceBaseUrl,
     );
 

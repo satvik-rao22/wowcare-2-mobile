@@ -13,6 +13,8 @@ class ClassroomSelectionWidgetExact extends StatefulWidget {
   final String? primaryClassroomError;
   final String? allowedClassroomsError;
   final bool showPrimaryClassroom;
+  /// When false, shows greyish disabled state; values remain visible but not editable.
+  final bool isEnabled;
 
   const ClassroomSelectionWidgetExact({
     super.key,
@@ -25,6 +27,7 @@ class ClassroomSelectionWidgetExact extends StatefulWidget {
     this.primaryClassroomError,
     this.allowedClassroomsError,
     this.showPrimaryClassroom = true,
+    this.isEnabled = true,
   });
 
   @override
@@ -55,6 +58,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
   }
 
   void _togglePrimaryDropdown() {
+    if (!widget.isEnabled) return;
     if (_isPrimaryDropdownOpen) {
       _closePrimaryDropdown();
     } else {
@@ -335,7 +339,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
     final double inputFontSize = responsive.inputFontSize;
     final double inputFieldHeight = responsive.inputFieldHeight;
 
-    return Column(
+    Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Primary Classroom Section
@@ -371,7 +375,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                     : const Color(0x66573353),
                 ),
                 borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-                color: Colors.white,
+                color: widget.isEnabled ? Colors.white : Colors.grey.shade200,
               ),
               child: Row(
                 children: [
@@ -386,13 +390,14 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                       ),
                     ),
                   ),
-                  Icon(
-                    _isPrimaryDropdownOpen
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                    color: const Color(0xff573353),
-                    size: responsive.isTablet ? 28.0 : 24.0,
-                  ),
+                  if (widget.isEnabled)
+                    Icon(
+                      _isPrimaryDropdownOpen
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                      color: const Color(0xff573353),
+                      size: responsive.isTablet ? 28.0 : 24.0,
+                    ),
                 ],
               ),
             ),
@@ -434,6 +439,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
               child: GestureDetector(
                 key: _allowedDropdownKey,
                 onTap: () {
+                  if (!widget.isEnabled) return;
                   // Unfocus any active text field and disable keyboard
                   FocusScope.of(context).unfocus();
                   FocusManager.instance.primaryFocus?.unfocus();
@@ -471,7 +477,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                         : const Color(0x66573353),
                     ),
                     borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-                    color: Colors.white,
+                    color: widget.isEnabled ? Colors.white : Colors.grey.shade200,
                   ),
                   child: Stack(
                     children: [
@@ -515,29 +521,32 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                                         color: const Color(0xff573353),
                                       ),
                                       backgroundColor: chipColor,
-                                      onDeleted: () {
-                                        final newAllowed = List<String>.from(widget.allowedClassrooms);
-                                        newAllowed.remove(classroom);
-                                        widget.onAllowedClassroomsChanged(newAllowed);
-                                        if (widget.primaryClassroom == classroom) {
-                                          widget.onPrimaryClassroomChanged(null);
-                                        }
-                                      },
+                                      onDeleted: widget.isEnabled
+                                          ? () {
+                                              final newAllowed = List<String>.from(widget.allowedClassrooms);
+                                              newAllowed.remove(classroom);
+                                              widget.onAllowedClassroomsChanged(newAllowed);
+                                              if (widget.primaryClassroom == classroom) {
+                                                widget.onPrimaryClassroomChanged(null);
+                                              }
+                                            }
+                                          : null,
                                     );
                                   }).toList(),
                                 ),
                               ),
                       ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Icon(
-                          _isAllowedDropdownOpen
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                          color: const Color(0xff573353),
-                          size: responsive.isTablet ? 28.0 : 24.0,
+                      if (widget.isEnabled)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Icon(
+                            _isAllowedDropdownOpen
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: const Color(0xff573353),
+                            size: responsive.isTablet ? 28.0 : 24.0,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -558,6 +567,14 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
         ],
       ],
     );
+
+    if (!widget.isEnabled) {
+      content = Opacity(
+        opacity: 0.7,
+        child: AbsorbPointer(child: content),
+      );
+    }
+    return content;
   }
 }
 

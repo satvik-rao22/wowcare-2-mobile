@@ -408,21 +408,23 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_selectedAllowedClassrooms.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'At least one classroom must be selected',
-        isError: true,
-      );
-      return;
-    }
-    if (_selectedPrimaryClassroom == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Primary Classroom is required',
-        isError: true,
-      );
-      return;
+    if (!_isAdminSelected) {
+      if (_selectedAllowedClassrooms.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'At least one classroom must be selected',
+          isError: true,
+        );
+        return;
+      }
+      if (_selectedPrimaryClassroom == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Primary Classroom is required',
+          isError: true,
+        );
+        return;
+      }
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
       CoreUtils.showTopSnackBar(
@@ -908,8 +910,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                         ),
           SizedBox(height: responsive.verticalSpacing),
 
-                        // Allowed / Primary Classroom section (same view for staff & admin),
-                        // backed by CLASSROOM-type list from ClassroomCubit.
+                        // Allowed / Primary Classroom section (same view for staff & admin).
+                        // For admin roles: disabled (greyish), values visible but not editable.
                         ClassroomSelectionWidgetExact(
                           primaryClassroom: _selectedPrimaryClassroom,
                           allowedClassrooms: _selectedAllowedClassrooms,
@@ -931,52 +933,61 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           primaryClassroomError: null,
                           allowedClassroomsError: null,
                           showPrimaryClassroom: false,
+                          isEnabled: !_isAdminSelected,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        // Primary Classroom Dropdown with guard
+                        // Primary Classroom Dropdown (disabled for admin roles)
                         Stack(
                           children: [
-                            CustomDropdown(
-                              label: "Primary Classroom",
-                              hintText: 'Select',
-                              items: _selectedAllowedClassrooms.isEmpty
-                                  ? []
-                                  : _selectedAllowedClassrooms,
-                              selectedItem: _selectedPrimaryClassroom,
-                              labelStyle: TextStyle(
-                                fontSize: responsive.labelFontSize,
-                                fontFamily: "Manrope",
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                            Opacity(
+                              opacity: _isAdminSelected ? 0.7 : 1.0,
+                              child: CustomDropdown(
+                                label: "Primary Classroom",
+                                hintText: 'Select',
+                                items: _selectedAllowedClassrooms.isEmpty
+                                    ? []
+                                    : _selectedAllowedClassrooms,
+                                selectedItem: _selectedPrimaryClassroom,
+                                isEnabled: !_isAdminSelected,
+                                labelStyle: TextStyle(
+                                  fontSize: responsive.labelFontSize,
+                                  fontFamily: "Manrope",
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xff573353),
+                                ),
+                                showAsterisk: !_isAdminSelected,
+                                labelBottomSpacing:
+                                    responsive.isTablet ? 8.0 : 6.0,
+                                fieldHeight:
+                                    responsive.isTablet ? 64.0 : 56.0,
+                                selectedTextStyle: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: responsive.inputFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isAdminSelected
+                                      ? Colors.grey.shade600
+                                      : const Color(0xff573353),
+                                  height: 19 / 14,
+                                ),
+                                popupItemTextStyle: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: responsive.inputFontSize,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xff573353),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal:
+                                      responsive.isTablet ? 16.0 : 12.0,
+                                  vertical:
+                                      responsive.isTablet ? 16.0 : 12.0,
+                                ),
+                                onSelect: _isAdminSelected
+                                    ? null
+                                    : (val) =>
+                                        setState(() => _selectedPrimaryClassroom = val),
                               ),
-                              showAsterisk: true,
-                              labelBottomSpacing:
-                                  responsive.isTablet ? 8.0 : 6.0,
-                              fieldHeight:
-                                  responsive.isTablet ? 64.0 : 56.0,
-                              selectedTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: responsive.inputFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
-                                height: 19 / 14,
-                              ),
-                              popupItemTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: responsive.inputFontSize,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal:
-                                    responsive.isTablet ? 16.0 : 12.0,
-                                vertical:
-                                    responsive.isTablet ? 16.0 : 12.0,
-                              ),
-                              onSelect: (val) =>
-                                  setState(() => _selectedPrimaryClassroom = val),
                             ),
-                            if (_selectedAllowedClassrooms.isEmpty)
+                            if (_selectedAllowedClassrooms.isEmpty && !_isAdminSelected)
                               Positioned.fill(
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,

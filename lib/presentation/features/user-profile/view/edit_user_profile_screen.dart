@@ -104,7 +104,7 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   }
 
   /// Resolves staffCode for the currently logged-in user.
-  /// Uses cached staffCode when valid; falls back to `/api/v1/staff/code`
+  /// Uses cached staffCode when valid; falls back to `/api/v1/staff/staff/code`
   /// via the StaffRepository when needed.
   Future<String> _resolveLoggedInStaffCode() async {
     try {

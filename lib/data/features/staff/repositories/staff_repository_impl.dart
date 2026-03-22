@@ -7,6 +7,7 @@ import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/entities/create_school_user_result.dart';
 import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/school_user.dart';
+import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../datasources/staff_remote_datasource.dart';
 import '../models/staff_models.dart';
@@ -373,9 +374,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
+    bool forEditStaff = false,
   }) async {
     final profileModel = await _remoteDataSource.getStaffProfile(
       staffCode: staffCode,
+      forEditStaff: forEditStaff,
     );
 
     // Cache the profile
@@ -668,6 +671,16 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
 
     return message;
+  }
+
+  @override
+  Future<List<SchoolRegularScheduleDay>> getSchoolRegularSchedules({
+    required String schoolCode,
+  }) async {
+    final model = await _remoteDataSource.getSchoolRegularSchedules(
+      schoolCode: schoolCode,
+    );
+    return model.days;
   }
 
   @override

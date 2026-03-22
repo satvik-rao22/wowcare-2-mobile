@@ -166,8 +166,8 @@ class AuthCubit extends Cubit<AuthState> {
           // Non-blocking
         }
 
-        // If role is ORGANIZATION_ADMIN, activate the demo school before fetching login-context.
-        // (Backend requirement for org-admin flow.)
+        // If role is ORGANIZATION_ADMIN, activate the demo school before login-context.
+        // 404 on UAT usually means this school code is not seeded — update with backend.
         try {
           const orgAdminRole = 'ORGANIZATION_ADMIN';
           final isOrgAdmin = response.roles
@@ -233,7 +233,7 @@ class AuthCubit extends Cubit<AuthState> {
           }
 
           // After login-context, resolve staffCode for this user (if they have a staff profile)
-          // using `/api/v1/staff/code?userCode=...&organizationCode=...&schoolCode=...`.
+          // using `/api/v1/staff/staff/code?userCode=...&organizationCode=...&schoolCode=...`.
           try {
             final storage = serviceLocator<StorageService>();
             // Prefer explicit org/school from context when both are present; otherwise

@@ -6,6 +6,8 @@ import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -41,10 +43,152 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   String? _selectedDay;
   bool _isSubmitting = false;
 
+  /// Weekday key `MONDAY` → school open/close in minutes from midnight.
+  Map<String, (int startMin, int endMin)> _schoolMinutesByDay = {};
+
+  bool _loadingSchoolHours = true;
+  String? _schoolHoursLoadError;
+
   @override
   void initState() {
     super.initState();
     _initializeSchedules();
+    _loadSchoolRegularSchedules();
+  }
+
+  Future<void> _loadSchoolRegularSchedules() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _loadingSchoolHours = false;
+          _schoolHoursLoadError = 'No school selected; school-hour limits are disabled.';
+        });
+      }
+      return;
+    }
+
+    try {
+      final repo = serviceLocator<StaffRepository>();
+      final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final map = <String, (int, int)>{};
+      for (final d in days) {
+        map[d.dayOfWeek] = (
+          _localTimeStringToMinutes(d.startTime),
+          _localTimeStringToMinutes(d.endTime),
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _schoolMinutesByDay = map;
+        _loadingSchoolHours = false;
+        _schoolHoursLoadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingSchoolHours = false;
+        _schoolHoursLoadError = ApiErrorHandler.extractErrorMessage(e);
+      });
+    }
+  }
+
+  static int _localTimeStringToMinutes(String s) {
+    final p = s.trim().split(':');
+    if (p.length < 2) return 0;
+    final h = int.tryParse(p[0]) ?? 0;
+    final m = int.tryParse(p[1]) ?? 0;
+    return (h * 60 + m).clamp(0, 24 * 60);
+  }
+
+  static int _timeOfDayToMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  static String _format12hFromMinutes(int totalMinutes) {
+    final clamped = totalMinutes.clamp(0, 24 * 60);
+    final h24 = clamped ~/ 60;
+    final m = clamped % 60;
+    final period = h24 >= 12 ? 'PM' : 'AM';
+    var h12 = h24 % 12;
+    if (h12 == 0) h12 = 12;
+    final mm = m.toString().padLeft(2, '0');
+    return '$h12:$mm $period';
+  }
+
+  (int, int)? _schoolBoundsForUiDay(String day) =>
+      _schoolMinutesByDay[day.toUpperCase()];
+
+  String? _schoolHoursHint(String day) {
+    final b = _schoolBoundsForUiDay(day);
+    if (b == null) return null;
+    return 'School hours: ${_format12hFromMinutes(b.$1)} – ${_format12hFromMinutes(b.$2)}';
+  }
+
+  /// Returns an error message if [schedule] violates rules for [day].
+  /// Does not require both start/end to be set — you can set start first, then end.
+  String? _validateDaySchedule(String day, DaySchedule schedule) {
+    if (!schedule.isEnabled) return null;
+
+    final ws = schedule.workStartTime;
+    final we = schedule.workEndTime;
+    final bs = schedule.breakStartTime;
+    final be = schedule.breakEndTime;
+
+    final hasWork = ws != null && we != null;
+    final hasBreak = bs != null && be != null;
+
+    if (hasWork) {
+      final wsm = _timeOfDayToMinutes(ws!);
+      final wem = _timeOfDayToMinutes(we!);
+      if (wsm >= wem) {
+        return 'On $day, work start must be before work end.';
+      }
+      final bounds = _schoolBoundsForUiDay(day);
+      if (bounds != null) {
+        if (wsm < bounds.$1 || wem > bounds.$2) {
+          return 'On $day, work hours must fall within school hours '
+              '(${_format12hFromMinutes(bounds.$1)} – ${_format12hFromMinutes(bounds.$2)}).';
+        }
+      }
+    }
+
+    if (hasBreak) {
+      if (!hasWork) {
+        return 'On $day, set work hours before adding a break.';
+      }
+      final wsm = _timeOfDayToMinutes(ws!);
+      final wem = _timeOfDayToMinutes(we!);
+      final bsm = _timeOfDayToMinutes(bs!);
+      final bem = _timeOfDayToMinutes(be!);
+      if (bsm >= bem) {
+        return 'On $day, break start must be before break end.';
+      }
+      if (bsm < wsm || bem > wem) {
+        return 'On $day, break time must fall within work hours '
+            '(${_format12hFromMinutes(wsm)} – ${_format12hFromMinutes(wem)}).';
+      }
+    }
+    // Partial break: validate break start/end individually when work hours are set
+    if (hasWork && (bs != null || be != null)) {
+      final wsm = _timeOfDayToMinutes(ws!);
+      final wem = _timeOfDayToMinutes(we!);
+      if (bs != null) {
+        final bsm = _timeOfDayToMinutes(bs!);
+        if (bsm < wsm || bsm > wem) {
+          return 'On $day, break start must fall within work hours '
+              '(${_format12hFromMinutes(wsm)} – ${_format12hFromMinutes(wem)}).';
+        }
+      }
+      if (be != null) {
+        final bem = _timeOfDayToMinutes(be!);
+        if (bem < wsm || bem > wem) {
+          return 'On $day, break end must fall within work hours '
+              '(${_format12hFromMinutes(wsm)} – ${_format12hFromMinutes(wem)}).';
+        }
+      }
+    }
+
+    return null;
   }
 
   void _initializeSchedules() {
@@ -182,44 +326,73 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   void _onTimePicked(String day, TimeType timeType, TimeOfDay selectedTime) {
     final currentSchedule = _schedules[day]!;
-    setState(() {
-      if (!currentSchedule.isEnabled) {
-        // auto-enable if user picks a time on a disabled day
-        _schedules[day] = currentSchedule.copyWith(isEnabled: true);
-      }
-      switch (timeType) {
-        case TimeType.workStart:
-          _schedules[day] = currentSchedule.copyWith(workStartTime: selectedTime);
-          break;
-        case TimeType.workEnd:
-          _schedules[day] = currentSchedule.copyWith(workEndTime: selectedTime);
-          break;
-        case TimeType.breakStart:
-          _schedules[day] = currentSchedule.copyWith(breakStartTime: selectedTime);
-          break;
-        case TimeType.breakEnd:
-          _schedules[day] = currentSchedule.copyWith(breakEndTime: selectedTime);
-          break;
-      }
-      _selectedDay = day;
-      if (_copyToAllDays) {
-        _copyDayScheduleToAll(day);
-      }
-    });
-  }
-
-  void _copyDayScheduleToAll(String sourceDay) {
-    final source = _schedules[sourceDay];
-    if (source == null) return;
-    for (final d in _allDays) {
-      if (d == sourceDay) continue;
-      _schedules[d] = _schedules[d]!.copyWith(
-        workStartTime: source.workStartTime,
-        workEndTime: source.workEndTime,
-        breakStartTime: source.breakStartTime,
-        breakEndTime: source.breakEndTime,
-      );
+    DaySchedule next = currentSchedule;
+    if (!currentSchedule.isEnabled) {
+      next = next.copyWith(isEnabled: true);
     }
+    switch (timeType) {
+      case TimeType.workStart:
+        next = next.copyWith(workStartTime: selectedTime);
+        break;
+      case TimeType.workEnd:
+        next = next.copyWith(workEndTime: selectedTime);
+        break;
+      case TimeType.breakStart:
+        next = next.copyWith(breakStartTime: selectedTime);
+        break;
+      case TimeType.breakEnd:
+        next = next.copyWith(breakEndTime: selectedTime);
+        break;
+    }
+
+    if (_copyToAllDays) {
+      final merged = <String, DaySchedule>{};
+      for (final d in _allDays) {
+        if (d == day) {
+          merged[d] = next;
+        } else {
+          merged[d] = _schedules[d]!.copyWith(
+            workStartTime: next.workStartTime,
+            workEndTime: next.workEndTime,
+            breakStartTime: next.breakStartTime,
+            breakEndTime: next.breakEndTime,
+          );
+        }
+      }
+      for (final d in _allDays) {
+        final err = _validateDaySchedule(d, merged[d]!);
+        if (err != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: err,
+            isError: true,
+          );
+          return;
+        }
+      }
+      setState(() {
+        for (final d in _allDays) {
+          _schedules[d] = merged[d]!;
+        }
+        _selectedDay = day;
+      });
+      return;
+    }
+
+    final err = _validateDaySchedule(day, next);
+    if (err != null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: err,
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() {
+      _schedules[day] = next;
+      _selectedDay = day;
+    });
   }
 
   Future<void> _saveSchedule() async {
@@ -237,6 +410,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
     for (final day in _allDays) {
       final schedule = _schedules[day]!;
+      if (!schedule.isEnabled) continue; // Crossed days: omit from payload so they are removed on backend
+
       final dayOfWeek = day.toUpperCase(); // MONDAY, TUESDAY, ...
 
       if (schedule.workStartTime != null && schedule.workEndTime != null) {
@@ -265,6 +440,18 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
         isError: true,
       );
       return;
+    }
+
+    for (final day in _allDays) {
+      final err = _validateDaySchedule(day, _schedules[day]!);
+      if (err != null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: err,
+          isError: true,
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -316,7 +503,33 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          
+          if (_loadingSchoolHours)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          if (_schoolHoursLoadError != null)
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.horizontalSpacing,
+                vertical: 8,
+              ),
+              child: Text(
+                _schoolHoursLoadError!,
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 12,
+                  color: Colors.orange.shade800,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
             child: Row(
@@ -327,12 +540,42 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   isToggled: _copyToAllDays,
                   labelOnLeftSide: true,
                   onToggle: (v) {
+                    if (!v) {
+                      setState(() => _copyToAllDays = false);
+                      return;
+                    }
+                    final sourceDay = _selectedDay;
+                    if (sourceDay == null) {
+                      setState(() => _copyToAllDays = true);
+                      return;
+                    }
+                    final source = _schedules[sourceDay]!;
+                    final merged = <String, DaySchedule>{};
+                    for (final d in _allDays) {
+                      merged[d] = d == sourceDay
+                          ? source
+                          : _schedules[d]!.copyWith(
+                              workStartTime: source.workStartTime,
+                              workEndTime: source.workEndTime,
+                              breakStartTime: source.breakStartTime,
+                              breakEndTime: source.breakEndTime,
+                            );
+                    }
+                    for (final d in _allDays) {
+                      final err = _validateDaySchedule(d, merged[d]!);
+                      if (err != null) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: err,
+                          isError: true,
+                        );
+                        return;
+                      }
+                    }
                     setState(() {
-                      _copyToAllDays = v;
-                      if (_copyToAllDays) {
-                        if (_selectedDay != null) {
-                          _copyDayScheduleToAll(_selectedDay!);
-                        }
+                      _copyToAllDays = true;
+                      for (final d in _allDays) {
+                        _schedules[d] = merged[d]!;
                       }
                     });
                   },
@@ -428,18 +671,18 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   ? IconButton(
                       icon: const Icon(Icons.close, size: 20),
                       color: Colors.redAccent,
-                onPressed: () {
-                  setState(() {
-                    final curr = _schedules[day]!;
-                    _schedules[day] = curr.copyWith(
+                      onPressed: () {
+                        setState(() {
+                          final curr = _schedules[day]!;
+                          _schedules[day] = curr.copyWith(
                             isEnabled: false,
                             workStartTime: null,
                             workEndTime: null,
                             breakStartTime: null,
                             breakEndTime: null,
-                    );
-                  });
-                },
+                          );
+                        });
+                      },
                     )
                   : TextButton(
                       onPressed: () {
@@ -470,6 +713,20 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 color: Colors.grey.shade600,
               ),
             ),
+          if (isEnabled) ...[
+            if (_schoolHoursHint(day) != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _schoolHoursHint(day)!,
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.blueGrey.shade700,
+                ),
+              ),
+            ],
+          ],
           const SizedBox(height: 12),
           _buildTimeSection(
             'Work Time',

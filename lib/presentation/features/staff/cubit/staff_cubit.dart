@@ -272,7 +272,10 @@ class StaffCubit extends Cubit<StaffState> {
   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
   Future<String> deactivateStaff(String staffCode) async {
     // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(staffCode: staffCode);
+    final profile = await _repository.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
 
     // Map staffType from profile to backend role expected by deactivate API
     // Example: admins should use SCHOOL_ADMIN instead of STAFF.
@@ -296,7 +299,10 @@ class StaffCubit extends Cubit<StaffState> {
    /// Returns the success message from the backend. Errors are rethrown for UI to handle.
   Future<String> activateStaff(String staffCode) async {
     // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(staffCode: staffCode);
+    final profile = await _repository.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
 
     // Map staffType from profile to backend role expected by activate API
     final staffTypeUpper = profile.staffType.toUpperCase();

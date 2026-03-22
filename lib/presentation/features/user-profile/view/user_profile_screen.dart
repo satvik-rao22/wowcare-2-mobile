@@ -107,7 +107,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// Attempts to resolve staffCode for the logged-in user.
-  /// Uses `/api/v1/staff/code` with stored `userCode`, `organizationCode` and `schoolCode`
+  /// Uses `/api/v1/staff/staff/code` with stored `userCode`, `organizationCode` and `schoolCode`
   /// to resolve the staffCode for the currently logged-in user.
   Future<String> _resolveLoggedInStaffCode() async {
     try {
