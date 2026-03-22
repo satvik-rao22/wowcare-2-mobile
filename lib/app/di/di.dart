@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
+import '../../core/network/session_expired_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/util/api_constants.dart';
@@ -126,6 +127,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
         baseUrl: apiBaseUrl,
         interceptors: <Interceptor>[
           AuthInterceptor(serviceLocator<StorageService>()),
+          SessionExpiredInterceptor(serviceLocator<StorageService>()),
         ],
       ));
 

@@ -46,7 +46,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   /// Weekday key `MONDAY` → school open/close in minutes from midnight.
   Map<String, (int startMin, int endMin)> _schoolMinutesByDay = {};
 
-  bool _loadingSchoolHours = true;
   String? _schoolHoursLoadError;
 
   @override
@@ -62,7 +61,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     if (schoolCode.isEmpty) {
       if (mounted) {
         setState(() {
-          _loadingSchoolHours = false;
           _schoolHoursLoadError = 'No school selected; school-hour limits are disabled.';
         });
       }
@@ -82,13 +80,11 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       if (!mounted) return;
       setState(() {
         _schoolMinutesByDay = map;
-        _loadingSchoolHours = false;
         _schoolHoursLoadError = null;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _loadingSchoolHours = false;
         _schoolHoursLoadError = ApiErrorHandler.extractErrorMessage(e);
       });
     }
@@ -503,17 +499,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          if (_loadingSchoolHours)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
           if (_schoolHoursLoadError != null)
             Padding(
               padding: EdgeInsets.symmetric(

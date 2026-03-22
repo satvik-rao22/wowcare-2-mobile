@@ -365,6 +365,10 @@ import 'package:image_picker/image_picker.dart';
 class CoreUtils {
   const CoreUtils._();
 
+  /// Root [Navigator] key for session expiry, deep links, etc. Assign to [MaterialApp.navigatorKey].
+  static final GlobalKey<NavigatorState> rootNavigatorKey =
+      GlobalKey<NavigatorState>();
+
   /// Log API or application errors (for debugging).
   static void logApiError(String message) {
     // ignore: avoid_print

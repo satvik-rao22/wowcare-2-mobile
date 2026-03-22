@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -20,8 +21,6 @@ import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
-
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // App starts from Splash and follows onboarding / login-context redirect flow.
 // Create a global instance of NotificationService that will be initialized later
@@ -170,7 +169,7 @@ class _MyAppState extends State<MyApp> {
                     theme: themeProvider.currentTheme,
                     home: const SplashScreenWrapper(),
                     onGenerateRoute: generateRoute,
-                    navigatorKey: navigatorKey,
+                    navigatorKey: CoreUtils.rootNavigatorKey,
                   ),
                 );
               },
