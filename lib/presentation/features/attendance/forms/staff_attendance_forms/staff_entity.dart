@@ -5,6 +5,8 @@ class StaffEntity {
   final int primaryRoomId;
   final String? photoUuid;
   final String designation;
+  /// Optional staffCode for integration with attendance APIs.
+  final String? staffCode;
 
   StaffEntity({
     required this.id,
@@ -12,5 +14,6 @@ class StaffEntity {
     required this.primaryRoomId,
     this.photoUuid,
     this.designation = 'Staff',
+    this.staffCode,
   });
 }

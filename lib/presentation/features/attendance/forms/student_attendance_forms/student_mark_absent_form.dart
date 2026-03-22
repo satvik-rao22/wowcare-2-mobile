@@ -11,7 +11,6 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -135,8 +134,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   }
 
   Future<String> _resolveStaffCode() async {
-    // TEMP: Hardcoded for testing as requested.
-    return 'STAFF_001';
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
   }
 
   Future<void> _handleSubmit() async {
@@ -164,20 +163,13 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       return;
     }
 
-    // classroomCode is required by API; enforce single classroom selection.
-    final classroomCode = currentStudents.first.classroomCode.trim();
-    final hasMixedClassrooms = currentStudents.any(
-      (s) => s.classroomCode.trim() != classroomCode,
-    );
-    if (classroomCode.isEmpty || hasMixedClassrooms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select students from the same classroom'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
+    // classroomCode is required by API; use the first non-empty classroomCode.
+    final classroomCode = currentStudents
+        .map((s) => s.classroomCode.trim())
+        .firstWhere(
+          (c) => c.isNotEmpty,
+          orElse: () => '',
+        );
 
     final absenceFromDate = _formatDate(startDate);
     final absenceToDate = _formatDate(endDate);

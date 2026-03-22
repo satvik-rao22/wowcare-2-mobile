@@ -33,8 +33,8 @@ class ApiConstants {
   static const String schoolMs = _host;
 
   /// Attendance service base URL
-  static const String attendanceBaseUrl =
-      'https://wnmrl4rn-8083.inc1.devtunnels.ms/attendance';
+  static const String attendanceBaseUrl = 'https://wnmrl4rn-8083.inc1.devtunnels.ms/attendance';
+  // static const String attendanceBaseUrl = _host;
 
   /// Activity service base URL
   static const String activityBaseUrl =

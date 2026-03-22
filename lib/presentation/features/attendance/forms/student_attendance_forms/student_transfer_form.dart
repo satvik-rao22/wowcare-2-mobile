@@ -6,10 +6,17 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 
-// Mock student entity for UI-only implementation
+// Student entity for Transfer UI & API payload
 class StudentEntity {
   final int id;
+  final String studentCode;
   final String fullName;
   final int roomId;
   final String roomName;
@@ -18,6 +25,7 @@ class StudentEntity {
 
   StudentEntity({
     required this.id,
+    required this.studentCode,
     required this.fullName,
     required this.roomId,
     required this.roomName,
@@ -30,10 +38,10 @@ class StudentEntity {
       identical(this, other) ||
       other is StudentEntity &&
           runtimeType == other.runtimeType &&
-          id == other.id;
+          studentCode == other.studentCode;
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => studentCode.hashCode;
 }
 
 // Mock tag entity for UI-only implementation
@@ -69,6 +77,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     'Classroom D'
   ];
   List<StudentEntity> currentStudents = [];
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -104,15 +113,145 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       return;
     }
 
-    // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transfer successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
+    _submitTransfer();
+  }
+
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
+  Future<void> _submitTransfer() async {
+    if (_isSubmitting) return;
+    if (currentStudents.isEmpty || selectedClassroom == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No students selected to transfer'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final client = serviceLocator<ApiClient>().client;
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceRecordsTransfer,
+      ApiConstants.attendanceBaseUrl,
     );
-    Navigator.pop(context);
-    widget.refreshCallback?.call();
+
+    final today = DateTime.now();
+    final transferDate =
+        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final transferredAt = DateTime.now().toUtc();
+
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final studentCodes = currentStudents
+        .map((s) => s.studentCode.trim())
+        .where((code) => code.isNotEmpty)
+        .toList();
+    if (studentCodes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Student code missing for selected students'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    // TODO: wire selectedClassroom (display label) to actual classroomCode.
+    final toClassroomCode = currentStudents
+        .map((s) => s.roomId.toString().trim())
+        .firstWhere((code) => code.isNotEmpty, orElse: () => '');
+    if (toClassroomCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Selected classroom is not linked to a classroom code yet.',
+          ),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final toClassroomCodeByStudentCode = <String, String>{
+      for (final s in currentStudents) s.studentCode: toClassroomCode,
+    };
+
+    final payload = <String, dynamic>{
+      'transferDate': transferDate,
+      'staffCode': staffCode,
+      'studentCodes': studentCodes,
+      'toClassroomCode': toClassroomCode,
+      'toClassroomCodeByStudentCode': toClassroomCodeByStudentCode,
+      // No dedicated reason field in UI yet, so send a generic placeholder.
+      'transferReason': 'Transferred via mobile app',
+      'timeZone': 'Asia/Kolkata',
+      'transferredAt': transferredAt.toIso8601String(),
+    };
+
+    try {
+      final response = await client.post<dynamic>(
+        endpoint,
+        data: payload,
+      );
+
+      final data = response.data;
+      bool success = false;
+      String message = 'Transfer successfully';
+
+      if (data is Map<String, dynamic>) {
+        success = data['success'] as bool? ?? false;
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              success ? AppColors.successColor : AppColors.errorColor,
+        ),
+      );
+
+      if (success) {
+        Navigator.pop(context);
+        widget.refreshCallback?.call();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to transfer students. Please try again.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -228,7 +367,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Submit',
-        onPressedConfirm: _handleSubmit,
+        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
       ),
     );

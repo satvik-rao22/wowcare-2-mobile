@@ -4,19 +4,19 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
   const StaffAttendanceCustomView({
@@ -35,28 +35,54 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
   final ScrollController _scrollController = ScrollController();
 
   String _searchQuery = '';
-  String? _customSelectedClassroom;
+  List<String> _selectedClassroomNames = <String>[];
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStaffIndex;
-
-  bool _isLoading = true;
-  bool _hasError = false;
-  String _errorMessage = '';
+  bool _isClassroomDataReady = false;
 
   final List<_CustomStaffAttendanceRow> _attendanceList = <_CustomStaffAttendanceRow>[];
-  List<String> _classrooms = <String>['All'];
 
   late final StaffAttendanceCustomCubit _cubit;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
-    _customSelectedClassroom = 'All';
     _customSearchController.addListener(_onSearchChanged);
     _initializeDefaultRange();
     _cubit = serviceLocator<StaffAttendanceCustomCubit>();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
+    // Staff screens intentionally load all ACTIVE locations (not just type=CLASSROOM).
+    // Guard for "data not loaded yet" so name->code resolution is reliable.
+    _loadClassroomData();
     _loadAttendanceData(reset: true);
+  }
+
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms(
+      force: true,
+      onlyTypeClassroom: false,
+    );
+
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isClassroomDataReady = true);
+      return;
+    }
+
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+          _classroomCubit.state.classrooms.isNotEmpty;
+    });
   }
 
   @override
@@ -64,6 +90,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _customSearchController.removeListener(_onSearchChanged);
     _customSearchController.dispose();
     _scrollController.dispose();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -80,6 +107,20 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _loadAttendanceData(reset: true);
   }
 
+  List<String>? _resolveSelectedClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) return null;
+    if (_classroomCubit.state.classrooms.isEmpty) return null;
+    final nameToCode = <String, String>{
+      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+    };
+    final codes = _selectedClassroomNames
+        .map((n) => nameToCode[n])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
   // Method to load attendance data from backend
   void _loadAttendanceData({bool reset = false}) {
     if (_customRangeStart == null || _customRangeEnd == null) {
@@ -89,10 +130,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     final from = _customRangeStart!;
     final to = _customRangeEnd!;
 
-    final classroomCodes = _customSelectedClassroom != null &&
-            _customSelectedClassroom != 'All'
-        ? <String>[_customSelectedClassroom!]
-        : null;
+    final classroomCodes = _resolveSelectedClassroomCodes();
 
       if (reset) {
         _customExpandedStaffIndex = null;
@@ -114,35 +152,6 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     }
   }
 
-  List<_CustomStaffAttendanceRow> _buildDummyAttendanceData() {
-    final rooms = _classrooms.where((e) => e != 'All').toList();
-    if (rooms.isEmpty) {
-      rooms.addAll(<String>['Room 1', 'Room 2', 'Room 3']);
-    }
-
-    return List<_CustomStaffAttendanceRow>.generate(18, (i) {
-      final idx = i + 1;
-      final room = rooms[i % rooms.length];
-      final expectedToday = idx % 6 != 0; // some are not expected
-      final signedIn = expectedToday && idx % 4 != 0;
-
-      return _CustomStaffAttendanceRow(
-        id: 'custom_staff_$idx',
-        staffId: idx,
-        staffName: 'Staff Member $idx',
-        designationName: 'Teacher',
-        roomName: room,
-        daysAttended: '${(idx % 22) + 1}',
-        totalHours: '${(idx % 6) + 1} Hrs ${(idx * 7) % 60} Mins',
-        expectedToday: expectedToday,
-        hasSignIn: signedIn,
-        staffPhotoUuid: '',
-        schoolId: 1,
-        roomId: (i % 3) + 1,
-      );
-    });
-  }
-
   List<_CustomStaffAttendanceRow> _getFilteredAttendance() {
     var filtered = _attendanceList;
 
@@ -156,9 +165,9 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     }
 
     // Apply classroom filter
-    if (_customSelectedClassroom != null && _customSelectedClassroom != 'All') {
+    if (_selectedClassroomNames.isNotEmpty) {
       filtered = filtered.where((attendance) {
-        return attendance.roomName == _customSelectedClassroom;
+        return _selectedClassroomNames.contains(attendance.roomName);
       }).toList();
     }
 
@@ -182,8 +191,11 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return BlocProvider<StaffAttendanceCustomCubit>.value(
-      value: _cubit,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<StaffAttendanceCustomCubit>.value(value: _cubit),
+        BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
+      ],
       child: BlocBuilder<StaffAttendanceCustomCubit, StaffAttendanceCustomState>(
         builder: (context, state) {
           final isLoading = state.isLoading;
@@ -253,16 +265,33 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                       SizedBox(width: responsive.horizontalSpacing / 2),
                       Expanded(
                         flex: responsive.isTablet ? 2 : 1,
-                        child: CustomDropdown(
-                          hintText: 'Select Classroom',
-                          items: _classrooms,
-                                  selectedItem:
-                                      _customSelectedClassroom ?? 'All',
-                          onSelect: (val) {
-                            setState(() {
-                              _customSelectedClassroom = val;
-                            });
-                            _loadAttendanceData(reset: true);
+                        child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                          builder: (context, classroomState) {
+                            final items = classroomState.classrooms
+                                .map((c) => c.name)
+                                .toList();
+                            final isLoading =
+                                classroomState.isLoading || !_isClassroomDataReady;
+                            if (isLoading && items.isEmpty) {
+                              return ShimmerLoader(
+                                height: 40,
+                                borderRadius: BorderRadius.circular(12),
+                              );
+                            }
+
+                            return CustomMultiSelectDropdown(
+                              hintText: 'Classroom',
+                              items: items,
+                              selectedItems: _selectedClassroomNames,
+                              onChanged: (values) {
+                                if (isLoading) return;
+                                setState(() {
+                                  _selectedClassroomNames =
+                                      List<String>.from(values);
+                                });
+                                _loadAttendanceData(reset: true);
+                              },
+                            );
                           },
                         ),
                       ),
@@ -274,9 +303,9 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                     isRangePicker: true,
                     initialDate: _customRangeStart,
                     onRangeSelected: (start, end) {
-                              if (start != null &&
-                                  end != null &&
-                                  start.isAfter(end)) {
+                      // In this screen, the picker is range-based, but `end` can be null
+                      // during selection. Only validate when we have both dates.
+                      if (end != null && start.isAfter(end)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                                     content: const Text(

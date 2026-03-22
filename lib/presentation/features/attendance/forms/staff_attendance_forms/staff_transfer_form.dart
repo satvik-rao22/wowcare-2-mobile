@@ -6,6 +6,12 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'staff_entity.dart';
 
 class StaffTransferForm extends StatefulWidget {
@@ -27,6 +33,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   String currentClassroom = 'Classroom A';
   List<String> availableClassrooms = ['Classroom B', 'Classroom C', 'Classroom D'];
   StaffEntity? currentStaff;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -49,14 +56,124 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       return;
     }
 
-    // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transferred successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
+    _submitTransfer();
+  }
+
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
+  Future<void> _submitTransfer() async {
+    if (_isSubmitting) return;
+    if (currentStaff == null || selectedClassroom == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No staff/classroom selected to transfer'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final client = serviceLocator<ApiClient>().client;
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceRecordsTransfer,
+      ApiConstants.attendanceBaseUrl,
     );
-    Navigator.pop(context);
+
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final targetStaffCode = (currentStaff!.staffCode ?? '').trim();
+    if (targetStaffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Target staff code is missing. Please refresh list.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+    final staffCodes = <String>[targetStaffCode];
+
+    // TODO: Map selectedClassroom display label to a real classroom code.
+    const toClassroomCode = '';
+
+    final toClassroomCodeByStaffCode = <String, String>{
+      for (final code in staffCodes) code: toClassroomCode,
+    };
+
+    final transferredAt = DateTime.now().toUtc();
+
+    final payload = <String, dynamic>{
+      'staffCode': staffCode,
+      'staffCodes': staffCodes,
+      'toClassroomCode': toClassroomCode,
+      'toClassroomCodeByStaffCode': toClassroomCodeByStaffCode,
+      'transferReason': 'Transferred via mobile app',
+      'timeZone': 'Asia/Kolkata',
+      'transferredAt': transferredAt.toIso8601String(),
+    };
+
+    try {
+      final response = await client.post<dynamic>(
+        endpoint,
+        data: payload,
+      );
+
+      final data = response.data;
+      bool success = false;
+      String message = 'Transferred successfully';
+
+      if (data is Map<String, dynamic>) {
+        success = data['success'] as bool? ?? false;
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              success ? AppColors.successColor : AppColors.errorColor,
+        ),
+      );
+
+      if (success) {
+        Navigator.pop(context);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to transfer staff. Please try again.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -173,7 +290,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Submit',
-        onPressedConfirm: _handleSubmit,
+        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
       ),
     );

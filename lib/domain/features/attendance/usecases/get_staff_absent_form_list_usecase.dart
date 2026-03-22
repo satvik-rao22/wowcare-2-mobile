@@ -16,9 +16,7 @@ class GetStaffAbsentFormListUseCase {
     int page = 0,
     int size = 10,
   }) {
-    // This uses the same repository method as the staff absent view
-    // but is conceptually used for the "mark absent" form.
-    return _repository.getStaffAttendanceAbsent(
+    return _repository.getStaffAbsentFormList(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
       classroomCodes: classroomCodes,

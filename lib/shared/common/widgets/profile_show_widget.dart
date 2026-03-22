@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   final String fileUuid;
   final String? name;
+  /// Optional staff code for attendance status dot.
+  final String? staffCode;
+
+  /// Optional student code for attendance status dot.
+  final String? studentCode;
   final double size;
   final String? placeholderAsset;
   final BoxShape shape;
@@ -21,6 +29,8 @@ class DocumentImageWidget extends StatefulWidget {
     Key? key,
     required this.fileUuid,
     this.name,
+    this.staffCode,
+    this.studentCode,
     this.size = 50.0,
     this.placeholderAsset,
     this.shape = BoxShape.circle,
@@ -38,18 +48,92 @@ class DocumentImageWidget extends StatefulWidget {
 
 class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   Color? _avatarColor;
+  Color? _statusDotColor;
+  String? _statusLabel; // SIGNED_IN / ABSENT / null
+  bool _isLoadingStatus = false;
+
   @override
   void initState() {
     super.initState();
-    // UI-only: no backend fetch
-    _avatarColor = _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid);
+    _avatarColor = _pickStableProfileAvatarColor(
+      widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid,
+    );
+    _loadAttendanceStatusIfNeeded();
   }
 
   @override
   void didUpdateWidget(DocumentImageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.name != widget.name) {
-      _avatarColor = _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid);
+    if (oldWidget.name != widget.name || oldWidget.fileUuid != widget.fileUuid) {
+      _avatarColor = _pickStableProfileAvatarColor(
+        widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid,
+      );
+    }
+
+    if (oldWidget.staffCode != widget.staffCode ||
+        oldWidget.studentCode != widget.studentCode) {
+      _loadAttendanceStatusIfNeeded();
+    }
+  }
+
+  Future<void> _loadAttendanceStatusIfNeeded() async {
+    // Only one of staffCode / studentCode is expected; if both null, do nothing.
+    final staffCode = widget.staffCode;
+    final studentCode = widget.studentCode;
+    if ((staffCode == null || staffCode.isEmpty) &&
+        (studentCode == null || studentCode.isEmpty)) {
+      setState(() {
+        _statusDotColor = null;
+        _statusLabel = null;
+      });
+      return;
+    }
+
+    if (_isLoadingStatus) return;
+    _isLoadingStatus = true;
+
+    try {
+      String? status;
+      if (staffCode != null && staffCode.isNotEmpty) {
+        final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
+        status = await useCase(staffCode: staffCode);
+      } else if (studentCode != null && studentCode.isNotEmpty) {
+        final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
+        status = await useCase(studentCode: studentCode);
+      }
+
+      if (!mounted) return;
+
+      // Normalize status to upper-case for comparison.
+      final normalized = status?.toUpperCase();
+      Color? color;
+      String? label;
+      if (normalized == 'SIGNED_IN') {
+        color = Colors.green;
+        label = 'Signed in';
+      } else if (normalized == 'ABSENT') {
+        color = Colors.red;
+        label = 'Absent';
+      } else {
+        color = null;
+        label = null;
+      }
+
+      setState(() {
+        // For staff/student codes we rely only on API status.
+        // If API doesn't return a recognized status, hide the dot.
+        _statusDotColor = color;
+        _statusLabel = label;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // On error, hide the API-driven status dot so we don't show stale data.
+      setState(() {
+        _statusDotColor = null;
+        _statusLabel = null;
+      });
+    } finally {
+      _isLoadingStatus = false;
     }
   }
 
@@ -86,7 +170,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Widget _buildAvatarWithStatus(Widget avatar) {
-    if (widget.statusColor == null) return avatar;
+    final dotColor = _statusDotColor ?? widget.statusColor;
+    if (dotColor == null) return avatar;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -95,7 +180,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           right: 2,
           top: 2,
           child: Tooltip(
-            message: _statusTooltipMessage(widget.statusColor!),
+            message: _statusTooltipMessage(),
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
@@ -112,7 +197,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               width: widget.size * 0.22,
               height: widget.size * 0.22,
               decoration: BoxDecoration(
-                color: widget.statusColor,
+                color: dotColor,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
               ),
@@ -123,9 +208,17 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     );
   }
 
-  String _statusTooltipMessage(Color c) {
-    if (c.green >= c.red && c.green > 120) return 'Staff is signed in';
-    if (c.red > 180 && c.green < 120) return 'Staff is absent';
+  String _statusTooltipMessage() {
+    if (_statusLabel != null) {
+      // Prefix with "Staff"/"Student" when we know which one it is.
+      if (widget.staffCode != null && widget.staffCode!.isNotEmpty) {
+        return 'Staff is ${_statusLabel!.toLowerCase()}';
+      }
+      if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
+        return 'Student is ${_statusLabel!.toLowerCase()}';
+      }
+      return _statusLabel!;
+    }
     return 'Status';
   }
 

@@ -87,20 +87,18 @@ class StudentAttendanceSummary extends StatelessWidget {
               color: AppColors.redProgressBar,
               filterValue: 'Absent',
             ),
-            if (signedOut > 0)
-              ProgressItemHelper(
-                label: 'Signed Out ($signedOut)',
-                value: signedOut.toDouble(),
-                color: AppColors.lightBlueProgressBar,
-                filterValue: 'Signed Out',
-              ),
-            if (notMarked > 0)
-              ProgressItemHelper(
-                label: 'Not Marked ($notMarked)',
-                value: notMarked.toDouble(),
-                color: AppColors.mustardProgressBar,
-                filterValue: 'Not Marked',
-              ),
+            ProgressItemHelper(
+              label: 'Signed Out ($signedOut)',
+              value: signedOut.toDouble(),
+              color: AppColors.lightBlueProgressBar,
+              filterValue: 'Signed Out',
+            ),
+            ProgressItemHelper(
+              label: 'Not Marked ($notMarked)',
+              value: notMarked.toDouble(),
+              color: AppColors.mustardProgressBar,
+              filterValue: 'Not Marked',
+            ),
           ],
           onLegendTap: onLegendTap != null
               ? (label, filterValue) {

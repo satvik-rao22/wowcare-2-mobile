@@ -133,7 +133,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             drawer: const CustomDrawer(),
             drawerEnableOpenDragGesture: false,
             body: SafeArea(
-              bottom: false,
+              // Allow the tab contents to respect the device's bottom inset
+              // so that the scrollable lists aren't clipped underneath
+              // the bottom navigation bar and can scroll naturally.
+              bottom: true,
               child: GradientBackground(
                 child: Padding(
                   padding: ResponsiveSizing.contentPadding(context),

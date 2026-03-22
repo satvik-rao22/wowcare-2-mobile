@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 enum SignMethod {
   gps,
@@ -20,6 +20,7 @@ class StudentAttendanceCardData {
   final String studentName;
   final String? studentPhotoUuid;
   final String roomName;
+  final String? classroomCode;
   final bool expectedToday;
   final bool hasSignIn;
   final String? signInTime;
@@ -40,6 +41,7 @@ class StudentAttendanceCardData {
     required this.studentName,
     this.studentPhotoUuid,
     required this.roomName,
+    this.classroomCode,
     required this.expectedToday,
     required this.hasSignIn,
     this.signInTime,
@@ -291,6 +293,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (method != null) ...[
+                _buildMethodIcon(method, responsive),
+                SizedBox(width: responsive.horizontalSpacing / 4),
+              ],
               Expanded(
                 child: AppText.value(
                   value,
@@ -302,10 +308,6 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (method != null) ...[
-                SizedBox(width: responsive.horizontalSpacing / 4),
-                _buildMethodIcon(method, responsive),
-              ],
             ],
           ),
         ),
@@ -314,41 +316,47 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
   }
 
   Widget _buildMethodIcon(SignMethod method, ResponsiveHelper responsive) {
-    IconData icon;
-    String tooltip;
-    Color color;
+    final double size = responsive.isTablet ? 20 : 18;
 
     switch (method) {
       case SignMethod.gps:
-        icon = Icons.location_on;
-        tooltip = 'GPS';
-        color = const Color(0xFF4285F4);
-        break;
+        return Tooltip(
+          message: 'GPS',
+          child: SvgPicture.asset(
+            MediaRes.gpsMethodIcon,
+            width: size,
+            height: size,
+          ),
+        );
       case SignMethod.qr:
-        icon = Icons.qr_code;
-        tooltip = 'QR Code';
-        color = const Color(0xFF34A853);
-        break;
+        return Tooltip(
+          message: 'QR',
+          child: SvgPicture.asset(
+            MediaRes.qrAttendanceIcon,
+            width: size,
+            height: size,
+          ),
+        );
       case SignMethod.kiosk:
-        icon = Icons.desktop_mac;
-        tooltip = 'Kiosk';
-        color = const Color(0xFFEA4335);
-        break;
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.pinMethodIcon,
+            width: size,
+            height: size,
+          ),
+        );
       case SignMethod.direct:
-        icon = Icons.phone_android;
-        tooltip = 'Direct from App';
-        color = const Color(0xFFFBBC04);
-        break;
+        // App-based sign-in/out. Use a simple app icon from Material.
+        return Tooltip(
+          message: 'APP',
+          child: Icon(
+            Icons.phone_android,
+            size: size,
+            color: AppColors.themeColor,
+          ),
+        );
     }
-
-    return Tooltip(
-      message: tooltip,
-      child: Icon(
-        icon,
-        size: responsive.isTablet ? 20 : 18,
-        color: color,
-      ),
-    );
   }
 
   Widget _buildActionButtons(BuildContext context, ResponsiveHelper responsive) {

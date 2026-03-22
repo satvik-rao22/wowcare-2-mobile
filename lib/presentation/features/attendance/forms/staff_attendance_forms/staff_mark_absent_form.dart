@@ -7,6 +7,10 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import 'staff_entity.dart';
 
 class StaffMarkAbsentForm extends StatefulWidget {
@@ -23,22 +27,26 @@ class StaffMarkAbsentForm extends StatefulWidget {
 class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
-  final TextEditingController notesController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _reasonController = TextEditingController();
+  final TextEditingController _typeController = TextEditingController();
   StaffEntity? currentStaff;
+  bool _isSubmitting = false;
+
+  late final MarkStaffAbsentUseCase _markStaffAbsentUseCase;
 
   @override
   void initState() {
     super.initState();
-    currentStaff = widget.staff ?? StaffEntity(
-      id: 1,
-      name: 'Staff Member',
-      primaryRoomId: 1,
-    );
+    _markStaffAbsentUseCase = serviceLocator<MarkStaffAbsentUseCase>();
+    currentStaff = widget.staff;
   }
 
   @override
   void dispose() {
-    notesController.dispose();
+    _notesController.dispose();
+    _reasonController.dispose();
+    _typeController.dispose();
     super.dispose();
   }
 
@@ -63,15 +71,96 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     }
   }
 
-  void _handleSubmit() {
-    // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Marked Absent successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
-    );
-    Navigator.pop(context);
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<String> _resolveStaffCode() async {
+    final storage = serviceLocator<StorageService>();
+    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+    final staff = currentStaff;
+    if (staff == null) return;
+
+    final markerStaffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (markerStaffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+    final targetStaffCode = (staff.staffCode ?? '').trim();
+    if (targetStaffCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Target staff code is missing. Please refresh list.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final absenceFromDate = _formatDate(startDate);
+    final absenceToDate = _formatDate(endDate);
+    final absenceReason = _reasonController.text.trim().isNotEmpty
+        ? _reasonController.text.trim()
+        : 'FEVER';
+    final absenceType = _typeController.text.trim().isNotEmpty
+        ? _typeController.text.trim()
+        : 'ABSENT';
+
+    final notes = _notesController.text.trim();
+    final absenceNotes = <String, String>{};
+    if (notes.isNotEmpty) {
+      absenceNotes[targetStaffCode] = notes;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final message = await _markStaffAbsentUseCase(
+        staffCode: markerStaffCode,
+        staffCodes: [targetStaffCode],
+        absenceFromDate: absenceFromDate,
+        absenceToDate: absenceToDate,
+        absenceReason: absenceReason,
+        absenceType: absenceType,
+        absenceNotes: absenceNotes,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message.isNotEmpty ? message : 'Marked Absent successfully',
+          ),
+          backgroundColor: AppColors.successColor,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 
   @override
@@ -82,6 +171,76 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const AppText.label('Reason'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reasonController,
+              decoration: InputDecoration(
+                hintText: 'Enter absence reason',
+                hintStyle: AppTextStyles.body.copyWith(
+                  color: const Color.fromRGBO(87, 51, 83, 0.5),
+                  fontSize: 15,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: AppColors.cardColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const AppText.label('Absence Type'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _typeController,
+              decoration: InputDecoration(
+                hintText: 'Enter absence type (e.g. FULL_DAY, HALF_DAY)',
+                hintStyle: AppTextStyles.body.copyWith(
+                  color: const Color.fromRGBO(87, 51, 83, 0.5),
+                  fontSize: 15,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color.fromRGBO(87, 51, 83, 0.4),
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: AppColors.cardColor,
+              ),
+            ),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
@@ -98,7 +257,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
               RemoveStaffTile(staff: currentStaff!),
               const SizedBox(height: 20),
               TextField(
-                controller: notesController,
+                controller: _notesController,
                 decoration: InputDecoration(
                   hintText: 'Enter Absent Notes',
                   hintStyle: AppTextStyles.body.copyWith(
@@ -152,6 +311,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         confirmButtonLabel: 'Submit',
         onPressedConfirm: _handleSubmit,
         showCancelButton: false,
+        isLoading: _isSubmitting,
       ),
     );
   }
