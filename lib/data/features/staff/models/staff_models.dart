@@ -413,6 +413,7 @@ class StaffProfileModel extends Equatable {
     this.profilePhotoUrl = '',
     this.birthDate = '',
     required this.staffType,
+    this.schoolUserRole = '',
     required this.status,
     required this.designation,
     this.jobTag = '',
@@ -438,6 +439,7 @@ class StaffProfileModel extends Equatable {
   final String profilePhotoUrl;
   final String birthDate;
   final String staffType;
+  final String schoolUserRole;
   final String status;
   final String designation;
   final String jobTag;
@@ -497,6 +499,7 @@ class StaffProfileModel extends Equatable {
       profilePhotoUrl: data['profilePhotoUrl'] as String? ?? '',
       birthDate: data['birthDate'] as String? ?? '',
       staffType: data['staffType'] as String? ?? '',
+      schoolUserRole: data['role'] as String? ?? '',
       status: data['status'] as String? ?? '',
       designation: data['designation'] as String? ?? '',
       jobTag: data['jobTag'] as String? ?? '',
@@ -568,6 +571,7 @@ class StaffProfileModel extends Equatable {
       'profilePhotoUrl': profilePhotoUrl,
       'birthDate': birthDate,
       'staffType': staffType,
+      'role': schoolUserRole,
       'status': status,
       'designation': designation,
       'jobTag': jobTag,
@@ -596,6 +600,7 @@ class StaffProfileModel extends Equatable {
         profilePhotoUrl,
         birthDate,
         staffType,
+        schoolUserRole,
         status,
         designation,
         jobTag,

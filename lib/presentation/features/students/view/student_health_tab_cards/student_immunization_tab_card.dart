@@ -332,12 +332,8 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                                   });
                                 } catch (e) {
                                   if (!context.mounted) return;
-                                  CoreUtils.logApiError(e.toString());
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message:
-                                        ApiErrorHandler.extractErrorMessage(e),
-                                    isError: true,
+                                  CoreUtils.logApiError(
+                                    ApiErrorHandler.extractErrorMessage(e),
                                   );
                                 } finally {
                                   if (context.mounted) {
@@ -406,18 +402,11 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
             }
 
             if (snapshot.hasError) {
-              final message = snapshot.error.toString();
-              CoreUtils.logApiError(message);
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  CoreUtils.showTopSnackBar(
-                    context: context,
-                    message: message,
-                    isError: true,
-                  );
-                });
+                CoreUtils.logApiError(
+                  ApiErrorHandler.extractErrorMessage(snapshot.error),
+                );
               }
               return const SizedBox.shrink();
             }

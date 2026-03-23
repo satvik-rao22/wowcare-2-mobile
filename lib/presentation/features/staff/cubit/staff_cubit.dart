@@ -6,6 +6,7 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
+import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -277,10 +278,7 @@ class StaffCubit extends Cubit<StaffState> {
       forEditStaff: true,
     );
 
-    // Map staffType from profile to backend role expected by deactivate API
-    // Example: admins should use SCHOOL_ADMIN instead of STAFF.
-    final staffTypeUpper = profile.staffType.toUpperCase();
-    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
+    final role = _schoolUserRoleForActivateDeactivate(profile);
 
     final message = await _repository.deactivateSchoolUser(
       userCode: profile.userCode,
@@ -304,9 +302,7 @@ class StaffCubit extends Cubit<StaffState> {
       forEditStaff: true,
     );
 
-    // Map staffType from profile to backend role expected by activate API
-    final staffTypeUpper = profile.staffType.toUpperCase();
-    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
+    final role = _schoolUserRoleForActivateDeactivate(profile);
 
     final message = await _repository.activateSchoolUser(
       userCode: profile.userCode,
@@ -512,6 +508,22 @@ class StaffCubit extends Cubit<StaffState> {
         ),
       );
     }
+  }
+
+  /// User-service `school-users/activate|deactivate` expects the stored role enum
+  /// (e.g. LEAD_TEACHER, SCHOOL_ADMIN), not the generic `STAFF` used when creating users.
+  String _schoolUserRoleForActivateDeactivate(StaffProfile profile) {
+    final explicit = profile.schoolUserRole.trim().toUpperCase();
+    if (explicit.isNotEmpty) return explicit;
+
+    var t = profile.staffType.trim().toUpperCase();
+    if (t.isEmpty) {
+      t = profile.designation.trim().toUpperCase();
+    }
+    if (t.isEmpty) return 'STAFF';
+
+    if (t == 'ADMIN') return 'SCHOOL_ADMIN';
+    return t;
   }
 
   // To be called by add/edit/delete flows to keep cache + UI in sync

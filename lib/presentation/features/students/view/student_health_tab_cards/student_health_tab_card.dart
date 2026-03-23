@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -85,18 +86,11 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
             }
 
             if (snapshot.hasError) {
-              final message = snapshot.error.toString();
-              CoreUtils.logApiError(message);
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  CoreUtils.showTopSnackBar(
-                    context: context,
-                    message: message,
-                    isError: true,
-                  );
-                });
+                CoreUtils.logApiError(
+                  ApiErrorHandler.extractErrorMessage(snapshot.error),
+                );
               }
               // Do not show an inline error widget; just keep the card hidden.
               return const SizedBox.shrink();
@@ -180,12 +174,8 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                           body: body,
                         );
                       } catch (e) {
-                        CoreUtils.logApiError(e.toString());
-                        if (!mounted) return;
-                        CoreUtils.showTopSnackBar(
-                          context: context,
-                          message: 'Failed to update photo permission',
-                          isError: true,
+                        CoreUtils.logApiError(
+                          ApiErrorHandler.extractErrorMessage(e),
                         );
                       }
                     },

@@ -129,7 +129,7 @@ class _StaffScreenState extends State<StaffScreen> {
         final classroomNames = _getClassroomNames(classroomState);
         final classroomNameByCode = _getClassroomNameByCode(classroomState);
         
-        // Log error if classroom loading failed (no UI display - core_utils only)
+        // Log classroom load failures (API banner comes from Dio interceptor).
         if (classroomState.errorMessage != null && classroomState.classrooms.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             CoreUtils.logApiError(classroomState.errorMessage!);

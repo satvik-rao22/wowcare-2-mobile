@@ -110,6 +110,8 @@ class StaffProfile extends Equatable {
     this.profilePhotoUrl = '',
     this.birthDate = '',
     required this.staffType,
+    /// User-service role for school-users activate/deactivate (e.g. LEAD_TEACHER, SCHOOL_ADMIN).
+    this.schoolUserRole = '',
     required this.status,
     required this.designation,
     this.jobTag = '',
@@ -135,6 +137,7 @@ class StaffProfile extends Equatable {
   final String profilePhotoUrl;
   final String birthDate;
   final String staffType;
+  final String schoolUserRole;
   final String status;
   final String designation;
   final String jobTag;
@@ -161,6 +164,7 @@ class StaffProfile extends Equatable {
         profilePhotoUrl,
         birthDate,
         staffType,
+        schoolUserRole,
         status,
         designation,
         jobTag,

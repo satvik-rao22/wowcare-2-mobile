@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../util/api_error_handler.dart';
+import '../util/core_utils.dart';
 import 'api_logger.dart';
 
 class ApiClient {
@@ -69,6 +71,10 @@ class ApiClient {
               stackTrace: error.stackTrace,
             );
           }
+          CoreUtils.logApiError(
+            ApiErrorHandler.extractErrorMessage(error),
+            showOnScreen: true,
+          );
           handler.next(error);
         },
       ),

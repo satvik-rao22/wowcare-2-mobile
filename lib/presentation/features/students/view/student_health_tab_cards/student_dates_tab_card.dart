@@ -325,12 +325,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                   });
                                 } catch (e) {
                                   if (!context.mounted) return;
-                                  CoreUtils.logApiError(e.toString());
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message:
-                                        ApiErrorHandler.extractErrorMessage(e),
-                                    isError: true,
+                                  CoreUtils.logApiError(
+                                    ApiErrorHandler.extractErrorMessage(e),
                                   );
                                 } finally {
                                   if (context.mounted) {

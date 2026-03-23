@@ -501,6 +501,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       profilePhotoUrl: model.profilePhotoUrl,
       birthDate: model.birthDate,
       staffType: model.staffType,
+      schoolUserRole: model.schoolUserRole,
       status: model.status,
       designation: model.designation,
       jobTag: model.jobTag,

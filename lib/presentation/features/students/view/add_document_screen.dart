@@ -224,7 +224,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         });
       }
     } catch (e) {
-      CoreUtils.logApiError('Error opening calendar dialog: $e');
+      CoreUtils.logApiError(
+        'Error opening calendar dialog: $e',
+        showOnScreen: true,
+      );
     }
   }
 

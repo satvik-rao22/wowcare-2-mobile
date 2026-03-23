@@ -579,11 +579,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
               if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
                 CoreUtils.logApiError(state.errorMessage!);
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: state.errorMessage!,
-                  isError: true,
-                );
                 return;
               }
 

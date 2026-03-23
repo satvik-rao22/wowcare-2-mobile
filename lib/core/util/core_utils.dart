@@ -369,10 +369,57 @@ class CoreUtils {
   static final GlobalKey<NavigatorState> rootNavigatorKey =
       GlobalKey<NavigatorState>();
 
-  /// Log API or application errors (for debugging).
-  static void logApiError(String message) {
+  static String? _lastOnScreenErrorMessage;
+  static DateTime? _lastOnScreenErrorAt;
+
+  /// Log API or application errors and optionally surface them in a top banner.
+  ///
+  /// When [showOnScreen] is true, uses [context] if provided, otherwise
+  /// [rootNavigatorKey]. Repeats of the same message within [dedupeWindow]
+  /// are suppressed on-screen (still printed) to avoid snackbar storms from rebuilds.
+  static void logApiError(
+    String message, {
+    bool showOnScreen = false,
+    BuildContext? context,
+    Duration dedupeWindow = const Duration(seconds: 2),
+  }) {
+    final trimmed = message.trim();
     // ignore: avoid_print
-    print('[API Error] $message');
+    print('[API Error] $trimmed');
+    if (!showOnScreen || trimmed.isEmpty) return;
+
+    void showBanner(BuildContext ctx) {
+      if (!ctx.mounted) return;
+      final now = DateTime.now();
+      if (_lastOnScreenErrorMessage == trimmed &&
+          _lastOnScreenErrorAt != null &&
+          now.difference(_lastOnScreenErrorAt!) < dedupeWindow) {
+        return;
+      }
+      _lastOnScreenErrorMessage = trimmed;
+      _lastOnScreenErrorAt = now;
+
+      showTopSnackBar(
+        context: ctx,
+        message: _truncateForSnackBar(trimmed),
+        isError: true,
+        duration: const Duration(seconds: 4),
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context != null) {
+        showBanner(context);
+        return;
+      }
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null) showBanner(ctx);
+    });
+  }
+
+  static String _truncateForSnackBar(String message, {int maxLength = 360}) {
+    if (message.length <= maxLength) return message;
+    return '${message.substring(0, maxLength)}…';
   }
 
   static Future<File?> pickImage() async {
