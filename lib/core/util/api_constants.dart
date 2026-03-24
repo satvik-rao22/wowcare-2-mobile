@@ -24,17 +24,23 @@ class ApiConstants {
 
   /// Single backend base URL - all APIs run on port 9000.
   static const String _host = 'https://qs176zl8-9000.inc1.devtunnels.ms';
-  static const String baseUrl = _host;
+  static const String baseUrl = "https://qs176zl8-8086.inc1.devtunnels.ms";
 
   /// All services use the same base on port 9000.
-  static const String staffBaseUrl = _host;
-  static const String studentBaseUrl = _host;
-  static const String classroomBaseUrl = _host;
+  static const String staffBaseUrl = "https://qs176zl8-8083.inc1.devtunnels.ms";
+  static const String studentBaseUrl = "https://qs176zl8-8085.inc1.devtunnels.ms";
+  static const String classroomBaseUrl = "https://qs176zl8-8082.inc1.devtunnels.ms";
   static const String schoolMs = _host;
 
   /// Attendance service base URL
   static const String attendanceBaseUrl = 'https://wnmrl4rn-8083.inc1.devtunnels.ms/attendance';
   // static const String attendanceBaseUrl = _host;
+
+// https://wnmrl4rn-8086.inc1.devtunnels.ms/   ---> User
+// https://wnmrl4rn-8085.inc1.devtunnels.ms/   ---> Student
+// https://wnmrl4rn-8087.inc1.devtunnels.ms/   ---> Classroom
+// https://wnmrl4rn-8088.inc1.devtunnels.ms/  ---> Staff
+// https://wnmrl4rn-8081.inc1.devtunnels.ms/   ---> School
 
   /// Activity service base URL
   static const String activityBaseUrl =

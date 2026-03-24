@@ -22,6 +22,7 @@ class StudentEntity {
   final String roomName;
   final String photoUuid;
   final List<TagEntity> tags;
+  final String classroomCode;
 
   StudentEntity({
     required this.id,
@@ -31,6 +32,7 @@ class StudentEntity {
     required this.roomName,
     this.photoUuid = '',
     this.tags = const [],
+    this.classroomCode = '',
   });
 
   @override
@@ -56,10 +58,12 @@ class StudentTransferForm extends StatefulWidget {
     super.key,
     required this.students,
     this.refreshCallback,
+    this.classroomNameToCode = const <String, String>{},
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
+  final Map<String, String> classroomNameToCode;
 
   static const String routeName = '/student-transfer-form';
 
@@ -70,12 +74,7 @@ class StudentTransferForm extends StatefulWidget {
 class _StudentTransferFormState extends State<StudentTransferForm> {
   String? selectedClassroom;
   String currentClassroom = '';
-  List<String> availableClassrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C',
-    'Classroom D'
-  ];
+  List<String> availableClassrooms = [];
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
 
@@ -85,8 +84,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     currentStudents = List.from(widget.students);
     if (widget.students.isNotEmpty) {
       currentClassroom = widget.students.first.roomName;
-      // Filter out current classroom from available classrooms
-      availableClassrooms = availableClassrooms
+      availableClassrooms = widget.classroomNameToCode.keys
+          .where((room) => room.trim().isNotEmpty)
+          .toList(growable: false)
           .where((room) => room != currentClassroom)
           .toList();
     }
@@ -174,10 +174,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       return;
     }
 
-    // TODO: wire selectedClassroom (display label) to actual classroomCode.
-    final toClassroomCode = currentStudents
-        .map((s) => s.roomId.toString().trim())
-        .firstWhere((code) => code.isNotEmpty, orElse: () => '');
+    final toClassroomCode = selectedClassroom == null
+        ? ''
+        : (widget.classroomNameToCode[selectedClassroom!] ?? '').trim();
     if (toClassroomCode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

@@ -161,6 +161,7 @@ class ApiPaths {
 
   // Classroom
   static const String classroomAll = '/api/v1/classroom/all';
+  static String classroomByCode(String code) => '/api/v1/classroom/$code';
   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
 
   // Activities

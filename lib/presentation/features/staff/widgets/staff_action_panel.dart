@@ -40,13 +40,38 @@ class StaffActionPanel extends StatefulWidget {
 }
 
 class _StaffActionPanelState extends State<StaffActionPanel> {
-  bool _showAttendancePanel = false;
+  StaffPanelType _current = StaffPanelType.none;
+
+  final Map<String, String> _activityIcons = const {
+    'NAP START': MediaRes.napActivityIcon,
+    'NAP END': MediaRes.napActivityIcon,
+    'BATHROOM': MediaRes.bathroomActivityIcon,
+    'BOTTLE': MediaRes.bottleActivityIcon,
+    'MEAL': MediaRes.mealActivityIcon,
+    'INCIDENT': MediaRes.incidentActivityIcon,
+    'PHOTO': MediaRes.photoVideoActivityIcon,
+    'MEDICATION': MediaRes.medicationActivityIcon,
+    'NOTES': MediaRes.notesActivityIcon,
+    'OUTDOOR': MediaRes.outdoorActivityIcon,
+    'LEARNING': MediaRes.learningActivityIcon,
+  };
 
   void _toggleAttendancePanel() {
     setState(() {
-      _showAttendancePanel = !_showAttendancePanel;
+      _current = _current == StaffPanelType.attendance
+          ? StaffPanelType.none
+          : StaffPanelType.attendance;
     });
     widget.onAttendanceTap?.call();
+  }
+
+  void _toggleActivitiesPanel() {
+    setState(() {
+      _current = _current == StaffPanelType.activities
+          ? StaffPanelType.none
+          : StaffPanelType.activities;
+    });
+    widget.onActivitiesTap?.call();
   }
 
   @override
@@ -54,15 +79,20 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_showAttendancePanel)
+        if (_current != StaffPanelType.none)
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: _AttendanceOptionsPanel(
-              onSignIn: widget.onSignIn,
-              onSignOut: widget.onSignOut,
-              onTransfer: widget.onTransfer,
-              onAbsent: widget.onAbsent,
-            ),
+            child: _current == StaffPanelType.attendance
+                ? _AttendanceOptionsPanel(
+                    onSignIn: widget.onSignIn,
+                    onSignOut: widget.onSignOut,
+                    onTransfer: widget.onTransfer,
+                    onAbsent: widget.onAbsent,
+                  )
+                : _ActivitiesOptionsPanel(
+                    activityIcons: _activityIcons,
+                    onAnyActivityTap: widget.onActivitiesTap,
+                  ),
           ),
         Stack(
           alignment: Alignment.bottomCenter,
@@ -86,7 +116,14 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                       svgPath: MediaRes.attendance_panel_icon,
                       label: 'Attendance',
                       onTap: _toggleAttendancePanel,
-                      isSelected: _showAttendancePanel,
+                      isSelected: _current == StaffPanelType.attendance,
+                    ),
+                    const SizedBox(height: 20),
+                    _ActionButton(
+                      svgPath: MediaRes.activity_panel_icon,
+                      label: 'Activities',
+                      onTap: _toggleActivitiesPanel,
+                      isSelected: _current == StaffPanelType.activities,
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(
@@ -125,7 +162,7 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () {
-                      setState(() => _showAttendancePanel = false);
+                    setState(() => _current = StaffPanelType.none);
                       widget.onClearSelections?.call();
                     },
                     customBorder: const CircleBorder(),
@@ -209,6 +246,57 @@ class _AttendanceOptionsPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ActivitiesOptionsPanel extends StatelessWidget {
+  const _ActivitiesOptionsPanel({
+    required this.activityIcons,
+    this.onAnyActivityTap,
+  });
+
+  final Map<String, String> activityIcons;
+  final VoidCallback? onAnyActivityTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = activityIcons.entries.toList();
+    return Container(
+      width: 70,
+      constraints: const BoxConstraints(maxHeight: 400),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        controller: ScrollController(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (int i = 0; i < items.length; i++) ...[
+              _ActivityPngItem(
+                pngPath: items[i].value,
+                label: _format(items[i].key),
+                onTap: onAnyActivityTap,
+              ),
+              if (i < items.length - 1) const SizedBox(height: 5),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _format(String upper) =>
+      upper.substring(0, 1) + upper.substring(1).toLowerCase();
 }
 
 class _AttendanceActionItem extends StatelessWidget {
@@ -311,6 +399,42 @@ class _ActionButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ActivityPngItem extends StatelessWidget {
+  const _ActivityPngItem({
+    required this.pngPath,
+    required this.label,
+    this.onTap,
+  });
+  final String pngPath;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Image.asset(pngPath, scale: 3.5),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Manrope',
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
       ),
     );
   }

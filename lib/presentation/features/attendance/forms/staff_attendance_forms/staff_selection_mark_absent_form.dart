@@ -17,7 +17,9 @@ import 'staff_mark_absent_form.dart';
 class StaffSelectionMarkAbsentForm extends StatefulWidget {
   static const String routeName = '/staff-selection-mark-absent-form';
 
-  const StaffSelectionMarkAbsentForm({super.key});
+  const StaffSelectionMarkAbsentForm({super.key, this.initialStaffCodes});
+
+  final Set<String>? initialStaffCodes;
 
   @override
   State<StaffSelectionMarkAbsentForm> createState() =>
@@ -192,6 +194,15 @@ class _StaffSelectionMarkAbsentFormState
         _filteredStaff = List.from(staffList);
         _isLoading = false;
       });
+
+      // Preselect based on initial staff codes if provided
+      if (widget.initialStaffCodes != null &&
+          widget.initialStaffCodes!.isNotEmpty) {
+        selectedStaff = _allStaff
+            .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
+            .toSet();
+        _filterStaff();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {

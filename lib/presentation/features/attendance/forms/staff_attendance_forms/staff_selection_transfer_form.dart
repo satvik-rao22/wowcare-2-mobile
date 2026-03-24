@@ -15,9 +15,11 @@ import 'staff_entity.dart';
 import 'staff_transfer_form.dart';
 
 class StaffSelectionTransferForm extends StatefulWidget {
-  const StaffSelectionTransferForm({super.key});
+  const StaffSelectionTransferForm({super.key, this.initialStaffCodes});
 
   static const String routeName = '/staff-selection-transfer-form';
+
+  final Set<String>? initialStaffCodes;
 
   @override
   State<StaffSelectionTransferForm> createState() =>
@@ -110,6 +112,14 @@ class _StaffSelectionTransferFormState
           staffCode: item.staffCode,
         );
       }).toList();
+
+      // Preselect based on initial staff codes if provided
+      if (widget.initialStaffCodes != null &&
+          widget.initialStaffCodes!.isNotEmpty) {
+        selectedStaff = staffList
+            .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
+            .toSet();
+      }
 
       setState(() {
         _filteredStaff = List.from(staffList);

@@ -26,6 +26,7 @@ import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -284,6 +285,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetActiveClassroomsUseCase>(
     () => GetActiveClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetClassroomByCodeUseCase>(
+    () => GetClassroomByCodeUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),

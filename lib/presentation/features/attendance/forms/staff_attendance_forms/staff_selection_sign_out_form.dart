@@ -17,7 +17,9 @@ import 'staff_sign_out_form.dart';
 class StaffSelectionSignOutForm extends StatefulWidget {
   static const String routeName = '/staff-selection-sign-out-form';
 
-  const StaffSelectionSignOutForm({super.key});
+  const StaffSelectionSignOutForm({super.key, this.initialStaffCodes});
+
+  final Set<String>? initialStaffCodes;
 
   @override
   State<StaffSelectionSignOutForm> createState() =>
@@ -110,6 +112,14 @@ class _StaffSelectionSignOutFormState
           staffCode: item.staffCode,
         );
       }).toList();
+
+      // Preselect based on initial staff codes if provided
+      if (widget.initialStaffCodes != null &&
+          widget.initialStaffCodes!.isNotEmpty) {
+        selectedStaff = staffList
+            .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
+            .toSet();
+      }
 
       setState(() {
         _filteredStaff = List.from(staffList);

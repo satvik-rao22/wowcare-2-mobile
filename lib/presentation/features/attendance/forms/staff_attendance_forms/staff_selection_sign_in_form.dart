@@ -19,7 +19,10 @@ class StaffSelectionSignInForm extends StatefulWidget {
 
   const StaffSelectionSignInForm({
     super.key,
+    this.initialStaffCodes,
   });
+
+  final Set<String>? initialStaffCodes;
 
   @override
   State<StaffSelectionSignInForm> createState() =>
@@ -110,6 +113,14 @@ class _StaffSelectionSignInFormState
           staffCode: item.staffCode,
         );
       }).toList();
+
+      // Preselect staff based on initial staff codes if provided
+      if (widget.initialStaffCodes != null &&
+          widget.initialStaffCodes!.isNotEmpty) {
+        selectedStaff = staffList
+            .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
+            .toSet();
+      }
 
       setState(() {
         _filteredStaff = List.from(staffList);

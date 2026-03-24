@@ -22,6 +22,10 @@ import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.da
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -846,6 +850,50 @@ class _StaffScreenState extends State<StaffScreen> {
                           );
                       }
                     : null,
+                onSignIn: () {
+                  final initialCodes = Set<String>.from(_selectedStaffCodes);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StaffSelectionSignInForm(
+                        initialStaffCodes: initialCodes,
+                      ),
+                    ),
+                  );
+                },
+                onSignOut: () {
+                  final initialCodes = Set<String>.from(_selectedStaffCodes);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StaffSelectionSignOutForm(
+                        initialStaffCodes: initialCodes,
+                      ),
+                    ),
+                  );
+                },
+                onTransfer: () {
+                  final initialCodes = Set<String>.from(_selectedStaffCodes);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StaffSelectionTransferForm(
+                        initialStaffCodes: initialCodes,
+                      ),
+                    ),
+                  );
+                },
+                onAbsent: () {
+                  final initialCodes = Set<String>.from(_selectedStaffCodes);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StaffSelectionMarkAbsentForm(
+                        initialStaffCodes: initialCodes,
+                      ),
+                    ),
+                  );
+                },
                 onClearSelections: () {
                   setState(() {
                     _selectAll = false;

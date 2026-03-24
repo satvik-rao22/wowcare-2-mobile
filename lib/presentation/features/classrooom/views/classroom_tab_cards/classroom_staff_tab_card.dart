@@ -5,12 +5,17 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
 
 class Staff {
   const Staff({
@@ -64,6 +69,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   FilterData? _currentFilterData;
   List<String> _selectedStatusList = [];
   List<String> _selectedAttendanceStatusList = [];
+  StaffPanelType _currentPanel = StaffPanelType.none;
 
   final List<String> designations = const [
     'Director',
@@ -220,6 +226,13 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       } else {
         return _filteredStaff;
       }
+  }
+
+  Set<String> _getSelectedStaffCodes() {
+    return staffSelections.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toSet();
   }
 
   void _clearAllSelections() {
@@ -456,7 +469,83 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                 ),
               ],
             ),
-            // FAB handled at screen level for tab-aware visibility
+            if (_getSelectedStaffCodes().isNotEmpty)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: StaffActionPanel(
+                  currentPanel: _currentPanel,
+                  onAttendanceTap: () {
+                    setState(() {
+                      _currentPanel = _currentPanel == StaffPanelType.attendance
+                          ? StaffPanelType.none
+                          : StaffPanelType.attendance;
+                    });
+                  },
+                  onActivitiesTap: () {
+                    setState(() {
+                      _currentPanel = _currentPanel == StaffPanelType.activities
+                          ? StaffPanelType.none
+                          : StaffPanelType.activities;
+                    });
+                  },
+                  onMessageTap: () {},
+                  onProfileTap: null,
+                  onSignIn: () {
+                    final selectedCodes = _getSelectedStaffCodes();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StaffSelectionSignInForm(
+                          initialStaffCodes: selectedCodes,
+                        ),
+                      ),
+                    );
+                  },
+                  onSignOut: () {
+                    final selectedCodes = _getSelectedStaffCodes();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StaffSelectionSignOutForm(
+                          initialStaffCodes: selectedCodes,
+                        ),
+                      ),
+                    );
+                  },
+                  onTransfer: () {
+                    final selectedCodes = _getSelectedStaffCodes();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StaffSelectionTransferForm(
+                          initialStaffCodes: selectedCodes,
+                        ),
+                      ),
+                    );
+                  },
+                  onAbsent: () {
+                    final selectedCodes = _getSelectedStaffCodes();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StaffSelectionMarkAbsentForm(
+                          initialStaffCodes: selectedCodes,
+                        ),
+                      ),
+                    );
+                  },
+                  onClearSelections: () {
+                    setState(() {
+                      isSelectAllChecked = false;
+                      staffSelections.updateAll((key, val) => false);
+                      _currentPanel = StaffPanelType.none;
+                    });
+                  },
+                  isProfileEnabled: false,
+                  activitiesEnabled: _getSelectedStaffCodes().isNotEmpty,
+                ),
+              ),
           ],
         ),
       ),
