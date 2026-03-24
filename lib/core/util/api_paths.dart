@@ -56,9 +56,6 @@ class ApiPaths {
   static String get organizationNames =>
       v1(ApiMicroservices.user, 'organizations/names');
 
-  static String get schools => v1(ApiMicroservices.school, 'schools');
-  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
-
   /// School-wide regular schedule (operating hours per weekday).
   /// Actual: GET /api/v1/organization/school/{schoolCode}/regular-schedule
   static String schoolRegularSchedule(String schoolCode) => v1(
