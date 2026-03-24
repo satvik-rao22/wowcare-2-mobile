@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -231,11 +232,10 @@ class _StudentSelectionMarkAbsentFormState
 
   void _handleNext() {
     if (selectedStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one student'),
-          backgroundColor: AppColors.warningColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one student',
+        isWarning: true,
       );
       return;
     } else {

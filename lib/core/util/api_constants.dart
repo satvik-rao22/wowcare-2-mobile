@@ -63,14 +63,21 @@ abstract final class ApiMicroservices {
 class ApiConstants {
   ApiConstants._();
 
-  /// UAT — https://uat-wowcare.childcarewow.app
-  static const String _host = 'https://uat-wowcare.childcarewow.app';
-  static const String baseUrl = _host;
+  // /// UAT — https://uat-wowcare.childcarewow.app
+  // static const String _host = 'https://uat-wowcare.childcarewow.app';
+  // static const String baseUrl = _host;
+  //
+  // static const String staffBaseUrl = _host;
+  // static const String studentBaseUrl = _host;
+  // static const String classroomBaseUrl = _host;
+  // static const String schoolMs = _host;
 
-  static const String staffBaseUrl = _host;
-  static const String studentBaseUrl = _host;
-  static const String classroomBaseUrl = _host;
-  static const String schoolMs = _host;
+  /// Dev tunnels (per microservice) — switch back to UAT block above when done.
+  static const String baseUrl = 'https://wnmrl4rn-8086.inc1.devtunnels.ms';
+  static const String studentBaseUrl = 'https://wnmrl4rn-8085.inc1.devtunnels.ms';
+  static const String classroomBaseUrl = 'https://wnmrl4rn-8087.inc1.devtunnels.ms';
+  static const String staffBaseUrl = 'https://wnmrl4rn-8088.inc1.devtunnels.ms';
+  static const String schoolMs = 'https://wnmrl4rn-8081.inc1.devtunnels.ms';
 
   /// Attendance service base URL
   static const String attendanceBaseUrl =

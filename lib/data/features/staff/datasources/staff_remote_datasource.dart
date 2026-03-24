@@ -1,6 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_headers.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import '../models/staff_models.dart';
 import '../models/staff_count_models.dart';
 import '../models/staff_document_models.dart';
@@ -464,19 +468,25 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String organizationCode,
     required String schoolCode,
   }) async {
-    // UAT/web contract: GET /api/v1/staff/staff/code (two "staff" segments).
-    // Use [pathSegments] so the path cannot collapse to .../staff/code.
-    final base = Uri.parse(ApiConstants.staffBaseUrl.trim());
-    final endpoint = base.replace(
-      pathSegments: <String>['api', 'v1', 'staff', 'staff', 'code'],
+    final endpoint = ApiPaths.url(
+      ApiPaths.staffCodeByUser,
+      microserviceKey: ApiMicroservices.staff,
+    );
+    final token =
+        (await serviceLocator<StorageService>().getString(StorageKeys.accessToken) ??
+                '')
+            .trim();
+    final response = await _client.get<dynamic>(
+      endpoint,
       queryParameters: <String, String>{
         'userCode': userCode,
         'organizationCode': organizationCode,
         'schoolCode': schoolCode,
       },
-    ).toString();
-
-    final response = await _client.get<dynamic>(endpoint);
+      options: token.isNotEmpty
+          ? Options(headers: ApiHeaders.authorizedJson(token))
+          : null,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff code API response format');

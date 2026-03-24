@@ -44,7 +44,7 @@ class StorageKeys {
 
   // Temporary default until school selection is fully wired
   // static const String defaultOrganizationCode = 'ORG_FA144927-1';
-  // static const String defaultSchoolCode = 'SCH_8A889124-7';
+  // static const String defaultSchoolCode = '';
 }
 
 

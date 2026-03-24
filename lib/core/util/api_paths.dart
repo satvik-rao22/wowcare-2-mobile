@@ -1,38 +1,116 @@
 import 'api_constants.dart';
 
-/// All REST paths use `/api/v1/{microservice}/…` where [microservice] matches
-/// [ApiMicroservices]. Use [url] / [urlWithBase] to attach the correct host from
-/// [ApiConstants.baseUrlForMicroservice] — no per-call base selection elsewhere.
+/// REST paths are built with [v1]. When [includeMicroserviceSegmentInPath] is true
+/// (default), paths are `/api/v1/{microservice}/…`. When false, `/api/v1/{tail}` only
+/// (no microservice segment). Use [url] / [urlWithBase] for the host from
+/// [ApiConstants.baseUrlForMicroservice]. Pass [microserviceKey] to [url] if host
+/// selection is wrong for a custom compact path.
 class ApiPaths {
   ApiPaths._();
 
-  /// `/api/v1/{ms}` or `/api/v1/{ms}/{tail}`.
+  /// If true (default), [v1] yields `/api/v1/{microservice}/…`. If false, yields
+  /// `/api/v1/{tail}` (empty [tail] still uses `/api/v1/{microservice}`).
+  static bool includeMicroserviceSegmentInPath = false;
+
+  static const Set<String> _knownMicroserviceKeys = {
+    ApiMicroservices.user,
+    ApiMicroservices.organization,
+    ApiMicroservices.school,
+    ApiMicroservices.staff,
+    ApiMicroservices.student,
+    ApiMicroservices.classroom,
+    ApiMicroservices.attendance,
+    ApiMicroservices.activity,
+  };
+
+  /// `/api/v1/{ms}` or `/api/v1/{ms}/{tail}` when [includeMicroserviceSegmentInPath];
+  /// otherwise `/api/v1/{ms}` or `/api/v1/{tail}`.
   static String v1(String microservice, [String tail = '']) {
     if (tail.isEmpty) return '/api/v1/$microservice';
     final t = tail.startsWith('/') ? tail.substring(1) : tail;
-    return '/api/v1/$microservice/$t';
+    if (includeMicroserviceSegmentInPath) {
+      return '/api/v1/$microservice/$t';
+    }
+    return '/api/v1/$t';
   }
 
-  /// Returns the microservice key from [path] (`/api/v1/{key}/…`), or [user].
-  static String microserviceKeyFromPath(String path) {
+  /// Host routing key for [path]. With compact paths ([includeMicroserviceSegmentInPath]
+  /// false), uses the first segment after `/api/v1/` when it matches [ApiMicroservices],
+  /// else [microserviceFromCompactResourcePrefix]. [microserviceKey] overrides parsing.
+  static String microserviceKeyFromPath(
+    String path, {
+    String? microserviceKey,
+  }) {
+    if (microserviceKey != null) return microserviceKey;
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length >= 3 && parts[0] == 'api' && parts[1] == 'v1') {
-      return parts[2];
+    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
+      return ApiMicroservices.user;
     }
-    return ApiMicroservices.user;
+    final seg2 = parts[2];
+    if (includeMicroserviceSegmentInPath) {
+      return seg2;
+    }
+    if (_knownMicroserviceKeys.contains(seg2)) return seg2;
+    return _microserviceFromCompactResourcePrefix(seg2);
+  }
+
+  static String _microserviceFromCompactResourcePrefix(String firstSegment) {
+    switch (firstSegment) {
+      case 'auth':
+      case 'users':
+      case 'organizations':
+      case 'school-users':
+      case 'physicians':
+      case 'guardian':
+      case 'guardian-user':
+      case 'tags':
+      case 'pickup':
+        return ApiMicroservices.user;
+      case 'schools':
+        return ApiMicroservices.school;
+      case 'school':
+        return ApiMicroservices.organization;
+      case 'staff-classrooms':
+      case 'staff-documents':
+      case 'staff-dates':
+      case 'staff-address':
+      case 'staff-schedules':
+      case 'my-profile':
+        return ApiMicroservices.staff;
+      case 'student-classroom':
+      case 'student-documents':
+      case 'regular-schedules':
+      case 'student-tags':
+        return ApiMicroservices.student;
+      case 'student-attendance':
+      case 'student-absence-records':
+      case 'staff-attendance':
+        return ApiMicroservices.attendance;
+      case 'classrooms':
+      case 'activities':
+      case 'activity-types':
+        return ApiMicroservices.activity;
+      default:
+        return ApiMicroservices.user;
+    }
   }
 
   /// Full URL: host from [ApiConstants.baseUrlForMicroservice] + [path].
-  static String url(String path) {
+  static String url(String path, {String? microserviceKey}) {
     final p = path.startsWith('/') ? path : '/$path';
-    final ms = microserviceKeyFromPath(p);
+    final ms = microserviceKeyFromPath(p, microserviceKey: microserviceKey);
     return '${ApiConstants.baseUrlForMicroservice(ms)}$p';
   }
 
   /// Same as [url]; the [baseUrl] argument is ignored (kept so existing call sites
-  /// keep compiling — routing is driven only by `/api/v1/{ms}/` in [path]).
-  static String urlWithBase(String path, String baseUrl) => url(path);
+  /// keep compiling). Optional [microserviceKey] overrides host detection for [path].
+  static String urlWithBase(
+    String path,
+    String baseUrl, {
+    String? microserviceKey,
+  }) =>
+      url(path, microserviceKey: microserviceKey);
 
   // —— Auth (user MS) ——
   static String get authLogin => v1(ApiMicroservices.user, 'auth/login');

@@ -355,7 +355,6 @@
 
 
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -371,6 +370,7 @@ class CoreUtils {
 
   static String? _lastOnScreenErrorMessage;
   static DateTime? _lastOnScreenErrorAt;
+  static OverlayEntry? _activeTopBannerEntry;
 
   /// Log API or application errors and optionally surface them in a top banner.
   ///
@@ -440,108 +440,85 @@ class CoreUtils {
     );
   }
 
+  /// Same top overlay as [showTopSnackBar], themed with [ColorScheme.primary] by default.
+  /// [hasBottomNavigationBar] is ignored (kept for call-site compatibility).
   static void showSnackBar(
     BuildContext context,
     String message, {
     Color? backgroundColor,
     bool hasBottomNavigationBar = false,
   }) {
-    double bottomMargin = hasBottomNavigationBar
-        ? 20 + MediaQuery.of(context).padding.bottom
-        : 50;
-
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 5,
-            ),
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor:
-              backgroundColor ?? Theme.of(context).colorScheme.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          margin: EdgeInsets.only(
-            left: 10,
-            right: 10,
-            bottom: bottomMargin,
-          ),
-        ),
-      );
+    if (context is Element && !context.mounted) return;
+    final bg = backgroundColor ?? Theme.of(context).colorScheme.primary;
+    final onBg =
+        ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
+            ? Colors.white
+            : Colors.black87;
+    _showTopOverlayBanner(
+      context: context,
+      message: message,
+      backgroundColor: bg,
+      borderColor: bg.withOpacity(0.85),
+      contentColor: onBg,
+      icon: Icons.info_outline_rounded,
+      duration: const Duration(seconds: 2),
+    );
   }
 
-  static void showTopSnackBar({
+  static OverlayState? _overlayForBanner(BuildContext context) {
+    var overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay != null) return overlay;
+    overlay = rootNavigatorKey.currentState?.overlay;
+    if (overlay != null) return overlay;
+    final root = rootNavigatorKey.currentContext;
+    if (root != null) {
+      overlay = Overlay.maybeOf(root, rootOverlay: true);
+      if (overlay != null) return overlay;
+    }
+    return null;
+  }
+
+  static void _showTopOverlayBanner({
     required BuildContext context,
     required String message,
-    bool isError = false,
-    bool isWarning = false,
-    bool isSuccess = false,
-    bool isAdjust = false,
+    required Color backgroundColor,
+    required Color borderColor,
+    required Color contentColor,
+    required IconData icon,
     Duration duration = const Duration(seconds: 2),
   }) {
-    // Don't attempt to show UI from a disposed context.
     if (context is Element && !context.mounted) return;
 
-    const Color successColor = Color.fromRGBO(21, 133, 49, 1);
-    const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
-
-    final backgroundColor = isError
-        ? Colors.red.shade50
-        : isWarning
-            ? Colors.orange.shade50
-            : isSuccess
-                ? successBackgroundColor
-                : Colors.black;
-    final contentColor = isError
-        ? Colors.red
-        : isWarning
-            ? Colors.orange
-            : isSuccess
-                ? successColor
-                : Colors.black;
-
-    // Use the root overlay so messages remain visible even if the current route
-    // is popped (e.g., user taps "Skip" and navigation happens immediately).
-    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    final overlay = _overlayForBanner(context);
     if (overlay == null) {
-      // Fallback: use ScaffoldMessenger if no Overlay is available.
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      messenger
-        ..removeCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: backgroundColor,
-            duration: duration,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      // Avoid fallback floating SnackBar (can be laid out off-screen and crash).
+      // If no overlay is currently available, skip this frame.
       return;
     }
+
     final mediaQuery = MediaQuery.of(context);
     final topInset = mediaQuery.padding.top;
+    final bottomInset = mediaQuery.padding.bottom;
     final leftInset = mediaQuery.padding.left;
     final rightInset = mediaQuery.padding.right;
-    const horizontalMargin = 16.0;
-    // Push the banner clearly below the status bar so it never "sticks" to
-    // the very top edge of the device (as in the screenshot the user shared).
+    final screenHeight = mediaQuery.size.height;
+    // Keep the banner within the visible screen area (no overflow below screen).
+    // We don't use hardcoded max-height; we constrain to the remaining space.
     const extraTopMargin = 20.0;
+    final availableHeight =
+        screenHeight - topInset - extraTopMargin - bottomInset - 16;
+    final bannerMaxHeight = availableHeight > 0 ? availableHeight : 0.0;
+    const horizontalMargin = 16.0;
 
-    late OverlayEntry overlayEntry;
+    // Ensure only one banner is visible at a time (prevents "double banners"
+    // when multiple events fire back-to-back during login/navigation).
+    if (_activeTopBannerEntry?.mounted == true) {
+      _activeTopBannerEntry!.remove();
+    }
+
+    late final OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
+      builder: (ctx) => Positioned(
         top: topInset + extraTopMargin,
         left: leftInset + horizontalMargin,
         right: rightInset + horizontalMargin,
@@ -551,7 +528,10 @@ class CoreUtils {
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 340),
+              constraints: BoxConstraints(
+                maxWidth: 340,
+                maxHeight: bannerMaxHeight,
+              ),
               child: Material(
                 color: Colors.transparent,
                 child: Container(
@@ -560,15 +540,7 @@ class CoreUtils {
                   decoration: BoxDecoration(
                     color: backgroundColor,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isError
-                          ? Colors.red.shade100
-                          : isWarning
-                              ? Colors.orange.shade100
-                              : isSuccess
-                                  ? successBackgroundColor
-                                  : Colors.black,
-                    ),
+                    border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
@@ -580,30 +552,19 @@ class CoreUtils {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        isError || isWarning ? Icons.error : Icons.check,
-                        color: contentColor,
-                        size: 20,
-                      ),
+                      Icon(icon, color: contentColor, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: RichText(
-                          text: TextSpan(
+                        child: SingleChildScrollView(
+                          // If the message is too large, allow scrolling inside
+                          // the banner so it never goes under the screen.
+                          child: Text(
+                            message,
                             style: TextStyle(
                               color: contentColor,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
-                            children: [
-                              TextSpan(
-                                text: message,
-                                style: TextStyle(
-                                  color: contentColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ),
@@ -618,12 +579,68 @@ class CoreUtils {
     );
 
     overlay.insert(overlayEntry);
+    _activeTopBannerEntry = overlayEntry;
 
     Future.delayed(duration, () {
-      if (overlayEntry.mounted) {
+      if (_activeTopBannerEntry == overlayEntry && overlayEntry.mounted) {
         overlayEntry.remove();
       }
+      if (_activeTopBannerEntry == overlayEntry) {
+        _activeTopBannerEntry = null;
+      }
     });
+  }
+
+  static void showTopSnackBar({
+    required BuildContext context,
+    required String message,
+    bool isError = false,
+    bool isWarning = false,
+    bool isSuccess = false,
+    bool isAdjust = false,
+    Duration duration = const Duration(seconds: 2),
+  }) {
+    if (context is Element && !context.mounted) return;
+
+    const Color successColor = Color.fromRGBO(21, 133, 49, 1);
+    const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
+
+    final backgroundColor = isError
+        ? Colors.red.shade50
+        : isWarning
+            ? Colors.orange.shade50
+            : isSuccess
+                ? successBackgroundColor
+                : Colors.grey.shade200;
+    final contentColor = isError
+        ? Colors.red
+        : isWarning
+            ? Colors.orange
+            : isSuccess
+                ? successColor
+                : Colors.black87;
+    final borderColor = isError
+        ? Colors.red.shade100
+        : isWarning
+            ? Colors.orange.shade100
+            : isSuccess
+                ? successBackgroundColor
+                : Colors.grey.shade400;
+    final icon = isError || isWarning
+        ? Icons.error_outline_rounded
+        : isSuccess
+            ? Icons.check_circle_outline_rounded
+            : Icons.info_outline_rounded;
+
+    _showTopOverlayBanner(
+      context: context,
+      message: message,
+      backgroundColor: backgroundColor,
+      borderColor: borderColor,
+      contentColor: contentColor,
+      icon: icon,
+      duration: duration,
+    );
   }
 
   static String formatPhoneNumber(String phoneNumber) {

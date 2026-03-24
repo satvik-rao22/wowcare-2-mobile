@@ -29,6 +29,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
@@ -519,12 +520,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
                                     if (student.attendanceRecordCode == null ||
                                         student.attendanceRecordCode!.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message:
                                             'Unable to delete: missing attendance record code.',
-                                          ),
-                                        ),
+                                        isError: true,
                                       );
                                       return;
                                     }
@@ -539,13 +539,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                               .trim();
 
                                       if (staffCode.isEmpty) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
+                                        CoreUtils.showTopSnackBar(
+                                          context: context,
+                                          message:
                                               'Unable to delete: staffCode not available.',
-                                            ),
-                                          ),
+                                          isError: true,
                                         );
                                         return;
                                       }
@@ -564,22 +562,19 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                         },
                                       );
 
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Attendance deleted'),
-                                        ),
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: 'Attendance deleted',
+                                        isSuccess: true,
                                       );
 
                                       _loadAttendanceData(reset: true);
                                     } catch (e) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message:
                                             'Failed to delete attendance: $e',
-                                          ),
-                                        ),
+                                        isError: true,
                                       );
                                     }
                                   },

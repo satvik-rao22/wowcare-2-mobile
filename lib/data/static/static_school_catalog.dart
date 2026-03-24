@@ -12,7 +12,7 @@ const List<Map<String, String>> kStaticSchoolCatalog = <Map<String, String>>[
   // Example:
   // <String, String>{
   //   'organizationCode': '*',
-  //   'schoolCode': 'SCH_XXXX',
+  //   'schoolCode': 'SCHOOL_CODE',
   //   'schoolName': 'My Demo School',
   // },
 ];

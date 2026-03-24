@@ -360,7 +360,7 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 // // }
 // const bool kBypassLogin = true;
 // const String kBypassOrganizationCode = 'ORG_49C7E2C8-8';
-// const String kBypassSchoolCode = 'SCH_EE387C14-9';
+// const String kBypassSchoolCode = '';
 // const String kBypassStaffCode = 'STF_C7899FBB-3';
 
 // Future<void> main() async {

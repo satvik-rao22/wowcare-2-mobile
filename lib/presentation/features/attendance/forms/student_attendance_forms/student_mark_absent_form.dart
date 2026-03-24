@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -143,11 +141,10 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     if (_isSubmitting) return;
 
     if (currentStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one student'),
-          backgroundColor: AppColors.warningColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one student',
+        isWarning: true,
       );
       return;
     }
@@ -155,11 +152,10 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
-          backgroundColor: AppColors.warningColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve staffCode. Please re-login.',
+        isWarning: true,
       );
       return;
     }
@@ -170,11 +166,10 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       (s) => s.classroomCode.trim() != classroomCode,
     );
     if (classroomCode.isEmpty || hasMixedClassrooms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select students from the same classroom'),
-          backgroundColor: AppColors.warningColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select students from the same classroom',
+        isWarning: true,
       );
       return;
     }
@@ -190,11 +185,10 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         .where((c) => c.isNotEmpty)
         .toList();
     if (studentCodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Student code missing for selected students'),
-          backgroundColor: AppColors.warningColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Student code missing for selected students',
+        isWarning: true,
       );
       return;
     }
@@ -225,21 +219,20 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message.isNotEmpty ? message : 'Marked Absent successfully'),
-          backgroundColor: AppColors.successColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            message.isNotEmpty ? message : 'Marked Absent successfully',
+        isSuccess: true,
       );
       Navigator.pop(context);
       widget.refreshCallback?.call();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: AppColors.warningColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: e.toString(),
+        isError: true,
       );
     } finally {
       if (!mounted) return;

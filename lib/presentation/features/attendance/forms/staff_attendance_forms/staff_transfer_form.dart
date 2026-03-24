@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -40,21 +41,19 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
   void _handleSubmit() {
     if (selectedClassroom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a classroom to transfer to'),
-          backgroundColor: AppColors.warningColor,
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select a classroom to transfer to',
+        isWarning: true,
       );
       return;
     }
 
     // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transferred successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Transferred successfully',
+      isSuccess: true,
     );
     Navigator.pop(context);
   }

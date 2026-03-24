@@ -13,10 +13,10 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
 
 // Dummy data model for UI-only implementation
@@ -357,12 +357,11 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                             }
 
                             if (start.isAfter(end)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text(
-                                      'Start date cannot be after end date'),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
+                              CoreUtils.showTopSnackBar(
+                                context: context,
+                                message:
+                                    'Start date cannot be after end date',
+                                isError: true,
                               );
                               return;
                             }

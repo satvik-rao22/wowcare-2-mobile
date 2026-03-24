@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
@@ -459,10 +460,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                   type: 'attendance',
                   onDelete: () {
                     Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Attendance deleted'),
-                      ),
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Attendance deleted',
+                      isSuccess: true,
                     );
                   },
                   onCancel: () {
