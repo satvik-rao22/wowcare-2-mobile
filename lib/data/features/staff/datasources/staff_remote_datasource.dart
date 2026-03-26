@@ -178,6 +178,21 @@ abstract class StaffRemoteDataSource {
     required String role,
   });
 
+  /// Deactivates an organization admin via
+  /// `/api/v1/organization-admins/deactivate`.
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
+  /// Activates an organization admin via
+  /// `POST /api/v1/user/organization-admins/activate` with query params
+  /// `userCode` and `organizationCode`.
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
   /// Activates a school user via `/api/v1/school-users/activate`.
   Future<String> activateSchoolUser({
     required String userCode,
@@ -502,22 +517,83 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String staffCode,
     required Map<String, dynamic> body,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffProfilePath(staffCode),
+    // PATCH API routes differ from GET:
+    // - PATCH core staff profile: `/api/v1/staff/{staffCode}/profile`
+    // - PATCH classrooms separately:
+    //   `/api/v1/staff/staff-classrooms/{staffCode}/allowed-classrooms`
+    //   `/api/v1/staff/staff-classrooms/{staffCode}/primary-classroom`
+
+    final allowedCodes =
+        (body['allowedClassroomCodes'] as List<dynamic>?)?.cast<String>();
+    final primaryCode = (body['primaryClassroomCode'] as String?);
+
+    // Keep only core fields for the main profile patch.
+    final coreBody = <String, dynamic>{...body};
+    coreBody.remove('allowedClassroomCodes');
+    coreBody.remove('primaryClassroomCode');
+
+    final coreEndpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffProfileByCodePath(staffCode),
       ApiConstants.staffBaseUrl,
     );
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: body,
+    final coreResponse = await _client.patch<dynamic>(
+      coreEndpoint,
+      data: coreBody,
     );
 
-    if (response.data is! Map<String, dynamic>) {
+    if (coreResponse.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff profile update API response format');
     }
 
-    final data = response.data! as Map<String, dynamic>;
-    return data['message']?.toString() ?? 'Profile updated successfully';
+    final coreData = coreResponse.data! as Map<String, dynamic>;
+    final coreMessage =
+        coreData['message']?.toString() ?? 'Profile updated successfully';
+
+    // Update allowed classrooms (if provided).
+    if (allowedCodes != null) {
+      final allowedEndpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffAllowedClassroomsByStaffCodePath(staffCode),
+        ApiConstants.staffBaseUrl,
+      );
+      // Backend schema for this PATCH appears to differ from GET:
+      // to be safe, send both the legacy `allowedClassroomCodes` list and
+      // the richer `allowedClassrooms` objects.
+      final allowedClassroomsObjects = allowedCodes
+          .map((c) => <String, dynamic>{
+                'code': c,
+                'name': c,
+              })
+          .toList();
+      await _client.patch<dynamic>(
+        allowedEndpoint,
+        data: <String, dynamic>{
+          // Backend validation appears to use a different field name than our
+          // staff profile model. Send both to be compatible.
+          'classroomCodes': allowedCodes,
+          'allowedClassroomCodes': allowedCodes,
+          'allowedClassrooms': allowedClassroomsObjects,
+        },
+      );
+    }
+
+    // Update primary classroom (if provided).
+    if (primaryCode != null) {
+      final primaryEndpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffPrimaryClassroomByStaffCodePath(staffCode),
+        ApiConstants.staffBaseUrl,
+      );
+      await _client.patch<dynamic>(
+        primaryEndpoint,
+        data: <String, dynamic>{
+          // Backend validation uses `classroomCode` for primary classroom PATCH.
+          'classroomCode': primaryCode,
+          'primaryClassroomCode': primaryCode,
+        },
+      );
+    }
+
+    return coreMessage;
   }
 
   @override
@@ -739,6 +815,52 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'User deactivated successfully';
+  }
+
+  @override
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.organizationAdminsDeactivate);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected deactivate organization admin API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Organization admin deactivated successfully';
+  }
+
+  @override
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.organizationAdminsActivate);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected activate organization admin API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Organization admin activated successfully';
   }
 
   @override

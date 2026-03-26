@@ -816,6 +816,38 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final message = await _remoteDataSource.deactivateOrganizationAdmin(
+      userCode: userCode,
+      organizationCode: organizationCode,
+    );
+
+    // For organization-admin deactivation we cannot reliably invalidate
+    // school-scoped caches here because we don't have a `schoolCode` value.
+    // Callers already refresh the visible staff list after the operation.
+    return message;
+  }
+
+  @override
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final message = await _remoteDataSource.activateOrganizationAdmin(
+      userCode: userCode,
+      organizationCode: organizationCode,
+    );
+
+    // For organization-admin activation we cannot reliably invalidate
+    // school-scoped caches here because we don't have a `schoolCode` value.
+    // Callers already refresh the visible staff list after the operation.
+    return message;
+  }
+
+  @override
   Future<String> activateSchoolUser({
     required String userCode,
     required String organizationCode,

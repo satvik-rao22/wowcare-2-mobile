@@ -72,25 +72,28 @@ class ApiPaths {
       v1(ApiMicroservices.staff, 'staff-classrooms/assign-staff');
   /// Staff totals — UAT: **`/api/v1/staff/staff/count`** (not `…/staff/count`, which
   /// resolves as `api/v1/count` on the gateway).
-  static String get staffCount => v1(ApiMicroservices.staff, 'staff/count');
+  // UAT staff count endpoint is `/api/v1/staff/count` (single `staff` segment).
+  static String get staffCount => v1(ApiMicroservices.staff, 'count');
   static String get staffProfile => staffList;
   /// Legacy single-segment path; prefer [staffProfilePath] / [staffMyProfilePinPath] for UAT.
   static String get staffMyProfile =>
       v1(ApiMicroservices.staff, 'my-profile');
 
-  /// GET/PATCH staff profile (my-profile) — **`/api/v1/staff/staff/my-profile/{staffCode}`**
+  /// GET/PATCH staff profile (my-profile) — **`/api/v1/staff/my-profile/{staffCode}`**
   /// For logged-in user's own profile.
   static String staffProfilePath(String staffCode) =>
-      v1(ApiMicroservices.staff, 'staff/my-profile/$staffCode');
+      v1(ApiMicroservices.staff, 'my-profile/$staffCode');
 
-  /// GET staff profile (edit staff) — **`/api/v1/staff/staff/{staffCode}/profile`**
+  /// GET staff profile (edit staff) — **`/api/v1/staff/{staffCode}/profile`**
   /// For viewing/editing another staff member's profile details.
   static String staffProfileByCodePath(String staffCode) =>
-      v1(ApiMicroservices.staff, 'staff/$staffCode/profile');
+      // Microservice is already `staff` (so `/api/v1/staff/…` is added by [v1]).
+      // UAT expects only a single `staff` segment for this endpoint.
+      v1(ApiMicroservices.staff, '$staffCode/profile');
 
-  /// GET sign-in PIN — **`/api/v1/staff/staff/my-profile/{staffCode}/pin`**.
+  /// GET sign-in PIN — **`/api/v1/staff/my-profile/{staffCode}/pin`**.
   static String staffMyProfilePinPath(String staffCode) =>
-      v1(ApiMicroservices.staff, 'staff/my-profile/$staffCode/pin');
+      v1(ApiMicroservices.staff, 'my-profile/$staffCode/pin');
 
   /// Resolve staff code by user/org/school — same as web: **`GET /api/v1/staff/staff/code`**.
   static String get staffCodeByUser =>
@@ -100,8 +103,19 @@ class ApiPaths {
   static String get staffDocumentAdd => staffDocuments;
   static String get staffDocumentUpdate => staffDocuments;
   static String get staffDates => v1(ApiMicroservices.staff, 'staff-dates');
+  /// Staff address update (PATCH) — `PATCH /api/v1/staff/staff-address/{staffCode}`
   static String get staffAddress =>
       v1(ApiMicroservices.staff, 'staff-address');
+
+  /// Staff classrooms update (PATCH)
+  /// - `PATCH /api/v1/staff/staff-classrooms/{staffCode}/allowed-classrooms`
+  static String staffAllowedClassroomsByStaffCodePath(String staffCode) =>
+      v1(ApiMicroservices.staff, 'staff-classrooms/$staffCode/allowed-classrooms');
+
+  /// Staff classrooms update (PATCH)
+  /// - `PATCH /api/v1/staff/staff-classrooms/{staffCode}/primary-classroom`
+  static String staffPrimaryClassroomByStaffCodePath(String staffCode) =>
+      v1(ApiMicroservices.staff, 'staff-classrooms/$staffCode/primary-classroom');
   static String get staffSchedules =>
       v1(ApiMicroservices.staff, 'staff-schedules');
 
@@ -113,6 +127,17 @@ class ApiPaths {
       v1(ApiMicroservices.user, 'school-users/deactivate');
   static String get schoolUsersActivate =>
       v1(ApiMicroservices.user, 'school-users/activate');
+
+  // —— Organization admins (user MS) ——
+  /// UAT/web contract: `POST /api/v1/user/organization-admins/deactivate`
+  /// with query params `userCode` and `organizationCode`.
+  static String get organizationAdminsDeactivate =>
+      v1(ApiMicroservices.user, 'organization-admins/deactivate');
+
+  /// UAT/web contract: `POST /api/v1/user/organization-admins/activate`
+  /// with query params `userCode` and `organizationCode`.
+  static String get organizationAdminsActivate =>
+      v1(ApiMicroservices.user, 'organization-admins/activate');
 
   // —— Student MS ——
   static String get studentList => v1(ApiMicroservices.student);

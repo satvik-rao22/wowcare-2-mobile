@@ -87,7 +87,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String? _selectedPrimaryClassroom;
   DateTime? _selectedBirthDate;
   String? _selectedJobTag;
-  String? _selectedGender;
+  // Gender is not needed for this form (per product requirement).
+  // String? _selectedGender;
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
@@ -121,11 +122,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   // Backed by classroom names; populated from widget.initialClassroomNames/CodeByName.
   final List<String> _classroomOptions = [];
   final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
-  final List<String> _genderOptions = ['Male', 'Female'];
+  // Gender is not needed for this form (per product requirement).
+  // final List<String> _genderOptions = ['Male', 'Female'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
-  final List<String> _countryOptions =
-      COUNTRY_LIST.map((c) => c.name).toList(growable: false);
+  // Country is fixed to United States for this screen; no need to build a dropdown list.
 
   late final GetStaffProfileUseCase _getStaffProfileUseCase;
 
@@ -160,6 +161,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     super.initState();
     _getStaffProfileUseCase = serviceLocator<GetStaffProfileUseCase>();
     _classroomCubit = serviceLocator<ClassroomCubit>();
+
+    // Country is fixed to United States for staff address in this form.
+    // Keep it prefilled and non-editable.
+    _selectedCountry = 'United States';
+
     // Hydrate classrooms from cached metadata if available (before cubit load).
     if (widget.initialClassroomNames != null &&
         widget.initialClassroomNames!.isNotEmpty) {
@@ -335,7 +341,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _streetController.text = a.street;
         _street2Controller.text = a.line2;
         _cityController.text = a.city;
-        _zipCodeController.text = a.zipCode;
+        _zipCodeController.text = _formatUsZipForDisplay(a.zipCode);
         if (a.state.isNotEmpty) {
           final match = US_STATES.firstWhere(
             (s) =>
@@ -345,15 +351,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           );
           _selectedState = match.name;
         }
-        if (a.country.isNotEmpty) {
-          final match = COUNTRY_LIST.firstWhere(
-            (c) =>
-                c.name.toLowerCase() == a.country.toLowerCase() ||
-                c.code.toLowerCase() == a.country.toLowerCase(),
-            orElse: () => COUNTRY_LIST.first,
-          );
-          _selectedCountry = match.name;
-        }
+
+        // Country is fixed to United States for this screen; ignore API value.
+        _selectedCountry = 'United States';
       });
     } catch (_) {
       // Ignore; form stays empty
@@ -495,7 +495,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       return;
     }
 
-    // Address - Zip: required, numeric 3–10 digits (US-style; extendable per country if needed).
+    // Address - Zip: required, US ZIP format: 5 digits or ZIP+4 (9 digits).
     if (zip.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -504,12 +504,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    // Accept ZIP values that come prefilled with formatting (e.g. "03060-1234")
-    // by validating on digits-only.
-    if (!RegExp(r'^\d{3,10}$').hasMatch(zipDigits)) {
+    // Validate using digits-only (formatter may insert a hyphen).
+    if (!RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code must contain only numbers (3–10 digits)',
+        message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
         isError: true,
       );
       return;
@@ -542,15 +541,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final designationApi = _mapDesignationToApiValue(_selectedDesignation);
       final jobTagApi =
           _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
-      String? genderApi;
-      if (_selectedGender != null && _selectedGender!.isNotEmpty) {
-        final g = _selectedGender!.toLowerCase();
-        if (g == 'male') {
-          genderApi = 'MALE';
-        } else if (g == 'female') {
-          genderApi = 'FEMALE';
-        }
-      }
+      // Gender is not collected in this form (per product requirement).
 
       final primaryClassroomCode = _selectedPrimaryClassroom == null
           ? null
@@ -566,7 +557,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'status': statusApi,
         'phoneNumber': phoneDigits,
         'designation': designationApi,
-        if (genderApi != null) 'gender': genderApi,
         if (jobTagApi != null) 'jobTag': jobTagApi,
         if (_selectedBirthDate != null)
           'birthdate': _selectedBirthDate!.toIso8601String(),
@@ -886,15 +876,16 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           ],
                         ),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown(
-                          "Gender",
-                          "Select",
-                          _genderOptions,
-                          _selectedGender,
-                          (v) => setState(() => _selectedGender = v),
-                          isRequired: false,
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
+                        // Gender is not needed for this form (per product requirement).
+                        // _buildCustomDropdown(
+                        //   "Gender",
+                        //   "Select",
+                        //   _genderOptions,
+                        //   _selectedGender,
+                        //   (v) => setState(() => _selectedGender = v),
+                        //   isRequired: false,
+                        // ),
+                        // SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
                           "Status",
                           "Select",
@@ -933,28 +924,34 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
                         // Allowed / Primary Classroom section (same view for staff & admin).
                         // For admin roles: disabled (greyish), values visible but not editable.
-                        ClassroomSelectionWidgetExact(
-                          primaryClassroom: _selectedPrimaryClassroom,
-                          allowedClassrooms: _selectedAllowedClassrooms,
-                          availableClassrooms: _classroomOptions,
-                          onPrimaryClassroomChanged: (classroom) {
-                            setState(() {
-                              _selectedPrimaryClassroom = classroom;
-                            });
-                          },
-                          onAllowedClassroomsChanged: (classrooms) {
-                            setState(() {
-                              _selectedAllowedClassrooms = classrooms;
-                              if (_selectedPrimaryClassroom != null &&
-                                  !classrooms.contains(_selectedPrimaryClassroom)) {
-                                _selectedPrimaryClassroom = null;
-                              }
-                            });
-                          },
-                          primaryClassroomError: null,
-                          allowedClassroomsError: null,
-                          showPrimaryClassroom: false,
-                          isEnabled: !_isAdminSelected,
+                        Opacity(
+                          opacity: _isAdminSelected ? 0.7 : 1.0,
+                          child: IgnorePointer(
+                            ignoring: _isAdminSelected,
+                            child: ClassroomSelectionWidgetExact(
+                              primaryClassroom: _selectedPrimaryClassroom,
+                              allowedClassrooms: _selectedAllowedClassrooms,
+                              availableClassrooms: _classroomOptions,
+                              onPrimaryClassroomChanged: (classroom) {
+                                setState(() {
+                                  _selectedPrimaryClassroom = classroom;
+                                });
+                              },
+                              onAllowedClassroomsChanged: (classrooms) {
+                                setState(() {
+                                  _selectedAllowedClassrooms = classrooms;
+                                  if (_selectedPrimaryClassroom != null &&
+                                      !classrooms
+                                          .contains(_selectedPrimaryClassroom)) {
+                                    _selectedPrimaryClassroom = null;
+                                  }
+                                });
+                              },
+                              primaryClassroomError: null,
+                              allowedClassroomsError: null,
+                              showPrimaryClassroom: false,
+                            ),
+                          ),
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         // Primary Classroom Dropdown (disabled for admin roles)
@@ -1078,17 +1075,54 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
+                        // Country is fixed to United States; show as non-editable.
+                        Opacity(
+                          opacity: 0.8,
+                          child: CustomDropdown(
+                            label: "Country",
+                            hintText: 'United States',
+                            items: const <String>['United States'],
+                            selectedItem: 'United States',
+                            isEnabled: false,
+                            showAsterisk: true,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            selectedTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                              height: 19 / 14,
+                            ),
+                            popupItemTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: responsive.isTablet ? 16.0 : 12.0,
+                              vertical: responsive.isTablet ? 16.0 : 12.0,
+                            ),
+                            onSelect: null,
+                          ),
+                        ),
           SizedBox(height: responsive.verticalSpacing),
           _buildInputField(
             "Zip Code",
-            "Eg. 85001",
+            "E.g. 12345 or 12345-6789",
             _zipCodeController,
             isRequired: true,
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
+              // Limit to 9 digits; formatter will render it as either 12345 or 12345-6789.
+              LengthLimitingTextInputFormatter(9),
+              _ZipCodeFormatter(),
             ],
           ),
                               SizedBox(
@@ -1345,4 +1379,42 @@ class _EditPhoneNumberFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
+}
+
+/// Formats US ZIP codes as either:
+/// - 12345
+/// - 12345-6789
+/// while keeping only digits for validation/API submission.
+class _ZipCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    final buffer = StringBuffer();
+    for (var i = 0; i < digitsOnly.length && i < 9; i++) {
+      if (i == 5) buffer.write('-');
+      buffer.write(digitsOnly[i]);
+    }
+    final formatted = buffer.toString();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+String _formatUsZipForDisplay(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+  if (digits.length <= 5) return digits.substring(0, digits.length);
+  final first5 = digits.substring(0, 5);
+  final last4 = digits.substring(5, digits.length.clamp(5, 9));
+  return last4.isEmpty ? first5 : '$first5-$last4';
 }

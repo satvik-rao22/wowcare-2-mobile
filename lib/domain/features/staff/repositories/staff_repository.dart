@@ -185,6 +185,20 @@ abstract class StaffRepository {
     required String role,
   });
 
+  /// Deactivates an organization admin via
+  /// `POST /api/v1/organization-admins/deactivate`.
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
+  /// Activates an organization admin via
+  /// `POST /api/v1/user/organization-admins/activate`.
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
   Future<String> activateSchoolUser({
     required String userCode,
     required String organizationCode,

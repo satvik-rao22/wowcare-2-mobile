@@ -277,15 +277,33 @@ class StaffCubit extends Cubit<StaffState> {
       forEditStaff: true,
     );
 
-    // Map staffType from profile to backend role expected by deactivate API
-    // Example: admins should use SCHOOL_ADMIN instead of STAFF.
-    final staffTypeUpper = profile.staffType.toUpperCase();
-    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
+    final staffTypeUpper = profile.staffType.toUpperCase().trim();
+    final schoolCode = profile.schoolCode.trim();
+    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+        staffTypeUpper.contains('ADMIN');
+
+    // Organization admins are deactivated via a different endpoint that
+    // does not take `schoolCode` or `role`.
+    if (isOrganizationAdmin || schoolCodeMissing) {
+      final message = await _repository.deactivateOrganizationAdmin(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+      );
+      await refresh();
+      return message;
+    }
+
+    // Map staffType from profile to backend role expected by school-users APIs.
+    // Backend role differs for school admins vs regular staff.
+    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+        ? 'SCHOOL_ADMIN'
+        : 'STAFF';
 
     final message = await _repository.deactivateSchoolUser(
       userCode: profile.userCode,
       organizationCode: profile.organizationCode,
-      schoolCode: profile.schoolCode,
+      schoolCode: schoolCode,
       role: role,
     );
 
@@ -304,14 +322,30 @@ class StaffCubit extends Cubit<StaffState> {
       forEditStaff: true,
     );
 
-    // Map staffType from profile to backend role expected by activate API
-    final staffTypeUpper = profile.staffType.toUpperCase();
-    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
+    final staffTypeUpper = profile.staffType.toUpperCase().trim();
+    final schoolCode = profile.schoolCode.trim();
+    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+        staffTypeUpper.contains('ADMIN');
+
+    if (isOrganizationAdmin || schoolCodeMissing) {
+      final message = await _repository.activateOrganizationAdmin(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+      );
+
+      await refresh();
+      return message;
+    }
+
+    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+        ? 'SCHOOL_ADMIN'
+        : 'STAFF';
 
     final message = await _repository.activateSchoolUser(
       userCode: profile.userCode,
       organizationCode: profile.organizationCode,
-      schoolCode: profile.schoolCode,
+      schoolCode: schoolCode,
       role: role,
     );
 
