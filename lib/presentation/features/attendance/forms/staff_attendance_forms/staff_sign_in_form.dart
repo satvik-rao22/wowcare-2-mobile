@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -10,10 +12,11 @@ import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 
 class StaffSignInForm extends StatefulWidget {
@@ -35,6 +38,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   TimeOfDay selectedTime = TimeOfDay.now();
   StaffEntity? currentStaff;
   bool _isSubmitting = false;
+  bool? _isStaffAdminPersona; // Admin can change time to past, but not future.
 
   @override
   void initState() {
@@ -44,12 +48,56 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       name: 'Staff Member',
       primaryRoomId: 1,
     );
+    _loadPersonaFlags();
   }
 
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  Future<void> _loadPersonaFlags() async {
+    final isAdmin = await _resolveIsStaffAdminPersona();
+    if (!mounted) return;
+    setState(() {
+      _isStaffAdminPersona = isAdmin;
+      // Teachers cannot modify date/time: lock to "now".
+      if (!_isStaffAdminPersona!) {
+        selectedDate = DateTime.now();
+        selectedTime = TimeOfDay.now();
+      }
+    });
   }
+
+  Future<bool> _resolveIsStaffAdminPersona() async {
+    final storage = serviceLocator<StorageService>();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '')
+            .trim()
+            .toUpperCase();
+
+    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+      return true;
+    }
+
+    // Fallback: parse roles JSON if staffType isn't cached yet.
+    final rolesJson = await storage.getString(StorageKeys.roles);
+    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
+
+    try {
+      final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
+      for (final r in roles) {
+        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+            .toString()
+            .toUpperCase();
+        if (roleCode == 'SCHOOL_ADMIN' ||
+            roleCode == 'ORGANIZATION_ADMIN') {
+          return true;
+        }
+      }
+    } catch (_) {
+      // More restrictive default: treat unknown as teacher.
+    }
+    return false;
+  }
+
+  Future<String> _resolveStaffCode() =>
+      resolveStaffCodeForLoggedInUser();
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
@@ -68,21 +116,12 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     });
 
     final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
+    // Default: admin-style sign-in (can sign in other staff).
+    // Teachers: will switch to self-sign-in endpoint below.
+    String endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceRecordsSignIn,
       ApiConstants.attendanceBaseUrl,
     );
-
-    final attendanceDate =
-        '${selectedDate.year.toString().padLeft(4, '0')}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
-
-    final occurredAt = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    ).toUtc();
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -93,6 +132,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
 
@@ -104,28 +148,112 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
-    final staffCodes = <String>[targetStaffCode];
-    const classroomCode = '';
 
-    final classroomCodeByStaffCode = <String, String>{
-      for (final code in staffCodes) code: classroomCode
-    };
+    final isStaffAdmin =
+        _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    final now = DateTime.now();
+    final nowUtc = now.toUtc();
 
-    final payload = <String, dynamic>{
-      'attendanceDate': attendanceDate,
-      'staffCode': staffCode,
-      'staffCodes': staffCodes,
-      'classroomCode': classroomCode,
-      'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': 'APP',
-      'latitude': 0,
-      'longitude': 0,
-      'withinGeofence': true,
-      'timeZone': 'Asia/Kolkata',
-      'occurredAt': occurredAt.toIso8601String(),
-    };
+    // Teachers:
+    // - can only sign in for themselves
+    // - cannot modify date/time (defaults to current)
+    final DateTime effectiveDate;
+    final TimeOfDay effectiveTime;
+    if (!isStaffAdmin) {
+      if (targetStaffCode != staffCode) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Teachers can only sign in for themselves.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+          });
+        }
+        return;
+      }
+      effectiveDate = now;
+      effectiveTime = TimeOfDay.fromDateTime(now);
+    } else {
+      effectiveDate = selectedDate;
+      effectiveTime = selectedTime;
+    }
+
+    final attendanceDate =
+        '${effectiveDate.year.toString().padLeft(4, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
+
+    final occurredAt = DateTime(
+      effectiveDate.year,
+      effectiveDate.month,
+      effectiveDate.day,
+      effectiveTime.hour,
+      effectiveTime.minute,
+    ).toUtc();
+
+    // Admin cannot sign in for future date/time.
+    if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You cannot sign in for future date/time.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
+
+    late final Map<String, dynamic> payload;
+    if (!isStaffAdmin) {
+      // Self sign-in for teacher persona.
+      endpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffAttendanceRecordsSignInSelf,
+        ApiConstants.attendanceBaseUrl,
+      );
+      payload = <String, dynamic>{
+        'staffCode': staffCode,
+        'method': 'KIOSK',
+        'latitude': 0,
+        'longitude': 0,
+        'withinGeofence': true,
+        'timeZone': 'Asia/Kolkata',
+        'occurredAt': occurredAt.toIso8601String(),
+      };
+    } else {
+      // Admin sign-in: supports signing in other staff in a bulk-like request.
+      final staffCodes = <String>[targetStaffCode];
+      const classroomCode = '';
+
+      final classroomCodeByStaffCode = <String, String>{
+        for (final code in staffCodes) code: classroomCode
+      };
+
+      payload = <String, dynamic>{
+        'attendanceDate': attendanceDate,
+        'staffCode': staffCode,
+        'staffCodes': staffCodes,
+        'classroomCode': classroomCode,
+        'classroomCodeByStaffCode': classroomCodeByStaffCode,
+        'method': 'APP',
+        'latitude': 0,
+        'longitude': 0,
+        'withinGeofence': true,
+        'timeZone': 'Asia/Kolkata',
+        'occurredAt': occurredAt.toIso8601String(),
+      };
+    }
 
     try {
       final response = await client.post<dynamic>(
@@ -241,13 +369,17 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                     children: [
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
-                      SimpleTimePickerField(
-                        time: selectedTime,
-                        onTimeSelected: (t) {
-                          setState(() {
-                            selectedTime = t;
-                          });
-                        },
+                      IgnorePointer(
+                        // Teachers cannot modify time; submission will also force "now".
+                        ignoring: _isStaffAdminPersona == false,
+                        child: SimpleTimePickerField(
+                          time: selectedTime,
+                          onTimeSelected: (t) {
+                            setState(() {
+                              selectedTime = t;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),

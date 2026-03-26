@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -12,6 +14,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 
 class StaffTransferForm extends StatefulWidget {
@@ -34,6 +37,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   List<String> availableClassrooms = ['Classroom B', 'Classroom C', 'Classroom D'];
   StaffEntity? currentStaff;
   bool _isSubmitting = false;
+  bool? _isStaffAdminPersona;
 
   @override
   void initState() {
@@ -43,6 +47,39 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       name: 'Staff Member',
       primaryRoomId: 1,
     );
+    _loadPersonaFlags();
+  }
+
+  Future<void> _loadPersonaFlags() async {
+    final isAdmin = await _resolveIsStaffAdminPersona();
+    if (!mounted) return;
+    setState(() {
+      _isStaffAdminPersona = isAdmin;
+    });
+  }
+
+  Future<bool> _resolveIsStaffAdminPersona() async {
+    final storage = serviceLocator<StorageService>();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+
+    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+      return true;
+    }
+
+    final rolesJson = await storage.getString(StorageKeys.roles);
+    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
+
+    try {
+      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+      return roles.any((r) {
+        if (r is! Map<String, dynamic>) return false;
+        final roleCode = (r['role'] ?? '').toString().toUpperCase();
+        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   void _handleSubmit() {
@@ -59,10 +96,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     _submitTransfer();
   }
 
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-  }
+  Future<String> _resolveStaffCode() =>
+      resolveStaffCodeForLoggedInUser();
 
   Future<void> _submitTransfer() async {
     if (_isSubmitting) return;
@@ -95,6 +130,11 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
 
@@ -106,6 +146,28 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
+
+    final isStaffAdmin =
+        _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    if (!isStaffAdmin && targetStaffCode != staffCode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Teachers can only transfer themselves.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
     final staffCodes = <String>[targetStaffCode];

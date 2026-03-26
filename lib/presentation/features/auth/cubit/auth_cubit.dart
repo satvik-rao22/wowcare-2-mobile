@@ -248,55 +248,60 @@ class AuthCubit extends Cubit<AuthState> {
                   (await storage.getString(StorageKeys.schoolCode) ?? '')
                       .trim();
             }
-            if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
+            if (orgCode.isNotEmpty) {
               final staffRepository = serviceLocator<StaffRepository>();
-              // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
-              // for the staff-code API as required by backend.
-              String effectiveSchoolCode = schoolCode;
+
+              // If user is ORGANIZATION_ADMIN for this org, the backend expects
+              // schoolCode to be '-' (and login-context may not provide a schoolCode).
               const orgAdminRole = 'ORGANIZATION_ADMIN';
               final rolesForOrg = response.roles
                   .where((r) => r.organizationCode == orgCode)
                   .toList();
               final isOrgAdmin = rolesForOrg
                   .any((r) => r.role.toUpperCase() == orgAdminRole);
-              if (isOrgAdmin) {
-                effectiveSchoolCode = '-';
-              }
 
-              final staffCode = await staffRepository.getStaffCodeForUser(
-                userCode: response.userCode,
-                organizationCode: orgCode,
-                schoolCode: effectiveSchoolCode,
-              );
-              final trimmed = (staffCode ?? '').trim();
-              if (trimmed.isNotEmpty) {
-                // Persist resolved staffCode for later screens.
-                await _localDataSource.saveStaffCode(
+              final effectiveSchoolCode =
+                  isOrgAdmin ? '-' : schoolCode; // may be empty for non-admin
+
+              if (effectiveSchoolCode.isEmpty) {
+                // Non-org-admin users require a schoolCode to resolve staffCode.
+              } else {
+                final staffCode = await staffRepository.getStaffCodeForUser(
                   userCode: response.userCode,
-                  staffCode: trimmed,
+                  organizationCode: orgCode,
+                  schoolCode: effectiveSchoolCode,
                 );
-
-                // Prefetch staff profile once at login using the my-profile controller
-                // so that UserProfileScreen can render data immediately from cache.
-                try {
-                  final profile = await staffRepository.getStaffProfile(
+                final trimmed = (staffCode ?? '').trim();
+                if (trimmed.isNotEmpty) {
+                  // Persist resolved staffCode for later screens.
+                  await _localDataSource.saveStaffCode(
+                    userCode: response.userCode,
                     staffCode: trimmed,
                   );
-                  // Save staffType for quick persona display in ProfileMenuHeader.
-                  await storage.saveString(
-                    StorageKeys.staffType,
-                    profile.staffType,
-                  );
-                  // Also prefetch sign-in PIN for custom app bar.
+
+                  // Prefetch staff profile once at login using the my-profile controller
+                  // so that UserProfileScreen can render data immediately from cache.
                   try {
-                    final pin = await staffRepository.getStaffSignInPin(
-                        staffCode: trimmed);
-                    if (pin.trim().isNotEmpty) {
-                      await storage.saveString(StorageKeys.staffPin, pin.trim());
-                    }
-                  } catch (_) {}
-                } catch (_) {
-                  // Non-blocking: profile/pin prefetch failure should not affect login flow.
+                    final profile = await staffRepository.getStaffProfile(
+                      staffCode: trimmed,
+                    );
+                    // Save staffType for quick persona display in ProfileMenuHeader.
+                    await storage.saveString(
+                      StorageKeys.staffType,
+                      profile.staffType,
+                    );
+                    // Also prefetch sign-in PIN for custom app bar.
+                    try {
+                      final pin = await staffRepository.getStaffSignInPin(
+                        staffCode: trimmed,
+                      );
+                      if (pin.trim().isNotEmpty) {
+                        await storage.saveString(StorageKeys.staffPin, pin.trim());
+                      }
+                    } catch (_) {}
+                  } catch (_) {
+                    // Non-blocking: profile/pin prefetch failure should not affect login flow.
+                  }
                 }
               }
             }

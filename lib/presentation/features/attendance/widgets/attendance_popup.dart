@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -17,6 +22,11 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 
 class AttendancePopupManager {
   static void showAttendancePopup(
@@ -49,6 +59,8 @@ class AttendancePopupOverlay extends StatefulWidget {
 class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool? _isTeacherStaffPersona; // When true: skip staff selection and use self forms.
+  String _loggedInStaffCode = '';
 
   @override
   void initState() {
@@ -59,6 +71,44 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       initialIndex: widget.initialTabIndex,
     );
     _tabController.addListener(_onTabChanged);
+    _loadStaffPersonaFlags();
+  }
+
+  Future<void> _loadStaffPersonaFlags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final staffCode =
+          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+
+      bool isStaffAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+
+      if (!isStaffAdmin) {
+        final rolesJson = await storage.getString(StorageKeys.roles);
+        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
+          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+          isStaffAdmin = roles.any((r) {
+            if (r is! Map<String, dynamic>) return false;
+            final roleCode = (r['role'] ?? '').toString().toUpperCase();
+            return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+          });
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _loggedInStaffCode = staffCode;
+        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loggedInStaffCode = '';
+        _isTeacherStaffPersona = false;
+      });
+    }
   }
 
   void _onTabChanged() {
@@ -399,12 +449,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   fontSize: fontSize,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionSignInForm(),
-                      ),
-                    );
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StaffSignInForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: 'Self',
+                              primaryRoomId: 0,
+                              staffCode: _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionSignInForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -415,12 +482,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   fontSize: fontSize,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionSignOutForm(),
-                      ),
-                    );
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StaffSignOutForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: 'Self',
+                              primaryRoomId: 0,
+                              staffCode: _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionSignOutForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -431,12 +515,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   fontSize: fontSize,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionTransferForm(),
-                      ),
-                    );
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StaffTransferForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: 'Self',
+                              primaryRoomId: 0,
+                              staffCode: _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionTransferForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -447,12 +548,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   fontSize: fontSize,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionMarkAbsentForm(),
-                      ),
-                    );
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StaffMarkAbsentForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: 'Self',
+                              primaryRoomId: 0,
+                              staffCode: _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionMarkAbsentForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -470,12 +588,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     fontSize: fontSize,
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionSignInForm(),
-                        ),
-                      );
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StaffSignInForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: 'Self',
+                                primaryRoomId: 0,
+                                staffCode: _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionSignInForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),
@@ -489,12 +624,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     fontSize: fontSize,
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionSignOutForm(),
-                        ),
-                      );
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StaffSignOutForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: 'Self',
+                                primaryRoomId: 0,
+                                staffCode: _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionSignOutForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),
@@ -508,12 +660,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     fontSize: fontSize,
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionTransferForm(),
-                        ),
-                      );
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StaffTransferForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: 'Self',
+                                primaryRoomId: 0,
+                                staffCode: _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionTransferForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),
@@ -527,12 +696,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     fontSize: fontSize,
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionMarkAbsentForm(),
-                        ),
-                      );
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StaffMarkAbsentForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: 'Self',
+                                primaryRoomId: 0,
+                                staffCode: _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionMarkAbsentForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),

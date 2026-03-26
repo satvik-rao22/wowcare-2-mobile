@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -14,6 +16,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 
 class StaffSignOutForm extends StatefulWidget {
@@ -32,6 +35,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   TimeOfDay selectedTime = TimeOfDay.now();
   StaffEntity? currentStaff;
   bool _isSubmitting = false;
+  bool? _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
 
   @override
   void initState() {
@@ -41,12 +45,49 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       name: 'Staff Member',
       primaryRoomId: 1,
     );
+    _loadPersonaFlags();
   }
 
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+  Future<void> _loadPersonaFlags() async {
+    final isAdmin = await _resolveIsStaffAdminPersona();
+    if (!mounted) return;
+    setState(() {
+      _isStaffAdminPersona = isAdmin;
+      // Teachers cannot modify date/time.
+      if (!_isStaffAdminPersona!) {
+        selectedDate = DateTime.now();
+        selectedTime = TimeOfDay.now();
+      }
+    });
   }
+
+  Future<bool> _resolveIsStaffAdminPersona() async {
+    final storage = serviceLocator<StorageService>();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+
+    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+      return true;
+    }
+
+    final rolesJson = await storage.getString(StorageKeys.roles);
+    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
+
+    try {
+      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+      return roles.any((r) {
+        if (r is! Map<String, dynamic>) return false;
+        final roleCode = (r['role'] ?? '').toString().toUpperCase();
+        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+      });
+    } catch (_) {
+      // Treat unknown as teacher.
+      return false;
+    }
+  }
+
+  Future<String> _resolveStaffCode() =>
+      resolveStaffCodeForLoggedInUser();
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
@@ -70,17 +111,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       ApiConstants.attendanceBaseUrl,
     );
 
-    final attendanceDate =
-        '${selectedDate.year.toString().padLeft(4, '0')}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
-
-    final occurredAt = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    ).toUtc();
-
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
@@ -90,6 +120,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
 
@@ -101,8 +136,71 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
+
+    final isStaffAdmin =
+        _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    final now = DateTime.now();
+    final nowUtc = now.toUtc();
+
+    // Teachers can only sign out themselves and cannot modify time.
+    final DateTime effectiveDate;
+    final TimeOfDay effectiveTime;
+    if (!isStaffAdmin) {
+      if (targetStaffCode != staffCode) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Teachers can only sign out for themselves.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+          });
+        }
+        return;
+      }
+      effectiveDate = now;
+      effectiveTime = TimeOfDay.fromDateTime(now);
+    } else {
+      effectiveDate = selectedDate;
+      effectiveTime = selectedTime;
+    }
+
+    final attendanceDate =
+        '${effectiveDate.year.toString().padLeft(4, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
+
+    final occurredAt = DateTime(
+      effectiveDate.year,
+      effectiveDate.month,
+      effectiveDate.day,
+      effectiveTime.hour,
+      effectiveTime.minute,
+    ).toUtc();
+
+    // Admin cannot sign out for future date/time.
+    if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You cannot sign out for future date/time.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
+
     final staffCodes = <String>[targetStaffCode];
     const classroomCode = '';
 
@@ -238,13 +336,16 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     children: [
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
-                      SimpleTimePickerField(
-                        time: selectedTime,
-                        onTimeSelected: (t) {
-                          setState(() {
-                            selectedTime = t;
-                          });
-                        },
+                      IgnorePointer(
+                        ignoring: _isStaffAdminPersona == false,
+                        child: SimpleTimePickerField(
+                          time: selectedTime,
+                          onTimeSelected: (t) {
+                            setState(() {
+                              selectedTime = t;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),

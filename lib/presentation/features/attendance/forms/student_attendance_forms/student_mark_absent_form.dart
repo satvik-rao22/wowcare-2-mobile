@@ -8,8 +8,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 
 // Mock student entity for UI-only implementation
@@ -133,10 +132,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     }
   }
 
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-  }
+  Future<String> _resolveStaffCode() =>
+      resolveStaffCodeForLoggedInUser();
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;

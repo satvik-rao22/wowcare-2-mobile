@@ -12,8 +12,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -86,10 +85,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     });
   }
 
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-  }
+  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;

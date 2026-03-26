@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -10,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import 'staff_entity.dart';
 
@@ -32,6 +35,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   final TextEditingController _typeController = TextEditingController();
   StaffEntity? currentStaff;
   bool _isSubmitting = false;
+  bool? _isStaffAdminPersona;
 
   late final MarkStaffAbsentUseCase _markStaffAbsentUseCase;
 
@@ -40,6 +44,39 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     super.initState();
     _markStaffAbsentUseCase = serviceLocator<MarkStaffAbsentUseCase>();
     currentStaff = widget.staff;
+    _loadPersonaFlags();
+  }
+
+  Future<void> _loadPersonaFlags() async {
+    final isAdmin = await _resolveIsStaffAdminPersona();
+    if (!mounted) return;
+    setState(() {
+      _isStaffAdminPersona = isAdmin;
+    });
+  }
+
+  Future<bool> _resolveIsStaffAdminPersona() async {
+    final storage = serviceLocator<StorageService>();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+
+    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+      return true;
+    }
+
+    final rolesJson = await storage.getString(StorageKeys.roles);
+    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
+
+    try {
+      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+      return roles.any((r) {
+        if (r is! Map<String, dynamic>) return false;
+        final roleCode = (r['role'] ?? '').toString().toUpperCase();
+        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -75,10 +112,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-  }
+  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
@@ -101,6 +135,18 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Target staff code is missing. Please refresh list.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final isStaffAdmin =
+        _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    if (!isStaffAdmin && targetStaffCode != markerStaffCode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Teachers can only mark absent for themselves.'),
           backgroundColor: AppColors.warningColor,
         ),
       );
