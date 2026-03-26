@@ -168,45 +168,85 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
     const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
 
-    String statusLabel;
-    Color statusColor;
-    Color statusBg;
     String statusUpper = '';
+    final cards = <Widget>[];
+
     if (physical == null) {
-      statusLabel = '-';
-      statusColor = AppColors.primaryColor.withOpacity(0.5);
-      statusBg = AppColors.primaryColor.withOpacity(0.1);
+      cards.add(
+        _PhysicalCard(
+          statusLabel: '-',
+          statusColor: AppColors.primaryColor.withOpacity(0.5),
+          statusBg: AppColors.primaryColor.withOpacity(0.1),
+          date: '-',
+        ),
+      );
     } else {
       statusUpper = (physical['status'] ?? '').toUpperCase();
-      switch (statusUpper) {
-        case 'COMPLETED':
-          statusLabel = 'Completed';
-          statusColor = completedColor;
-          statusBg = completedBg;
-          break;
-        case 'DUE':
-        case 'OVERDUE':
-          statusLabel = 'Due';
-          statusColor = dueColor;
-          statusBg = dueBg;
-          break;
-        case 'SCHEDULED':
-          statusLabel = 'Scheduled';
-          statusColor = scheduledColor;
-          statusBg = scheduledBg;
-          break;
-        default:
-          statusLabel = physical['status']?.isNotEmpty == true ? physical['status']! : 'Scheduled';
-          statusColor = scheduledColor;
-          statusBg = scheduledBg;
+      final dueDate = (physical['dueDate'] ?? '').trim();
+      final completedDate = (physical['completedDate'] ?? '').trim();
+      final bool isCompleted = statusUpper == 'COMPLETED';
+      final bool showMore = !isCompleted;
+
+      if (dueDate.isNotEmpty) {
+        String dueLabel;
+        Color dueLabelColor;
+        Color dueLabelBg;
+        switch (statusUpper) {
+          case 'COMPLETED':
+            dueLabel = 'Completed';
+            dueLabelColor = completedColor;
+            dueLabelBg = completedBg;
+            break;
+          case 'DUE':
+          case 'OVERDUE':
+            dueLabel = 'Due';
+            dueLabelColor = dueColor;
+            dueLabelBg = dueBg;
+            break;
+          default:
+            dueLabel = 'Scheduled';
+            dueLabelColor = scheduledColor;
+            dueLabelBg = scheduledBg;
+        }
+        cards.add(
+          _PhysicalCard(
+            statusLabel: dueLabel,
+            statusColor: dueLabelColor,
+            statusBg: dueLabelBg,
+            date: _formatDate(dueDate),
+            showMore: showMore,
+            onMore: showMore
+                ? () => _openEditPhysicalDialog(
+                      initialDateIso: dueDate,
+                      initialStatusUi: dueLabel,
+                    )
+                : null,
+          ),
+        );
+      }
+
+      if (completedDate.isNotEmpty) {
+        cards.add(
+          _PhysicalCard(
+            statusLabel: 'Completed',
+            statusColor: completedColor,
+            statusBg: completedBg,
+            date: _formatDate(completedDate),
+          ),
+        );
+      }
+
+      if (cards.isEmpty) {
+        cards.add(
+          _PhysicalCard(
+            statusLabel: '-',
+            statusColor: AppColors.primaryColor.withOpacity(0.5),
+            statusBg: AppColors.primaryColor.withOpacity(0.1),
+            date: '-',
+          ),
+        );
       }
     }
-    final bool isCompleted = statusUpper == 'COMPLETED';
-    final dateIso = physical != null
-        ? (isCompleted ? (physical['completedDate'] ?? physical['dueDate']) : physical['dueDate'])
-        : null;
-    final dateStr = (dateIso ?? '').isNotEmpty ? _formatDate(dateIso!) : '-';
-    final bool showMore = physical != null && !isCompleted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,19 +260,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
           ),
         ),
         const SizedBox(height: 12),
-        _PhysicalCard(
-          statusLabel: statusLabel,
-          statusColor: statusColor,
-          statusBg: statusBg,
-          date: dateStr,
-          showMore: showMore,
-          onMore: showMore
-              ? () => _openEditPhysicalDialog(
-                    initialDateIso: physical['dueDate'] ?? '',
-                    initialStatusUi: statusLabel,
-                  )
-              : null,
-        ),
+        ...cards,
       ],
     );
   }
@@ -597,9 +625,8 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                   _DateRow(
                     label: 'Background Record Check Expiration Date',
                     text: brcDate.isEmpty ? '' : brcDate,
-                    showInfo: false,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _buildPhysicalCheckupSection(),
                 ],
               ],
@@ -902,5 +929,4 @@ class _DialogDropdown extends StatelessWidget {
     );
   }
 }
-
 

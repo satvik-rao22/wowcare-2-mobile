@@ -506,7 +506,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String accessToken,
   }) async {
     try {
-      // Use Sairam base URL for organization names (same as school-ms)
       final url = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
         ApiConstants.baseUrl,

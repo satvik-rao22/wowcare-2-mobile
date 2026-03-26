@@ -72,11 +72,8 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     'Allowed Classroom',
     'Status',
     'Designation',
-    'Sort by',
     'Attendance Status',
   ];
-
-  static const List<String> _sortByOptions = ['Descending', 'Ascending'];
 
   // Filter lists
   List<int> _primaryClassroomIdList = [];
@@ -94,7 +91,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   List<String> _selectedAllowedClassroomList = [];
   List<String> _selectedStatusList = [];
   List<String> _selectedDesignationList = [];
-  List<String> _selectedSortByList = [];
   List<String> _selectedAttendanceStatusList = [];
 
   void _syncPrimaryClassroomIds() {
@@ -130,13 +126,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         widget.initialFilters!.allowedClassrooms ?? const [],
       );
       _selectedStatusList = List.from(widget.initialFilters!.statuses);
+      // Status is single-select in this screen.
+      if (_selectedStatusList.length > 1) {
+        _selectedStatusList = <String>[_selectedStatusList.first];
+      }
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
-      final sortBy = (widget.initialFilters!.sortBy ?? 'desc').trim().toLowerCase();
-      _selectedSortByList = sortBy == 'asc' ? ['Ascending'] : ['Descending'];
       _selectedAttendanceStatusList = List.from(widget.initialFilters!.attendanceStatuses);
-    }
-    if (_selectedSortByList.isEmpty) {
-      _selectedSortByList.add('Descending');
     }
     _fetchFilterData();
   }
@@ -206,17 +201,11 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     final String? designation = _selectedDesignationList.isNotEmpty
         ? _selectedDesignationList.first
         : null;
-    final String sortBy = _selectedSortByList.isNotEmpty &&
-            _selectedSortByList.first == 'Ascending'
-        ? 'asc'
-        : 'desc';
-
     Navigator.pop(context, {
       'status': status,
       'designation': designation,
       'primaryClassroomCodes': primaryCodes,
       'classCodes': allowedCodes,
-      'sortBy': sortBy,
     });
   }
 
@@ -278,7 +267,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             _allowedClassroomList,
             _statusList,
             _designationList,
-            _sortByOptions,
             _attendanceStatusList,
           ];
           final _selectedDropdownLists = [
@@ -286,7 +274,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             _selectedAllowedClassroomList,
             _selectedStatusList,
             _selectedDesignationList,
-            _selectedSortByList,
             _selectedAttendanceStatusList,
           ];
           
@@ -310,9 +297,9 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
                   _selectedDropdownLists[index].addAll(selectedItems);
                   if (index == 0) _syncPrimaryClassroomIds();
                   if (index == 1) _syncAllowedClassroomIds();
-                  // Sort by: keep single selection (last selected)
-                  if (index == 4 && selectedItems.isNotEmpty) {
-                    _selectedSortByList
+                  // Status: single selection only (last selected).
+                  if (index == 2 && selectedItems.isNotEmpty) {
+                    _selectedStatusList
                       ..clear()
                       ..add(selectedItems.last);
                   }

@@ -215,37 +215,38 @@ class AuthCubit extends Cubit<AuthState> {
             }
           }
 
-          // After login-context, resolve staffCode for this user (if they have a staff profile)
-          // using `/api/v1/staff/staff/code?userCode=...&organizationCode=...&schoolCode=...`.
+          // After login-context, resolve staffCode and prefetch staff profile + PIN.
           try {
             final storage = serviceLocator<StorageService>();
-            // Prefer explicit org/school from context when both are present; otherwise
-            // fall back to the org/school persisted from login (or prior selection).
-            String orgCode = contextOrgCode;
-            String schoolCode = contextSchoolCode;
-            if (orgCode.isEmpty || schoolCode.isEmpty) {
+            var orgCode = contextOrgCode;
+            if (orgCode.isEmpty) {
+              orgCode = response.roles
+                  .map((r) => r.organizationCode.trim())
+                  .firstWhere((c) => c.isNotEmpty, orElse: () => '');
+            }
+            if (orgCode.isEmpty) {
               orgCode =
                   (await storage.getString(StorageKeys.organizationCode) ?? '')
                       .trim();
-              schoolCode =
-                  (await storage.getString(StorageKeys.schoolCode) ?? '')
-                      .trim();
             }
-            if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
-              final staffRepository = serviceLocator<StaffRepository>();
-              // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
-              // for the staff-code API as required by backend.
-              String effectiveSchoolCode = schoolCode;
-              const orgAdminRole = 'ORGANIZATION_ADMIN';
-              final rolesForOrg = response.roles
-                  .where((r) => r.organizationCode == orgCode)
-                  .toList();
-              final isOrgAdmin = rolesForOrg
-                  .any((r) => r.role.toUpperCase() == orgAdminRole);
-              if (isOrgAdmin) {
-                effectiveSchoolCode = '-';
-              }
 
+            var schoolCode = contextSchoolCode;
+            if (schoolCode.isEmpty) {
+              schoolCode =
+                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+            }
+
+            const orgAdminRole = 'ORGANIZATION_ADMIN';
+            final isOrgAdminForSelectedOrg = response.roles.any(
+              (r) =>
+                  r.organizationCode.trim() == orgCode &&
+                  r.role.toUpperCase() == orgAdminRole,
+            );
+            final effectiveSchoolCode =
+                isOrgAdminForSelectedOrg ? '-' : schoolCode;
+
+            if (orgCode.isNotEmpty && effectiveSchoolCode.isNotEmpty) {
+              final staffRepository = serviceLocator<StaffRepository>();
               final staffCode = await staffRepository.getStaffCodeForUser(
                 userCode: response.userCode,
                 organizationCode: orgCode,
@@ -253,34 +254,29 @@ class AuthCubit extends Cubit<AuthState> {
               );
               final trimmed = (staffCode ?? '').trim();
               if (trimmed.isNotEmpty) {
-                // Persist resolved staffCode for later screens.
                 await _localDataSource.saveStaffCode(
                   userCode: response.userCode,
                   staffCode: trimmed,
                 );
 
-                // Prefetch staff profile once at login using the my-profile controller
-                // so that UserProfileScreen can render data immediately from cache.
                 try {
                   final profile = await staffRepository.getStaffProfile(
                     staffCode: trimmed,
                   );
-                  // Save staffType for quick persona display in ProfileMenuHeader.
                   await storage.saveString(
                     StorageKeys.staffType,
                     profile.staffType,
                   );
-                  // Also prefetch sign-in PIN for custom app bar.
-                  try {
-                    final pin = await staffRepository.getStaffSignInPin(
-                        staffCode: trimmed);
-                    if (pin.trim().isNotEmpty) {
-                      await storage.saveString(StorageKeys.staffPin, pin.trim());
-                    }
-                  } catch (_) {}
-                } catch (_) {
-                  // Non-blocking: profile/pin prefetch failure should not affect login flow.
-                }
+                } catch (_) {}
+
+                try {
+                  final pin = await staffRepository.getStaffSignInPin(
+                    staffCode: trimmed,
+                  );
+                  if (pin.trim().isNotEmpty) {
+                    await storage.saveString(StorageKeys.staffPin, pin.trim());
+                  }
+                } catch (_) {}
               }
             }
           } catch (_) {
@@ -501,7 +497,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  /// Resolves staffCode and prefetches the staff profile for the given
+  /// Uses cached staffCode and prefetches the staff profile for the given
   /// organization/school combination using the my-profile controller.
   ///
   /// This is used when switching organisations/schools so that
@@ -520,33 +516,15 @@ class AuthCubit extends Cubit<AuthState> {
       }
       if (login == null) return;
 
-      // If user is ORGANIZATION_ADMIN for this org, use schoolCode = '-'
-      // for the staff-code API as required by backend.
-      String effectiveSchoolCode = schoolCode;
-      const orgAdminRole = 'ORGANIZATION_ADMIN';
-      final rolesForOrg = login.roles
-          .where((r) => r.organizationCode == organizationCode)
-          .toList();
-      final isOrgAdmin = rolesForOrg
-          .any((r) => r.role.toUpperCase() == orgAdminRole);
-      if (isOrgAdmin) {
-        effectiveSchoolCode = '-';
-      }
-
-      final staffRepository = serviceLocator<StaffRepository>();
-      final staffCode = await staffRepository.getStaffCodeForUser(
-        userCode: login.userCode,
-        organizationCode: organizationCode,
-        schoolCode: effectiveSchoolCode,
-      );
-      final trimmed = (staffCode ?? '').trim();
+      final storage = serviceLocator<StorageService>();
+      final cachedStaffCode =
+          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      final cachedStaffUser =
+          (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
+      final trimmed = (cachedStaffUser == login.userCode) ? cachedStaffCode : '';
       if (trimmed.isEmpty) return;
 
-      // Persist resolved staffCode for later screens.
-      await _localDataSource.saveStaffCode(
-        userCode: login.userCode,
-        staffCode: trimmed,
-      );
+      final staffRepository = serviceLocator<StaffRepository>();
 
       // Prefetch staff profile once using the my-profile controller so
       // profile screens can render from cache.
@@ -554,7 +532,6 @@ class AuthCubit extends Cubit<AuthState> {
         final profile = await staffRepository.getStaffProfile(
           staffCode: trimmed,
         );
-        final storage = serviceLocator<StorageService>();
         await storage.saveString(
           StorageKeys.staffType,
           profile.staffType,

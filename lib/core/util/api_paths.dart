@@ -49,12 +49,12 @@ class ApiPaths {
 
   // —— School MS ——
   static String get schoolNamesByOrg =>
-      v1(ApiMicroservices.school, 'schools/names-by-org');
+      v1(ApiMicroservices.organization, 'schools/names-by-org');
   static String schoolNamesByOrgPath(String orgCode) =>
       '$schoolNamesByOrg/$orgCode';
 
   static String get organizationNames =>
-      v1(ApiMicroservices.user, 'organizations/names');
+      v1(ApiMicroservices.organization, 'organizations/names');
 
   /// School-wide regular schedule (operating hours per weekday).
   /// Actual: GET /api/v1/organization/school/{schoolCode}/regular-schedule
@@ -95,9 +95,9 @@ class ApiPaths {
   static String staffMyProfilePinPath(String staffCode) =>
       v1(ApiMicroservices.staff, 'my-profile/$staffCode/pin');
 
-  /// Resolve staff code by user/org/school — same as web: **`GET /api/v1/staff/staff/code`**.
+  /// Resolve staff code by user/org/school — **`GET /api/v1/staff/code`**.
   static String get staffCodeByUser =>
-      v1(ApiMicroservices.staff, 'staff/code');
+      v1(ApiMicroservices.staff, 'code');
   static String get staffDocuments =>
       v1(ApiMicroservices.staff, 'staff-documents');
   static String get staffDocumentAdd => staffDocuments;

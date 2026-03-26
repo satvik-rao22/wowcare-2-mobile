@@ -57,7 +57,7 @@ abstract class StaffRepository {
   });
 
   /// Resolves staffCode for a given userCode + organizationCode + schoolCode
-  /// using the `/api/v1/staff/staff/code` endpoint.
+  /// using the `/api/v1/staff/code` endpoint.
   Future<String?> getStaffCodeForUser({
     required String userCode,
     required String organizationCode,
