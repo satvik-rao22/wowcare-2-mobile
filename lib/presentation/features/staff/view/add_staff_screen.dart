@@ -941,28 +941,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             ),
                             SizedBox(height: responsive.verticalSpacing),
                           ],
-                          // Country (fixed: United States, non-editable)
-                          Opacity(
-                            opacity: 0.6,
-                            child: IgnorePointer(
-                              ignoring: true,
-                              child: CustomDropdown(
-                                label: "Country",
-                                hintText: 'Select',
-                                items: const ['United States'],
-                                selectedItem: 'United States',
-                                labelStyle: TextStyle(
-                                  fontSize: responsive.labelFontSize,
-                                  fontFamily: "Manrope",
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xff573353),
-                                ),
-                                showAsterisk: true,
-                                labelBottomSpacing:
-                                    responsive.isTablet ? 8.0 : 6.0,
-                              ),
-                            ),
-                          ),
                                 const SizedBox(height: 12),
                               ],
                             ),

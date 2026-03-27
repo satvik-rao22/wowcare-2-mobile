@@ -92,6 +92,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
+  String _originalEmail = '';
+  String _profileUserCode = '';
+  String _profileOrganizationCode = '';
+  String _profileSchoolCode = '';
 
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
   // Full designation list (union of admin + staff) for mapping helpers.
@@ -280,6 +284,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _firstNameController.text = profile.firstName;
         _lastNameController.text = profile.lastName;
         _emailController.text = profile.email;
+        _originalEmail = profile.email.trim().toLowerCase();
+        _profileUserCode = profile.userCode.trim();
+        _profileOrganizationCode = profile.organizationCode.trim();
+        _profileSchoolCode = profile.schoolCode.trim();
         _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
         _selectedDesignation =
             _mapDesignationFromApiOrLabel(profile.designation);
@@ -541,6 +549,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final designationApi = _mapDesignationToApiValue(_selectedDesignation);
       final jobTagApi =
           _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
+      final birthDateApi = _selectedBirthDate == null
+          ? null
+          : DateFormat('yyyy-MM-dd').format(_selectedBirthDate!);
       // Gender is not collected in this form (per product requirement).
 
       final primaryClassroomCode = _selectedPrimaryClassroom == null
@@ -558,8 +569,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'phoneNumber': phoneDigits,
         'designation': designationApi,
         if (jobTagApi != null) 'jobTag': jobTagApi,
-        if (_selectedBirthDate != null)
-          'birthdate': _selectedBirthDate!.toIso8601String(),
+        if (birthDateApi != null) 'birthDate': birthDateApi,
         'primaryClassroomCode': primaryClassroomCode,
         'allowedClassroomCodes': allowedClassroomCodes,
       };
@@ -594,6 +604,22 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       };
 
       final repository = serviceLocator<StaffRepository>();
+
+      // If email changed, call email-change API first (same behavior as EditUserProfileScreen).
+      final newEmail = email.trim().toLowerCase();
+      if (_profileUserCode.isNotEmpty &&
+          _profileOrganizationCode.isNotEmpty &&
+          _profileSchoolCode.isNotEmpty &&
+          _originalEmail.isNotEmpty &&
+          _originalEmail != newEmail) {
+        await repository.changeUserEmail(
+          userCode: _profileUserCode,
+          oldEmail: _originalEmail,
+          newEmail: newEmail,
+          organizationCode: _profileOrganizationCode,
+          schoolCode: _profileSchoolCode,
+        );
+      }
 
       // Update core profile fields
       final profileMessage = await repository.updateStaffProfile(

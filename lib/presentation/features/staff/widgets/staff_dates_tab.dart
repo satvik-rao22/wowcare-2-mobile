@@ -361,16 +361,16 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                   ),
                                 ),
                                 onTap: () async {
+                                  final now = DateTime.now();
+                                  final today = DateTime(now.year, now.month, now.day);
                                   final result = await showDialog<Map<String, dynamic>>(
                                     context: context,
                                     builder: (context) => CalendarDialog(
                                       isRangePicker: false,
                                       isTimePicker: false,
                                       initialDate: selectedDate,
-                                      firstDate: (() {
-                                        final now = DateTime.now();
-                                        return DateTime(now.year, now.month, now.day);
-                                      })(),
+                                      firstDate: statusUi == 'Completed' ? null : today,
+                                      lastDate: statusUi == 'Completed' ? today : null,
                                     ),
                                   );
                                   if (result == null || result['date'] == null) return;
@@ -407,16 +407,16 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 ),
                               ),
                               onTap: () async {
+                                final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
                                 final result = await showDialog<Map<String, dynamic>>(
                                   context: context,
                                   builder: (context) => CalendarDialog(
                                     isRangePicker: false,
                                     isTimePicker: false,
                                     initialDate: selectedDate,
-                                    firstDate: (() {
-                                      final now = DateTime.now();
-                                      return DateTime(now.year, now.month, now.day);
-                                    })(),
+                                    firstDate: statusUi == 'Completed' ? null : today,
+                                    lastDate: statusUi == 'Completed' ? today : null,
                                   ),
                                 );
                                 if (result == null || result['date'] == null) return;
@@ -438,8 +438,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                         builder: (_) {
                           final now = DateTime.now();
                           final today = DateTime(now.year, now.month, now.day);
-                          final canSave =
-                              selectedDate != null && !selectedDate!.isBefore(today);
+                          final hasDate = selectedDate != null;
 
                           return CustomButtonLayout(
                             confirmButtonLabel: 'Save',
@@ -447,10 +446,32 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                             isForm: false,
                             isLoading: isSaving,
                             onPressedCancel: () => Navigator.of(context).pop(),
-                            onPressedConfirm: canSave
+                            onPressedConfirm: hasDate
                                 ? () async {
+                          final picked = selectedDate!;
+                          final currentStatus = statusUi.trim();
+                          if ((currentStatus == 'Due' || currentStatus == 'Scheduled') &&
+                              picked.isBefore(today)) {
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message:
+                                  'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                              isError: true,
+                            );
+                            return;
+                          }
+                          if (currentStatus == 'Completed' &&
+                              picked.isAfter(today)) {
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message:
+                                  'For Completed status, Physical Checkup Date must be today or past',
+                              isError: true,
+                            );
+                            return;
+                          }
 
-                          final dueIso = _apiFormatter.format(selectedDate!);
+                          final dueIso = _apiFormatter.format(picked);
                           final statusApi = statusUi == 'Completed'
                               ? 'COMPLETED'
                               : statusUi == 'Scheduled'

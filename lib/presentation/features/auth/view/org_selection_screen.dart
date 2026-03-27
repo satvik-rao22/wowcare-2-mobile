@@ -112,8 +112,21 @@ class _OrganizationSelectionScreenState
                   orgNames.isNotEmpty)
               ? orgNames
               : orgCodes;
+          // Hide unresolved items (fallback raw org codes) from dropdown.
+          final resolvedOrgCodes = <String>[];
+          final resolvedOrgDisplayItems = <String>[];
+          for (var i = 0; i < orgCodes.length && i < orgDisplayItems.length; i++) {
+            final code = orgCodes[i].trim();
+            final display = orgDisplayItems[i].trim();
+            final isFallbackCode =
+                display.isEmpty || display == code || display.toUpperCase().startsWith('ORG_');
+            if (isFallbackCode) continue;
+            resolvedOrgCodes.add(code);
+            resolvedOrgDisplayItems.add(display);
+          }
 
-          final isNextEnabled = _selectedOrgCode != null && orgCodes.isNotEmpty;
+          final isNextEnabled =
+              _selectedOrgCode != null && resolvedOrgCodes.contains(_selectedOrgCode);
 
           return Scaffold(
             body: Container(
@@ -242,15 +255,17 @@ class _OrganizationSelectionScreenState
                               ),
                               SizedBox(height: screenHeight * 0.02),
                               CustomDropdown(
-                                hintText: orgDisplayItems.isNotEmpty
+                                hintText: resolvedOrgDisplayItems.isNotEmpty
                                     ? 'Select organization'
                                     : 'No organizations',
-                                items: orgDisplayItems,
+                                items: resolvedOrgDisplayItems,
                                 selectedItem: () {
                                   if (_selectedOrgCode == null) return null;
-                                  final index = orgCodes.indexOf(_selectedOrgCode!);
-                                  if (index != -1 && index < orgDisplayItems.length) {
-                                    return orgDisplayItems[index];
+                                  final index =
+                                      resolvedOrgCodes.indexOf(_selectedOrgCode!);
+                                  if (index != -1 &&
+                                      index < resolvedOrgDisplayItems.length) {
+                                    return resolvedOrgDisplayItems[index];
                                   }
                                   return null;
                                 }(),
@@ -285,9 +300,11 @@ class _OrganizationSelectionScreenState
                                     if (value == null) {
                                       _selectedOrgCode = null;
                                     } else {
-                                      final index = orgDisplayItems.indexOf(value);
-                                      if (index != -1 && index < orgCodes.length) {
-                                        _selectedOrgCode = orgCodes[index];
+                                      final index =
+                                          resolvedOrgDisplayItems.indexOf(value);
+                                      if (index != -1 &&
+                                          index < resolvedOrgCodes.length) {
+                                        _selectedOrgCode = resolvedOrgCodes[index];
                                       }
                                     }
                                   });
