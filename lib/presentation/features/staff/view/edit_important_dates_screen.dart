@@ -247,23 +247,27 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       DateTime? currentDate;
       DateTime? firstDate;
       DateTime? lastDate;
+      final today = _todayDateOnly();
       switch (fieldName) {
         case 'hire':
           currentDate = _selectedHireDate;
-          lastDate = _todayDateOnly();
+          lastDate = today;
           break;
         case 'cda':
           currentDate = _selectedCdaExaminationDate;
+          // CDA expiry: past date not allowed.
+          firstDate = today;
           break;
         case 'firstAid':
           currentDate = _selectedFirstAidCprExpirationDate;
           break;
         case 'background':
           currentDate = _selectedBackgroundRecordCheckExpirationDate;
+          // BRC expiry: past date not allowed.
+          firstDate = today;
           break;
         case 'physical':
           currentDate = _selectedPhysicalCheckupDate;
-          final today = _todayDateOnly();
           if ((_selectedPhysicalCheckupStatus ?? '').trim() == 'Completed') {
             lastDate = today;
           } else {

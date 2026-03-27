@@ -517,7 +517,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required Map<String, dynamic> body,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffProfilePath(staffCode),
+      ApiPaths.staffProfileByCodePath(staffCode),
       ApiConstants.staffBaseUrl,
     );
 
