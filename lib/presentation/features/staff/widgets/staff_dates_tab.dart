@@ -165,6 +165,8 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     const completedBg = Color.fromRGBO(56, 200, 32, 0.1);
     const dueColor = Color.fromRGBO(234, 186, 0, 1);
     const dueBg = Color.fromRGBO(234, 186, 0, 0.12);
+    const overdueColor = Color.fromRGBO(232, 45, 45, 1);
+    const overdueBg = Color.fromRGBO(232, 45, 45, 0.12);
     const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
     const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
 
@@ -189,22 +191,32 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
       if (dueDate.isNotEmpty) {
         String dueLabel;
+        String editStatusUi;
         Color dueLabelColor;
         Color dueLabelBg;
         switch (statusUpper) {
           case 'COMPLETED':
             dueLabel = 'Completed';
+            editStatusUi = 'Completed';
             dueLabelColor = completedColor;
             dueLabelBg = completedBg;
             break;
           case 'DUE':
-          case 'OVERDUE':
             dueLabel = 'Due';
+            editStatusUi = 'Due';
             dueLabelColor = dueColor;
             dueLabelBg = dueBg;
             break;
+          case 'OVERDUE':
+            dueLabel = 'Overdue';
+            // Keep edit dropdown compatible (it doesn't have "Overdue").
+            editStatusUi = 'Due';
+            dueLabelColor = overdueColor;
+            dueLabelBg = overdueBg;
+            break;
           default:
             dueLabel = 'Scheduled';
+            editStatusUi = 'Scheduled';
             dueLabelColor = scheduledColor;
             dueLabelBg = scheduledBg;
         }
@@ -218,7 +230,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
             onMore: showMore
                 ? () => _openEditPhysicalDialog(
                       initialDateIso: dueDate,
-                      initialStatusUi: dueLabel,
+                      initialStatusUi: editStatusUi,
                     )
                 : null,
           ),

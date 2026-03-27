@@ -97,7 +97,15 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String _profileOrganizationCode = '';
   String _profileSchoolCode = '';
 
-  final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
+  static const List<String> _staffStatusOptions = [
+    'Active',
+    'Inactive',
+    'Upcoming',
+  ];
+  static const List<String> _adminStatusOptions = [
+    'Active',
+    'Inactive',
+  ];
   // Full designation list (union of admin + staff) for mapping helpers.
   final List<String> _designationOptions = [
     'Director',
@@ -156,9 +164,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   }
 
   /// Staff: Active / Inactive / Upcoming. Admin: no Upcoming option.
-  List<String> get _statusOptionsForCurrentRole => _isAdminSelected
-      ? <String>['Active', 'Inactive']
-      : _statusOptions;
+  List<String> get _statusOptionsForCurrentRole =>
+      _isAdminSelected ? _adminStatusOptions : _staffStatusOptions;
 
   @override
   void initState() {
