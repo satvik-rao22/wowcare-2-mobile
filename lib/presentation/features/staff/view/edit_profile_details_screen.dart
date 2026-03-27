@@ -549,9 +549,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final designationApi = _mapDesignationToApiValue(_selectedDesignation);
       final jobTagApi =
           _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
+      // Backend contract uses `birthdate` (lowercase) and expects ISO timestamp.
       final birthDateApi = _selectedBirthDate == null
           ? null
-          : DateFormat('yyyy-MM-dd').format(_selectedBirthDate!);
+          : _selectedBirthDate!.toIso8601String();
       // Gender is not collected in this form (per product requirement).
 
       final primaryClassroomCode = _selectedPrimaryClassroom == null
@@ -569,7 +570,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'phoneNumber': phoneDigits,
         'designation': designationApi,
         if (jobTagApi != null) 'jobTag': jobTagApi,
-        if (birthDateApi != null) 'birthDate': birthDateApi,
+        if (birthDateApi != null) 'birthdate': birthDateApi,
         'primaryClassroomCode': primaryClassroomCode,
         'allowedClassroomCodes': allowedClassroomCodes,
       };

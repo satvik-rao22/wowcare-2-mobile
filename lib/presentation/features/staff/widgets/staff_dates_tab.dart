@@ -363,18 +363,48 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 onTap: () async {
                                   final now = DateTime.now();
                                   final today = DateTime(now.year, now.month, now.day);
+                                  final statusUpper = statusUi.trim().toUpperCase();
                                   final result = await showDialog<Map<String, dynamic>>(
                                     context: context,
                                     builder: (context) => CalendarDialog(
                                       isRangePicker: false,
                                       isTimePicker: false,
                                       initialDate: selectedDate,
-                                      firstDate: statusUi == 'Completed' ? null : today,
-                                      lastDate: statusUi == 'Completed' ? today : null,
+                                      firstDate: statusUpper == 'COMPLETED' ? null : today,
+                                      lastDate: statusUpper == 'COMPLETED' ? today : null,
                                     ),
                                   );
                                   if (result == null || result['date'] == null) return;
                                   final picked = result['date'] as DateTime;
+                                  final pickedOnly = DateTime(
+                                    picked.year,
+                                    picked.month,
+                                    picked.day,
+                                  );
+                                  if ((statusUpper == 'DUE' ||
+                                          statusUpper == 'SCHEDULED' ||
+                                          statusUpper == 'OVERDUE') &&
+                                      pickedOnly.isBefore(today)) {
+                                    if (!context.mounted) return;
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message:
+                                          'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
+                                  if (statusUpper == 'COMPLETED' &&
+                                      pickedOnly.isAfter(today)) {
+                                    if (!context.mounted) return;
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message:
+                                          'For Completed status, Physical Checkup Date must be today or past',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
                                   setLocalState(() => selectedDate = picked);
                                 },
                               ),
@@ -385,7 +415,46 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 label: 'Status *',
                                 value: statusUi,
                                 options: const ['Due', 'Scheduled', 'Completed'],
-                                onChanged: (v) => setLocalState(() => statusUi = v),
+                                onChanged: (v) {
+                                  setLocalState(() => statusUi = v);
+                                  if (selectedDate == null) return;
+                                  final now = DateTime.now();
+                                  final today =
+                                      DateTime(now.year, now.month, now.day);
+                                  final pickedOnly = DateTime(
+                                    selectedDate!.year,
+                                    selectedDate!.month,
+                                    selectedDate!.day,
+                                  );
+                                  final statusUpper =
+                                      statusUi.trim().toUpperCase();
+                                  final isDueScheduled =
+                                      statusUpper == 'DUE' ||
+                                          statusUpper == 'SCHEDULED' ||
+                                          statusUpper == 'OVERDUE';
+
+                                  if (isDueScheduled &&
+                                      pickedOnly.isBefore(today)) {
+                                    setLocalState(() => selectedDate = null);
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message:
+                                          'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
+                                  if (statusUpper == 'COMPLETED' &&
+                                      pickedOnly.isAfter(today)) {
+                                    setLocalState(() => selectedDate = null);
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message:
+                                          'For Completed status, Physical Checkup Date must be today or past',
+                                      isError: true,
+                                    );
+                                  }
+                                },
                               ),
                             ),
                           ],
@@ -409,18 +478,48 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               onTap: () async {
                                 final now = DateTime.now();
                                 final today = DateTime(now.year, now.month, now.day);
+                                final statusUpper = statusUi.trim().toUpperCase();
                                 final result = await showDialog<Map<String, dynamic>>(
                                   context: context,
                                   builder: (context) => CalendarDialog(
                                     isRangePicker: false,
                                     isTimePicker: false,
                                     initialDate: selectedDate,
-                                    firstDate: statusUi == 'Completed' ? null : today,
-                                    lastDate: statusUi == 'Completed' ? today : null,
+                                    firstDate: statusUpper == 'COMPLETED' ? null : today,
+                                    lastDate: statusUpper == 'COMPLETED' ? today : null,
                                   ),
                                 );
                                 if (result == null || result['date'] == null) return;
                                 final picked = result['date'] as DateTime;
+                                final pickedOnly = DateTime(
+                                  picked.year,
+                                  picked.month,
+                                  picked.day,
+                                );
+                                if ((statusUpper == 'DUE' ||
+                                        statusUpper == 'SCHEDULED' ||
+                                        statusUpper == 'OVERDUE') &&
+                                    pickedOnly.isBefore(today)) {
+                                  if (!context.mounted) return;
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                                    isError: true,
+                                  );
+                                  return;
+                                }
+                                if (statusUpper == 'COMPLETED' &&
+                                    pickedOnly.isAfter(today)) {
+                                  if (!context.mounted) return;
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        'For Completed status, Physical Checkup Date must be today or past',
+                                    isError: true,
+                                  );
+                                  return;
+                                }
                                 setLocalState(() => selectedDate = picked);
                               },
                             ),
@@ -429,7 +528,46 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               label: 'Status *',
                               value: statusUi,
                               options: const ['Due', 'Scheduled', 'Completed'],
-                              onChanged: (v) => setLocalState(() => statusUi = v),
+                              onChanged: (v) {
+                                setLocalState(() => statusUi = v);
+                                if (selectedDate == null) return;
+                                final now = DateTime.now();
+                                final today =
+                                    DateTime(now.year, now.month, now.day);
+                                final pickedOnly = DateTime(
+                                  selectedDate!.year,
+                                  selectedDate!.month,
+                                  selectedDate!.day,
+                                );
+                                final statusUpper =
+                                    statusUi.trim().toUpperCase();
+                                final isDueScheduled =
+                                    statusUpper == 'DUE' ||
+                                        statusUpper == 'SCHEDULED' ||
+                                        statusUpper == 'OVERDUE';
+
+                                if (isDueScheduled &&
+                                    pickedOnly.isBefore(today)) {
+                                  setLocalState(() => selectedDate = null);
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                                    isError: true,
+                                  );
+                                  return;
+                                }
+                                if (statusUpper == 'COMPLETED' &&
+                                    pickedOnly.isAfter(today)) {
+                                  setLocalState(() => selectedDate = null);
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        'For Completed status, Physical Checkup Date must be today or past',
+                                    isError: true,
+                                  );
+                                }
+                              },
                             ),
                           ],
                         ),
@@ -439,84 +577,118 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                           final now = DateTime.now();
                           final today = DateTime(now.year, now.month, now.day);
                           final hasDate = selectedDate != null;
-
-                          return CustomButtonLayout(
-                            confirmButtonLabel: 'Save',
-                            cancelButtonLabel: 'Cancel',
-                            isForm: false,
-                            isLoading: isSaving,
-                            onPressedCancel: () => Navigator.of(context).pop(),
-                            onPressedConfirm: hasDate
-                                ? () async {
-                          final picked = selectedDate!;
+                          final picked = selectedDate;
                           final currentStatus = statusUi.trim();
-                          if ((currentStatus == 'Due' || currentStatus == 'Scheduled') &&
-                              picked.isBefore(today)) {
-                            CoreUtils.showTopSnackBar(
-                              context: context,
-                              message:
-                                  'For Due/Scheduled status, Physical Checkup Date must be today or future',
-                              isError: true,
-                            );
-                            return;
-                          }
-                          if (currentStatus == 'Completed' &&
-                              picked.isAfter(today)) {
-                            CoreUtils.showTopSnackBar(
-                              context: context,
-                              message:
-                                  'For Completed status, Physical Checkup Date must be today or past',
-                              isError: true,
-                            );
-                            return;
-                          }
+                          final statusUpper = currentStatus.toUpperCase();
 
-                          final dueIso = _apiFormatter.format(picked);
-                          final statusApi = statusUi == 'Completed'
-                              ? 'COMPLETED'
-                              : statusUi == 'Scheduled'
-                                  ? 'SCHEDULED'
-                                  : 'DUE';
+                          String? validationMessage;
+                          if (hasDate) {
+                            final pickedOnly = DateTime(
+                              picked!.year,
+                              picked.month,
+                              picked.day,
+                            );
 
-                          final payload = <String, String>{
-                            'importantDateType': 'PHYSICAL_CHECKUP',
-                            'dueDate': dueIso,
-                            'status': statusApi,
-                            if (statusApi == 'COMPLETED') 'completedDate': dueIso,
-                          };
+                            final bool isDueScheduled =
+                                statusUpper == 'DUE' ||
+                                statusUpper == 'OVERDUE' ||
+                                statusUpper == 'SCHEDULED';
+                            final bool isCompleted =
+                                statusUpper == 'COMPLETED';
 
-                          setLocalState(() => isSaving = true);
-                          try {
-                            final repo = serviceLocator<StaffRepository>();
-                            final msg = await repo.updateImportantDates(
-                              staffCode: widget.staffCode,
-                              dates: [payload],
-                            );
-                            if (!context.mounted) return;
-                            CoreUtils.showTopSnackBar(
-                              context: context,
-                              message: msg.isNotEmpty ? msg : 'Updated successfully',
-                              isSuccess: true,
-                            );
-                            Navigator.of(context).pop();
-                            await _loadDates(useCache: false);
-                          } catch (e) {
-                            if (!context.mounted) return;
-                            CoreUtils.logApiError(e.toString());
-                            CoreUtils.showTopSnackBar(
-                              context: context,
-                              message:
-                                  'Failed to update physical checkup. Please try again.',
-                              isError: true,
-                            );
-                          } finally {
-                            // `setLocalState` belongs to the bottom sheet; guard with sheet context.
-                            if (context.mounted) {
-                              setLocalState(() => isSaving = false);
+                            // Enforce the status-specific constraints live in UI.
+                            if (isDueScheduled && pickedOnly.isBefore(today)) {
+                              validationMessage =
+                                  'For Due/Scheduled status, Physical Checkup Date must be today or future';
+                            } else if (isCompleted && pickedOnly.isAfter(today)) {
+                              validationMessage =
+                                  'For Completed status, Physical Checkup Date must be today or past';
                             }
                           }
-                        }
-                                : null,
+
+                          final canSave = hasDate && validationMessage == null;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (validationMessage != null) ...[
+                                Text(
+                                  validationMessage,
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              CustomButtonLayout(
+                                confirmButtonLabel: 'Save',
+                                cancelButtonLabel: 'Cancel',
+                                isForm: false,
+                                isLoading: isSaving,
+                                onPressedCancel: () =>
+                                    Navigator.of(context).pop(),
+                                onPressedConfirm: canSave
+                                    ? () async {
+                                        if (!canSave) return;
+
+                                        final dueIso = _apiFormatter.format(picked!);
+                                        final statusApi =
+                                            statusUpper == 'COMPLETED'
+                                                ? 'COMPLETED'
+                                                : statusUpper == 'SCHEDULED'
+                                                    ? 'SCHEDULED'
+                                                    : 'DUE';
+
+                                        final payload =
+                                            <String, String>{
+                                          'importantDateType':
+                                              'PHYSICAL_CHECKUP',
+                                          'dueDate': dueIso,
+                                          'status': statusApi,
+                                          if (statusApi == 'COMPLETED')
+                                            'completedDate': dueIso,
+                                        };
+
+                                        setLocalState(() => isSaving = true);
+                                        try {
+                                          final repo =
+                                              serviceLocator<StaffRepository>();
+                                          final msg = await repo
+                                              .updateImportantDates(
+                                            staffCode: widget.staffCode,
+                                            dates: [payload],
+                                          );
+                                          if (!context.mounted) return;
+                                          CoreUtils.showTopSnackBar(
+                                            context: context,
+                                            message: msg.isNotEmpty
+                                                ? msg
+                                                : 'Updated successfully',
+                                            isSuccess: true,
+                                          );
+                                          Navigator.of(context).pop();
+                                          await _loadDates(useCache: false);
+                                        } catch (e) {
+                                          if (!context.mounted) return;
+                                          CoreUtils.logApiError(e.toString());
+                                          CoreUtils.showTopSnackBar(
+                                            context: context,
+                                            message:
+                                                'Failed to update physical checkup. Please try again.',
+                                            isError: true,
+                                          );
+                                        } finally {
+                                          if (context.mounted) {
+                                            setLocalState(
+                                                () => isSaving = false);
+                                          }
+                                        }
+                                      }
+                                    : null,
+                              ),
+                            ],
                           );
                         },
                       ),

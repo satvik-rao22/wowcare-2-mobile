@@ -626,6 +626,54 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     required String staffCode,
     required List<Map<String, String>> dates,
   }) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Final safety guard: never allow PHYSICAL_CHECKUP Due/Scheduled in past
+    // (reverse rule of Completed) even if any UI path misses validation.
+    for (final date in dates) {
+      final type = (date['importantDateType'] ?? '').trim().toUpperCase();
+      if (type != 'PHYSICAL_CHECKUP') continue;
+
+      final status = (date['status'] ?? '').trim().toUpperCase();
+      final dueDate = (date['dueDate'] ?? '').trim();
+      if (dueDate.isEmpty) continue;
+
+      DateTime? parsed;
+      try {
+        parsed = DateTime.parse(dueDate);
+      } catch (_) {
+        parsed = null;
+      }
+      if (parsed == null) continue;
+      final picked = DateTime(parsed.year, parsed.month, parsed.day);
+
+      final isDueOrScheduled =
+          status == 'DUE' || status == 'SCHEDULED' || status == 'OVERDUE';
+      final isCompleted = status == 'COMPLETED';
+
+      print(
+        '[ImportantDates Guard] staffCode=$staffCode type=$type status=$status dueDate=$dueDate today=$today picked=$picked',
+      );
+
+      if (isDueOrScheduled && picked.isBefore(today)) {
+        print(
+          '[ImportantDates Guard] BLOCK: Due/Scheduled picked date is before today.',
+        );
+        throw Exception(
+          'For Due/Scheduled status, Physical Checkup Date must be today or future',
+        );
+      }
+      if (isCompleted && picked.isAfter(today)) {
+        print(
+          '[ImportantDates Guard] BLOCK: Completed picked date is after today.',
+        );
+        throw Exception(
+          'For Completed status, Physical Checkup Date must be today or past',
+        );
+      }
+    }
+
     final dateRequests = dates
         .map(
           (date) => ImportantDateRequestModel(

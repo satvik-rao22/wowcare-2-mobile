@@ -667,6 +667,54 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
   }) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Absolute safety check at data-source layer.
+    // Due/Scheduled must never be past; Completed must never be future.
+    for (final date in dates) {
+      final type = date.importantDateType.trim().toUpperCase();
+      if (type != 'PHYSICAL_CHECKUP') continue;
+
+      final status = (date.status ?? '').trim().toUpperCase();
+      final dueDate = date.dueDate.trim();
+      if (dueDate.isEmpty) continue;
+
+      DateTime? parsed;
+      try {
+        parsed = DateTime.parse(dueDate);
+      } catch (_) {
+        parsed = null;
+      }
+      if (parsed == null) continue;
+
+      final picked = DateTime(parsed.year, parsed.month, parsed.day);
+      final isDueOrScheduled =
+          status == 'DUE' || status == 'SCHEDULED' || status == 'OVERDUE';
+      final isCompleted = status == 'COMPLETED';
+
+      print(
+        '[ImportantDates DS Guard] staffCode=$staffCode status=$status dueDate=$dueDate today=$today picked=$picked',
+      );
+
+      if (isDueOrScheduled && picked.isBefore(today)) {
+        print(
+          '[ImportantDates DS Guard] BLOCK: Due/Scheduled picked date is before today.',
+        );
+        throw Exception(
+          'For Due/Scheduled status, Physical Checkup Date must be today or future',
+        );
+      }
+      if (isCompleted && picked.isAfter(today)) {
+        print(
+          '[ImportantDates DS Guard] BLOCK: Completed picked date is after today.',
+        );
+        throw Exception(
+          'For Completed status, Physical Checkup Date must be today or past',
+        );
+      }
+    }
+
     final endpoint = ApiPaths.urlWithBase(
       '${ApiPaths.staffDates}/$staffCode',
       ApiConstants.staffBaseUrl,
