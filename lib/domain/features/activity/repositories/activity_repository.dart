@@ -1,3 +1,4 @@
+import '../entities/activity_feed_row.dart';
 import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
 
@@ -12,6 +13,16 @@ abstract class ActivityRepository {
   /// Returns activity type details via `GET /api/v1/activity-types/{code}`.
   Future<ActivityTypeDetails> getActivityTypeDetails({
     required String code,
+  });
+
+  /// `GET /api/v1/activities/feed/daily`
+  Future<ActivityFeedPage> getDailyActivityFeed({
+    required String classroomCode,
+    required String date,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
   });
 
   /// Creates a new activity via `POST /api/v1/activities`.

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
+import '../models/activity_feed_models.dart';
 import '../models/activity_settings_models.dart';
 import '../models/activity_type_details_model.dart';
 
@@ -21,6 +22,16 @@ abstract class ActivityRemoteDataSource {
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
     required ActivityCreateRequestModel request,
+  });
+
+  /// Daily classroom feed: `GET /api/v1/activities/feed/daily`.
+  Future<ActivityFeedPageModel> getDailyActivityFeed({
+    required String classroomCode,
+    required String date,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
   });
 }
 
@@ -104,6 +115,46 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
 
     return 'Activity created successfully';
+  }
+
+  @override
+  Future<ActivityFeedPageModel> getDailyActivityFeed({
+    required String classroomCode,
+    required String date,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  }) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activitiesFeedDaily,
+      ApiConstants.activityBaseUrl,
+    );
+    final qp = <String, String>{
+      'classroomCode': classroomCode.trim(),
+      'date': date.trim(),
+      'page': '$page',
+      'size': '$size',
+      'sort': 'activityDate,desc',
+    };
+    final sc = studentCode?.trim();
+    if (sc != null && sc.isNotEmpty) {
+      qp['studentCode'] = sc;
+    }
+    final at = activityTypeCode?.trim();
+    if (at != null && at.isNotEmpty) {
+      qp['activityTypeCode'] = at;
+    }
+
+    final uri = Uri.parse(base).replace(queryParameters: qp);
+    final response = await _client.getUri<dynamic>(uri);
+    final body = response.data;
+
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected daily activity feed API response format');
+    }
+
+    return ActivityFeedPageModel.fromJson(body);
   }
 }
 

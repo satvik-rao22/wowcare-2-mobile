@@ -1,6 +1,7 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 
 import '../../../../core/util/cache_manager.dart';
+import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../domain/features/activity/repositories/activity_repository.dart';
@@ -77,6 +78,26 @@ class ActivityRepositoryImpl implements ActivityRepository {
       isFavorite: model.isFavorite,
       displayOrder: model.displayOrder,
     );
+  }
+
+  @override
+  Future<ActivityFeedPage> getDailyActivityFeed({
+    required String classroomCode,
+    required String date,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  }) async {
+    final model = await _remoteDataSource.getDailyActivityFeed(
+      classroomCode: classroomCode,
+      date: date,
+      studentCode: studentCode,
+      activityTypeCode: activityTypeCode,
+      page: page,
+      size: size,
+    );
+    return model.toEntity();
   }
 
   @override
