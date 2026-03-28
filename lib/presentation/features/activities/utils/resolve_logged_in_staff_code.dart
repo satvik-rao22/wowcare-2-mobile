@@ -1,0 +1,65 @@
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
+
+/// Resolves `staffCode` for the logged-in user: prefers validated cache, then
+/// `/api/v1/staff/code` (same as login). Persists to storage when fetched.
+Future<String?> resolveLoggedInStaffCode() async {
+  try {
+    final storage = serviceLocator<StorageService>();
+    final userCode =
+        (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    final cachedStaffCode =
+        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+    final cachedStaffUser =
+        (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
+
+    if (cachedStaffCode.isNotEmpty &&
+        cachedStaffUser.isNotEmpty &&
+        userCode.isNotEmpty &&
+        cachedStaffUser == userCode) {
+      return cachedStaffCode;
+    }
+    if (cachedStaffCode.isNotEmpty) {
+      return cachedStaffCode;
+    }
+
+    if (userCode.isEmpty) return null;
+
+    final orgCode =
+        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolFromStorage =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    if (orgCode.isEmpty) return null;
+
+    final staffRepo = serviceLocator<StaffRepository>();
+
+    Future<String?> lookup(String schoolCode) async {
+      final code = await staffRepo.getStaffCodeForUser(
+        userCode: userCode,
+        organizationCode: orgCode,
+        schoolCode: schoolCode,
+      );
+      final t = (code ?? '').trim();
+      return t.isEmpty ? null : t;
+    }
+
+    String? resolved;
+    if (schoolFromStorage.isNotEmpty && schoolFromStorage != '-') {
+      resolved = await lookup(schoolFromStorage);
+    }
+    resolved ??= await lookup('-');
+
+    if (resolved != null) {
+      await storage.saveString(StorageKeys.staffCode, resolved);
+      await storage.saveString(StorageKeys.staffCodeUser, userCode);
+    }
+    return resolved;
+  } catch (e) {
+    CoreUtils.logApiError('resolveLoggedInStaffCode failed: $e');
+    return null;
+  }
+}

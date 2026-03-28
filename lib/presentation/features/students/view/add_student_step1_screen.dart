@@ -538,7 +538,17 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       // Create guardian-user records for each newly entered parent (step 2).
       // Existing parents selected from the list are skipped here.
-      for (final parent in parents) {
+      if (organizationCode.trim().isEmpty) {
+        if (mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Organization is missing; cannot add guardians. Re-select your school and try again.',
+            isError: true,
+          );
+        }
+      } else {
+        for (final parent in parents) {
         if (parent is! Map) continue;
         final map = Map<String, dynamic>.from(parent);
         final bool selectFromExisting =
@@ -593,8 +603,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             legalCustody: legalCustody,
             profilePhotoUrl: null,
             userCode: userCode.isEmpty ? null : userCode,
-            organizationCode:
-                organizationCode.isEmpty ? null : organizationCode,
+            organizationCode: organizationCode.trim(),
           );
         } catch (e) {
           final message = ApiErrorHandler.extractErrorMessage(e);
@@ -605,6 +614,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               isError: true,
             );
           }
+        }
         }
       }
 

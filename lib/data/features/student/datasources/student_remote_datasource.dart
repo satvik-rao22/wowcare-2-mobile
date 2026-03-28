@@ -341,14 +341,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }) async {
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
-      // Backward-compatible pagination params
       'page': page,
       'size': size,
       'sort': 'desc',
-      // Newer backend contract (pageable as required)
-      'pageable.page': page,
-      'pageable.size': size,
-      'pageable.sort': <String>['desc'],
     };
 
     if (code != null && code.isNotEmpty) {
@@ -992,13 +987,10 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? userCode,
     String? organizationCode,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.guardianUser,
-      ApiConstants.studentBaseUrl,
-    );
+    // User MS (8086); [urlWithBase] second arg is ignored — do not use studentBaseUrl here.
+    final endpoint = ApiPaths.url(ApiPaths.guardianUser);
 
     final body = <String, dynamic>{
-      'code': '', // let backend generate
       'schoolCode': schoolCode,
       'studentCode': studentCode,
       'firstName': firstName,
@@ -1008,10 +1000,16 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'relationToStudent': relationToStudent,
       'primaryContact': primaryContact,
       'legalCustody': legalCustody,
-      'profilePhotoUrl': profilePhotoUrl ?? '',
-      'userCode': userCode ?? '',
-      'organizationCode': organizationCode ?? '',
     };
+    if (profilePhotoUrl != null && profilePhotoUrl.trim().isNotEmpty) {
+      body['profilePhotoUrl'] = profilePhotoUrl.trim();
+    }
+    if (userCode != null && userCode.trim().isNotEmpty) {
+      body['userCode'] = userCode.trim();
+    }
+    if (organizationCode != null && organizationCode.trim().isNotEmpty) {
+      body['organizationCode'] = organizationCode.trim();
+    }
 
     final response = await _client.post<dynamic>(
       endpoint,
@@ -1120,20 +1118,17 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   Future<List<Map<String, dynamic>>> getTagsBySchool({
     required String schoolCode,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.tags,
-      ApiConstants.studentBaseUrl,
-    );
-
-    final response = await _client.get<dynamic>(
-      endpoint,
-      queryParameters: <String, dynamic>{
+    // Full [Uri] so Dio does not merge with [BaseOptions.baseUrl]
+    // (which would incorrectly yield …/api/v1/user/tags on the user host).
+    final uri = Uri.parse(ApiPaths.url(ApiPaths.tags)).replace(
+      queryParameters: <String, String>{
         'schoolCode': schoolCode,
-        // Load first page with a reasonable size; tags list is usually small.
-        'pageable.page': 0,
-        'pageable.size': 100,
+        'page': '0',
+        'size': '100',
       },
     );
+
+    final response = await _client.getUri<dynamic>(uri);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected tags API response format');

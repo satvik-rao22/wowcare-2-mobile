@@ -18,6 +18,7 @@ import '../../../../../domain/features/activity/usecases/get_activity_type_detai
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
+import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 
@@ -37,15 +38,6 @@ class MedicationActivityScreen extends StatefulWidget {
 }
 
 class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
-  /// Temporary fallbacks to keep create-activity usable when staff context is
-  /// missing in storage.
-  ///
-  /// Dynamic values from storage will ALWAYS override these when present.
-  /// TODO: Remove/disable these once staff context is reliably persisted.
-  static const String _fallbackStaffCode = 'STAFF_CODE';
-  static const String _fallbackSchoolCode = 'SCHOOL_CODE';
-  static const String _fallbackOrganizationCode = 'ORG_CODE';
-
   late final List<Map<String, dynamic>> _selectedStudentsData;
   late final List<String> _selectedStudents;
   List<String> _studentsToEdit = [];
@@ -113,22 +105,19 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName =
         (await storage.getString(StorageKeys.displayName) ?? '').trim();
-    final staffCode =
-        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final staffCode = await resolveLoggedInStaffCode();
 
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
-      // Dynamic when available; otherwise use temporary static fallbacks.
-      _staffCode = staffCode.isNotEmpty ? staffCode : _fallbackStaffCode;
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : _fallbackSchoolCode;
-      _organizationCode = organizationCode.isNotEmpty
-          ? organizationCode
-          : _fallbackOrganizationCode;
+      _staffCode = staffCode;
+      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
+      _organizationCode =
+          organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -236,7 +225,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       return;
     }
 
-    final staffCode = _staffCode;
+    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
     final schoolCode = _schoolCode;
     final organizationCode = _organizationCode;
 

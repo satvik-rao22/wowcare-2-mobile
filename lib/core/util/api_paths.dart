@@ -1,26 +1,184 @@
 import 'api_constants.dart';
 
-/// All REST paths use `/api/v1/{microservice}/…` where [microservice] matches
-/// [ApiMicroservices]. Use [url] / [urlWithBase] to attach the correct host from
-/// [ApiConstants.baseUrlForMicroservice] — no per-call base selection elsewhere.
+// Legacy flat paths (no microservice segment) — kept for reference only; do not use.
+// import 'api_constants.dart';
+//
+// class ApiPaths {
+//   ApiPaths._();
+//
+//   // Auth
+//   static const String authLogin = '/api/v1/auth/login';
+//   static const String authLogout = '/api/v1/auth/logout';
+//   static const String authForgotPassword = '/api/v1/auth/forgot-password';
+//   static const String authLoginContext = '/api/v1/auth/login-context';
+//
+//   // Users
+//   static const String userRoot = '/api/v1/users';
+//   static String userEmailChange(String userCode) =>
+//       '$userRoot/$userCode/email-change';
+//
+//   // School - {organizationCode} in path
+//   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
+//   static String schoolNamesByOrgPath(String orgCode) =>
+//       '$schoolNamesByOrg/$orgCode';
+//   static const String organizationNames = '/api/v1/organizations/names';
+//
+//   // Schools
+//   static const String schools = '/api/v1/schools';
+//   static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
+//
+//   // Staff
+//   static const String staffList = '/api/v1/staff';
+//   static const String staffCount = '/api/v1/staff/count';
+//   static const String staffProfile = '/api/v1/staff';
+//   static const String staffMyProfile = '/api/v1/staff/my-profile';
+//   static const String staffCodeByUser = '/api/v1/staff/code';
+//   static const String staffDocuments = '/api/v1/staff-documents';
+//   static const String staffDocumentAdd = '/api/v1/staff-documents';
+//   static const String staffDocumentUpdate = '/api/v1/staff-documents';
+//   static const String staffDates = '/api/v1/staff-dates';
+//   static const String staffAddress = '/api/v1/staff-address';
+//   static const String staffSchedules = '/api/v1/staff-schedules';
+//
+//   // School Users
+//   static const String schoolUsers = '/api/v1/school-users';
+//   static const String schoolUsersStaff = '/api/v1/school-users/staff';
+//   static const String schoolUsersDeactivate = '/api/v1/school-users/deactivate';
+//   static const String schoolUsersActivate = '/api/v1/school-users/activate';
+//
+//   // Student
+//   static const String studentList = '/api/v1/student';
+//   static const String studentClassroom = '/api/v1/student-classroom';
+//   static const String studentDocuments = '/api/v1/student-documents';
+//   static String studentProfile(String code) => '/api/v1/student/$code';
+//   static String studentProfileUpdate(String code) => '/api/v1/student/$code/profile';
+//   static const String studentRegularSchedules = '/api/v1/regular-schedules';
+//   static String studentAddress(String code) => '/api/v1/student/$code/address';
+//   static String studentSiblings(String code) => '/api/v1/student/$code/siblings';
+//   static const String studentTags = '/api/v1/student-tags';
+//   static String studentDeactivate(String code) => '/api/v1/student/$code/deactivate';
+//   static String studentReactivate(String code) => '/api/v1/student/$code/reactivate';
+//   static String studentImportantDates(String code) =>
+//       '/api/v1/student/$code/important-dates';
+//   static String studentHealth(String code) => '/api/v1/student/$code/health';
+//   static String studentImmunization(String code) =>
+//       '/api/v1/student/$code/immunization';
+//   static String studentImmunizationRecord(String studentCode, String recordCode) =>
+//       '/api/v1/student/$studentCode/immunization/$recordCode';
+//   static String studentPhysicalExams(String code) =>
+//       '/api/v1/student/$code/physical-exam';
+//   static String studentPhysicalExam(String studentCode, String examCode) =>
+//       '/api/v1/student/$studentCode/physical-exam/$examCode';
+//
+//   // Physicians
+//   static const String physicians = '/api/v1/physicians';
+//
+//   // Guardian / Parent users
+//   static const String guardianUser = '/api/v1/guardian-user';
+//   static const String guardian = '/api/v1/guardian';
+//   static const String guardianExisting = '/api/v1/guardian/existing';
+//
+//   // Tags
+//   static const String tags = '/api/v1/tags';
+//
+//   // Attendance
+//   static const String studentAttendanceDailyView = '/api/v1/student-attendance/view/daily';
+//   static const String studentAttendanceCustomView = '/api/v1/student-attendance/view/custom';
+//   static const String studentAttendanceAbsentView = '/api/v1/student-attendance/view/absent';
+//   static const String studentAttendanceAbsentToggleView =
+//       '/api/v1/student-attendance/view/absent/toggle';
+//   static const String studentAttendanceProfile = '/api/v1/student-attendance/profile';
+//   static const String studentAttendanceSignInFormList =
+//       '/api/v1/student-attendance/sign-in/form/list';
+//   static const String studentAttendanceSignOutFormList =
+//       '/api/v1/student-attendance/sign-out/form/list';
+//   static const String studentAttendanceAbsentFormList =
+//       '/api/v1/student-attendance/absent/form/list';
+//   static const String studentAttendanceTransferFormList =
+//       '/api/v1/student-attendance/transfer/form/list';
+//   static const String studentAbsenceRecordsMarkAbsent =
+//       '/api/v1/student-absence-records/mark-absent';
+//   static const String staffAttendanceDailyView = '/api/v1/staff-attendance/view/daily';
+//   static const String staffAttendanceSignInFormList =
+//       '/api/v1/staff-attendance/sign-in/form/list';
+//   static const String staffAttendanceSignOutFormList =
+//       '/api/v1/staff-attendance/sign-out/form/list';
+//   static const String staffAttendanceTransferFormList =
+//       '/api/v1/staff-attendance/transfer/form/list';
+//   static const String staffAttendanceProfile = '/api/v1/staff-attendance/profile';
+//   static const String staffAttendanceAbsentView = '/api/v1/staff-attendance/view/absent';
+//   static const String staffAttendanceCustomView = '/api/v1/staff-attendance/view/custom';
+//
+//   // Classroom
+//   static const String classroomAll = '/api/v1/classroom/all';
+//   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
+//
+//   // Activities
+//   static const String activities = '/api/v1/activities';
+//
+//   // Pickup
+//   static const String pickup = '/api/v1/pickup';
+//
+//   static String url(String path) => '${ApiConstants.baseUrl}$path';
+//   static String urlWithBase(String path, String baseUrl) => '$baseUrl$path';
+// }
+
+/// REST paths are `/api/v1/…` **without** a microservice segment in the path; the host
+/// is chosen from the first resource segment after `/api/v1/` (see [microserviceKeyFromPath]).
 class ApiPaths {
   ApiPaths._();
 
-  /// `/api/v1/{ms}` or `/api/v1/{ms}/{tail}`.
-  static String v1(String microservice, [String tail = '']) {
-    if (tail.isEmpty) return '/api/v1/$microservice';
-    final t = tail.startsWith('/') ? tail.substring(1) : tail;
-    return '/api/v1/$microservice/$t';
-  }
-
-  /// Returns the microservice key from [path] (`/api/v1/{key}/…`), or [user].
+  /// Maps [path] to [ApiMicroservices] for [ApiConstants.baseUrlForMicroservice].
+  /// Paths do not include the MS name in the URL.
   static String microserviceKeyFromPath(String path) {
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length >= 3 && parts[0] == 'api' && parts[1] == 'v1') {
-      return parts[2];
+    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
+      return ApiMicroservices.user;
     }
-    return ApiMicroservices.user;
+    final seg = parts[2];
+    switch (seg) {
+      case 'auth':
+      case 'users':
+      case 'school-users':
+      case 'organization-admins':
+      case 'physicians':
+      case 'guardian-user':
+      case 'guardian':
+      case 'pickup':
+        return ApiMicroservices.user;
+      case 'schools':
+      case 'organizations':
+      case 'school':
+        return ApiMicroservices.organization;
+      case 'staff':
+      case 'staff-classrooms':
+      case 'staff-documents':
+      case 'staff-dates':
+      case 'staff-address':
+      case 'staff-schedules':
+        return ApiMicroservices.staff;
+      case 'student':
+      case 'student-classroom':
+      case 'student-documents':
+      case 'student-tags':
+      case 'regular-schedules':
+      case 'tags':
+        return ApiMicroservices.student;
+      case 'student-attendance':
+      case 'student-absence-records':
+      case 'student-attendance-records':
+      case 'staff-attendance':
+        return ApiMicroservices.attendance;
+      case 'classroom':
+        return ApiMicroservices.classroom;
+      case 'classrooms':
+      case 'activities':
+      case 'activity-types':
+        return ApiMicroservices.activity;
+      default:
+        return ApiMicroservices.user;
+    }
   }
 
   /// Full URL: host from [ApiConstants.baseUrlForMicroservice] + [path].
@@ -30,133 +188,99 @@ class ApiPaths {
     return '${ApiConstants.baseUrlForMicroservice(ms)}$p';
   }
 
-  /// Same as [url]; the [baseUrl] argument is ignored (kept so existing call sites
-  /// keep compiling — routing is driven only by `/api/v1/{ms}/` in [path]).
+  /// Same as [url]; the [baseUrl] argument is ignored (kept for call-site compatibility).
   static String urlWithBase(String path, String baseUrl) => url(path);
 
-  // —— Auth (user MS) ——
-  static String get authLogin => v1(ApiMicroservices.user, 'auth/login');
-  static String get authLogout => v1(ApiMicroservices.user, 'auth/logout');
-  static String get authForgotPassword =>
-      v1(ApiMicroservices.user, 'auth/forgot-password');
-  static String get authLoginContext =>
-      v1(ApiMicroservices.user, 'auth/login-context');
+  // —— Auth (user host) ——
+  static const String authLogin = '/api/v1/auth/login';
+  static const String authLogout = '/api/v1/auth/logout';
+  static const String authForgotPassword = '/api/v1/auth/forgot-password';
+  static const String authLoginContext = '/api/v1/auth/login-context';
 
   // —— Users ——
-  static String get userRoot => v1(ApiMicroservices.user, 'users');
+  static const String userRoot = '/api/v1/users';
   static String userEmailChange(String userCode) =>
       '$userRoot/$userCode/email-change';
 
-  // —— School MS ——
-  static String get schoolNamesByOrg =>
-      v1(ApiMicroservices.organization, 'schools/names-by-org');
+  // —— Organization / school host ——
+  static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
   static String schoolNamesByOrgPath(String orgCode) =>
       '$schoolNamesByOrg/$orgCode';
+  static const String organizationNames = '/api/v1/organizations/names';
 
-  static String get organizationNames =>
-      v1(ApiMicroservices.organization, 'organizations/names');
+  /// GET /api/v1/school/{schoolCode}/regular-schedule
+  static String schoolRegularSchedule(String schoolCode) =>
+      '/api/v1/school/$schoolCode/regular-schedule';
 
-  /// School-wide regular schedule (operating hours per weekday).
-  /// Actual: GET /api/v1/organization/school/{schoolCode}/regular-schedule
-  static String schoolRegularSchedule(String schoolCode) => v1(
-        ApiMicroservices.organization,
-        'school/$schoolCode/regular-schedule',
-      );
+  /// School entity root (gateway: school host).
+  static const String schools = '/api/v1/schools';
+  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
 
-  // —— Staff MS ——
-  /// Paginated staff list — UAT: **`GET /api/v1/staff/staff`** (not `…/staff` alone).
-  static String get staffList => v1(ApiMicroservices.staff, 'staff');
-  static String get staffClassrooms =>
-      v1(ApiMicroservices.staff, 'staff-classrooms');
-  static String get staffClassroomsAssignStaff =>
-      v1(ApiMicroservices.staff, 'staff-classrooms/assign-staff');
-  /// Staff totals — UAT: **`/api/v1/staff/staff/count`** (not `…/staff/count`, which
-  /// resolves as `api/v1/count` on the gateway).
-  // UAT staff count endpoint is `/api/v1/staff/count` (single `staff` segment).
-  static String get staffCount => v1(ApiMicroservices.staff, 'count');
+  // —— Staff host ——
+  static const String staffList = '/api/v1/staff';
+  static const String staffClassrooms = '/api/v1/staff-classrooms';
+  static const String staffClassroomsAssignStaff =
+      '/api/v1/staff-classrooms/assign-staff';
+  static const String staffCount = '/api/v1/staff/count';
   static String get staffProfile => staffList;
-  /// Legacy single-segment path; prefer [staffProfilePath] / [staffMyProfilePinPath] for UAT.
-  static String get staffMyProfile =>
-      v1(ApiMicroservices.staff, 'my-profile');
 
-  /// GET/PATCH staff profile (my-profile) — **`/api/v1/staff/my-profile/{staffCode}`**
-  /// For logged-in user's own profile.
+  static const String staffMyProfile = '/api/v1/staff/my-profile';
+
+  /// GET/PATCH my-profile — `/api/v1/staff/my-profile/{staffCode}`.
   static String staffProfilePath(String staffCode) =>
-      v1(ApiMicroservices.staff, 'my-profile/$staffCode');
+      '$staffMyProfile/$staffCode';
 
-  /// GET staff profile (edit staff) — **`/api/v1/staff/{staffCode}/profile`**
-  /// For viewing/editing another staff member's profile details.
+  /// GET/PATCH other staff profile — `/api/v1/staff/{staffCode}/profile`.
   static String staffProfileByCodePath(String staffCode) =>
-      // Microservice is already `staff` (so `/api/v1/staff/…` is added by [v1]).
-      // UAT expects only a single `staff` segment for this endpoint.
-      v1(ApiMicroservices.staff, '$staffCode/profile');
+      '/api/v1/staff/$staffCode/profile';
 
-  /// GET sign-in PIN — **`/api/v1/staff/my-profile/{staffCode}/pin`**.
+  /// GET sign-in PIN — `/api/v1/staff/my-profile/{staffCode}/pin`.
   static String staffMyProfilePinPath(String staffCode) =>
-      v1(ApiMicroservices.staff, 'my-profile/$staffCode/pin');
+      '$staffMyProfile/$staffCode/pin';
 
-  /// Resolve staff code by user/org/school — **`GET /api/v1/staff/code`**.
-  static String get staffCodeByUser =>
-      v1(ApiMicroservices.staff, 'code');
-  static String get staffDocuments =>
-      v1(ApiMicroservices.staff, 'staff-documents');
-  static String get staffDocumentAdd => staffDocuments;
-  static String get staffDocumentUpdate => staffDocuments;
-  static String get staffDates => v1(ApiMicroservices.staff, 'staff-dates');
-  /// Staff address update (PATCH) — `PATCH /api/v1/staff/staff-address/{staffCode}`
-  static String get staffAddress =>
-      v1(ApiMicroservices.staff, 'staff-address');
+  static const String staffCodeByUser = '/api/v1/staff/code';
+  static const String staffDocuments = '/api/v1/staff-documents';
+  static const String staffDocumentAdd = staffDocuments;
+  static const String staffDocumentUpdate = staffDocuments;
+  static const String staffDates = '/api/v1/staff-dates';
+  static const String staffAddress = '/api/v1/staff-address';
 
-  /// Staff classrooms update (PATCH)
-  /// - `PATCH /api/v1/staff/staff-classrooms/{staffCode}/allowed-classrooms`
   static String staffAllowedClassroomsByStaffCodePath(String staffCode) =>
-      v1(ApiMicroservices.staff, 'staff-classrooms/$staffCode/allowed-classrooms');
+      '$staffClassrooms/$staffCode/allowed-classrooms';
 
-  /// Staff classrooms update (PATCH)
-  /// - `PATCH /api/v1/staff/staff-classrooms/{staffCode}/primary-classroom`
   static String staffPrimaryClassroomByStaffCodePath(String staffCode) =>
-      v1(ApiMicroservices.staff, 'staff-classrooms/$staffCode/primary-classroom');
-  static String get staffSchedules =>
-      v1(ApiMicroservices.staff, 'staff-schedules');
+      '$staffClassrooms/$staffCode/primary-classroom';
 
-  // —— School users (user MS) ——
-  static String get schoolUsers => v1(ApiMicroservices.user, 'school-users');
-  static String get schoolUsersStaff =>
-      v1(ApiMicroservices.user, 'school-users/staff');
-  static String get schoolUsersDeactivate =>
-      v1(ApiMicroservices.user, 'school-users/deactivate');
-  static String get schoolUsersActivate =>
-      v1(ApiMicroservices.user, 'school-users/activate');
+  static const String staffSchedules = '/api/v1/staff-schedules';
 
-  // —— Organization admins (user MS) ——
-  /// UAT/web contract: `POST /api/v1/user/organization-admins/deactivate`
-  /// with query params `userCode` and `organizationCode`.
-  static String get organizationAdminsDeactivate =>
-      v1(ApiMicroservices.user, 'organization-admins/deactivate');
+  // —— School users (user host) ——
+  static const String schoolUsers = '/api/v1/school-users';
+  static const String schoolUsersStaff = '/api/v1/school-users/staff';
+  static const String schoolUsersDeactivate =
+      '/api/v1/school-users/deactivate';
+  static const String schoolUsersActivate =
+      '/api/v1/school-users/activate';
 
-  /// UAT/web contract: `POST /api/v1/user/organization-admins/activate`
-  /// with query params `userCode` and `organizationCode`.
-  static String get organizationAdminsActivate =>
-      v1(ApiMicroservices.user, 'organization-admins/activate');
+  // —— Organization admins (user host) ——
+  static const String organizationAdminsDeactivate =
+      '/api/v1/organization-admins/deactivate';
+  static const String organizationAdminsActivate =
+      '/api/v1/organization-admins/activate';
 
-  // —— Student MS ——
-  static String get studentList => v1(ApiMicroservices.student);
-  static String get studentClassroom =>
-      v1(ApiMicroservices.student, 'student-classroom');
-  static String get studentClassroomAssignStudent =>
-      v1(ApiMicroservices.student, 'student-classroom/assign-student');
-  static String get studentDocuments =>
-      v1(ApiMicroservices.student, 'student-documents');
+  // —— Student host ——
+  static const String studentList = '/api/v1/student';
+  static const String studentClassroom = '/api/v1/student-classroom';
+  static const String studentClassroomAssignStudent =
+      '/api/v1/student-classroom/assign-student';
+  static const String studentDocuments = '/api/v1/student-documents';
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';
-  /// Regular schedules for students (school-wide endpoint).
-  static String get studentRegularSchedules =>
-      v1(ApiMicroservices.student, 'regular-schedules');
+  static const String studentRegularSchedules =
+      '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
   static String studentSiblings(String code) => '$studentList/$code/siblings';
-  static String get studentTags =>
-      v1(ApiMicroservices.student, 'student-tags');
+  static const String studentTags = '/api/v1/student-tags';
   static String studentDeactivate(String code) =>
       '$studentList/$code/deactivate';
   static String studentReactivate(String code) =>
@@ -174,64 +298,67 @@ class ApiPaths {
   static String studentPhysicalExam(String studentCode, String examCode) =>
       '$studentList/$studentCode/physical-exam/$examCode';
 
-  // —— User MS (shared) ——
-  static String get physicians => v1(ApiMicroservices.user, 'physicians');
-  static String get guardianUser =>
-      v1(ApiMicroservices.user, 'guardian-user');
-  static String get guardian => v1(ApiMicroservices.user, 'guardian');
-  static String get guardianExisting =>
-      v1(ApiMicroservices.user, 'guardian/existing');
-  static String get tags => v1(ApiMicroservices.user, 'tags');
-  static String get pickup => v1(ApiMicroservices.user, 'pickup');
+  /// Student MS — `GET /api/v1/tags` ([ApiConstants.studentBaseUrl], devtunnel **8085**).
+  static const String tags = '/api/v1/tags';
 
-  // —— Attendance MS ——
-  static String get studentAttendanceDailyView =>
-      v1(ApiMicroservices.attendance, 'student-attendance/view/daily');
-  static String get studentAttendanceCustomView =>
-      v1(ApiMicroservices.attendance, 'student-attendance/view/custom');
-  static String get studentAttendanceAbsentView =>
-      v1(ApiMicroservices.attendance, 'student-attendance/view/absent');
-  static String get studentAttendanceAbsentToggleView =>
-      v1(ApiMicroservices.attendance, 'student-attendance/view/absent/toggle');
-  static String get studentAttendanceProfile =>
-      v1(ApiMicroservices.attendance, 'student-attendance/profile');
-  static String get studentAttendanceSignInFormList =>
-      v1(ApiMicroservices.attendance, 'student-attendance/sign-in/form/list');
-  static String get studentAttendanceSignOutFormList =>
-      v1(ApiMicroservices.attendance, 'student-attendance/sign-out/form/list');
-  static String get studentAttendanceAbsentFormList =>
-      v1(ApiMicroservices.attendance, 'student-attendance/absent/form/list');
-  static String get studentAttendanceTransferFormList =>
-      v1(ApiMicroservices.attendance, 'student-attendance/transfer/form/list');
+  // —— User host ——
+  static const String physicians = '/api/v1/physicians';
+  static const String guardianUser = '/api/v1/guardian-user';
+  static const String guardian = '/api/v1/guardian';
+  static const String guardianExisting = '/api/v1/guardian/existing';
+  static const String pickup = '/api/v1/pickup';
+
+  // —— Attendance host ——
+  static const String studentAttendanceDailyView =
+      '/api/v1/student-attendance/view/daily';
+  static const String studentAttendanceCustomView =
+      '/api/v1/student-attendance/view/custom';
+  static const String studentAttendanceAbsentView =
+      '/api/v1/student-attendance/view/absent';
+  static const String studentAttendanceAbsentToggleView =
+      '/api/v1/student-attendance/view/absent/toggle';
+  static const String studentAttendanceProfile =
+      '/api/v1/student-attendance/profile';
+  static const String studentAttendanceSignInFormList =
+      '/api/v1/student-attendance/sign-in/form/list';
+  static const String studentAttendanceSignOutFormList =
+      '/api/v1/student-attendance/sign-out/form/list';
+  static const String studentAttendanceAbsentFormList =
+      '/api/v1/student-attendance/absent/form/list';
+  static const String studentAttendanceTransferFormList =
+      '/api/v1/student-attendance/transfer/form/list';
+
+  /// Single attendance record by code.
   static String studentAttendanceRecord(String attendanceRecordCode) =>
-      v1(ApiMicroservices.attendance, 'student-attendance/$attendanceRecordCode');
-  static String get studentAbsenceRecordsMarkAbsent =>
-      v1(ApiMicroservices.attendance, 'student-absence-records/mark-absent');
-  static String get staffAttendanceDailyView =>
-      v1(ApiMicroservices.attendance, 'staff-attendance/view/daily');
-  static String get staffAttendanceSignInFormList =>
-      v1(ApiMicroservices.attendance, 'staff-attendance/sign-in/form/list');
-  static String get staffAttendanceSignOutFormList =>
-      v1(ApiMicroservices.attendance, 'staff-attendance/sign-out/form/list');
-  static String get staffAttendanceTransferFormList =>
-      v1(ApiMicroservices.attendance, 'staff-attendance/transfer/form/list');
-  static String get staffAttendanceProfile =>
-      v1(ApiMicroservices.attendance, 'staff-attendance/profile');
-  static String get staffAttendanceAbsentView =>
-      v1(ApiMicroservices.attendance, 'staff-attendance/view/absent');
-  static String get staffAttendanceCustomView =>
-      v1(ApiMicroservices.attendance, 'staff-attendance/view/custom');
+      '/api/v1/student-attendance/$attendanceRecordCode';
 
-  // —— Classroom MS ——
-  /// Active classrooms — UAT: **`/api/v1/classroom/classroom/all`** (double `classroom`,
-  /// same idea as `staff/staff/…` on the staff MS). Not `…/staff/all` (breaks gateway).
-  static String get classroomAll =>
-      v1(ApiMicroservices.classroom, 'classroom/all');
+  /// DELETE student attendance record (daily view).
+  static String studentAttendanceRecords(String recordCode) =>
+      '/api/v1/student-attendance-records/$recordCode';
 
-  // —— Activity MS ——
-  static String get classroomActivitySettingsRoot =>
-      v1(ApiMicroservices.activity, 'classrooms');
-  static String get activities => v1(ApiMicroservices.activity, 'activities');
-  static String get activityTypesRoot =>
-      v1(ApiMicroservices.activity, 'activity-types');
+  static const String studentAbsenceRecordsMarkAbsent =
+      '/api/v1/student-absence-records/mark-absent';
+  static const String staffAttendanceDailyView =
+      '/api/v1/staff-attendance/view/daily';
+  static const String staffAttendanceSignInFormList =
+      '/api/v1/staff-attendance/sign-in/form/list';
+  static const String staffAttendanceSignOutFormList =
+      '/api/v1/staff-attendance/sign-out/form/list';
+  static const String staffAttendanceTransferFormList =
+      '/api/v1/staff-attendance/transfer/form/list';
+  static const String staffAttendanceProfile =
+      '/api/v1/staff-attendance/profile';
+  static const String staffAttendanceAbsentView =
+      '/api/v1/staff-attendance/view/absent';
+  static const String staffAttendanceCustomView =
+      '/api/v1/staff-attendance/view/custom';
+
+  // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
+  /// `GET /api/v1/classroom/all`
+  static const String classroomAll = '/api/v1/classroom/all';
+
+  // —— Activity host ——
+  static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
+  static const String activities = '/api/v1/activities';
+  static const String activityTypesRoot = '/api/v1/activity-types';
 }

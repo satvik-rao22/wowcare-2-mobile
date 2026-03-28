@@ -381,6 +381,22 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             );
             Navigator.pop(context, true);
           } else {
+            final orgCode =
+                await _storageService.getString(StorageKeys.organizationCode) ??
+                    '';
+            final loggedInUserCode =
+                await _storageService.getString(StorageKeys.userCode) ?? '';
+            if (orgCode.trim().isEmpty) {
+              if (!mounted) return;
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message:
+                    'Organization is missing. Re-select your school from the menu and try again.',
+                isError: true,
+              );
+              return;
+            }
+
             final repo = serviceLocator<StudentRepository>();
             final first = _firstNameController.text.trim();
             final last = _lastNameController.text.trim();
@@ -409,6 +425,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               relationToStudent: relationToStudent,
               primaryContact: primaryContact,
               legalCustody: legalCustody,
+              userCode:
+                  loggedInUserCode.trim().isEmpty ? null : loggedInUserCode.trim(),
+              organizationCode: orgCode.trim(),
             );
 
             if (!mounted) return;

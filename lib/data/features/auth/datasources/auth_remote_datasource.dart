@@ -56,7 +56,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiPaths.authLogin,
+        loginUrl,
         data: requestBody,
         options: Options(
           headers: ApiHeaders.json,
@@ -164,7 +164,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post(
-        ApiPaths.authLogout,
+        url,
         data: requestBody,
         options: Options(
           headers: ApiHeaders.json,
@@ -634,7 +634,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiPaths.authForgotPassword,
+        url,
         queryParameters: queryParams,
         data: null,
         options: Options(
