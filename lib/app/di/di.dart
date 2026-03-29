@@ -83,6 +83,8 @@ import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
+import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
@@ -107,6 +109,7 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_cub
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
+import '../../shared/services/image_upload/image_upload_service.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -132,6 +135,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
           SessionExpiredInterceptor(serviceLocator<StorageService>()),
         ],
       ));
+  serviceLocator.registerLazySingleton<ImageUploadService>(
+    () => ImageUploadService(serviceLocator<ApiClient>()),
+  );
 
   // Auth Data Sources
   serviceLocator.registerLazySingleton<AuthRemoteDataSource>(
@@ -370,6 +376,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateActivityUseCase>(
     () => CreateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
+    () => CreateActivityUploadSessionsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateActivityAssetPresignUseCase>(
+    () => CreateActivityAssetPresignUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetDailyActivityFeedUseCase>(
     () => GetDailyActivityFeedUseCase(serviceLocator()),

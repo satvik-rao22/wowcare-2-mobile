@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
@@ -17,6 +19,7 @@ import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -54,10 +57,18 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isUploadingMedia = false;
+  List<File> _newPhotos = [];
+  final Map<String, String> _uploadedAssetCodeByPath = {};
+
+  int get _uploadedPhotoCount => _newPhotos
+      .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
+      .length;
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
+  late final ImageUploadService _imageUploadService;
 
   @override
   void initState() {
@@ -67,6 +78,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
+    _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -265,6 +277,14 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     });
 
     try {
+      final attachments = await _ensurePhotoAssetsUploaded(
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        studentCodes: studentCodes,
+      );
+
       final details =
           await _getActivityTypeDetailsUseCase(code: activityTypeCode);
 
@@ -311,7 +331,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         activityDate: activityDateIso,
         description: description,
         parameterValues: parameterValues,
-        attachments: const [],
+        attachments: attachments,
       );
 
       if (!mounted) return;
@@ -338,6 +358,145 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           _isSubmitting = false;
         });
       }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
+    required String classroomCode,
+    required String activityTypeCode,
+    required String organizationCode,
+    required String schoolCode,
+    required List<String> studentCodes,
+  }) async {
+    if (_newPhotos.isEmpty) return const [];
+
+    final ownerCode = studentCodes.first;
+    final missing = _newPhotos
+        .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
+        .toList();
+
+    if (missing.isNotEmpty) {
+      setState(() => _isUploadingMedia = true);
+      try {
+        final uploadSession =
+            await _imageUploadService.createActivityUploadSession(
+          organizationCode: organizationCode,
+          schoolCode: schoolCode,
+          classroomCode: classroomCode,
+          activityTypeCode: activityTypeCode,
+          bindingMode: 'PER_STUDENT',
+          studentCodes: studentCodes,
+        );
+
+        final sessionAssetCodes = <String>[];
+        for (final photo in missing) {
+          final fileName = photo.uri.pathSegments.isNotEmpty
+              ? photo.uri.pathSegments.last
+              : 'photo.jpg';
+          final contentLengthBytes = await photo.length();
+          final presign = await _imageUploadService.createAssetPresign(
+            sessionCode: uploadSession.sessionCode,
+            documentApiBasePath: uploadSession.documentApiBasePath,
+            fileName: fileName,
+            contentType: 'image/jpeg',
+            contentLengthBytes: contentLengthBytes,
+            mediaType: 'IMAGE',
+            ownerType: 'STUDENT',
+            ownerCode: ownerCode,
+          );
+          await _imageUploadService.uploadFileToPresignedUrl(
+            file: photo,
+            presignedPutUrl: presign.presignedPutUrl,
+            requiredHeaders: presign.requiredHeaders,
+            fallbackContentType: 'image/jpeg',
+          );
+          _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
+          sessionAssetCodes.add(presign.assetCode);
+        }
+        await _imageUploadService.waitUntilAssetsReady(
+          sessionCode: uploadSession.sessionCode,
+          expectedAssetCodes: sessionAssetCodes,
+        );
+      } finally {
+        if (mounted) setState(() => _isUploadingMedia = false);
+      }
+    }
+
+    final attachments = <Map<String, dynamic>>[];
+    for (final photo in _newPhotos) {
+      final assetCode = _uploadedAssetCodeByPath[photo.path];
+      if (assetCode != null && assetCode.isNotEmpty) {
+        attachments.add({
+          'assetCode': assetCode,
+          'studentCode': ownerCode,
+          'bindingMode': 'PER_STUDENT',
+        });
+      }
+    }
+    return attachments;
+  }
+
+  void _onMediaChanged(
+    List<File> photos,
+    File? video,
+    List<String> remainingExistingPhotoUrls,
+    String? remainingExistingVideoUrl,
+  ) {
+    _newPhotos = photos;
+    _uploadedAssetCodeByPath.removeWhere(
+      (path, _) => !_newPhotos.any((f) => f.path == path),
+    );
+    _uploadPhotosOnSelection();
+  }
+
+  Future<void> _uploadPhotosOnSelection() async {
+    if (widget.isEdit || _newPhotos.isEmpty || _isUploadingMedia) return;
+
+    final activityTypeCode = _activityTypeCode;
+    final schoolCode = _schoolCode;
+    final organizationCode = _organizationCode;
+    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+        _selectedStudentsData.first['classroomcode'];
+    final classroomCode =
+        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final studentCodes = _selectedStudentsData
+        .map((s) => (s['studentCode'] as String?)?.trim())
+        .whereType<String>()
+        .where((c) => c.isNotEmpty)
+        .toList();
+
+    if (activityTypeCode == null ||
+        activityTypeCode.isEmpty ||
+        schoolCode == null ||
+        schoolCode.isEmpty ||
+        organizationCode == null ||
+        organizationCode.isEmpty ||
+        classroomCode.isEmpty ||
+        studentCodes.isEmpty) {
+      return;
+    }
+
+    try {
+      await _ensurePhotoAssetsUploaded(
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        studentCodes: studentCodes,
+      );
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Photo uploaded successfully',
+        isSuccess: true,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(error),
+        isError: true,
+      );
     }
   }
 
@@ -519,7 +678,12 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 isPictureBox: false,
                 limit: 10,
                 label: 'Upload Photo',
+                onMediaChanged: _onMediaChanged,
               ),
+            if (_newPhotos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildUploadStatus(),
+            ],
             SizedBox(height: responsive.verticalSpacing),
           ],
         ),
@@ -574,6 +738,61 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildUploadStatus() {
+    if (_isUploadingMedia) {
+      return Row(
+        children: const [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 8),
+          Text(
+            'Uploading photo...',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_uploadedPhotoCount == _newPhotos.length) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Text(
+            'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.green,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const SizedBox(width: 8),
+        Text(
+          'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.orange,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -360,7 +360,26 @@ class ApiPaths {
   // —— Activity host ——
   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
   static const String activities = '/api/v1/activities';
+  static const String activitiesUploadSessions =
+      '/api/v1/activities/upload-sessions';
   static const String activitiesFeedDaily = '/api/v1/activities/feed/daily';
   static const String activitiesFeedRange = '/api/v1/activities/feed/range';
   static const String activityTypesRoot = '/api/v1/activity-types';
+
+  // —— Document host (base path returned by upload-session response) ——
+  static const String documentUploadSessionsRoot = '/document-ms/api/v1/upload-sessions';
+
+  static String documentAssetPresignPath({
+    required String documentApiBasePath,
+    required String sessionCode,
+  }) {
+    var base = documentApiBasePath.trim();
+    if (base.isEmpty) base = '/document-ms/api/v1';
+    if (!base.startsWith('/')) base = '/$base';
+    base = base.replaceAll(RegExp(r'/+$'), '');
+    return '$base/upload-sessions/$sessionCode/assets/presign';
+  }
+
+  static String documentUploadSessionPath(String sessionCode) =>
+      '$documentUploadSessionsRoot/$sessionCode';
 }
