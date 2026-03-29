@@ -144,8 +144,6 @@ class ApiPaths {
       case 'organization-admins':
       case 'physicians':
       case 'guardian-user':
-      case 'guardian':
-      case 'pickup':
         return ApiMicroservices.user;
       case 'schools':
       case 'organizations':
@@ -164,6 +162,9 @@ class ApiPaths {
       case 'student-tags':
       case 'regular-schedules':
       case 'tags':
+      case 'pickup':
+      /// `GET/POST /api/v1/guardian/...` (student MS — devtunnel **8085**).
+      case 'guardian':
         return ApiMicroservices.student;
       case 'student-attendance':
       case 'student-absence-records':
