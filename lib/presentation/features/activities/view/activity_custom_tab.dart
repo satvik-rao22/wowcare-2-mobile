@@ -20,6 +20,14 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 import '../../../../core/util/core_utils.dart';
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -74,6 +82,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
   String? _selectedActivityType;
+  String? _feedError;
+  String? _schoolCode;
+  final Map<String, String> _classroomCodeByName = {};
+  List<ActivitySetting> _classroomActivitySettings = [];
+
+  late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
+  late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
+  late final GetClassroomActivitySettingsUseCase
+      _getClassroomActivitySettingsUseCase;
+
   final List<String> activityType = [
     'Nap Start',
     'Nap End',
@@ -360,10 +378,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   @override
   void initState() {
     super.initState();
+    _getRangeActivityFeedUseCase = serviceLocator<GetRangeActivityFeedUseCase>();
+    _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
+    _getClassroomActivitySettingsUseCase =
+        serviceLocator<GetClassroomActivitySettingsUseCase>();
+
     _selectdClassroom = _classroomOptions[0];
     _updateAvailableStudents();
     isNotParent = widget.isNotParent;
     //_selectedStudent = _allStudents[0];
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _bootstrapRangeFeed();
+    });
   }
 
   void _updateAvailableStudents() {
@@ -377,6 +404,122 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     } else {
       _availableStudents = [];
       _selectedStudent = null;
+    }
+  }
+
+  String _dateQueryParam(DateTime d) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}';
+  }
+
+  String? _activityTypeCodeForApiFilter() {
+    final label = _selectedActivityType;
+    if (label == null || label.trim().isEmpty) return null;
+    final want = label.toLowerCase().trim();
+    for (final s in _classroomActivitySettings) {
+      final name = s.activityTypeName.toLowerCase().trim();
+      if (name == want) return s.activityTypeCode;
+      if (name.contains(want) || want.contains(name)) return s.activityTypeCode;
+    }
+    return null;
+  }
+
+  Future<void> _bootstrapRangeFeed() async {
+    final storage = serviceLocator<StorageService>();
+    _schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    if (_schoolCode == null || _schoolCode!.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _feedError = 'School is not selected.';
+        activities.clear();
+      });
+      return;
+    }
+
+    try {
+      final classrooms = await _getActiveClassroomsUseCase(
+        schoolCode: _schoolCode!,
+        onlyTypeClassroom: true,
+      );
+
+      _classroomCodeByName
+        ..clear()
+        ..addEntries(classrooms.map((c) => MapEntry(c.name, c.code)));
+
+      await _loadRangeFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _feedError = ApiErrorHandler.extractErrorMessage(e);
+        activities.clear();
+      });
+    }
+  }
+
+  Future<void> _loadRangeFeed({bool refresh = false}) async {
+    final classroomName = _selectdClassroom;
+    if (classroomName == null) return;
+
+    final classroomCode = _classroomCodeByName[classroomName];
+    if (classroomCode == null || classroomCode.trim().isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _feedError = 'Classroom is not mapped to a valid code.';
+        activities.clear();
+      });
+      return;
+    }
+
+    final start = _selectedStartDate;
+    final end = _selectedEndDate ?? _selectedStartDate;
+    if (start == null || end == null) return;
+
+    try {
+      // Also load settings so we can convert UI label -> activityTypeCode.
+      try {
+        _classroomActivitySettings = await _getClassroomActivitySettingsUseCase(
+          classroomCode: classroomCode,
+          refresh: refresh,
+        );
+      } catch (_) {
+        _classroomActivitySettings = [];
+      }
+
+      final typeCode = _activityTypeCodeForApiFilter();
+      final page = await _getRangeActivityFeedUseCase(
+        classroomCode: classroomCode,
+        startDate: _dateQueryParam(start),
+        endDate: _dateQueryParam(end),
+        studentCode: null,
+        activityTypeCode: typeCode,
+        page: 0,
+        size: 200,
+      );
+
+      var items = page.content
+          .map((row) => activityItemFromFeedRow(row))
+          .toList();
+
+      if (_selectedStudent != null && _selectedStudent!.trim().isNotEmpty) {
+        items = items
+            .where((a) => a.studentList.contains(_selectedStudent))
+            .toList();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        activities
+          ..clear()
+          ..addAll(items);
+        _feedError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _feedError = ApiErrorHandler.extractErrorMessage(e);
+        activities.clear();
+      });
     }
   }
 
@@ -443,10 +586,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                 'Select Classroom',
                                 _classroomOptions,
                                 _selectdClassroom,
-                                    (v) => setState(() {
-                                  _selectdClassroom = v;
-                                  _updateAvailableStudents();
-                                }),
+                                    (v) {
+                                  setState(() {
+                                    _selectdClassroom = v;
+                                    _updateAvailableStudents();
+                                  });
+                                  _loadRangeFeed(refresh: true);
+                                },
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -599,9 +745,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                               'Activity Type',
                               activityType,
                               _selectedActivityType,
-                                  (v) => setState(() {
-                                _selectedActivityType = v;
-                              }),
+                                  (v) {
+                                setState(() {
+                                  _selectedActivityType = v;
+                                });
+                                _loadRangeFeed(refresh: true);
+                              },
                               height: 65,
                             ),
                           ),
@@ -622,9 +771,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                           borderRadius: BorderRadius.circular(12),
                           color: AppColors.cardColor,
                         ),
-                        child: const Center(
+                        child: Center(
                           child: AppText.title(
-                            'No Activities found',
+                            _feedError ?? 'No Activities found',
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1137,10 +1286,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                   'Select Classroom',
                                   _classroomOptions,
                                   _selectdClassroom,
-                                      (v) => setState(() {
-                                    _selectdClassroom = v;
-                                    _updateAvailableStudents();
-                                  }),
+                                      (v) {
+                                    setState(() {
+                                      _selectdClassroom = v;
+                                      _updateAvailableStudents();
+                                    });
+                                    _loadRangeFeed(refresh: true);
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -1293,9 +1445,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                 'Activity Type',
                                 activityType,
                                 _selectedActivityType,
-                                    (v) => setState(() {
+                                  (v) {
+                                setState(() {
                                   _selectedActivityType = v;
-                                }),
+                                });
+                                _loadRangeFeed(refresh: true);
+                              },
                                 height: 65,
                               ),
                             ),
@@ -1317,9 +1472,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                           borderRadius: BorderRadius.circular(12),
                           color: AppColors.cardColor,
                         ),
-                        child: const Center(
+                        child: Center(
                           child: AppText.title(
-                            'No Activities found',
+                            _feedError ?? 'No Activities found',
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1753,10 +1908,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                 'Select Classroom',
                                 _classroomOptions,
                                 _selectdClassroom,
-                                    (v) => setState(() {
-                                  _selectdClassroom = v;
-                                  _updateAvailableStudents();
-                                }),
+                                    (v) {
+                                  setState(() {
+                                    _selectdClassroom = v;
+                                    _updateAvailableStudents();
+                                  });
+                                  _loadRangeFeed(refresh: true);
+                                },
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1909,9 +2067,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                               'Activity Type',
                               activityType,
                               _selectedActivityType,
-                                  (v) => setState(() {
-                                _selectedActivityType = v;
-                              }),
+                                  (v) {
+                                setState(() {
+                                  _selectedActivityType = v;
+                                });
+                                _loadRangeFeed(refresh: true);
+                              },
                               height: 65,
                             ),
                           ),
@@ -1936,7 +2097,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                         ),
                         child: Center(
                           child: Text(
-                            'No Activities found',
+                            _feedError ?? 'No Activities found',
                             style: TextStyle(
                               color: Colors.black,
                               fontFamily: 'Manrope',
@@ -3043,6 +3204,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
             if (result['endDate'] != null)
               _selectedEndDate = result['endDate'] as DateTime?;
           });
+          _loadRangeFeed(refresh: true);
         }
       },
       child: Container(

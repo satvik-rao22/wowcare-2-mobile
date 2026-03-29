@@ -33,6 +33,17 @@ abstract class ActivityRemoteDataSource {
     int page = 0,
     int size = 100,
   });
+
+  /// Date range classroom feed: `GET /api/v1/activities/feed/range`.
+  Future<ActivityFeedPageModel> getRangeActivityFeed({
+    required String classroomCode,
+    required String startDate,
+    required String endDate,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  });
 }
 
 class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
@@ -152,6 +163,51 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected daily activity feed API response format');
+    }
+
+    return ActivityFeedPageModel.fromJson(body);
+  }
+
+  @override
+  Future<ActivityFeedPageModel> getRangeActivityFeed({
+    required String classroomCode,
+    required String startDate,
+    required String endDate,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  }) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activitiesFeedRange,
+      ApiConstants.activityBaseUrl,
+    );
+
+    final qp = <String, String>{
+      'classroomCode': classroomCode.trim(),
+      'startDate': startDate.trim(),
+      'endDate': endDate.trim(),
+      'page': '$page',
+      'size': '$size',
+      'sort': 'activityDate,desc',
+    };
+
+    final sc = studentCode?.trim();
+    if (sc != null && sc.isNotEmpty) {
+      qp['studentCode'] = sc;
+    }
+
+    final at = activityTypeCode?.trim();
+    if (at != null && at.isNotEmpty) {
+      qp['activityTypeCode'] = at;
+    }
+
+    final uri = Uri.parse(base).replace(queryParameters: qp);
+    final response = await _client.getUri<dynamic>(uri);
+    final body = response.data;
+
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected range activity feed API response format');
     }
 
     return ActivityFeedPageModel.fromJson(body);

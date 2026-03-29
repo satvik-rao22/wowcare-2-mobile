@@ -25,6 +25,17 @@ abstract class ActivityRepository {
     int size = 100,
   });
 
+  /// `GET /api/v1/activities/feed/range`
+  Future<ActivityFeedPage> getRangeActivityFeed({
+    required String classroomCode,
+    required String startDate,
+    required String endDate,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  });
+
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
     required String activityTypeCode,

@@ -101,6 +101,28 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<ActivityFeedPage> getRangeActivityFeed({
+    required String classroomCode,
+    required String startDate,
+    required String endDate,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  }) async {
+    final model = await _remoteDataSource.getRangeActivityFeed(
+      classroomCode: classroomCode,
+      startDate: startDate,
+      endDate: endDate,
+      studentCode: studentCode,
+      activityTypeCode: activityTypeCode,
+      page: page,
+      size: size,
+    );
+    return model.toEntity();
+  }
+
+  @override
   Future<ActivityTypeDetails> getActivityTypeDetails({
     required String code,
   }) async {
