@@ -260,11 +260,28 @@ class StudentHealthModel extends Equatable {
     this.allergy,
     this.medications,
     this.dietRestrictions,
+    this.photoPermission,
   });
 
   final String? allergy;
   final String? medications;
   final String? dietRestrictions;
+  final bool? photoPermission;
+
+  static bool? _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return null;
+  }
 
   factory StudentHealthModel.fromJson(Map<String, dynamic>? json) {
     if (json == null) {
@@ -274,6 +291,7 @@ class StudentHealthModel extends Equatable {
       allergy: json['allergy'] as String?,
       medications: json['medications'] as String?,
       dietRestrictions: json['dietRestrictions'] as String?,
+      photoPermission: _asBool(json['photoPermission']),
     );
   }
 
@@ -282,6 +300,7 @@ class StudentHealthModel extends Equatable {
       if (allergy != null) 'allergy': allergy,
       if (medications != null) 'medications': medications,
       if (dietRestrictions != null) 'dietRestrictions': dietRestrictions,
+      if (photoPermission != null) 'photoPermission': photoPermission,
     };
   }
 
@@ -290,6 +309,7 @@ class StudentHealthModel extends Equatable {
         allergy,
         medications,
         dietRestrictions,
+        photoPermission,
       ];
 }
 

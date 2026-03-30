@@ -48,7 +48,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
     try {
       final model = await repo.getStudentHealth(studentCode: code);
-      _photoPermission = true; // backend currently omits this; default to true
+      _photoPermission = model.photoPermission ?? true;
       return model;
     } catch (_) {
       rethrow;
@@ -181,6 +181,11 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         );
                       } catch (e) {
                         CoreUtils.logApiError(e.toString());
+                        if (mounted) {
+                          setState(() {
+                            _photoPermission = !v;
+                          });
+                        }
                         if (!mounted) return;
                         CoreUtils.showTopSnackBar(
                           context: context,
