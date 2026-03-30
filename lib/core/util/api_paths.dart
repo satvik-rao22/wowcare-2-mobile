@@ -126,8 +126,12 @@ class ApiPaths {
   static const String studentAttendanceRecords = '/api/v1/student-attendance-records';
   static const String studentAttendanceRecordsSignIn =
       '/api/v1/student-attendance-records/sign-in';
+  static const String studentAttendanceRecordsParentSignIn =
+      '/api/v1/student-attendance-records/parent-sign-in';
   static const String studentAttendanceRecordsSignOut =
       '/api/v1/student-attendance-records/sign-out';
+  static const String studentAttendanceRecordsParentSignOut =
+      '/api/v1/student-attendance-records/parent-sign-out';
   static const String studentAttendanceRecordsTransfer =
       '/api/v1/student-attendance-records/transfer';
   static const String staffAttendanceDailyView = '/api/v1/staff-attendance/view/daily';

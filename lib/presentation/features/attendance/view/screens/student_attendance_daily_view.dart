@@ -25,8 +25,10 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
@@ -698,7 +700,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
                                     if (student.attendanceRecordCode == null ||
                                         student.attendanceRecordCode!.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: 
                                         const SnackBar(
                                           content: Text(
                                             'Unable to delete: missing attendance record code.',
@@ -719,8 +723,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                           .trim();
                                       if (staffCode.isEmpty) {
                                         if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
+                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                          context: context,
+                                          snackBar: 
                                           const SnackBar(
                                             content: Text(
                                               'Unable to resolve staffCode. Please re-login.',
@@ -744,8 +749,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                         },
                                       );
 
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: 
                                         const SnackBar(
                                           content: Text('Attendance deleted'),
                                         ),
@@ -753,11 +759,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
                                       _loadAttendanceData(reset: true);
                                     } catch (e) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      final message =
+                                          ApiErrorHandler.extractErrorMessage(e);
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: 
                                         SnackBar(
                                           content: Text(
-                                            'Failed to delete attendance: $e',
+                                            message,
                                           ),
                                         ),
                                       );
@@ -1025,7 +1034,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         
         // Check if we have data now
         if (_classroomCubit.state.classrooms.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: 
             const SnackBar(
               content: Text('Failed to load classroom data. Please try again.'),
             ),
@@ -1039,9 +1050,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       } catch (e) {
         if (!mounted) return;
         Navigator.of(context).pop(); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
+        final message = ApiErrorHandler.extractErrorMessage(e);
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: 
           SnackBar(
-            content: Text('Failed to load classroom data: $e'),
+            content: Text(message),
           ),
         );
         return;

@@ -920,4 +920,39 @@ class AttendanceRepositoryImpl
       payload: payload,
     );
   }
+
+  @override
+  Future<String> createStudentSignInRecords({
+    required String attendanceDate,
+    required String staffCode,
+    required List<String> studentCodes,
+    String? classroomCode,
+    Map<String, String>? classroomCodeByStudentCode,
+    String method = 'APP',
+    bool isExpected = true,
+    double latitude = 0,
+    double longitude = 0,
+    bool withinGeofence = false,
+    String? timeZone,
+    DateTime? occurredAt,
+  }) async {
+    final payload = <String, dynamic>{
+      'attendanceDate': attendanceDate,
+      'staffCode': staffCode,
+      'studentCodes': studentCodes,
+      'classroomCode': classroomCode,
+      if (classroomCodeByStudentCode != null &&
+          classroomCodeByStudentCode.isNotEmpty)
+        'classroomCodeByStudentCode': classroomCodeByStudentCode,
+      'method': method,
+      'isExpected': isExpected,
+      'latitude': latitude,
+      'longitude': longitude,
+      'withinGeofence': withinGeofence,
+      'timeZone': timeZone,
+      'occurredAt': occurredAt?.toIso8601String(),
+    };
+
+    return _remoteDataSource.createStudentSignInRecords(payload: payload);
+  }
 }

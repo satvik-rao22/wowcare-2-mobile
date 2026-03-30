@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -25,10 +23,10 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
@@ -37,8 +35,6 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
@@ -59,8 +55,6 @@ class _StaffScreenState extends State<StaffScreen> {
   // Tracks if the current refresh was triggered by changing filters/search,
   // so we only show the shimmer loader in that case.
   bool _refreshTriggeredByFilters = false;
-  bool _isTeacherStaffPersona = false;
-  String _loggedInStaffCode = '';
 
   @override
   void initState() {
@@ -69,45 +63,6 @@ class _StaffScreenState extends State<StaffScreen> {
     // so that Office and other non-classroom locations are also available.
     context.read<ClassroomCubit>().loadActiveClassrooms(onlyTypeClassroom: false);
     _scrollController.addListener(_onScroll);
-    _loadStaffPersonaFlags();
-  }
-
-  Future<void> _loadStaffPersonaFlags() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final staffCode =
-          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-      var staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-
-      bool isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
-      if (!isStaffAdmin) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-          isStaffAdmin = roles.any((r) {
-            if (r is! Map<String, dynamic>) return false;
-            final roleCode = (r['role'] ?? '').toString().toUpperCase();
-            return roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN';
-          });
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _loggedInStaffCode = staffCode;
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loggedInStaffCode = '';
-        _isTeacherStaffPersona = false;
-      });
-    }
   }
 
   void _onScroll() {
@@ -175,6 +130,173 @@ class _StaffScreenState extends State<StaffScreen> {
 
   Map<String, String> _getClassroomNameByCode(ClassroomState state) {
     return {for (final c in state.classrooms) c.code: c.name};
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _openAttendanceActionFlow(String actionName) async {
+    if (_selectedStaffCodes.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Select at least one staff',
+        isError: true,
+      );
+      return;
+    }
+
+    final selectedCodes = Set<String>.from(_selectedStaffCodes)
+        .where((c) => c.trim().isNotEmpty)
+        .toSet();
+    if (selectedCodes.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected staff are missing staff codes',
+        isError: true,
+      );
+      return;
+    }
+
+    final date = _formatDate(DateTime.now());
+    try {
+      List<StaffEntity> targets = <StaffEntity>[];
+
+      if (actionName == 'sign_in') {
+        final useCase = serviceLocator<GetStaffSignInFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            designation:
+                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            staffCode: item.staffCode,
+          );
+        }).toList();
+      } else if (actionName == 'sign_out') {
+        final useCase = serviceLocator<GetStaffSignOutFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            designation:
+                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            staffCode: item.staffCode,
+          );
+        }).toList();
+      } else if (actionName == 'transfer') {
+        final useCase = serviceLocator<GetStaffTransferFormListUseCase>();
+        final page = await useCase(
+          fromAbsenceDate: date,
+          toAbsenceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            designation:
+                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            staffCode: item.staffCode,
+          );
+        }).toList();
+      } else {
+        final useCase = serviceLocator<GetStaffAbsentFormListUseCase>();
+        final page = await useCase(
+          fromAbsenceDate: date,
+          toAbsenceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            designation: 'Staff',
+            staffCode: item.staffCode,
+          );
+        }).toList();
+      }
+
+      if (!mounted) return;
+      if (targets.isEmpty) {
+        throw Exception('No selected staff is eligible for this action');
+      }
+
+      if (actionName == 'sign_in') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffSignInForm(staffList: targets),
+          ),
+        );
+      } else if (actionName == 'sign_out') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffSignOutForm(staffList: targets),
+          ),
+        );
+      } else if (actionName == 'transfer') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffTransferForm(staffList: targets),
+          ),
+        );
+      } else {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffMarkAbsentForm(staffList: targets),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
   }
 
   @override
@@ -901,114 +1023,10 @@ class _StaffScreenState extends State<StaffScreen> {
                           );
                       }
                     : null,
-                onSignIn: () {
-                  final initialCodes = Set<String>.from(_selectedStaffCodes);
-                  if (_isTeacherStaffPersona && _loggedInStaffCode.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffSignInForm(
-                          staff: StaffEntity(
-                            id: 0,
-                            name: 'Self',
-                            primaryRoomId: 0,
-                            staffCode: _loggedInStaffCode,
-                          ),
-                        ),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffSelectionSignInForm(
-                          initialStaffCodes: initialCodes,
-                        ),
-                      ),
-                    );
-                  }
-                },
-                onSignOut: () {
-                  final initialCodes = Set<String>.from(_selectedStaffCodes);
-                  if (_isTeacherStaffPersona && _loggedInStaffCode.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffSignOutForm(
-                          staff: StaffEntity(
-                            id: 0,
-                            name: 'Self',
-                            primaryRoomId: 0,
-                            staffCode: _loggedInStaffCode,
-                          ),
-                        ),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffSelectionSignOutForm(
-                          initialStaffCodes: initialCodes,
-                        ),
-                      ),
-                    );
-                  }
-                },
-                onTransfer: () {
-                  final initialCodes = Set<String>.from(_selectedStaffCodes);
-                  if (_isTeacherStaffPersona && _loggedInStaffCode.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffTransferForm(
-                          staff: StaffEntity(
-                            id: 0,
-                            name: 'Self',
-                            primaryRoomId: 0,
-                            staffCode: _loggedInStaffCode,
-                          ),
-                        ),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffSelectionTransferForm(
-                          initialStaffCodes: initialCodes,
-                        ),
-                      ),
-                    );
-                  }
-                },
-                onAbsent: () {
-                  final initialCodes = Set<String>.from(_selectedStaffCodes);
-                  if (_isTeacherStaffPersona && _loggedInStaffCode.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffMarkAbsentForm(
-                          staff: StaffEntity(
-                            id: 0,
-                            name: 'Self',
-                            primaryRoomId: 0,
-                            staffCode: _loggedInStaffCode,
-                          ),
-                        ),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StaffSelectionMarkAbsentForm(
-                          initialStaffCodes: initialCodes,
-                        ),
-                      ),
-                    );
-                  }
-                },
+                onSignIn: () => _openAttendanceActionFlow('sign_in'),
+                onSignOut: () => _openAttendanceActionFlow('sign_out'),
+                onTransfer: () => _openAttendanceActionFlow('transfer'),
+                onAbsent: () => _openAttendanceActionFlow('mark_absent'),
                 onClearSelections: () {
                   setState(() {
                     _selectAll = false;

@@ -227,6 +227,24 @@ abstract class AttendanceRepository {
     String? notes,
     String? timeZone,
   });
+
+  /// Creates student sign-in records.
+  ///
+  /// Mirrors backend payload for `/api/v1/student-attendance-records/sign-in`.
+  Future<String> createStudentSignInRecords({
+    required String attendanceDate,
+    required String staffCode,
+    required List<String> studentCodes,
+    String? classroomCode,
+    Map<String, String>? classroomCodeByStudentCode,
+    String method = 'APP',
+    bool isExpected = true,
+    double latitude = 0,
+    double longitude = 0,
+    bool withinGeofence = false,
+    String? timeZone,
+    DateTime? occurredAt,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

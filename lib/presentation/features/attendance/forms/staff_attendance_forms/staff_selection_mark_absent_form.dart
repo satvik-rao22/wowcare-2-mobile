@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
@@ -213,7 +214,9 @@ class _StaffSelectionMarkAbsentFormState
 
   void _handleNext() {
     if (selectedStaff.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Please select at least one staff member'),
           backgroundColor: AppColors.warningColor,

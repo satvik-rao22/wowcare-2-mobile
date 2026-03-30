@@ -10,6 +10,8 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'student_transfer_form.dart';
@@ -172,7 +174,7 @@ class _StudentSelectionTransferFormState
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString();
+        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
       });
     }
   }
@@ -435,7 +437,9 @@ class _StudentSelectionTransferFormState
           confirmButtonLabel: 'Next',
           onPressedConfirm: () {
             if (selectedStudents.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              CoreUtils.showTopSnackBarFromSnackBar(
+                context: context,
+                snackBar: 
                 const SnackBar(
                   content: Text('Please select at least one student'),
                   backgroundColor: AppColors.warningColor,

@@ -239,6 +239,14 @@ abstract class AttendanceRemoteDataSource {
     required String attendanceRecordCode,
     required Map<String, dynamic> payload,
   });
+
+  /// Creates student sign-in records.
+  ///
+  /// Backend endpoint: `/api/v1/student-attendance-records/sign-in`.
+  /// Returns a human-friendly success message from the API.
+  Future<String> createStudentSignInRecords({
+    required Map<String, dynamic> payload,
+  });
 }
 
 class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
@@ -1223,5 +1231,26 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     // Top-level "message" field is used as success message per contract.
     return (data['message'] ?? 'Attendance updated successfully').toString();
+  }
+
+  @override
+  Future<String> createStudentSignInRecords({
+    required Map<String, dynamic> payload,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceRecordsSignIn,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.post<Map<String, dynamic>>(
+      endpoint,
+      data: payload,
+    );
+
+    final data = response.data;
+    if (data == null) {
+      throw Exception('Empty response from student sign-in API');
+    }
+    return (data['message'] ?? 'Signed in successfully').toString();
   }
 }

@@ -12,7 +12,11 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:provider/provider.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -90,7 +94,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
     if (currentStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('No students selected to sign out'),
           backgroundColor: AppColors.warningColor,
@@ -104,6 +110,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     });
 
     final client = serviceLocator<ApiClient>().client;
+    final isParent = context.read<RoleProvider>().isParent;
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceRecordsSignOut,
       ApiConstants.attendanceBaseUrl,
@@ -120,16 +127,21 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       selectedTime.minute,
     ).toUtc();
 
-    final staffCode = await _resolveStaffCode();
-    if (!mounted) return;
-    if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
+    if (isParent) {
+      final now = DateTime.now();
+      final selectedDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      final today = DateTime(now.year, now.month, now.day);
+      if (selectedDay.isAfter(today)) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Parents cannot sign out for future dates.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
     }
 
     final studentCodes = currentStudents
@@ -137,7 +149,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         .where((code) => code.isNotEmpty)
         .toList();
     if (studentCodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
@@ -154,29 +168,60 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     final defaultClassroomCode = classroomCodeByStudentCode.values.isNotEmpty
         ? classroomCodeByStudentCode.values.first
         : '';
-    if (defaultClassroomCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Classroom code missing for selected students'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
 
     final payload = <String, dynamic>{
-      'attendanceDate': attendanceDate,
-      'staffCode': staffCode,
       'studentCodes': studentCodes,
-      'classroomCode': defaultClassroomCode,
-      'classroomCodeByStudentCode': classroomCodeByStudentCode,
       'method': 'APP',
       'latitude': 0,
       'longitude': 0,
       'withinGeofence': true,
       'timeZone': 'Asia/Kolkata',
-      'occurredAt': occurredAt.toIso8601String(),
     };
+    if (isParent) {
+      final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
+      if (!mounted) return;
+      if (guardianCode.isEmpty) {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Unable to resolve guardian code. Please re-login.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+      payload['guardianCode'] = guardianCode;
+    } else {
+      if (defaultClassroomCode.isEmpty) {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Classroom code missing for selected students'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+      final staffCode = await _resolveStaffCode();
+      if (!mounted) return;
+      if (staffCode.isEmpty) {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Unable to resolve staffCode. Please re-login.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+      payload.addAll(<String, dynamic>{
+        'attendanceDate': attendanceDate,
+        'staffCode': staffCode,
+        'classroomCode': defaultClassroomCode,
+        'classroomCodeByStudentCode': classroomCodeByStudentCode,
+        'occurredAt': occurredAt.toIso8601String(),
+      });
+    }
 
     try {
       final response = await client.post<dynamic>(
@@ -197,7 +242,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
           content: Text(message),
           backgroundColor:
@@ -211,7 +258,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Failed to sign out students. Please try again.'),
           backgroundColor: AppColors.errorColor,

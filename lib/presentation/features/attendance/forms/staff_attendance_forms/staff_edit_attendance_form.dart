@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 class StaffEditAttendanceForm extends StatefulWidget {
   const StaffEditAttendanceForm({
@@ -53,7 +54,9 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
 
   void _handleSubmit() {
     // UI-only behaviour for now: just show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: context,
+      snackBar: 
       const SnackBar(
         content: Text('Attendance updated successfully'),
         backgroundColor: AppColors.successColor,

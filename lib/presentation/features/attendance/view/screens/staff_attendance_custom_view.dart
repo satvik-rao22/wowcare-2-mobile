@@ -17,6 +17,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
   const StaffAttendanceCustomView({
@@ -306,7 +307,9 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                       // In this screen, the picker is range-based, but `end` can be null
                       // during selection. Only validate when we have both dates.
                       if (end != null && start.isAfter(end)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        CoreUtils.showTopSnackBarFromSnackBar(
+                          context: context,
+                          snackBar: 
                           SnackBar(
                                     content: const Text(
                                         'Start date cannot be after end date'),

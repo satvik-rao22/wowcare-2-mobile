@@ -203,16 +203,19 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                   ),
                 ),
                 SizedBox(width: spacing / 2),
-                Flexible(
-                  child: AppText.body(
-                    student.roomName,
-                    style: TextStyle(
-                      fontSize: responsive.isTablet ? 16 : 15,
-                      color: AppColors.themeColor,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: AppText.body(
+                      student.roomName,
+                      style: TextStyle(
+                        fontSize: responsive.isTablet ? 16 : 15,
+                        color: AppColors.themeColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
                   ),
                 ),
               ],

@@ -13,6 +13,22 @@ class ApiErrorHandler {
   /// 3. Exception's toString()
   static String extractErrorMessage(dynamic error) {
     if (error is DioException) {
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Request timed out. Please check your connection and try again.';
+        case DioExceptionType.connectionError:
+          return 'Unable to connect to server. Please check your internet connection.';
+        case DioExceptionType.cancel:
+          return 'Request was cancelled. Please try again.';
+        case DioExceptionType.badCertificate:
+          return 'Secure connection failed. Please try again later.';
+        case DioExceptionType.unknown:
+        case DioExceptionType.badResponse:
+          break;
+      }
+
       // Try to get message from API response body first
       final responseData = error.response?.data;
       if (responseData is Map<String, dynamic>) {
@@ -33,13 +49,26 @@ class ApiErrorHandler {
       }
       
       // If no message in response body, use DioException's message or error
-      return error.message ?? 
-             error.error?.toString() ?? 
-             'An error occurred';
+      final fallback = error.message ?? error.error?.toString() ?? 'An error occurred';
+      return _sanitizeFallbackMessage(fallback);
     }
     
     // For non-DioException errors, return toString()
-    return error.toString();
+    return _sanitizeFallbackMessage(error.toString());
+  }
+
+  static String _sanitizeFallbackMessage(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('timeout')) {
+      return 'Request timed out. Please check your connection and try again.';
+    }
+    if (lower.contains('socketexception') || lower.contains('network is unreachable')) {
+      return 'Unable to connect to server. Please check your internet connection.';
+    }
+    if (lower.contains('dioexception')) {
+      return 'Something went wrong while communicating with the server. Please try again.';
+    }
+    return raw.replaceFirst('Exception: ', '').trim();
   }
 
   /// Extracts success message from API response.

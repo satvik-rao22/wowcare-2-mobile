@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -69,7 +71,9 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   Future<void> _submitAsync() async {
     final attendanceCode = widget.studentAttendance.attendanceRecordCode;
     if (attendanceCode == null || attendanceCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to update: missing attendance record code.'),
           backgroundColor: AppColors.errorColor,
@@ -81,7 +85,9 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.errorColor,
@@ -138,7 +144,9 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
           content: Text(message),
           backgroundColor: AppColors.successColor,
@@ -147,9 +155,11 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
-          content: Text(e.toString()),
+          content: Text(ApiErrorHandler.extractErrorMessage(e)),
           backgroundColor: AppColors.errorColor,
         ),
       );

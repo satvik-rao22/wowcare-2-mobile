@@ -5,21 +5,24 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import 'staff_entity.dart';
 
 class StaffMarkAbsentForm extends StatefulWidget {
-  const StaffMarkAbsentForm({super.key, this.staff});
+  const StaffMarkAbsentForm({super.key, this.staff, this.staffList});
 
   final StaffEntity? staff;
+  final List<StaffEntity>? staffList;
 
   static const String routeName = '/staff-mark-absent-form';
 
@@ -33,7 +36,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _typeController = TextEditingController();
-  StaffEntity? currentStaff;
+  List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
 
@@ -43,7 +46,13 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   void initState() {
     super.initState();
     _markStaffAbsentUseCase = serviceLocator<MarkStaffAbsentUseCase>();
-    currentStaff = widget.staff;
+    if (widget.staffList != null && widget.staffList!.isNotEmpty) {
+      _selectedStaff = List<StaffEntity>.from(widget.staffList!);
+    } else if (widget.staff != null) {
+      _selectedStaff = <StaffEntity>[widget.staff!];
+    } else {
+      _selectedStaff = <StaffEntity>[];
+    }
     _loadPersonaFlags();
   }
 
@@ -116,13 +125,14 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
-    final staff = currentStaff;
-    if (staff == null) return;
+    if (_selectedStaff.isEmpty) return;
 
     final markerStaffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (markerStaffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
@@ -130,9 +140,14 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       );
       return;
     }
-    final targetStaffCode = (staff.staffCode ?? '').trim();
-    if (targetStaffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    final targetStaffCodes = _selectedStaff
+        .map((s) => (s.staffCode ?? '').trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (targetStaffCodes.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Target staff code is missing. Please refresh list.'),
           backgroundColor: AppColors.warningColor,
@@ -143,8 +158,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
 
     final isStaffAdmin =
         _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
-    if (!isStaffAdmin && targetStaffCode != markerStaffCode) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    if (!isStaffAdmin &&
+        (targetStaffCodes.length != 1 || targetStaffCodes.first != markerStaffCode)) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Teachers can only mark absent for themselves.'),
           backgroundColor: AppColors.warningColor,
@@ -165,7 +183,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     final notes = _notesController.text.trim();
     final absenceNotes = <String, String>{};
     if (notes.isNotEmpty) {
-      absenceNotes[targetStaffCode] = notes;
+      for (final code in targetStaffCodes) {
+        absenceNotes[code] = notes;
+      }
     }
 
     setState(() {
@@ -175,7 +195,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     try {
       final message = await _markStaffAbsentUseCase(
         staffCode: markerStaffCode,
-        staffCodes: [targetStaffCode],
+        staffCodes: targetStaffCodes,
         absenceFromDate: absenceFromDate,
         absenceToDate: absenceToDate,
         absenceReason: absenceReason,
@@ -184,7 +204,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
           content: Text(
             message.isNotEmpty ? message : 'Marked Absent successfully',
@@ -195,9 +217,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
-          content: Text(e.toString()),
+          content: Text(ApiErrorHandler.extractErrorMessage(e)),
           backgroundColor: AppColors.warningColor,
         ),
       );
@@ -299,8 +323,20 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
               ],
             ),
             const SizedBox(height: 28),
-            if (currentStaff != null) ...[
-              RemoveStaffTile(staff: currentStaff!),
+            if (_selectedStaff.isNotEmpty) ...[
+              GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 3.5,
+                ),
+                itemCount: _selectedStaff.length,
+                itemBuilder: (context, index) =>
+                    RemoveStaffTile(staff: _selectedStaff[index]),
+              ),
               const SizedBox(height: 20),
               TextField(
                 controller: _notesController,

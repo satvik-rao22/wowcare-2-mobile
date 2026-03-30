@@ -17,6 +17,13 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
@@ -437,6 +444,87 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     await _loadData();
   }
 
+  bool _isSameDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _hasSignedOutToday() {
+    final now = DateTime.now();
+    for (final item in attendances) {
+      if (!_isSameDate(item.date, now)) continue;
+      if (item.signOutTime.trim().isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  bool _isCurrentlySignedIn() {
+    final now = DateTime.now();
+    for (final item in attendances) {
+      if (!_isSameDate(item.date, now)) continue;
+      final hasSignIn = item.signInTime.trim().isNotEmpty;
+      final hasSignOut = item.signOutTime.trim().isNotEmpty;
+      if (hasSignIn && !hasSignOut) return true;
+    }
+    return staff?.isSignedIn ?? widget.isSignedIn;
+  }
+
+  bool get _isActiveProfile {
+    final status = (staff?.profileStatus ?? widget.profileStatus).toUpperCase();
+    return status == 'A' || status == 'ACTIVE';
+  }
+
+  bool get _canSignIn => _isActiveProfile && !_isCurrentlySignedIn() && !_hasSignedOutToday();
+  bool get _canSignOut => _isCurrentlySignedIn() && !_hasSignedOutToday();
+  bool get _canTransfer => _isCurrentlySignedIn() && !_hasSignedOutToday();
+  bool get _canMarkAbsent => _isActiveProfile && !_isCurrentlySignedIn();
+
+  Future<void> _handleStaffAction(String actionLabel) async {
+    final current = staff;
+    if (current == null) return;
+
+    if ((actionLabel == 'Sign-in' && !_canSignIn) ||
+        (actionLabel == 'Sign-Out' && !_canSignOut) ||
+        (actionLabel == 'Transfer' && !_canTransfer) ||
+        (actionLabel == 'Absent' && !_canMarkAbsent)) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('This action is not allowed for current attendance state'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final entity = StaffEntity(
+      id: current.id,
+      name: current.name,
+      primaryRoomId: 0,
+      photoUuid: current.photoUuid,
+      designation: current.designationName ?? 'Staff',
+      staffCode: widget.staffCode,
+    );
+
+    Widget? target;
+    if (actionLabel == 'Sign-in') {
+      target = StaffSignInForm(staff: entity);
+    } else if (actionLabel == 'Sign-Out') {
+      target = StaffSignOutForm(staff: entity);
+    } else if (actionLabel == 'Transfer') {
+      target = StaffTransferForm(staff: entity);
+    } else if (actionLabel == 'Absent') {
+      target = StaffMarkAbsentForm(staff: entity);
+    }
+
+    if (target == null || !mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => target!),
+    );
+    if (!mounted) return;
+    await refreshData();
+  }
+
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
     setState(() {
       _startDate = startDate;
@@ -541,140 +629,44 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   void _showActionMenu(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final safeAreaTop = mediaQuery.padding.top;
+    final appBarHeight = AppBar().preferredSize.height;
+    final double screenWidth = mediaQuery.size.width;
+    final bool isTablet = screenWidth >= 600;
+    final bool isLargeTablet = screenWidth >= 900;
+    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final floatingButtonTop =
+        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+    final floatingButtonRight = contentPadding.right;
+
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (BuildContext context) {
-        final Size screenSize = MediaQuery.of(context).size;
-        final double menuWidth = screenSize.width <= 360
-            ? screenSize.width * 0.58
-            : screenSize.width <= 420
-                ? 200
-                : 220;
-        final double maxMenuHeight = screenSize.height * 0.55;
-
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 80),
-          child: SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: menuWidth,
-                  maxHeight: maxMenuHeight,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.cardBorderColor,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildActionButton(
-                          icon: Icons.login,
-                          color: Colors.blue,
-                          label: "Sign-in",
-                          isDisabled: staff?.isSignedIn ?? false || (staff?.isAbsent ?? false),
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to sign-in form
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildActionButton(
-                          icon: Icons.logout,
-                          color: Colors.blue,
-                          label: "Sign-Out",
-                          isDisabled: !(staff?.isSignedIn ?? false) || (staff?.isAbsent ?? false),
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to sign-out form
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildActionButton(
-                          icon: Icons.swap_horiz,
-                          color: Colors.blue,
-                          label: "Transfer",
-                          isDisabled: !(staff?.isSignedIn ?? false) || (staff?.isAbsent ?? false),
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to transfer form
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildActionButton(
-                          icon: Icons.cancel,
-                          color: Colors.blue,
-                          label: "Absent",
-                          isDisabled: staff?.isSignedIn ?? false,
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to absent form
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          insetPadding: EdgeInsets.only(
+            top: floatingButtonTop + floatingButtonSize + 8,
+            bottom: mediaQuery.size.height * 0.45,
+            left: mediaQuery.size.width * 0.75,
+            right: floatingButtonRight,
+          ),
+          child: StaffAttendanceVerticalPopupOnly(
+            students: const [],
+            refreshCallback: refreshData,
+            disabledActions: <String>{
+              if (!_canSignIn) 'Sign-in',
+              if (!_canSignOut) 'Sign-Out',
+              if (!_canTransfer) 'Transfer',
+              if (!_canMarkAbsent) 'Absent',
+            },
+            onActionTap: _handleStaffAction,
           ),
         );
       },
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required VoidCallback onTap,
-    bool isDisabled = false,
-  }) {
-    return InkWell(
-      onTap: isDisabled ? null : onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Opacity(
-            opacity: isDisabled ? 0.5 : 1.0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 24, color: color),
-            ),
-          ),
-          const SizedBox(height: 5),
-          AppText.small(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

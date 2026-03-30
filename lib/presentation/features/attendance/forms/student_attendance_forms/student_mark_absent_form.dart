@@ -3,11 +3,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 
@@ -139,7 +141,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     if (_isSubmitting) return;
 
     if (currentStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Please select at least one student'),
           backgroundColor: AppColors.warningColor,
@@ -151,7 +155,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
@@ -179,7 +185,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         .where((c) => c.isNotEmpty)
         .toList();
     if (studentCodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
@@ -214,7 +222,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
           content: Text(message.isNotEmpty ? message : 'Marked Absent successfully'),
           backgroundColor: AppColors.successColor,
@@ -224,9 +234,11 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       widget.refreshCallback?.call();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
-          content: Text(e.toString()),
+          content: Text(ApiErrorHandler.extractErrorMessage(e)),
           backgroundColor: AppColors.warningColor,
         ),
       );

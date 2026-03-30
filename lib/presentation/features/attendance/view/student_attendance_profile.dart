@@ -4,7 +4,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -17,6 +16,19 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+    as student_sign_in;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
+    as student_sign_out;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_transfer_form.dart'
+    as student_transfer;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
+    as student_absent;
 
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
@@ -402,6 +414,163 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     await _loadData();
   }
 
+  bool _isSameDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _hasSignedOutToday() {
+    final now = DateTime.now();
+    for (final item in attendances) {
+      if (!_isSameDate(item.date, now)) continue;
+      if (item.signOutTime.trim().isNotEmpty) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isCurrentlySignedIn() {
+    final now = DateTime.now();
+    for (final item in attendances) {
+      if (!_isSameDate(item.date, now)) continue;
+      final hasSignIn = item.signInTime.trim().isNotEmpty;
+      final hasSignOut = item.signOutTime.trim().isNotEmpty;
+      if (hasSignIn && !hasSignOut) return true;
+    }
+    return student?.isSignedIn ?? widget.isSignedIn;
+  }
+
+  bool get _isActiveProfile {
+    final status = (student?.profileStatus ?? widget.profileStatus).toUpperCase();
+    return status == 'A' || status == 'ACTIVE';
+  }
+
+  bool get _canSignIn => _isActiveProfile && !_isCurrentlySignedIn() && !_hasSignedOutToday();
+  bool get _canSignOut => _isCurrentlySignedIn() && !_hasSignedOutToday();
+  bool get _canTransfer => _isCurrentlySignedIn() && !_hasSignedOutToday();
+  bool get _canMarkAbsent => _isActiveProfile && !_isCurrentlySignedIn();
+
+  Future<Map<String, String>> _loadClassroomNameToCodeMap() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.trim().isEmpty) return const <String, String>{};
+
+      final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: true,
+      );
+      return {
+        for (final c in classrooms)
+          if (c.name.trim().isNotEmpty && c.code.trim().isNotEmpty) c.name: c.code,
+      };
+    } catch (_) {
+      return const <String, String>{};
+    }
+  }
+
+  Future<void> _handleStudentAction(String actionLabel) async {
+    final current = student;
+    if (current == null) return;
+
+    if ((actionLabel == 'Sign-in' && !_canSignIn) ||
+        (actionLabel == 'Sign-Out' && !_canSignOut) ||
+        (actionLabel == 'Transfer' && !_canTransfer) ||
+        (actionLabel == 'Absent' && !_canMarkAbsent)) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('This action is not allowed for current attendance state'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final classroomMap = await _loadClassroomNameToCodeMap();
+    final classroomCode = (classroomMap[current.roomName] ?? '').trim();
+    final commonArgs = (
+      id: current.id,
+      code: widget.studentCode,
+      name: current.name,
+      roomName: current.roomName,
+      photoUuid: current.photoUuid ?? '',
+      classroomCode: classroomCode,
+    );
+
+    Widget? target;
+    if (actionLabel == 'Sign-in') {
+      target = student_sign_in.StudentSignInForm(
+        students: [
+          student_sign_in.StudentEntity(
+            id: commonArgs.id,
+            studentCode: commonArgs.code,
+            fullName: commonArgs.name,
+            roomId: 0,
+            roomName: commonArgs.roomName,
+            classroomCode: commonArgs.classroomCode,
+            photoUuid: commonArgs.photoUuid,
+          ),
+        ],
+        refreshCallback: refreshData,
+      );
+    } else if (actionLabel == 'Sign-Out') {
+      target = student_sign_out.StudentSignOutForm(
+        students: [
+          student_sign_out.StudentEntity(
+            id: commonArgs.id,
+            studentCode: commonArgs.code,
+            fullName: commonArgs.name,
+            roomId: 0,
+            roomName: commonArgs.roomName,
+            classroomCode: commonArgs.classroomCode,
+            photoUuid: commonArgs.photoUuid,
+          ),
+        ],
+        refreshCallback: refreshData,
+      );
+    } else if (actionLabel == 'Transfer') {
+      target = student_transfer.StudentTransferForm(
+        students: [
+          student_transfer.StudentEntity(
+            id: commonArgs.id,
+            studentCode: commonArgs.code,
+            fullName: commonArgs.name,
+            roomId: 0,
+            roomName: commonArgs.roomName,
+            classroomCode: commonArgs.classroomCode,
+            photoUuid: commonArgs.photoUuid,
+          ),
+        ],
+        refreshCallback: refreshData,
+        classroomNameToCode: classroomMap,
+      );
+    } else if (actionLabel == 'Absent') {
+      target = student_absent.StudentMarkAbsentForm(
+        students: [
+          student_absent.StudentEntity(
+            id: commonArgs.id,
+            studentCode: commonArgs.code,
+            fullName: commonArgs.name,
+            roomId: 0,
+            roomName: commonArgs.roomName,
+            classroomCode: commonArgs.classroomCode,
+            photoUuid: commonArgs.photoUuid,
+          ),
+        ],
+        refreshCallback: refreshData,
+      );
+    }
+
+    if (target == null || !mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => target!),
+    );
+    if (!mounted) return;
+    await refreshData();
+  }
+
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
     setState(() {
       _startDate = startDate;
@@ -492,151 +661,16 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   Widget _buildPopupMenu() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth >= 600;
-    final isLargeTablet = screenWidth >= 900;
-    
-    return GradientAddButton(
-      onTap: () {
-        _showActionMenu(context);
+    return StudentAttendanceVerticalPopUp(
+      students: const [],
+      refreshCallback: refreshData,
+      disabledActions: <String>{
+        if (!_canSignIn) 'Sign-in',
+        if (!_canSignOut) 'Sign-Out',
+        if (!_canTransfer) 'Transfer',
+        if (!_canMarkAbsent) 'Absent',
       },
-      isTablet: isTablet,
-      isLargeTablet: isLargeTablet,
-      isRectangle: true,
-    );
-  }
-
-  void _showActionMenu(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext context) {
-        final Size screenSize = MediaQuery.of(context).size;
-        final double menuWidth = screenSize.width <= 360
-            ? screenSize.width * 0.58
-            : screenSize.width <= 420
-                ? 200
-                : 220;
-        final double maxMenuHeight = screenSize.height * 0.55;
-
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 80),
-          child: SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: menuWidth,
-                  maxHeight: maxMenuHeight,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.cardBorderColor,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildActionButton(
-                          icon: Icons.login,
-                          color: Colors.blue,
-                          label: "Sign-in",
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to sign-in form
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildActionButton(
-                          icon: Icons.logout,
-                          color: Colors.blue,
-                          label: "Sign-Out",
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to sign-out form
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildActionButton(
-                          icon: Icons.swap_horiz,
-                          color: Colors.blue,
-                          label: "Transfer",
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to transfer form
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildActionButton(
-                          icon: Icons.cancel,
-                          color: Colors.blue,
-                          label: "Absent",
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Navigate to absent form
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required VoidCallback onTap,
-    bool isDisabled = false,
-  }) {
-    return InkWell(
-      onTap: isDisabled ? null : onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Opacity(
-            opacity: isDisabled ? 0.5 : 1.0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 24, color: color),
-            ),
-          ),
-          const SizedBox(height: 5),
-          AppText.small(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+      onActionTap: _handleStudentAction,
     );
   }
 

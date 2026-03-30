@@ -19,6 +19,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStaffModel {
@@ -390,7 +391,9 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                             }
 
                             if (start.isAfter(end)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              CoreUtils.showTopSnackBarFromSnackBar(
+                                context: context,
+                                snackBar: 
                                 SnackBar(
                                   content: const Text(
                                       'Start date cannot be after end date'),

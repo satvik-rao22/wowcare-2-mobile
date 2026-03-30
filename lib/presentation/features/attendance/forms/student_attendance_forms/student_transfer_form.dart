@@ -10,7 +10,11 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 
 // Student entity for Transfer UI & API payload
 class StudentEntity {
@@ -76,18 +80,66 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   List<String> availableClassrooms = [];
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
+  Map<String, String> _classroomNameToCode = <String, String>{};
 
   @override
   void initState() {
     super.initState();
     currentStudents = List.from(widget.students);
+    _classroomNameToCode = Map<String, String>.from(widget.classroomNameToCode);
     if (widget.students.isNotEmpty) {
       currentClassroom = widget.students.first.roomName;
-      availableClassrooms = widget.classroomNameToCode.keys
-          .where((room) => room.trim().isNotEmpty)
-          .toList(growable: false)
-          .where((room) => room != currentClassroom)
-          .toList();
+      availableClassrooms = _filteredClassroomNames(
+        _classroomNameToCode,
+      );
+    }
+    _loadAvailableClassroomsFromApi();
+  }
+
+  List<String> _filteredClassroomNames(Map<String, String> classroomNameToCode) {
+    final currentRoomNames = currentStudents
+        .map((s) => s.roomName.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    return classroomNameToCode.entries
+        .where((entry) => entry.key.trim().isNotEmpty)
+        .where((entry) => !currentRoomNames.contains(entry.key))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+  }
+
+  Future<void> _loadAvailableClassroomsFromApi() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+
+      final getActiveClassroomsUseCase =
+          serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getActiveClassroomsUseCase(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: true,
+      );
+
+      final apiMap = <String, String>{
+        for (final classroom in classrooms)
+          if (classroom.name.trim().isNotEmpty && classroom.code.trim().isNotEmpty)
+            classroom.name: classroom.code,
+      };
+
+      if (!mounted || apiMap.isEmpty) return;
+      setState(() {
+        _classroomNameToCode = apiMap;
+        availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
+        if (selectedClassroom != null &&
+            !availableClassrooms.contains(selectedClassroom)) {
+          selectedClassroom = null;
+        }
+      });
+    } catch (_) {
+      // Keep fallback map from widget.classroomNameToCode if API load fails.
     }
   }
 
@@ -103,7 +155,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   void _handleSubmit() {
     if (selectedClassroom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Please select a classroom to transfer to'),
           backgroundColor: AppColors.warningColor,
@@ -122,7 +176,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   Future<void> _submitTransfer() async {
     if (_isSubmitting) return;
     if (currentStudents.isEmpty || selectedClassroom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('No students selected to transfer'),
           backgroundColor: AppColors.warningColor,
@@ -149,7 +205,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
@@ -163,7 +221,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         .where((code) => code.isNotEmpty)
         .toList();
     if (studentCodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
@@ -174,9 +234,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
     final toClassroomCode = selectedClassroom == null
         ? ''
-        : (widget.classroomNameToCode[selectedClassroom!] ?? '').trim();
+        : (_classroomNameToCode[selectedClassroom!] ?? '').trim();
     if (toClassroomCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text(
             'Selected classroom is not linked to a classroom code yet.',
@@ -222,7 +284,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
           content: Text(message),
           backgroundColor:
@@ -236,7 +300,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Failed to transfer students. Please try again.'),
           backgroundColor: AppColors.errorColor,

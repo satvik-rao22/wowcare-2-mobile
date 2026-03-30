@@ -15,14 +15,16 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 
 class StaffSignOutForm extends StatefulWidget {
-  const StaffSignOutForm({super.key, this.staff});
+  const StaffSignOutForm({super.key, this.staff, this.staffList});
 
   final StaffEntity? staff;
+  final List<StaffEntity>? staffList;
 
   static const String routeName = '/staff-sign-out-form';
 
@@ -33,18 +35,26 @@ class StaffSignOutForm extends StatefulWidget {
 class _StaffSignOutFormState extends State<StaffSignOutForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
-  StaffEntity? currentStaff;
+  List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
 
   @override
   void initState() {
     super.initState();
-    currentStaff = widget.staff ?? StaffEntity(
-      id: 1,
-      name: 'Staff Member',
-      primaryRoomId: 1,
-    );
+    if (widget.staffList != null && widget.staffList!.isNotEmpty) {
+      _selectedStaff = List<StaffEntity>.from(widget.staffList!);
+    } else if (widget.staff != null) {
+      _selectedStaff = <StaffEntity>[widget.staff!];
+    } else {
+      _selectedStaff = <StaffEntity>[
+        StaffEntity(
+          id: 1,
+          name: 'Staff Member',
+          primaryRoomId: 1,
+        ),
+      ];
+    }
     _loadPersonaFlags();
   }
 
@@ -91,8 +101,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
-    if (currentStaff == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    if (_selectedStaff.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('No staff selected to sign out'),
           backgroundColor: AppColors.warningColor,
@@ -114,7 +126,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
@@ -128,9 +142,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       return;
     }
 
-    final targetStaffCode = (currentStaff!.staffCode ?? '').trim();
-    if (targetStaffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    final targetStaffCodes = _selectedStaff
+        .map((s) => (s.staffCode ?? '').trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (targetStaffCodes.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Target staff code is missing. Please refresh list.'),
           backgroundColor: AppColors.warningColor,
@@ -153,8 +172,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     final DateTime effectiveDate;
     final TimeOfDay effectiveTime;
     if (!isStaffAdmin) {
-      if (targetStaffCode != staffCode) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode) {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: 
           const SnackBar(
             content: Text('Teachers can only sign out for themselves.'),
             backgroundColor: AppColors.warningColor,
@@ -187,7 +208,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
     // Admin cannot sign out for future date/time.
     if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('You cannot sign out for future date/time.'),
           backgroundColor: AppColors.warningColor,
@@ -201,7 +224,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       return;
     }
 
-    final staffCodes = <String>[targetStaffCode];
+    final staffCodes = targetStaffCodes;
     const classroomCode = '';
 
     final classroomCodeByStaffCode = <String, String>{
@@ -241,7 +264,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
           content: Text(message),
           backgroundColor:
@@ -254,7 +279,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Failed to sign out staff. Please try again.'),
           backgroundColor: AppColors.errorColor,
@@ -278,7 +305,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (currentStaff != null)
+            if (_selectedStaff.isNotEmpty)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -288,8 +315,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   mainAxisSpacing: 14,
                   childAspectRatio: 3.5,
                 ),
-                itemCount: 1,
-                itemBuilder: (context, index) => _buildStaffCard(currentStaff!),
+                itemCount: _selectedStaff.length,
+                itemBuilder: (context, index) =>
+                    _buildStaffCard(_selectedStaff[index]),
               ),
             const SizedBox(height: 20),
             Row(

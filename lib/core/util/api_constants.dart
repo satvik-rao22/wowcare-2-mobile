@@ -24,7 +24,7 @@ class ApiConstants {
 
   /// Toggle this flag to switch local setups.
   /// false -> current setup (qs176zl8), true -> alternate setup (wnmrl4rn).
-  static const bool useAlternateLocalSetup = false;
+  static const bool useAlternateLocalSetup = true;
 
   // Current local setup (qs176zl8)
   static const String _currentUserUrl = 'https://qs176zl8-8086.inc1.devtunnels.ms';

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
@@ -150,7 +151,7 @@ class StudentAttendanceDailyCubit
         isLoading: false,
         isRefreshing: false,
         isSummaryLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -188,7 +189,7 @@ class StudentAttendanceDailyCubit
       if (isClosed) return;
       emit(state.copyWith(
         isLoadingMore: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

@@ -24,6 +24,7 @@ import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -592,7 +593,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                   type: 'attendance',
                   onDelete: () {
                     Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    CoreUtils.showTopSnackBarFromSnackBar(
+                      context: context,
+                      snackBar: 
                       const SnackBar(
                         content: Text('Attendance deleted'),
                       ),

@@ -22,8 +22,10 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 // Dummy data model for UI-only implementation
@@ -343,12 +345,18 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     } catch (error) {
       debugPrint('StudentAbsent API error: $error');
       if (!mounted) return;
+      final message = ApiErrorHandler.extractErrorMessage(error);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
       setState(() {
         _isInitialLoadingStudents = false;
         _isLoadingStudents = false;
         isLoading = false;
         _isBackgroundFetchingStudents = false;
-        errorMessage = error.toString();
+        errorMessage = message;
       });
     }
   }
@@ -572,7 +580,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                     Icon(Icons.error_outline, color: AppColors.errorColor, size: 48),
                     SizedBox(height: responsive.verticalSpacing / 2),
                     AppText.body(
-                      'Error: $errorMessage',
+                      errorMessage ?? 'Unable to load absent students.',
                       style: TextStyle(color: AppColors.errorColor),
                       textAlign: TextAlign.center,
                     ),

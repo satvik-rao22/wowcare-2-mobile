@@ -12,11 +12,17 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'student_sign_out_form.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:provider/provider.dart';
 
 class StudentSelectionSignOutForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-out-form';
@@ -55,6 +61,7 @@ class _StudentSelectionSignOutFormState
   late final StorageService _storageService;
   late final GetTagNameCodeMapForSchoolUseCase
       _getTagNameCodeMapForSchoolUseCase;
+  late final GetStudentPageUseCase _getStudentPageUseCase;
 
   @override
   void initState() {
@@ -65,6 +72,7 @@ class _StudentSelectionSignOutFormState
     _storageService = serviceLocator<StorageService>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
 
     _loadClassrooms();
     _loadTags();
@@ -198,6 +206,28 @@ class _StudentSelectionSignOutFormState
         size: 100,
       );
 
+      final isParent = context.read<RoleProvider>().isParent;
+      Set<String>? allowedStudentCodes;
+      if (isParent) {
+        final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
+        final schoolCode =
+            (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+        if (guardianCode.isNotEmpty && schoolCode.isNotEmpty) {
+          final parentStudents = await _getStudentPageUseCase(
+            schoolCode: schoolCode,
+            guardianCodes: <String>[guardianCode],
+            page: 0,
+            size: 500,
+          );
+          allowedStudentCodes = parentStudents.items
+              .map((s) => s.code.trim())
+              .where((code) => code.isNotEmpty)
+              .toSet();
+        } else {
+          allowedStudentCodes = <String>{};
+        }
+      }
+
       final students = page.items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
@@ -210,6 +240,9 @@ class _StudentSelectionSignOutFormState
           photoUuid: '', // API does not supply image here
           classroomCode: item.classroomCode,
         );
+      }).where((student) {
+        if (allowedStudentCodes == null) return true;
+        return allowedStudentCodes.contains(student.studentCode.trim());
       }).toList();
 
       setState(() {
@@ -221,7 +254,7 @@ class _StudentSelectionSignOutFormState
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString();
+        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
       });
     }
   }
@@ -257,7 +290,9 @@ class _StudentSelectionSignOutFormState
 
   void _handleNext() {
     if (selectedStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Please select at least one student'),
           backgroundColor: AppColors.warningColor,
