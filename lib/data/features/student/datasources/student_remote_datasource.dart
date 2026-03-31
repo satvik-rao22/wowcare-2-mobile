@@ -215,6 +215,17 @@ abstract class StudentRemoteDataSource {
     required String studentCode,
   });
 
+  /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
+  Future<String> updateGuardian({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.
+  Future<String> deleteGuardian({
+    required String code,
+  });
+
   /// Fetches tags for a school via `GET /api/v1/tags`.
   ///
   /// Returns the `content` list from the paginated `data` payload, each item
@@ -1112,6 +1123,48 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Guardian linked successfully';
+  }
+
+  @override
+  Future<String> updateGuardian({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.guardian}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Guardian updated successfully';
+  }
+
+  @override
+  Future<String> deleteGuardian({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.guardian}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian delete API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Guardian deleted successfully';
   }
 
   @override

@@ -31,6 +31,9 @@ class AddPickupScreen extends StatefulWidget {
 }
 
 class _AddPickupScreenState extends State<AddPickupScreen> {
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
+  static final RegExp _phoneRegex = RegExp(r'^\(\d{3}\)\s\d{3}-\d{4}$');
+
   bool _selectFromExisting = true;
   String? _selectedCarer;
 
@@ -178,11 +181,35 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       );
       return;
     }
+    if (!_nameRegex.hasMatch(first)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (!_nameRegex.hasMatch(last)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
     final digits = phone.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 10) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter a valid 10-digit phone number',
+        isError: true,
+      );
+      return;
+    }
+    if (!_phoneRegex.hasMatch(phone)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please enter phone as (000) 000-0000',
         isError: true,
       );
       return;
@@ -377,6 +404,12 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   controller: _firstNameController,
                                   isRequired: true,
                                   textCapitalization: TextCapitalization.words,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                                    LengthLimitingTextInputFormatter(50),
+                                    NameCapitalizationFormatter(),
+                                    TrimFormatter(),
+                                  ],
                                 ),
                               ),
                               SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
@@ -387,6 +420,12 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   controller: _lastNameController,
                                   isRequired: true,
                                   textCapitalization: TextCapitalization.words,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                                    LengthLimitingTextInputFormatter(50),
+                                    NameCapitalizationFormatter(),
+                                    TrimFormatter(),
+                                  ],
                                 ),
                               ),
                             ],
@@ -401,13 +440,15 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                           SizedBox(height: responsive.verticalSpacing),
                           _buildInputField(
                             label: 'Phone Number',
-                            hint: 'E.g. 000-000-0000',
+                            hint: 'E.g. (000) 000-0000',
                             controller: _phoneController,
                             isRequired: true,
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
                               LengthLimitingTextInputFormatter(10),
+                              PhoneNumberFormatter(),
+                              TrimFormatter(),
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing),
@@ -417,6 +458,12 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             controller: _relationController,
                             isRequired: true,
                             textCapitalization: TextCapitalization.words,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                              LengthLimitingTextInputFormatter(50),
+                              NameCapitalizationFormatter(),
+                              TrimFormatter(),
+                            ],
                           ),
                         ],
                         SizedBox(height: responsive.verticalSpacing),
@@ -529,6 +576,82 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final newText = newValue.text;
+
+    if (newText.isEmpty) {
+      return newValue;
+    }
+
+    final digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
+    final charCount = digitsOnly.length;
+
+    String formattedText;
+    if (charCount == 0) {
+      formattedText = '';
+    } else if (charCount <= 3) {
+      formattedText = '($digitsOnly';
+    } else if (charCount <= 6) {
+      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
+    } else {
+      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+class NameCapitalizationFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String text = newValue.text;
+    text = text.replaceFirst(RegExp(r"\s+"), ' ');
+    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
+    text = text.replaceAll(RegExp(r"\s+\z"), '');
+
+    if (text.isEmpty) {
+      return newValue.copyWith(
+        text: text,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    }
+
+    final firstChar = text[0].toUpperCase();
+    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
+    final formatted = firstChar + rest;
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class TrimFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final trimmed = newValue.text.trimLeft();
+    return TextEditingValue(
+      text: trimmed,
+      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 }

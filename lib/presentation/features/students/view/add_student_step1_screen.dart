@@ -59,6 +59,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   final ImagePicker _picker = ImagePicker();
 
   static const int _nameMaxLength = 50;
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static const int _duplicateQueryPageSize = 25;
   static const int _duplicateQueryMaxPages = 10; // safety cap (25 * 10 = 250 scanned)
 
@@ -227,6 +228,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       );
       return;
     }
+    if (!_nameRegex.hasMatch(_firstNameController.text)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
     
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -241,6 +250,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last name must be at most $_nameMaxLength characters',
+        isError: true,
+      );
+      return;
+    }
+    if (!_nameRegex.hasMatch(_lastNameController.text)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
         isError: true,
       );
       return;

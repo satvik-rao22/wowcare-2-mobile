@@ -79,8 +79,8 @@ class StudentCubit extends Cubit<StudentState> {
     await refresh();
   }
 
-  Future<void> refresh() async {
-    if (state.isRefreshing) return;
+  Future<void> refresh({bool ignoreRefreshingGuard = false}) async {
+    if (state.isRefreshing && !ignoreRefreshingGuard) return;
 
     final schoolCode = await _resolveSchoolCode();
 

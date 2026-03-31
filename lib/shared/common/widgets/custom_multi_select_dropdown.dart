@@ -14,6 +14,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
   final bool isField;
   final double? width;
   final double gapHeight;
+  final double maxDropdownHeight;
 
   const CustomMultiSelectDropdown({
     Key? key,
@@ -25,7 +26,8 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.suffix,
     this.isField = false,
     this.width,
-    this.gapHeight = 70
+    this.gapHeight = 70,
+    this.maxDropdownHeight = 250,
 
   }) : super(key: key);
 
@@ -130,8 +132,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 borderRadius: BorderRadius.circular(8),
                 shadowColor: Colors.black26,
                 child: Container(
-                  constraints: const BoxConstraints(
-                    maxHeight: 250,
+                  constraints: BoxConstraints(
+                    maxHeight: widget.maxDropdownHeight,
                     minWidth: 120,
                   ),
                   decoration: BoxDecoration(

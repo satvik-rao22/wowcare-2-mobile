@@ -207,18 +207,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
       final repo = serviceLocator<StudentRepository>();
 
-      // Try cache first if repository exposes it.
-      dynamic maybeWithCache = repo;
-      dynamic cachedPage;
-      if (maybeWithCache is StudentRepositoryWithCache) {
-        cachedPage = await maybeWithCache.loadCachedStudentPage(
-          schoolCode,
-          status: 'ACTIVE',
-        );
-      }
-
-      // Fallback to API with pageSize = 150.
-      cachedPage ??= await repo.getStudentPage(
+      // Always fetch from API (no cached student list for this dropdown).
+      final page = await repo.getStudentPage(
         schoolCode: schoolCode,
         status: 'ACTIVE',
         page: 0,
@@ -227,11 +217,24 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
       if (!mounted) return;
 
+      final currentStudentCode = widget.studentCode.trim();
+      final currentStudentName =
+          '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
+              .trim()
+              .toLowerCase();
+
       final nameToCode = <String, String>{};
       final names = <String>[];
-      for (final s in cachedPage.items) {
+      for (final s in page.items) {
+        if (s.code.toString().trim() == currentStudentCode) {
+          continue;
+        }
         final display = '${s.firstName} ${s.lastName}'.trim();
         if (display.isEmpty) continue;
+        if (currentStudentName.isNotEmpty &&
+            display.trim().toLowerCase() == currentStudentName) {
+          continue;
+        }
         names.add(display);
         nameToCode[display] = s.code;
       }
@@ -828,6 +831,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           onChanged: (siblings) {
                             setState(() => _selectedSiblings = siblings);
                           },
+                          maxDropdownHeight: 200,
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),

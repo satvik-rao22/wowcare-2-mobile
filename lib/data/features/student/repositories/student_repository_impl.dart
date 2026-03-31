@@ -829,6 +829,34 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }
 
   @override
+  Future<String> updateGuardian({
+    required String code,
+    required String studentCode,
+    required Map<String, dynamic> fields,
+  }) async {
+    final message = await _remoteDataSource.updateGuardian(
+      code: code,
+      body: fields,
+    );
+
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
+  Future<String> deleteGuardian({
+    required String code,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.deleteGuardian(code: code);
+
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
   Future<List<String>> getTagNamesForSchool({
     required String schoolCode,
   }) async {

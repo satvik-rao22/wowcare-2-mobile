@@ -184,6 +184,21 @@ abstract class StudentRepository {
     required String guardianCode,
     required String studentCode,
   });
+
+  /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
+  ///
+  /// [fields] should follow the backend PATCH contract.
+  Future<String> updateGuardian({
+    required String code,
+    required String studentCode,
+    required Map<String, dynamic> fields,
+  });
+
+  /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.
+  Future<String> deleteGuardian({
+    required String code,
+    required String studentCode,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
