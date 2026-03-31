@@ -17,11 +17,13 @@ class StudentHealthTabCard extends StatefulWidget {
   const StudentHealthTabCard({
     required this.scrollController,
     this.studentCode,
+    this.onHealthChanged,
     super.key,
   });
 
   final ScrollController scrollController;
   final String? studentCode;
+  final VoidCallback? onHealthChanged;
 
 
   @override
@@ -128,6 +130,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                           _healthFuture = _buildHealthFuture();
                           _hasShownErrorSnackBar = false;
                         });
+                        widget.onHealthChanged?.call();
                       }
                     },
                     child: Row(
@@ -179,6 +182,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                           studentCode: code,
                           body: body,
                         );
+                        widget.onHealthChanged?.call();
                       } catch (e) {
                         CoreUtils.logApiError(e.toString());
                         if (mounted) {

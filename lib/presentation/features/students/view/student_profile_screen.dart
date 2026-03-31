@@ -50,12 +50,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _documentsScrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
   late Future<StudentHealthModel?> _healthFuture;
+  late String _displayName;
+  late String _displayClassroom;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _healthFuture = _buildHealthFuture();
+    _displayName = widget.name;
+    _displayClassroom = widget.classroom;
 
     // Cache-first classroom load (won't refetch if already loaded).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -65,6 +69,17 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       } catch (_) {
         // If no ClassroomCubit is provided above, build() will wrap with one.
       }
+    });
+  }
+
+  void _onProfileChanged(StudentProfileModel profile) {
+    if (!mounted) return;
+    setState(() {
+      final nextName = profile.fullName.trim();
+      _displayName = nextName.isEmpty ? _displayName : nextName;
+      final nextClassroom = (profile.classroom ?? '').trim();
+      _displayClassroom =
+          nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
     });
   }
 
@@ -80,6 +95,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       CoreUtils.logApiError(e.toString());
       return null;
     }
+  }
+
+  void _refreshHeaderHealth() {
+    if (!mounted) return;
+    setState(() {
+      _healthFuture = _buildHealthFuture();
+    });
   }
 
   @override
@@ -186,29 +208,31 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               children: [
                 StudentProfileTab(
                   scrollController: _profileScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
+                  name: _displayName,
+                  classroom: _displayClassroom,
                   tags: widget.tags,
                   schedule: widget.schedule,
                   sibling: widget.sibling,
                   studentCode: widget.studentCode,
+                  onProfileChanged: _onProfileChanged,
                 ),
                 StudentHealthTab(
                   scrollController: _healthScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
+                  name: _displayName,
+                  classroom: _displayClassroom,
                   studentCode: widget.studentCode,
+                  onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
                   scrollController: _importantDatesScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
+                  name: _displayName,
+                  classroom: _displayClassroom,
                   studentCode: widget.studentCode,
                 ),
                 StudentDocumentsTab(
                   scrollController: _documentsScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
+                  name: _displayName,
+                  classroom: _displayClassroom,
                   studentCode: widget.studentCode,
                 )
 
@@ -236,8 +260,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     clipBehavior: Clip.none,
                     children: [
                       DocumentImageWidget(
-                        fileUuid: widget.name, // seed for stable color when no image
-                        name: widget.name,
+                        fileUuid: _displayName, // seed for stable color when no image
+                        name: _displayName,
                         size: 90,
                         fontSize: 24,
                         statusColor: const Color(0xFF00B115),
@@ -274,7 +298,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.name,
+                        _displayName,
                         style: const TextStyle(
                           color: AppColors.primaryColor,
                           fontSize: 23,
@@ -295,7 +319,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          widget.classroom,
+                          _displayClassroom,
                           style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.w500,
@@ -313,9 +337,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               (health?.medications ?? '').trim().isNotEmpty;
                           final hasDietRestrictions =
                               (health?.dietRestrictions ?? '').trim().isNotEmpty;
+                          final isPhotoPermissionOff =
+                              (health?.photoPermission ?? true) == false;
 
                           final hasAnyHealthIcon =
-                              hasAllergy || hasMedication || hasDietRestrictions;
+                              hasAllergy ||
+                              hasMedication ||
+                              hasDietRestrictions ||
+                              isPhotoPermissionOff;
 
                           if (!hasAnyHealthIcon) {
                             return const SizedBox.shrink();
@@ -344,6 +373,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   padding: const EdgeInsets.only(left: 4),
                                   child: SvgPicture.asset(
                                     MediaRes.alertIcon,
+                                    height: 20,
+                                    width: 20,
+                                  ),
+                                ),
+                              if (isPhotoPermissionOff)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: SvgPicture.asset(
+                                    MediaRes.cameraIcon,
                                     height: 20,
                                     width: 20,
                                   ),
@@ -382,11 +420,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     builder: (_) => ActivityFeedScreen(
                       fromStudentProfile: true,
                       studentName: {
-                        'name': widget.name,
+                        'name': _displayName,
                         if (widget.studentCode != null &&
                             widget.studentCode!.trim().isNotEmpty)
                           'studentCode': widget.studentCode!.trim(),
-                        'classroom': widget.classroom,
+                        'classroom': _displayClassroom,
                         'tags': widget.tags,
                         'nappingStatus': false,
                       },

@@ -70,6 +70,15 @@ abstract class StudentRemoteDataSource {
     required String relation,
   });
 
+  Future<String> updatePickup({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  Future<String> deletePickup({
+    required String code,
+  });
+
   /// Fetches physicians associated with a student via `/api/v1/physicians`.
   ///
   /// Uses pageable-style query params as per backend swagger.
@@ -791,6 +800,48 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final root = response.data! as Map<String, dynamic>;
     return root['message']?.toString() ?? 'Pickup added successfully';
+  }
+
+  @override
+  Future<String> updatePickup({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.pickup}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected pickup update API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Pickup updated successfully';
+  }
+
+  @override
+  Future<String> deletePickup({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.pickup}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected pickup delete API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Pickup deleted successfully';
   }
 
   @override

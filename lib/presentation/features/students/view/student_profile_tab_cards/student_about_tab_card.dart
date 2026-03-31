@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/shared/constants/location_constants.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -75,10 +76,28 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       parts.add(address['city'].toString());
     }
     if (address['state'] != null && address['state'].toString().isNotEmpty) {
-      parts.add(address['state'].toString());
+      final rawState = address['state'].toString().trim();
+      String stateLabel = rawState;
+      for (final state in US_STATES) {
+        if (state.name.toLowerCase() == rawState.toLowerCase() ||
+            state.abbreviation.toLowerCase() == rawState.toLowerCase()) {
+          stateLabel = state.name;
+          break;
+        }
+      }
+      parts.add(stateLabel);
     }
     if (address['country'] != null && address['country'].toString().isNotEmpty) {
-      parts.add(address['country'].toString());
+      final rawCountry = address['country'].toString().trim();
+      String countryLabel = rawCountry;
+      for (final country in COUNTRY_LIST) {
+        if (country.name.toLowerCase() == rawCountry.toLowerCase() ||
+            country.code.toLowerCase() == rawCountry.toLowerCase()) {
+          countryLabel = country.name;
+          break;
+        }
+      }
+      parts.add(countryLabel);
     }
     // API sometimes returns postalCode; older UI used zipCode.
     final zipRaw = (address['zipCode'] ?? address['postalCode'])?.toString() ?? '';

@@ -393,6 +393,48 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     return message;
   }
 
+  Future<String> updatePickup({
+    required String code,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String relation,
+    String? clockPin,
+  }) async {
+    final body = <String, dynamic>{
+      'studentCode': studentCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'phoneNumber': phoneNumber,
+      'relation': relation,
+      'code': code,
+      if (clockPin != null && clockPin.trim().isNotEmpty) 'clockPin': clockPin,
+    };
+
+    final message = await _remoteDataSource.updatePickup(
+      code: code,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
+
+    return message;
+  }
+
+  Future<String> deletePickup({
+    required String code,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.deletePickup(code: code);
+
+    await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
+
+    return message;
+  }
+
   Future<List<StudentPhysicianModel>> getStudentPhysicians({
     required String studentCode,
   }) async {

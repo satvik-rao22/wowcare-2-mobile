@@ -17,6 +17,7 @@ class StudentHealthTab extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.onHealthChanged,
   });
 
   final int initialTabIndex;
@@ -24,6 +25,7 @@ class StudentHealthTab extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
+  final VoidCallback? onHealthChanged;
 
 
   @override
@@ -255,6 +257,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               StudentHealthTabCard(
                 scrollController: _healthScrollController,
                 studentCode: widget.studentCode,
+                onHealthChanged: widget.onHealthChanged,
               ),
               StudentPhysicianTabCard(
                 scrollController: _physicianScrollController,

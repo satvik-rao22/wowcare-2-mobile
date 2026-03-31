@@ -22,7 +22,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -105,12 +105,11 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   final List<String> _addressTypeOptions = ['Current address', 'Permanent address', 'Other'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
-  final List<String> _countryOptions =
-      COUNTRY_LIST.map((c) => c.name).toList(growable: false);
+  // Country is fixed to United States for this form.
 
   // Simple validators (align with Add Staff)
-  // Allow letters, digits, spaces, basic punctuation; first char must be non-space.
-  static final RegExp _nameRegex = RegExp(r"^[A-Za-z0-9][A-Za-z0-9\-'\s]{0,49}$");
+  // First character A-Z, then up to 49 letters/space/hyphen/apostrophe.
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
   static final RegExp _zipDigitsRegex = RegExp(r'^\d{5}(\d{4})?$'); // 5 or 9 digits (ZIP / ZIP+4)
 
@@ -147,21 +146,12 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       _selectedState = match.name;
     }
 
-    // Map initial country (name or code) to display name from COUNTRY_LIST.
-    if (widget.initialCountry != null && widget.initialCountry!.isNotEmpty) {
-      final raw = widget.initialCountry!;
-      final match = COUNTRY_LIST.firstWhere(
-        (c) =>
-            c.name.toLowerCase() == raw.toLowerCase() ||
-            c.code.toLowerCase() == raw.toLowerCase(),
-        orElse: () => COUNTRY_LIST.first,
-      );
-      _selectedCountry = match.name;
-    }
+    // Country is fixed to United States on this screen.
+    _selectedCountry = 'United States';
 
     // Accept legacy stored formats: "12345", "123456789", or "12345-6789"
     final initialZipRaw = widget.initialZipCode ?? '';
-    _zipCodeController.text = _digitsOnly(initialZipRaw);
+    _zipCodeController.text = _formatUsZipForDisplay(initialZipRaw);
     // Default address type to CURRENT; can be changed via dropdown.
     _selectedAddressType = _addressTypeOptions.first;
 
@@ -265,14 +255,16 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
   Future<void> _loadGuardiansForCustody() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) return;
-
-      final useCase =
-          serviceLocator<GetGuardianNamesForSchoolUseCase>();
-      final names = await useCase(schoolCode: schoolCode);
+      if (widget.studentCode.trim().isEmpty) return;
+      final repo = serviceLocator<StudentRepository>();
+      if (repo is! StudentRepositoryImpl) return;
+      final guardians =
+          await repo.getStudentGuardians(studentCode: widget.studentCode);
+      final names = guardians
+          .map((g) => '${g.firstName} ${g.lastName}'.trim())
+          .where((n) => n.isNotEmpty)
+          .toSet()
+          .toList();
       if (!mounted) return;
 
       setState(() {
@@ -303,18 +295,34 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     final last = _lastNameController.text.trim();
     final fte = _FTEController.text.trim();
 
-    if (first.isEmpty || !_nameRegex.hasMatch(first) || first.length > 50) {
+    if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required and must be max 50 characters',
+        message: 'First Name is required',
         isError: true,
       );
       return;
     }
-    if (last.isEmpty || !_nameRegex.hasMatch(last) || last.length > 50) {
+    if (first.length > 50 || !_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required and must be max 50 characters',
+        message: 'First Name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (last.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name is required',
+        isError: true,
+      );
+      return;
+    }
+    if (last.length > 50 || !_nameRegex.hasMatch(last)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -420,7 +428,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     if (!_zipDigitsRegex.hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code must be 5 digits or 9 digits (ZIP+4)',
+        message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
         isError: true,
       );
       return;
@@ -883,7 +891,41 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
+                        Opacity(
+                          opacity: 0.8,
+                          child: CustomDropdown(
+                            label: "Country",
+                            hintText: 'United States',
+                            items: const <String>['United States'],
+                            selectedItem: 'United States',
+                            isEnabled: false,
+                            showAsterisk: true,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            selectedTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                              height: 19 / 14,
+                            ),
+                            popupItemTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: responsive.isTablet ? 16.0 : 12.0,
+                              vertical: responsive.isTablet ? 16.0 : 12.0,
+                            ),
+                            onSelect: null,
+                          ),
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Zip Code",
@@ -894,6 +936,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                             LengthLimitingTextInputFormatter(9),
+                            _ZipCodeFormatter(),
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -1108,4 +1151,38 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       ],
     );
   }
+}
+
+class _ZipCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    final buffer = StringBuffer();
+    for (var i = 0; i < digitsOnly.length && i < 9; i++) {
+      if (i == 5) buffer.write('-');
+      buffer.write(digitsOnly[i]);
+    }
+    final formatted = buffer.toString();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+String _formatUsZipForDisplay(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+  if (digits.length <= 5) return digits.substring(0, digits.length);
+  final first5 = digits.substring(0, 5);
+  final last4 = digits.substring(5, digits.length.clamp(5, 9));
+  return last4.isEmpty ? first5 : '$first5-$last4';
 }

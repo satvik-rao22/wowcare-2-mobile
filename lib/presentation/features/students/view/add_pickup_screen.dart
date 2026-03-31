@@ -20,11 +20,25 @@ class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
     super.key,
     required this.studentCode,
+    this.pickupCode,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhoneNumber,
+    this.initialRelation,
+    this.initialClockPin,
   });
 
   static const String routeName = '/add-pickup-screen';
 
   final String studentCode;
+  final String? pickupCode;
+  final String? initialFirstName;
+  final String? initialLastName;
+  final String? initialEmail;
+  final String? initialPhoneNumber;
+  final String? initialRelation;
+  final String? initialClockPin;
 
   @override
   State<AddPickupScreen> createState() => _AddPickupScreenState();
@@ -48,6 +62,15 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final StorageService _storageService;
+  bool get _isEditMode =>
+      widget.pickupCode != null && widget.pickupCode!.trim().isNotEmpty;
+  bool get _hasPrefillData =>
+      (widget.initialFirstName ?? '').trim().isNotEmpty ||
+      (widget.initialLastName ?? '').trim().isNotEmpty ||
+      (widget.initialEmail ?? '').trim().isNotEmpty ||
+      (widget.initialPhoneNumber ?? '').trim().isNotEmpty ||
+      (widget.initialRelation ?? '').trim().isNotEmpty;
+  bool get _isEditLikeMode => _isEditMode || _hasPrefillData;
 
   @override
   void initState() {
@@ -55,7 +78,17 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     _getGuardianNamesForSchoolUseCase =
         serviceLocator<GetGuardianNamesForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
-    _loadExistingCarers();
+    if (_isEditLikeMode) {
+      _selectFromExisting = false;
+      _firstNameController.text = (widget.initialFirstName ?? '').trim();
+      _lastNameController.text = (widget.initialLastName ?? '').trim();
+      _emailController.text = (widget.initialEmail ?? '').trim();
+      _phoneController.text =
+          _formatPhoneInput((widget.initialPhoneNumber ?? '').trim());
+      _relationController.text = (widget.initialRelation ?? '').trim();
+    } else {
+      _loadExistingCarers();
+    }
   }
 
   @override
@@ -235,14 +268,28 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
 
       final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-      final message = await repo.addPickup(
-        studentCode: widget.studentCode,
-        firstName: first,
-        lastName: last,
-        email: email,
-        phoneNumber: formattedPhone,
-        relation: relation,
-      );
+      final String message;
+      if (_isEditMode) {
+        message = await repo.updatePickup(
+          code: widget.pickupCode!.trim(),
+          studentCode: widget.studentCode,
+          firstName: first,
+          lastName: last,
+          email: email,
+          phoneNumber: formattedPhone,
+          relation: relation,
+          clockPin: (widget.initialClockPin ?? '').trim(),
+        );
+      } else {
+        message = await repo.addPickup(
+          studentCode: widget.studentCode,
+          firstName: first,
+          lastName: last,
+          email: email,
+          phoneNumber: formattedPhone,
+          relation: relation,
+        );
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -299,7 +346,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Add Pickup',
+                      _isEditMode ? 'Edit Pickup' : 'Add Pickup',
                       style: TextStyle(
                         fontFamily: "Manrope",
                         fontSize: responsive.titleFontSize,
@@ -333,31 +380,33 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                       padding: EdgeInsets.zero,
                       children: [
                         SizedBox(height: responsive.verticalSpacing),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Select from existing',
-                              style: TextStyle(
-                                fontSize: responsive.labelFontSize,
-                                fontFamily: "Manrope",
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                        if (!_isEditLikeMode) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Select from existing',
+                                style: TextStyle(
+                                  fontSize: responsive.labelFontSize,
+                                  fontFamily: "Manrope",
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xff573353),
+                                ),
                               ),
-                            ),
-                            CustomToggle(
-                              label: '',
-                              isToggled: _selectFromExisting,
-                              onToggle: (value) {
-                                setState(() {
-                                  _selectFromExisting = value;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: responsive.verticalSpacing),
-                        if (_selectFromExisting) ...[
+                              CustomToggle(
+                                label: '',
+                                isToggled: _selectFromExisting,
+                                onToggle: (value) {
+                                  setState(() {
+                                    _selectFromExisting = value;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: responsive.verticalSpacing),
+                        ],
+                        if (_selectFromExisting && !_isEditLikeMode) ...[
                           CustomDropdown(
                             label: 'Carer',
                             hintText: 'Select Carer',
@@ -577,6 +626,17 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         ),
       ],
     );
+  }
+
+  String _formatPhoneInput(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) {
+      return '(${digits.substring(0, 3)}) ${digits.substring(3)}';
+    }
+    final take = digits.length >= 10 ? 10 : digits.length;
+    final d = digits.substring(0, take);
+    return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
   }
 }
 

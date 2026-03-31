@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/data/features/student/models/student_pickup_models.dart';
@@ -10,6 +11,8 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentPickupTabCard extends StatefulWidget {
@@ -36,6 +39,7 @@ class StudentPickupTabCard extends StatefulWidget {
 
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   late Future<List<StudentPickupModel>> _pickupsFuture;
+  bool _isMutating = false;
 
   @override
   void initState() {
@@ -150,13 +154,23 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                     children: [
                       for (int i = 0; i < pickups.length; i++) ...[
                         _PickupCard(
+                          studentCode: widget.studentCode ?? '',
+                          pickupCode: pickups[i].code ?? '',
+                          clockPin: pickups[i].clockPin ?? '',
                           name: pickups[i].fullName.isNotEmpty
                               ? pickups[i].fullName
                               : '-',
                           relation: _formatRelation(pickups[i].relation),
                           email: _valueOrDash(pickups[i].email),
+                          rawEmail: pickups[i].email,
                           phoneNumber: _formatPhoneNumber(pickups[i].phoneNumber),
+                          rawRelation: pickups[i].relation,
+                          rawPhoneNumber: pickups[i].phoneNumber,
+                          firstName: pickups[i].firstName,
+                          lastName: pickups[i].lastName,
                           onRefresh: _handleRefresh,
+                          isLoading: _isMutating,
+                          onSetLoading: (v) => setState(() => _isMutating = v),
                         ),
                         if (i != pickups.length - 1)
                           const SizedBox(height: 12),
@@ -207,15 +221,35 @@ String _formatRelation(String relation) {
 
 class _PickupCard extends StatefulWidget {
   const _PickupCard({
+    required this.studentCode,
+    required this.pickupCode,
+    required this.clockPin,
+    required this.firstName,
+    required this.lastName,
+    required this.rawPhoneNumber,
+    required this.rawRelation,
+    required this.isLoading,
+    required this.onSetLoading,
     required this.name,
     this.relation,
     this.email,
+    this.rawEmail,
     this.phoneNumber,
     this.onRefresh,
   });
+  final String studentCode;
+  final String pickupCode;
+  final String clockPin;
+  final String firstName;
+  final String lastName;
+  final String rawPhoneNumber;
+  final String rawRelation;
+  final bool isLoading;
+  final ValueChanged<bool> onSetLoading;
   final String name;
   final String? relation;
   final String? email;
+  final String? rawEmail;
   final String? phoneNumber;
   /// Called after edit or delete so parent can refresh pickups list and profile cache.
   final Future<void> Function()? onRefresh;
@@ -225,6 +259,77 @@ class _PickupCard extends StatefulWidget {
 }
 
 class _PickupCardState extends State<_PickupCard> {
+  Future<void> _onEdit() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddPickupScreen(
+          studentCode: widget.studentCode,
+          pickupCode:
+              widget.pickupCode.trim().isEmpty ? null : widget.pickupCode,
+          initialFirstName: widget.firstName,
+          initialLastName: widget.lastName,
+          initialEmail: widget.rawEmail,
+          initialPhoneNumber: widget.rawPhoneNumber,
+          initialRelation: widget.rawRelation,
+          initialClockPin: widget.clockPin,
+        ),
+      ),
+    );
+    if (result == true) {
+      await widget.onRefresh?.call();
+    }
+  }
+
+  Future<void> _onDelete() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return DeleteConfirmationBottomSheet(
+          name: widget.name,
+          type: 'pickup',
+          isLoading: widget.isLoading,
+          onCancel: () => Navigator.of(sheetContext).pop(),
+          onDelete: () async {
+            if (widget.isLoading) return;
+            if (widget.pickupCode.trim().isEmpty ||
+                widget.studentCode.trim().isEmpty) {
+              Navigator.of(sheetContext).pop();
+              return;
+            }
+            widget.onSetLoading(true);
+            try {
+              final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+              final message = await repo.deletePickup(
+                code: widget.pickupCode,
+                studentCode: widget.studentCode,
+              );
+              if (!mounted) return;
+              Navigator.of(sheetContext).pop();
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isSuccess: true,
+              );
+              await widget.onRefresh?.call();
+            } catch (e) {
+              if (!mounted) return;
+              Navigator.of(sheetContext).pop();
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: ApiErrorHandler.extractErrorMessage(e),
+                isError: true,
+              );
+            } finally {
+              widget.onSetLoading(false);
+            }
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -355,13 +460,10 @@ class _PickupCardState extends State<_PickupCard> {
                       CustomButtonLayout(
                         confirmButtonLabel: 'Edit',
                         cancelButtonLabel: 'Delete',
-                        onPressedConfirm: () {
-                          // TODO: Implement Edit Pickup handler; after success call widget.onRefresh?.call()
-                        },
-                        onPressedCancel: () {
-                          // TODO: Implement Delete Pickup handler; after success call widget.onRefresh?.call()
-                        },
+                        onPressedConfirm: widget.isLoading ? null : _onEdit,
+                        onPressedCancel: widget.isLoading ? null : _onDelete,
                         isForm: false,
+                        isLoading: widget.isLoading,
                       ),
                       const SizedBox(height: 12),
                     ],

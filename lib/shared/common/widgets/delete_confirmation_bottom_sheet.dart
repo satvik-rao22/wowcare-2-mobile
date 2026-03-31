@@ -78,6 +78,8 @@ class _DeleteConfirmationBottomSheetState
             : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
         : widget.type == 'guardian'
         ? 'Do you want to delete this Parent/Guardian -\n"${widget.name}" ?'
+        : widget.type == 'pickup'
+        ? 'Do you want to delete this Pickup -\n"${widget.name}" ?'
         : widget.type == 'user'
         ? "Do you want to delete this User"
         : widget.type == 'Activity'
