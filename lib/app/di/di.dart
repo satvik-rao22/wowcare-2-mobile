@@ -174,7 +174,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Student-Classroom Data Sources
   serviceLocator.registerLazySingleton<StudentClassroomRemoteDataSource>(
     () =>
-        StudentClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+        StudentClassroomRemoteDataSourceImpl(
+          serviceLocator<ApiClient>().client,
+          serviceLocator<StorageService>(),
+        ),
   );
 
   // Staff-Classroom Data Sources

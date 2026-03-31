@@ -29,6 +29,10 @@ class StorageKeys {
   /// UserCode that owns the cached staffCode; used to invalidate
   /// staffCode when a different user logs in.
   static const String staffCodeUser = 'staffCodeUser';
+  /// Org/school context that owns the cached staffCode.
+  /// Prevents reusing a staffCode resolved under a different selection.
+  static const String staffCodeOrganization = 'staffCodeOrganization';
+  static const String staffCodeSchool = 'staffCodeSchool';
   /// Optional cached staff sign-in PIN (from my-profile pin API).
   static const String staffPin = 'staffPin';
 
@@ -38,6 +42,7 @@ class StorageKeys {
   static const String loginCompleted = 'loginCompleted';
   static const String onboardingSeen = 'onboardingSeen';
   static const String loginContext = 'loginContext';
+  static const String userAccessDetails = 'userAccessDetails';
 
   // Cache Duration
   static const Duration cacheValidDuration = Duration(minutes: 5);

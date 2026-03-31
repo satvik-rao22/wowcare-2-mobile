@@ -186,6 +186,7 @@ class AttendanceRepositoryImpl
               nano: model.signedInTime!.nano,
             )
           : null,
+      signedInBy: model.signedInBy,
       signedOutAt: model.signedOutAt,
       signedOutTime: model.signedOutTime != null
           ? StudentAttendanceTime(
@@ -195,6 +196,7 @@ class AttendanceRepositoryImpl
               nano: model.signedOutTime!.nano,
             )
           : null,
+      signedOutBy: model.signedOutBy,
       signedInMethod: model.signedInMethod,
       signedOutMethod: model.signedOutMethod,
       classroomCode: model.classroomCode,
@@ -410,6 +412,7 @@ class AttendanceRepositoryImpl
     StaffAttendanceDailyItemModel model,
   ) {
     return StaffAttendanceDailyItem(
+      attendanceRecordCode: model.attendanceRecordCode,
       staffCode: model.staffCode,
       staffName: model.staffName,
       isExpectedToday: model.isExpectedToday,

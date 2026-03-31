@@ -280,6 +280,7 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
         // If we have a cached login, navigation always follows login-context:
         if (hasCachedLogin) {
+          await context.read<RoleProvider>().refreshAccessFromServer(force: true);
           if (redirectUrl != null && redirectUrl.isNotEmpty) {
             final url = redirectUrl.toLowerCase();
             if (url.contains('select-school')) {

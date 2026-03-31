@@ -132,6 +132,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         // Cached value belongs to another user or is invalid – clear it.
         await storage.remove(StorageKeys.staffCode);
         await storage.remove(StorageKeys.staffCodeUser);
+        await storage.remove(StorageKeys.staffCodeOrganization);
+        await storage.remove(StorageKeys.staffCodeSchool);
       }
 
       final organizationCode =
@@ -155,6 +157,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (code.isNotEmpty) {
         await storage.saveString(StorageKeys.staffCode, code);
         await storage.saveString(StorageKeys.staffCodeUser, currentUserCode);
+        await storage.saveString(
+          StorageKeys.staffCodeOrganization,
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim(),
+        );
+        await storage.saveString(
+          StorageKeys.staffCodeSchool,
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim(),
+        );
       }
 
       return code;

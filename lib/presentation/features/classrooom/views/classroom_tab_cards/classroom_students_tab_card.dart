@@ -335,7 +335,13 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         size: 500,
       );
 
-      // Keep API calls concurrent while preserving each concrete page type.
+      // Attach listeners to all futures immediately so fast failures are caught.
+      await Future.wait([
+        signInFuture,
+        signOutFuture,
+        transferFuture,
+        absentFuture,
+      ]);
       final signInPage = await signInFuture;
       final signOutPage = await signOutFuture;
       final transferPage = await transferFuture;

@@ -14,7 +14,9 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -62,9 +64,9 @@ class AttendancePopupOverlay extends StatefulWidget {
 }
 
 class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
-  late bool _isParentRole;
+  bool _isParentRole = false;
   bool? _isTeacherStaffPersona; // When true: skip staff selection and use self forms.
   String _loggedInStaffCode = '';
 
@@ -78,9 +80,104 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       initialIndex: _isParentRole ? 0 : widget.initialTabIndex,
     );
     _tabController.addListener(_onTabChanged);
-    if (!_isParentRole) {
-      _loadStaffPersonaFlags();
+    _syncPersonaFlags();
+  }
+
+  Future<void> _syncPersonaFlags() async {
+    final resolvedParentRole = await _resolveIsParentSession();
+    if (!mounted) return;
+
+    if (resolvedParentRole != _isParentRole) {
+      _isParentRole = resolvedParentRole;
+      _replaceTabController(
+        length: _isParentRole ? 1 : 2,
+        initialIndex: 0,
+      );
+      setState(() {});
     }
+
+    if (!_isParentRole) {
+      await _loadStaffPersonaFlags();
+    }
+  }
+
+  void _replaceTabController({
+    required int length,
+    required int initialIndex,
+  }) {
+    final previousController = _tabController;
+    final nextIndex = initialIndex.clamp(0, length - 1);
+    final nextController = TabController(
+      length: length,
+      vsync: this,
+      initialIndex: nextIndex,
+    );
+    nextController.addListener(_onTabChanged);
+    _tabController = nextController;
+
+    previousController.removeListener(_onTabChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      previousController.dispose();
+    });
+  }
+
+  Future<bool> _resolveIsParentSession() async {
+    if (context.read<RoleProvider>().isParent) return true;
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      final orgCode =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final detailsRaw =
+          (await storage.getString(StorageKeys.userAccessDetails) ?? '').trim();
+      if (detailsRaw.isNotEmpty) {
+        final decoded = jsonDecode(detailsRaw);
+        if (decoded is List) {
+          for (final user in decoded) {
+            if (user is! Map) continue;
+            final userOrg = (user['organizationCode'] ?? '').toString().trim();
+            if (orgCode.isNotEmpty && userOrg != orgCode) continue;
+            final schools = user['schools'];
+            if (schools is! List) continue;
+            for (final s in schools) {
+              if (s is! Map) continue;
+              final school = Map<String, dynamic>.from(s);
+              final sc = (school['schoolCode'] ?? '').toString().trim();
+              if (schoolCode.isNotEmpty && sc != schoolCode) continue;
+              final role = (school['role'] ?? '').toString().toUpperCase().trim();
+              if (role.contains('PARENT') || role.contains('GUARDIAN')) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      if (rolesJson.isNotEmpty) {
+        final decoded = jsonDecode(rolesJson);
+        if (decoded is List) {
+          for (final role in decoded) {
+            if (role is! Map) continue;
+            final roleName = (role['role'] ?? '').toString().toUpperCase().trim();
+            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
+              return true;
+            }
+          }
+        }
+      }
+
+      final loginContext = await storage.getJson(StorageKeys.loginContext);
+      final raw = jsonEncode(loginContext ?? const <String, dynamic>{}).toUpperCase();
+      if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
+        return true;
+      }
+    } catch (_) {
+      // Keep default false when session metadata is unavailable.
+    }
+
+    return false;
   }
 
   Future<void> _loadStaffPersonaFlags() async {
@@ -139,8 +236,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   @override
   Widget build(BuildContext context) {
     final roleProvider = Provider.of<RoleProvider>(context, listen: false);
-    final isAdmin = roleProvider.isAdmin;
-    final isParent = roleProvider.isParent;
+    final isAdmin = roleProvider.isAdmin && !_isParentRole;
+    final isParent = _isParentRole;
     final isTeacherPersona = _isTeacherStaffPersona == true;
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
@@ -308,9 +405,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    navigator.push(
                       MaterialPageRoute(
                         builder: (_) => const StudentSelectionSignInForm(),
                       ),
@@ -324,9 +421,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    navigator.push(
                       MaterialPageRoute(
                         builder: (_) => const StudentSelectionSignOutForm(),
                       ),
@@ -341,9 +438,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StudentSelectionTransferForm(),
                         ),
@@ -358,9 +455,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StudentSelectionMarkAbsentForm(),
                         ),
@@ -381,9 +478,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StudentSelectionSignInForm(),
                         ),
@@ -400,9 +497,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StudentSelectionSignOutForm(),
                         ),
@@ -421,9 +518,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       iconSize: buttonSize,
                       fontSize: fontSize,
                       onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
+                        final navigator = Navigator.of(context, rootNavigator: true);
+                        navigator.pop();
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => const StudentSelectionTransferForm(),
                           ),
@@ -440,9 +537,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       iconSize: buttonSize,
                       fontSize: fontSize,
                       onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
+                        final navigator = Navigator.of(context, rootNavigator: true);
+                        navigator.pop();
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => const StudentSelectionMarkAbsentForm(),
                           ),
@@ -507,12 +604,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () async {
-                    Navigator.pop(context);
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
                     if (_isTeacherStaffPersona == true &&
                         _loggedInStaffCode.isNotEmpty) {
                       final display = await resolveLoggedInStaffDisplay();
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => StaffSignInForm(
                             staff: StaffEntity(
@@ -532,8 +629,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         ),
                       );
                     } else {
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StaffSelectionSignInForm(),
                         ),
@@ -548,12 +644,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () async {
-                    Navigator.pop(context);
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
                     if (_isTeacherStaffPersona == true &&
                         _loggedInStaffCode.isNotEmpty) {
                       final display = await resolveLoggedInStaffDisplay();
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => StaffSignOutForm(
                             staff: StaffEntity(
@@ -573,8 +669,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         ),
                       );
                     } else {
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StaffSelectionSignOutForm(),
                         ),
@@ -589,12 +684,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () async {
-                    Navigator.pop(context);
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
                     if (_isTeacherStaffPersona == true &&
                         _loggedInStaffCode.isNotEmpty) {
                       final display = await resolveLoggedInStaffDisplay();
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => StaffTransferForm(
                             staff: StaffEntity(
@@ -614,8 +709,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         ),
                       );
                     } else {
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StaffSelectionTransferForm(),
                         ),
@@ -630,12 +724,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () async {
-                    Navigator.pop(context);
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
                     if (_isTeacherStaffPersona == true &&
                         _loggedInStaffCode.isNotEmpty) {
                       final display = await resolveLoggedInStaffDisplay();
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => StaffMarkAbsentForm(
                             staff: StaffEntity(
@@ -655,8 +749,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         ),
                       );
                     } else {
-                      Navigator.push(
-                        context,
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StaffSelectionMarkAbsentForm(),
                         ),
@@ -678,12 +771,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () async {
-                      Navigator.pop(context);
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
                       if (_isTeacherStaffPersona == true &&
                           _loggedInStaffCode.isNotEmpty) {
                         final display = await resolveLoggedInStaffDisplay();
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => StaffSignInForm(
                               staff: StaffEntity(
@@ -703,8 +796,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                           ),
                         );
                       } else {
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => const StaffSelectionSignInForm(),
                           ),
@@ -722,12 +814,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () async {
-                      Navigator.pop(context);
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
                       if (_isTeacherStaffPersona == true &&
                           _loggedInStaffCode.isNotEmpty) {
                         final display = await resolveLoggedInStaffDisplay();
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => StaffSignOutForm(
                               staff: StaffEntity(
@@ -747,8 +839,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                           ),
                         );
                       } else {
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => const StaffSelectionSignOutForm(),
                           ),
@@ -766,12 +857,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () async {
-                      Navigator.pop(context);
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
                       if (_isTeacherStaffPersona == true &&
                           _loggedInStaffCode.isNotEmpty) {
                         final display = await resolveLoggedInStaffDisplay();
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => StaffTransferForm(
                               staff: StaffEntity(
@@ -791,8 +882,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                           ),
                         );
                       } else {
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => const StaffSelectionTransferForm(),
                           ),
@@ -810,12 +900,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () async {
-                      Navigator.pop(context);
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
                       if (_isTeacherStaffPersona == true &&
                           _loggedInStaffCode.isNotEmpty) {
                         final display = await resolveLoggedInStaffDisplay();
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => StaffMarkAbsentForm(
                               staff: StaffEntity(
@@ -835,8 +925,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                           ),
                         );
                       } else {
-                        Navigator.push(
-                          context,
+                        navigator.push(
                           MaterialPageRoute(
                             builder: (_) => const StaffSelectionMarkAbsentForm(),
                           ),
@@ -918,7 +1007,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   }) {
     return InkWell(
       onTap: () async {
-        Navigator.pop(context);
+        final navigator = Navigator.of(context, rootNavigator: true);
+        navigator.pop();
         if (isStaffTab) {
           if (_isTeacherStaffPersona == true) {
             // Staff persona: only allow viewing own attendance profile.
@@ -926,8 +1016,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
             if (display.staffCode.trim().isEmpty) {
               return;
             }
-            Navigator.push(
-              context,
+            navigator.push(
               MaterialPageRoute(
                 builder: (_) => StaffAttendanceProfile(
                   staffCode: display.staffCode,
@@ -942,8 +1031,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
             );
           } else {
             // Admin: Navigate to staff attendance tabbed view
-            Navigator.push(
-              context,
+            navigator.push(
               MaterialPageRoute(
                 builder: (_) => const StaffAttendanceTabbedView(),
               ),
@@ -951,12 +1039,11 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
           }
         } else {
           if (_isParentRole) {
-            await _openParentStudentAttendanceProfile(context);
+            await _openParentStudentAttendanceProfile(navigator.context);
             return;
           }
           // Navigate to student attendance tabbed view
-          Navigator.push(
-            context,
+          navigator.push(
             MaterialPageRoute(
               builder: (_) => const StudentAttendanceTabbedView(),
             ),
@@ -1008,17 +1095,57 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
     try {
       final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
+      final studentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+      final storage = serviceLocator<StorageService>();
       final now = DateTime.now();
       final date =
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (guardianCode.isEmpty || schoolCode.isEmpty) {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Unable to resolve parent access for attendance profile.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+
+      final parentStudents = await studentPageUseCase(
+        schoolCode: schoolCode,
+        guardianCodes: <String>[guardianCode],
+        page: 0,
+        size: 500,
+      );
+      final allowedStudentCodes = parentStudents.items
+          .map((s) => s.code.trim())
+          .where((code) => code.isNotEmpty)
+          .toSet();
+      if (allowedStudentCodes.isEmpty) {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('No child linked to this parent account.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+
       final page = await useCase(
         fromAttendanceDate: date,
         toAttendanceDate: date,
         page: 0,
-        size: 1,
+        size: 100,
       );
       if (!mounted) return;
-      if (page.items.isEmpty) {
+      final child = page.items.firstWhere(
+        (item) => allowedStudentCodes.contains(item.studentCode.trim()),
+        orElse: () => throw StateError('no-parent-child-signed-in'),
+      );
+      if (child.studentCode.trim().isEmpty) {
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
           snackBar: const SnackBar(
@@ -1028,7 +1155,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         );
         return;
       }
-      final child = page.items.first;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -1040,6 +1166,15 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
             roomName: child.classroomName,
             isSignedIn: child.hasSignIn && !child.hasSignOut,
           ),
+        ),
+      );
+    } on StateError {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('No signed-in child found right now.'),
+          backgroundColor: AppColors.warningColor,
         ),
       );
     } catch (_) {

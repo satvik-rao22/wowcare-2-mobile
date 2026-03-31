@@ -11,6 +11,7 @@ class ApiPaths {
 
   // Users
   static const String userRoot = '/api/v1/users';
+  static const String userDetails = '/api/v1/users/details';
   static String userEmailChange(String userCode) =>
       '$userRoot/$userCode/email-change';
 

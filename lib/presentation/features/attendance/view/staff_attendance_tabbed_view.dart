@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -11,9 +13,24 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'dart:convert';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -36,6 +53,9 @@ class StaffAttendanceTabbedView extends StatefulWidget {
 class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final TabController _tabController;
+  bool _isParentRole = false;
+  bool? _isTeacherStaffPersona;
+  String _loggedInStaffCode = '';
   
   // Keys to access the state of each tab
   final GlobalKey _dailyViewKey = GlobalKey();
@@ -47,6 +67,85 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
     _tabController.addListener(_onTabChanged);
+    _initPersonaFlags();
+  }
+
+  Future<void> _initPersonaFlags() async {
+    _isParentRole = await _resolveIsParentSession();
+    if (!_isParentRole) {
+      await _loadStaffPersonaFlags();
+    } else {
+      _isTeacherStaffPersona = false;
+      _loggedInStaffCode = '';
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<bool> _resolveIsParentSession() async {
+    if (context.read<RoleProvider>().isParent) return true;
+    try {
+      final storage = serviceLocator<StorageService>();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      if (rolesJson.isNotEmpty) {
+        final decoded = jsonDecode(rolesJson);
+        if (decoded is List) {
+          for (final role in decoded) {
+            if (role is! Map) continue;
+            final roleName = (role['role'] ?? '').toString().toUpperCase().trim();
+            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
+              return true;
+            }
+          }
+        }
+      }
+      final loginContext = await storage.getJson(StorageKeys.loginContext);
+      final raw = jsonEncode(loginContext ?? const <String, dynamic>{}).toUpperCase();
+      if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
+        return true;
+      }
+    } catch (_) {
+      return false;
+    }
+    return false;
+  }
+
+  Future<void> _loadStaffPersonaFlags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      if (staffCode.isEmpty) {
+        staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+      }
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+
+      bool isStaffAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+
+      if (!isStaffAdmin) {
+        final rolesJson = await storage.getString(StorageKeys.roles);
+        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
+          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+          isStaffAdmin = roles.any((r) {
+            if (r is! Map<String, dynamic>) return false;
+            final roleCode = (r['role'] ?? '').toString().toUpperCase();
+            return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+          });
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _loggedInStaffCode = staffCode;
+        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loggedInStaffCode = '';
+        _isTeacherStaffPersona = false;
+      });
+    }
   }
 
   void _onTabChanged() {
@@ -271,7 +370,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
   Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
     return InkWell(
-      onTap: () => Navigator.pop(context),
+      onTap: () => _onStaffActionTap(context, label),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -298,5 +397,86 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         ],
       ),
     );
+  }
+
+  Future<void> _onStaffActionTap(BuildContext context, String label) async {
+    Navigator.pop(context);
+
+    if (_isParentRole) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('Staff attendance actions are unavailable for parent accounts.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    if (_isTeacherStaffPersona == true && _loggedInStaffCode.isNotEmpty) {
+      final display = await resolveLoggedInStaffDisplay();
+      final staff = StaffEntity(
+        id: 0,
+        name: display.fullName.isNotEmpty ? display.fullName : 'My Attendance',
+        primaryRoomId: 0,
+        photoUuid: display.profilePhotoUrl.isNotEmpty ? display.profilePhotoUrl : null,
+        staffCode: display.staffCode.isNotEmpty ? display.staffCode : _loggedInStaffCode,
+      );
+      if (!mounted) return;
+      switch (label) {
+        case 'Sign-in':
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
+          );
+          break;
+        case 'Sign-Out':
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
+          );
+          break;
+        case 'Transfer':
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => StaffTransferForm(staff: staff)),
+          );
+          break;
+        case 'Absent':
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
+          );
+          break;
+      }
+      return;
+    }
+
+    switch (label) {
+      case 'Sign-in':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StaffSelectionSignInForm()),
+        );
+        break;
+      case 'Sign-Out':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StaffSelectionSignOutForm()),
+        );
+        break;
+      case 'Transfer':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StaffSelectionTransferForm()),
+        );
+        break;
+      case 'Absent':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StaffSelectionMarkAbsentForm()),
+        );
+        break;
+    }
   }
 }

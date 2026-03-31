@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
@@ -126,6 +125,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       } else {
         await storage.remove(StorageKeys.staffCode);
         await storage.remove(StorageKeys.staffCodeUser);
+        await storage.remove(StorageKeys.staffCodeOrganization);
+        await storage.remove(StorageKeys.staffCodeSchool);
       }
 
       final organizationCode =
@@ -149,6 +150,14 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       if (code.isNotEmpty) {
         await storage.saveString(StorageKeys.staffCode, code);
         await storage.saveString(StorageKeys.staffCodeUser, currentUserCode);
+        await storage.saveString(
+          StorageKeys.staffCodeOrganization,
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim(),
+        );
+        await storage.saveString(
+          StorageKeys.staffCodeSchool,
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim(),
+        );
       }
 
       return code;

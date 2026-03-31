@@ -19,6 +19,12 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
@@ -508,6 +514,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
       _staffMembers.add(
         StaffAttendanceCardData(
+          attendanceRecordCode: item.attendanceRecordCode,
           id: item.staffCode,
           staffName: item.staffName,
           staffPhotoUuid: null,
@@ -518,8 +525,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           hasSignIn: item.hasSignIn,
           signInTime: signInTime,
           signOutTime: signOutTime,
-          signInBy: item.signedInBy,
-          signOutBy: item.signedOutBy,
+          signInBy: _normalizeByName(item.signedInBy),
+          signOutBy: _normalizeByName(item.signedOutBy),
           // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
           signInMethod: _mapMethodStringToEnum(item.signedInMethod),
           signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
@@ -571,8 +578,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
               _expandedStaffIndex = _expandedStaffIndex == index ? null : index;
             });
           },
-          onEdit: () {
-            Navigator.push(
+          onEdit: () async {
+            final updated = await Navigator.push<bool>(
               context,
               MaterialPageRoute(
                 builder: (_) => StaffEditAttendanceForm(
@@ -581,6 +588,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                 ),
               ),
             );
+            if (updated == true) {
+              _loadAttendanceData(context, reset: true);
+            }
           },
           onDelete: () {
             showModalBottomSheet(
@@ -591,15 +601,89 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                 return DeleteConfirmationBottomSheet(
                   name: staff.staffName,
                   type: 'attendance',
-                  onDelete: () {
+                  onDelete: () async {
                     Navigator.of(ctx).pop();
-                    CoreUtils.showTopSnackBarFromSnackBar(
-                      context: context,
-                      snackBar: 
-                      const SnackBar(
-                        content: Text('Attendance deleted'),
-                      ),
-                    );
+                    if (staff.attendanceRecordCode == null ||
+                        staff.attendanceRecordCode!.isEmpty) {
+                      CoreUtils.showTopSnackBarFromSnackBar(
+                        context: context,
+                        snackBar: const SnackBar(
+                          content: Text(
+                            'Unable to delete: missing attendance record code.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      final normalizedAttendanceCode =
+                          _normalizeAttendanceRecordCodeForMutation(
+                        staff.attendanceRecordCode!,
+                      );
+                      if (normalizedAttendanceCode.isEmpty) {
+                        CoreUtils.showTopSnackBarFromSnackBar(
+                          context: context,
+                          snackBar: const SnackBar(
+                            content: Text(
+                              'Unable to delete: invalid attendance record code.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final storageService = serviceLocator<StorageService>();
+                      final staffCode =
+                          (await storageService.getString(
+                                    StorageKeys.staffCode,
+                                  ) ??
+                                  '')
+                              .trim();
+                      if (staffCode.isEmpty) {
+                        if (!context.mounted) return;
+                        CoreUtils.showTopSnackBarFromSnackBar(
+                          context: context,
+                          snackBar: const SnackBar(
+                            content: Text(
+                              'Unable to resolve staffCode. Please re-login.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final apiClient = serviceLocator<ApiClient>().client;
+                      final endpoint = ApiPaths.urlWithBase(
+                        '/api/v1/staff-attendance-records/$normalizedAttendanceCode',
+                        ApiConstants.attendanceBaseUrl,
+                      );
+
+                      await apiClient.delete<dynamic>(
+                        endpoint,
+                        queryParameters: <String, dynamic>{
+                          'staffCode': staffCode,
+                        },
+                      );
+
+                      if (!context.mounted) return;
+                      CoreUtils.showTopSnackBarFromSnackBar(
+                        context: context,
+                        snackBar: const SnackBar(
+                          content: Text('Attendance deleted'),
+                        ),
+                      );
+                      _loadAttendanceData(context, reset: true);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      final message = ApiErrorHandler.extractErrorMessage(e);
+                      CoreUtils.showTopSnackBarFromSnackBar(
+                        context: context,
+                        snackBar: SnackBar(
+                          content: Text(message),
+                        ),
+                      );
+                    }
                   },
                   onCancel: () {
                     Navigator.of(ctx).pop();
@@ -633,6 +717,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     );
   }
 
+  String? _normalizeByName(String? raw) {
+    final value = raw?.trim();
+    if (value == null || value.isEmpty) return null;
+    return value;
+  }
+
   SignMethod? _mapMethodStringToEnum(String? method) {
     if (method == null) return null;
     final normalized = method.trim().toUpperCase();
@@ -649,6 +739,14 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       default:
         return null;
     }
+  }
+
+  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
+    final trimmed = rawCode.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final tildeIndex = trimmed.indexOf('~');
+    if (tildeIndex <= 0) return trimmed;
+    return trimmed.substring(0, tildeIndex);
   }
 
   Widget _buildAbsentStaffList(

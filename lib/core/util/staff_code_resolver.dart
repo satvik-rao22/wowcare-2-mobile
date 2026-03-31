@@ -11,19 +11,53 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 /// Attendance actions must be executed by the logged-in user, so this helper
 /// falls back to fetching `staffCode` from the backend when it is missing
 /// from local storage.
-Future<String> resolveStaffCodeForLoggedInUser() async {
+Future<String> resolveStaffCodeForLoggedInUser({
+  bool allowOrganizationLevelFallback = true,
+}) async {
   final storage = serviceLocator<StorageService>();
+  final staffRepository = serviceLocator<StaffRepository>();
 
-  // Only reuse cached staffCode if it belongs to the currently logged-in user.
+  // Only reuse cached staffCode if it belongs to the currently logged-in user
+  // and selected org/school context.
   final currentUserCode =
       (await storage.getString(StorageKeys.userCode) ?? '').trim();
+  final currentOrganizationCode =
+      (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+  final currentSchoolCode =
+      (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
   final staffCodeOwner =
       (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
+  final staffCodeOrganization =
+      (await storage.getString(StorageKeys.staffCodeOrganization) ?? '').trim();
+  final staffCodeSchool =
+      (await storage.getString(StorageKeys.staffCodeSchool) ?? '').trim();
   final cached = (await storage.getString(StorageKeys.staffCode) ?? '').trim();
   if (cached.isNotEmpty &&
       currentUserCode.isNotEmpty &&
-      staffCodeOwner == currentUserCode) {
-    return cached;
+      staffCodeOwner == currentUserCode &&
+      staffCodeOrganization == currentOrganizationCode &&
+      staffCodeSchool == currentSchoolCode) {
+    // Re-validate cached mapping against backend to avoid using stale staffCode.
+    try {
+      final verified = await staffRepository.getStaffCodeForUser(
+        userCode: currentUserCode,
+        organizationCode: currentOrganizationCode,
+        schoolCode: currentSchoolCode,
+      );
+      final verifiedTrimmed = (verified ?? '').trim();
+      if (verifiedTrimmed.isNotEmpty) {
+        if (verifiedTrimmed != cached) {
+          await storage.saveString(StorageKeys.staffCode, verifiedTrimmed);
+        }
+        return verifiedTrimmed;
+      }
+    } catch (_) {
+      // If lookup fails, clear stale cached values and continue fallback resolution.
+      await storage.remove(StorageKeys.staffCode);
+      await storage.remove(StorageKeys.staffCodeUser);
+      await storage.remove(StorageKeys.staffCodeOrganization);
+      await storage.remove(StorageKeys.staffCodeSchool);
+    }
   }
 
   final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
@@ -59,28 +93,48 @@ Future<String> resolveStaffCodeForLoggedInUser() async {
 
   // Candidates:
   // - normal: use stored schoolCode
-  // - org admin: also try '-'
+  // - org admin: optionally also try '-'
   final candidates = <String>{};
   if (schoolCode.isNotEmpty) candidates.add(schoolCode);
-  if (isOrgAdmin) candidates.add('-');
-  if (candidates.isEmpty) candidates.add('-'); // last-resort fallback
+  if (allowOrganizationLevelFallback && isOrgAdmin) candidates.add('-');
+  if (candidates.isEmpty && allowOrganizationLevelFallback) {
+    candidates.add('-'); // last-resort fallback
+  }
 
-  final staffRepository = serviceLocator<StaffRepository>();
   for (final candidateSchoolCode in candidates) {
-    final resolved = await staffRepository.getStaffCodeForUser(
-      userCode: userCode,
-      organizationCode: organizationCode,
-      schoolCode: candidateSchoolCode,
-    );
+    String? resolved;
+    try {
+      resolved = await staffRepository.getStaffCodeForUser(
+        userCode: userCode,
+        organizationCode: organizationCode,
+        schoolCode: candidateSchoolCode,
+      );
+    } catch (_) {
+      // Backend can return 404 when no staff mapping exists for a context.
+      // Keep trying other candidates and fail gracefully if none resolve.
+      continue;
+    }
 
     final trimmed = (resolved ?? '').trim();
     if (trimmed.isNotEmpty) {
       await storage.saveString(StorageKeys.staffCode, trimmed);
       await storage.saveString(StorageKeys.staffCodeUser, userCode);
+      await storage.saveString(
+        StorageKeys.staffCodeOrganization,
+        organizationCode,
+      );
+      await storage.saveString(
+        StorageKeys.staffCodeSchool,
+        schoolCode,
+      );
       return trimmed;
     }
   }
 
+  await storage.remove(StorageKeys.staffCode);
+  await storage.remove(StorageKeys.staffCodeUser);
+  await storage.remove(StorageKeys.staffCodeOrganization);
+  await storage.remove(StorageKeys.staffCodeSchool);
   return '';
 }
 

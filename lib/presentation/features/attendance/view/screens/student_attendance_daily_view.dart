@@ -407,8 +407,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       hasSignIn: item.hasSignIn,
       signInTime: item.formattedSignInTime,
       signOutTime: item.formattedSignOutTime,
-      signInBy: null, // API doesn't provide this for daily view
-      signOutBy: null, // API doesn't provide this for daily view
+      signInBy: _normalizeByName(item.signedInBy),
+      signOutBy: _normalizeByName(item.signedOutBy),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
       signInMethod: _mapMethodStringToEnum(item.signedInMethod),
       signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
@@ -417,6 +417,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       roomId: index, // Use index as placeholder
       schoolId: 1, // Use placeholder
     );
+  }
+
+  String? _normalizeByName(String? raw) {
+    final value = raw?.trim();
+    if (value == null || value.isEmpty) return null;
+    return value;
   }
 
   SignMethod? _mapMethodStringToEnum(String? method) {
@@ -435,6 +441,17 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       default:
         return null;
     }
+  }
+
+  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
+    final trimmed = rawCode.trim();
+    if (trimmed.isEmpty) return trimmed;
+    // Daily view can return a composite code like:
+    // SATR_xxx~A_IN~A_OUT
+    // Delete endpoint expects the base attendance record identifier.
+    final tildeIndex = trimmed.indexOf('~');
+    if (tildeIndex <= 0) return trimmed;
+    return trimmed.substring(0, tildeIndex);
   }
 
   @override
@@ -713,6 +730,23 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                     }
 
                                     try {
+                                      final normalizedAttendanceCode =
+                                          _normalizeAttendanceRecordCodeForMutation(
+                                        student.attendanceRecordCode!,
+                                      );
+                                      if (normalizedAttendanceCode.isEmpty) {
+                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                          context: context,
+                                          snackBar:
+                                          const SnackBar(
+                                            content: Text(
+                                              'Unable to delete: invalid attendance record code.',
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
+
                                       final storageService =
                                           serviceLocator<StorageService>();
                                       final staffCode = (await storageService
@@ -738,7 +772,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                       final apiClient =
                                           serviceLocator<ApiClient>().client;
                                       final endpoint = ApiPaths.urlWithBase(
-                                        '/api/v1/student-attendance-records/${student.attendanceRecordCode}',
+                                        '/api/v1/student-attendance-records/$normalizedAttendanceCode',
                                         ApiConstants.attendanceBaseUrl,
                                       );
 

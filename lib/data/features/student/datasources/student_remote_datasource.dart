@@ -994,7 +994,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.guardianUser,
-      ApiConstants.studentBaseUrl,
+      ApiConstants.baseUrl,
     );
 
     final body = <String, dynamic>{

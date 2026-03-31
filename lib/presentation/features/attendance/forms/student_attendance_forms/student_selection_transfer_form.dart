@@ -30,6 +30,7 @@ class _StudentSelectionTransferFormState
     extends State<StudentSelectionTransferForm> {
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   List<StudentEntity> _filteredStudents = [];
   Set<StudentEntity> selectedStudents = {};
@@ -45,6 +46,7 @@ class _StudentSelectionTransferFormState
 
   // Classroom filter options loaded from Classroom API.
   List<String> _classroomList = [];
+  Map<String, String> _classroomNameToCode = {};
   List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
 
   late final ClassroomCubit _classroomCubit;
@@ -83,9 +85,15 @@ class _StudentSelectionTransferFormState
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       setState(() {
-        _classroomList = _classroomCubit.state.classrooms
-            .map((c) => c.name)
-            .toList(growable: false);
+        _classroomNameToCode = {
+          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+        };
+        _classroomList = _classroomNameToCode.keys.toList(growable: false);
+        if (_selectedClassroomCode != null &&
+            !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+          _selectedClassroom = '';
+          _selectedClassroomCode = null;
+        }
         _isClassroomDataReady = true;
       });
       return;
@@ -99,9 +107,15 @@ class _StudentSelectionTransferFormState
 
     if (!mounted) return;
     setState(() {
-      _classroomList = _classroomCubit.state.classrooms
-          .map((c) => c.name)
-          .toList(growable: false);
+      _classroomNameToCode = {
+        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+      };
+      _classroomList = _classroomNameToCode.keys.toList(growable: false);
+      if (_selectedClassroomCode != null &&
+          !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+        _selectedClassroom = '';
+        _selectedClassroomCode = null;
+      }
       _isClassroomDataReady = _classroomList.isNotEmpty;
     });
   }
@@ -116,17 +130,11 @@ class _StudentSelectionTransferFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
-      // Resolve selected classroom NAME -> code using ClassroomCubit state.
-      List<String>? classroomCodes;
-      if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
-        final nameToCode = <String, String>{
-          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-        };
-        final code = nameToCode[_selectedClassroom!];
-        if (code != null && code.trim().isNotEmpty) {
-          classroomCodes = <String>[code];
-        }
-      }
+      final selectedClassroomCode = _selectedClassroomCode?.trim();
+      final classroomCodes = (selectedClassroomCode != null &&
+              selectedClassroomCode.isNotEmpty)
+          ? <String>[selectedClassroomCode]
+          : null;
 
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
@@ -335,6 +343,9 @@ class _StudentSelectionTransferFormState
                         if (isLoading) return;
                         setState(() {
                           _selectedClassroom = value;
+                          _selectedClassroomCode = value == null
+                              ? null
+                              : _classroomNameToCode[value];
                           _filterStudents();
                         });
                         _loadStudents();

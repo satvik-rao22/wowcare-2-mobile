@@ -66,12 +66,6 @@ class _StudentScreenState extends State<StudentScreen> {
   int _activeCount = 0;
   int _upcomingCount = 0;
   bool _isAttendanceActionLoading = false;
-  bool _isPrefetchingAttendanceData = false;
-  int _attendancePrefetchToken = 0;
-  Map<String, sign_in_form.StudentEntity> _signInEntitiesByCode = {};
-  Map<String, sign_out_form.StudentEntity> _signOutEntitiesByCode = {};
-  Map<String, transfer_form.StudentEntity> _transferEntitiesByCode = {};
-  Map<String, absent_form.StudentEntity> _absentEntitiesByCode = {};
 
   @override
   void initState(){
@@ -372,13 +366,6 @@ class _StudentScreenState extends State<StudentScreen> {
 
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
 
-  void _clearAttendanceEntityCaches() {
-    _signInEntitiesByCode = {};
-    _signOutEntitiesByCode = {};
-    _transferEntitiesByCode = {};
-    _absentEntitiesByCode = {};
-  }
-
   List<Student> _getSelectedStudents(List<Student> students) {
     final selected = <Student>[];
     for (int i = 0; i < _selectedDemo.length; i++) {
@@ -387,149 +374,6 @@ class _StudentScreenState extends State<StudentScreen> {
       }
     }
     return selected;
-  }
-
-  Future<void> _prefetchAttendanceEntitiesForSelection(
-    List<Student> students,
-  ) async {
-    final selectedStudents = _getSelectedStudents(students);
-    final selectedCodes = selectedStudents
-        .map((s) => _normalizeStudentCode(s.code))
-        .where((c) => c.isNotEmpty)
-        .toSet();
-    if (selectedCodes.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _isPrefetchingAttendanceData = false;
-        _clearAttendanceEntityCaches();
-      });
-      return;
-    }
-
-    final token = ++_attendancePrefetchToken;
-    final date = _formatDate(DateTime.now());
-    if (mounted) {
-      setState(() {
-        _isPrefetchingAttendanceData = true;
-      });
-    }
-
-    try {
-      final signInUseCase = serviceLocator<GetStudentSignInFormListUseCase>();
-      final signOutUseCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-      final transferUseCase = serviceLocator<GetStudentTransferFormListUseCase>();
-      final absentUseCase = serviceLocator<GetStudentAbsentFormListUseCase>();
-
-      final signInFuture = signInUseCase(
-        fromAttendanceDate: date,
-        toAttendanceDate: date,
-        page: 0,
-        size: 500,
-      );
-      final signOutFuture = signOutUseCase(
-        fromAttendanceDate: date,
-        toAttendanceDate: date,
-        page: 0,
-        size: 500,
-      );
-      final transferFuture = transferUseCase(
-        fromAttendanceDate: date,
-        toAttendanceDate: date,
-        page: 0,
-        size: 500,
-      );
-      final absentFuture = absentUseCase(
-        fromAbsenceDate: date,
-        toAbsenceDate: date,
-        page: 0,
-        size: 500,
-      );
-
-      final signInPage = await signInFuture;
-      final signOutPage = await signOutFuture;
-      final transferPage = await transferFuture;
-      final absentPage = await absentFuture;
-
-      if (!mounted || token != _attendancePrefetchToken) return;
-
-      final signInMap = <String, sign_in_form.StudentEntity>{};
-      for (final item in signInPage.items) {
-        final normalized = _normalizeStudentCode(item.studentCode);
-        if (!selectedCodes.contains(normalized)) continue;
-        signInMap[normalized] = sign_in_form.StudentEntity(
-          id: signInMap.length + 1,
-          studentCode: item.studentCode,
-          fullName: item.studentName,
-          roomId: 0,
-          roomName: item.classroomName,
-          classroomCode: item.classroomCode,
-          photoUuid: null,
-        );
-      }
-
-      final signOutMap = <String, sign_out_form.StudentEntity>{};
-      for (final item in signOutPage.items) {
-        final normalized = _normalizeStudentCode(item.studentCode);
-        if (!selectedCodes.contains(normalized)) continue;
-        signOutMap[normalized] = sign_out_form.StudentEntity(
-          id: signOutMap.length + 1,
-          studentCode: item.studentCode,
-          fullName: item.studentName,
-          roomId: 0,
-          roomName: item.classroomName,
-          classroomCode: item.classroomCode,
-        );
-      }
-
-      final transferMap = <String, transfer_form.StudentEntity>{};
-      for (final item in transferPage.items) {
-        final normalized = _normalizeStudentCode(item.studentCode);
-        if (!selectedCodes.contains(normalized)) continue;
-        transferMap[normalized] = transfer_form.StudentEntity(
-          id: transferMap.length + 1,
-          studentCode: item.studentCode,
-          fullName: item.studentName,
-          roomId: 0,
-          roomName: item.classroomName,
-          classroomCode: item.classroomCode,
-          tags: item.tagNames
-              .map((name) => transfer_form.TagEntity(name: name))
-              .toList(),
-        );
-      }
-
-      final absentMap = <String, absent_form.StudentEntity>{};
-      for (final item in absentPage.items) {
-        final normalized = _normalizeStudentCode(item.studentCode);
-        if (!selectedCodes.contains(normalized)) continue;
-        absentMap[normalized] = absent_form.StudentEntity(
-          id: absentMap.length + 1,
-          studentCode: item.studentCode,
-          fullName: item.studentName,
-          roomId: 0,
-          roomName: item.classroomName,
-          classroomCode: item.classroomCode,
-        );
-      }
-
-      setState(() {
-        _signInEntitiesByCode = signInMap;
-        _signOutEntitiesByCode = signOutMap;
-        _transferEntitiesByCode = transferMap;
-        _absentEntitiesByCode = absentMap;
-      });
-    } catch (_) {
-      if (!mounted || token != _attendancePrefetchToken) return;
-      setState(() {
-        _clearAttendanceEntityCaches();
-      });
-    } finally {
-      if (mounted && token == _attendancePrefetchToken) {
-        setState(() {
-          _isPrefetchingAttendanceData = false;
-        });
-      }
-    }
   }
 
   Future<void> _openAttendanceActionFlow({
@@ -559,31 +403,38 @@ class _StudentScreenState extends State<StudentScreen> {
       return;
     }
 
-    if (_isPrefetchingAttendanceData) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Preparing selected students. Please wait...',
-        isError: true,
-      );
-      return;
-    }
-
     setState(() {
       _isAttendanceActionLoading = true;
     });
     try {
+      final date = _formatDate(DateTime.now());
+
       if (actionName == 'sign_in') {
-        var entities = selectedCodes
-            .map((code) => _signInEntitiesByCode[code])
-            .whereType<sign_in_form.StudentEntity>()
-            .toList();
-        if (entities.isEmpty) {
-          await _prefetchAttendanceEntitiesForSelection(students);
-          entities = selectedCodes
-              .map((code) => _signInEntitiesByCode[code])
-              .whereType<sign_in_form.StudentEntity>()
-              .toList();
-        }
+        final useCase = serviceLocator<GetStudentSignInFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final entities = page.items
+            .where((item) =>
+                selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+            .toList()
+            .asMap()
+            .entries
+            .map((entry) {
+          final item = entry.value;
+          return sign_in_form.StudentEntity(
+            id: entry.key + 1,
+            studentCode: item.studentCode,
+            fullName: item.studentName,
+            roomId: 0,
+            roomName: item.classroomName,
+            classroomCode: item.classroomCode,
+            photoUuid: null,
+          );
+        }).toList();
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Sign-In');
         }
@@ -604,17 +455,30 @@ class _StudentScreenState extends State<StudentScreen> {
       }
 
       if (actionName == 'sign_out') {
-        var entities = selectedCodes
-            .map((code) => _signOutEntitiesByCode[code])
-            .whereType<sign_out_form.StudentEntity>()
-            .toList();
-        if (entities.isEmpty) {
-          await _prefetchAttendanceEntitiesForSelection(students);
-          entities = selectedCodes
-              .map((code) => _signOutEntitiesByCode[code])
-              .whereType<sign_out_form.StudentEntity>()
-              .toList();
-        }
+        final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final entities = page.items
+            .where((item) =>
+                selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+            .toList()
+            .asMap()
+            .entries
+            .map((entry) {
+          final item = entry.value;
+          return sign_out_form.StudentEntity(
+            id: entry.key + 1,
+            studentCode: item.studentCode,
+            fullName: item.studentName,
+            roomId: 0,
+            roomName: item.classroomName,
+            classroomCode: item.classroomCode,
+          );
+        }).toList();
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Sign-Out');
         }
@@ -635,17 +499,33 @@ class _StudentScreenState extends State<StudentScreen> {
       }
 
       if (actionName == 'transfer') {
-        var entities = selectedCodes
-            .map((code) => _transferEntitiesByCode[code])
-            .whereType<transfer_form.StudentEntity>()
-            .toList();
-        if (entities.isEmpty) {
-          await _prefetchAttendanceEntitiesForSelection(students);
-          entities = selectedCodes
-              .map((code) => _transferEntitiesByCode[code])
-              .whereType<transfer_form.StudentEntity>()
-              .toList();
-        }
+        final useCase = serviceLocator<GetStudentTransferFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final entities = page.items
+            .where((item) =>
+                selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+            .toList()
+            .asMap()
+            .entries
+            .map((entry) {
+          final item = entry.value;
+          return transfer_form.StudentEntity(
+            id: entry.key + 1,
+            studentCode: item.studentCode,
+            fullName: item.studentName,
+            roomId: 0,
+            roomName: item.classroomName,
+            classroomCode: item.classroomCode,
+            tags: item.tagNames
+                .map((name) => transfer_form.TagEntity(name: name))
+                .toList(),
+          );
+        }).toList();
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Transfer');
         }
@@ -671,17 +551,30 @@ class _StudentScreenState extends State<StudentScreen> {
         return;
       }
 
-      var entities = selectedCodes
-          .map((code) => _absentEntitiesByCode[code])
-          .whereType<absent_form.StudentEntity>()
-          .toList();
-      if (entities.isEmpty) {
-        await _prefetchAttendanceEntitiesForSelection(students);
-        entities = selectedCodes
-            .map((code) => _absentEntitiesByCode[code])
-            .whereType<absent_form.StudentEntity>()
-            .toList();
-      }
+      final useCase = serviceLocator<GetStudentAbsentFormListUseCase>();
+      final page = await useCase(
+        fromAbsenceDate: date,
+        toAbsenceDate: date,
+        page: 0,
+        size: 500,
+      );
+      final entities = page.items
+          .where((item) =>
+              selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+          .toList()
+          .asMap()
+          .entries
+          .map((entry) {
+        final item = entry.value;
+        return absent_form.StudentEntity(
+          id: entry.key + 1,
+          studentCode: item.studentCode,
+          fullName: item.studentName,
+          roomId: 0,
+          roomName: item.classroomName,
+          classroomCode: item.classroomCode,
+        );
+      }).toList();
       if (entities.isEmpty) {
         throw Exception('No selected students are eligible for Mark Absent');
       }
@@ -763,9 +656,6 @@ class _StudentScreenState extends State<StudentScreen> {
             setState(() {
               _selectedDemo = List.filled(students.length, false);
               _selectAll = false;
-              _attendancePrefetchToken++;
-              _isPrefetchingAttendanceData = false;
-              _clearAttendanceEntityCaches();
             });
           });
         }
@@ -835,17 +725,12 @@ class _StudentScreenState extends State<StudentScreen> {
                           _selectAll = false;
                           _showActivitiesPanel = false;
                           _currentPanel = StudentPanelType.none;
-                          _attendancePrefetchToken++;
-                          _isPrefetchingAttendanceData = false;
-                          _clearAttendanceEntityCaches();
                         });
                       },
                       isProfileEnabled: selectedCount == 1,
                       activitiesEnabled: _canShowActivitiesButton(selectedCount, students),
                       showAttendanceActions: _currentPanel == StudentPanelType.attendance,
-                      isAttendanceActionLoading:
-                          _isAttendanceActionLoading ||
-                              _isPrefetchingAttendanceData,
+                      isAttendanceActionLoading: _isAttendanceActionLoading,
                       onSignInTap: () => _openAttendanceActionFlow(
                         students: students,
                         actionName: 'sign_in',
@@ -1252,7 +1137,6 @@ class _StudentScreenState extends State<StudentScreen> {
                           _selectAll = newVal;
                           _selectedDemo = List.filled(students.length, newVal);
                         });
-                        _prefetchAttendanceEntitiesForSelection(students);
                       },
                     ),
                   ),
@@ -1324,13 +1208,9 @@ class _StudentScreenState extends State<StudentScreen> {
                                   if (!_selectedDemo.any((e) => e)) {
                                     _currentPanel = StudentPanelType.none;
                                     _showActivitiesPanel = false;
-                                    _attendancePrefetchToken++;
-                                    _isPrefetchingAttendanceData = false;
-                                    _clearAttendanceEntityCaches();
                                   }
                                   _selectAll = _selectedDemo.every((e) => e);
                                 });
-                                _prefetchAttendanceEntitiesForSelection(students);
                               },
                               onEdit: () => _openEditStudentDetails(student.code),
                               onPrimaryAction: () async {

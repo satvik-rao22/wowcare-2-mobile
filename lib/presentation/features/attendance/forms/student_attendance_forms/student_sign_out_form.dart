@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -10,11 +12,14 @@ import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -91,6 +96,41 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
+  Future<bool> _resolveIsParentSession() async {
+    if (context.read<RoleProvider>().isParent) return true;
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      if (rolesJson.isNotEmpty) {
+        final decoded = jsonDecode(rolesJson);
+        if (decoded is List) {
+          for (final role in decoded) {
+            if (role is! Map) continue;
+            final roleName = (role['role'] ?? '')
+                .toString()
+                .toUpperCase()
+                .trim();
+            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
+              return true;
+            }
+          }
+        }
+      }
+
+      final loginContext = await storage.getJson(StorageKeys.loginContext);
+      final contextRaw = jsonEncode(loginContext ?? const <String, dynamic>{})
+          .toUpperCase();
+      if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
+        return true;
+      }
+    } catch (_) {
+      // Ignore parse/storage issues and keep non-parent fallback.
+    }
+
+    return false;
+  }
+
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
     if (currentStudents.isEmpty) {
@@ -110,7 +150,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     });
 
     final client = serviceLocator<ApiClient>().client;
-    final isParent = context.read<RoleProvider>().isParent;
+    final isParent = await _resolveIsParentSession();
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceRecordsSignOut,
       ApiConstants.attendanceBaseUrl,
@@ -256,13 +296,14 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         Navigator.pop(context);
         widget.refreshCallback?.call();
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: 
-        const SnackBar(
-          content: Text('Failed to sign out students. Please try again.'),
+        SnackBar(
+          content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
       );

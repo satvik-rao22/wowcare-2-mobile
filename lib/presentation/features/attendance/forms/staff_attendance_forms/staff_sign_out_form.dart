@@ -15,6 +15,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
@@ -277,13 +278,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       if (success) {
         Navigator.pop(context);
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: 
-        const SnackBar(
-          content: Text('Failed to sign out staff. Please try again.'),
+        SnackBar(
+          content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
       );

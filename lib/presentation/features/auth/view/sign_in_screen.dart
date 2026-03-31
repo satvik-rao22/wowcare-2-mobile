@@ -14,7 +14,9 @@ import 'package:wowcare/presentation/features/auth/view/school_selection_screen.
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:provider/provider.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -123,6 +125,7 @@ class _SignInScreenState extends State<SignInScreen>
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
+      context.read<RoleProvider>().refreshAccessFromServer(force: true);
 
       // Check redirectUrl when schoolCode is null
       if (state.redirectUrl != null && state.redirectUrl!.isNotEmpty) {

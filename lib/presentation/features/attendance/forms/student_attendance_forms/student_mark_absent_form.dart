@@ -134,8 +134,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     }
   }
 
-  Future<String> _resolveStaffCode() =>
-      resolveStaffCodeForLoggedInUser();
+  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;

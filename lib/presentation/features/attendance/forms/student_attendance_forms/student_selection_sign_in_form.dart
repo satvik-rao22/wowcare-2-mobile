@@ -40,6 +40,7 @@ class _StudentSelectionSignInFormState
     extends State<StudentSelectionSignInForm> {
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
@@ -49,6 +50,7 @@ class _StudentSelectionSignInFormState
 
   // Filter options loaded from APIs (similar to StudentFilterScreen).
   List<String> _classroomList = [];
+  Map<String, String> _classroomNameToCode = {};
   List<String> _tagsList = [];
   Map<String, String> _tagNameToCode = {};
 
@@ -101,9 +103,15 @@ class _StudentSelectionSignInFormState
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       setState(() {
-        _classroomList = _classroomCubit.state.classrooms
-            .map((c) => c.name)
-            .toList(growable: false);
+        _classroomNameToCode = {
+          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+        };
+        _classroomList = _classroomNameToCode.keys.toList(growable: false);
+        if (_selectedClassroomCode != null &&
+            !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+          _selectedClassroom = '';
+          _selectedClassroomCode = null;
+        }
         _isClassroomDataReady = true;
       });
       return;
@@ -117,9 +125,15 @@ class _StudentSelectionSignInFormState
 
     if (!mounted) return;
     setState(() {
-      _classroomList = _classroomCubit.state.classrooms
-          .map((c) => c.name)
-          .toList(growable: false);
+      _classroomNameToCode = {
+        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+      };
+      _classroomList = _classroomNameToCode.keys.toList(growable: false);
+      if (_selectedClassroomCode != null &&
+          !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+        _selectedClassroom = '';
+        _selectedClassroomCode = null;
+      }
       _isClassroomDataReady = _classroomList.isNotEmpty;
     });
   }
@@ -175,17 +189,11 @@ class _StudentSelectionSignInFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
-      // Resolve selected classroom NAME -> code using ClassroomCubit state.
-      List<String>? classroomCodes;
-      if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
-        final nameToCode = <String, String>{
-          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-        };
-        final code = nameToCode[_selectedClassroom!];
-        if (code != null && code.trim().isNotEmpty) {
-          classroomCodes = <String>[code];
-        }
-      }
+      final selectedClassroomCode = _selectedClassroomCode?.trim();
+      final classroomCodes = (selectedClassroomCode != null &&
+              selectedClassroomCode.isNotEmpty)
+          ? <String>[selectedClassroomCode]
+          : null;
 
       // Resolve selected tag NAMES -> tagCodes via _tagNameToCode map.
       List<String>? tagCodes;
@@ -305,6 +313,7 @@ class _StudentSelectionSignInFormState
       isSelectAllChecked = false;
       selectedStudents.clear();
       _selectedClassroom = '';
+      _selectedClassroomCode = null;
       _selectedTag.clear();
       _filteredStudents = List.from(_allStudents);
     });
@@ -394,6 +403,9 @@ class _StudentSelectionSignInFormState
                         if (isLoading) return;
                         setState(() {
                           _selectedClassroom = value;
+                          _selectedClassroomCode = value == null
+                              ? null
+                              : _classroomNameToCode[value];
                         });
                         _loadStudents();
                       },

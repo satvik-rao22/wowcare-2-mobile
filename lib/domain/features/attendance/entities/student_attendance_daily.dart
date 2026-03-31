@@ -9,8 +9,10 @@ class StudentAttendanceDailyItem extends Equatable {
     required this.classroomName,
     this.signedInAt,
     this.signedInTime,
+    this.signedInBy,
     this.signedOutAt,
     this.signedOutTime,
+    this.signedOutBy,
     this.signedInMethod,
     this.signedOutMethod,
     required this.classroomCode,
@@ -26,8 +28,10 @@ class StudentAttendanceDailyItem extends Equatable {
   final String classroomName;
   final String? signedInAt;
   final StudentAttendanceTime? signedInTime;
+  final String? signedInBy;
   final String? signedOutAt;
   final StudentAttendanceTime? signedOutTime;
+  final String? signedOutBy;
   /// Sign-in method code as returned by the API (e.g. GPS, PIN, QR, APP).
   final String? signedInMethod;
 
@@ -56,8 +60,10 @@ class StudentAttendanceDailyItem extends Equatable {
         classroomName,
         signedInAt,
         signedInTime,
+        signedInBy,
         signedOutAt,
         signedOutTime,
+        signedOutBy,
         signedInMethod,
         signedOutMethod,
         classroomCode,

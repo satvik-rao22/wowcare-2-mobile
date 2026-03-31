@@ -3,7 +3,6 @@ import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/debug_defaults.dart';
 
 /// Interceptor that adds Authorization Bearer token to all requests.
@@ -35,41 +34,47 @@ class AuthInterceptor extends Interceptor {
     final existingAuth =
         options.headers['Authorization'] ?? options.headers['authorization'];
 
-    final token = await _storage.getString(StorageKeys.accessToken) ?? '';
+    final token = (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
 
     // Always add baseline JSON headers. Only attach Authorization when missing.
     final baseHeaders = ApiHeaders.authorizedJson(token);
-    options.headers['content-type'] =
-        options.headers['content-type'] ?? baseHeaders['content-type'];
+    // Normalize common JSON header casing so upstream services consistently receive them.
+    options.headers['Content-Type'] =
+        options.headers['Content-Type'] ??
+        options.headers['content-type'] ??
+        baseHeaders['Content-Type'];
     options.headers['accept'] = options.headers['accept'] ?? baseHeaders['accept'];
     if ((existingAuth == null || existingAuth.toString().trim().isEmpty) &&
         baseHeaders['Authorization'] != null) {
       options.headers['Authorization'] = baseHeaders['Authorization'];
     }
 
-    // Attendance service requires org/school headers on every request.
-    // Only attach for attendance base URL to avoid polluting other services.
-    final uriString = options.uri.toString();
-    final isAttendanceApi =
-        uriString.startsWith(ApiConstants.attendanceBaseUrl);
-    if (isAttendanceApi) {
-      final organizationCode =
-          await _storage.getString(StorageKeys.organizationCode);
-      final schoolCode = await _storage.getString(StorageKeys.schoolCode);
+    // All services now require org/school scoping headers.
+    final organizationCode =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCodeFromQuery =
+        (options.queryParameters['schoolCode'] ?? '').toString().trim();
 
-      final resolvedOrgCode = (organizationCode ?? '').trim().isNotEmpty
-          ? organizationCode!.trim()
-          : DebugDefaults.organizationCode;
-      final resolvedSchoolCode = (schoolCode ?? '').trim().isNotEmpty
-          ? schoolCode!.trim()
-          : DebugDefaults.schoolCode;
+    final resolvedOrgCode = organizationCode.isNotEmpty
+        ? organizationCode
+        : DebugDefaults.organizationCode;
+    final resolvedSchoolCode = schoolCode.isNotEmpty
+        ? schoolCode
+        : (schoolCodeFromQuery.isNotEmpty
+              ? schoolCodeFromQuery
+              : DebugDefaults.schoolCode);
 
-      if (resolvedOrgCode.isNotEmpty) {
-        options.headers['X-Organization-Code'] = resolvedOrgCode;
-      }
-      if (resolvedSchoolCode.isNotEmpty) {
-        options.headers['X-School-Code'] = resolvedSchoolCode;
-      }
+    if (resolvedOrgCode.isNotEmpty) {
+      options.headers['X-Organization-Code'] = resolvedOrgCode;
+      options.headers['x-organization-code'] = resolvedOrgCode;
+      options.headers['organizationCode'] = resolvedOrgCode;
+    }
+    if (resolvedSchoolCode.isNotEmpty) {
+      options.headers['X-School-Code'] = resolvedSchoolCode;
+      options.headers['x-school-code'] = resolvedSchoolCode;
+      options.headers['schoolCode'] = resolvedSchoolCode;
     }
 
     handler.next(options);

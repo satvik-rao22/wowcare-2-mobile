@@ -38,12 +38,14 @@ class _StudentSelectionSignOutFormState
     extends State<StudentSelectionSignOutForm> {
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
 
   // Filter options loaded from APIs (similar to StudentFilterScreen).
   List<String> _classroomList = [];
+  Map<String, String> _classroomNameToCode = {};
   List<String> _tagsList = [];
   Map<String, String> _tagNameToCode = {};
 
@@ -96,9 +98,15 @@ class _StudentSelectionSignOutFormState
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       setState(() {
-        _classroomList = _classroomCubit.state.classrooms
-            .map((c) => c.name)
-            .toList(growable: false);
+        _classroomNameToCode = {
+          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+        };
+        _classroomList = _classroomNameToCode.keys.toList(growable: false);
+        if (_selectedClassroomCode != null &&
+            !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+          _selectedClassroom = '';
+          _selectedClassroomCode = null;
+        }
         _isClassroomDataReady = true;
       });
       return;
@@ -112,9 +120,15 @@ class _StudentSelectionSignOutFormState
 
     if (!mounted) return;
     setState(() {
-      _classroomList = _classroomCubit.state.classrooms
-          .map((c) => c.name)
-          .toList(growable: false);
+      _classroomNameToCode = {
+        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+      };
+      _classroomList = _classroomNameToCode.keys.toList(growable: false);
+      if (_selectedClassroomCode != null &&
+          !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+        _selectedClassroom = '';
+        _selectedClassroomCode = null;
+      }
       _isClassroomDataReady = _classroomList.isNotEmpty;
     });
   }
@@ -168,17 +182,11 @@ class _StudentSelectionSignOutFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
-      // Resolve selected classroom NAME -> code using ClassroomCubit state.
-      List<String>? classroomCodes;
-      if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
-        final nameToCode = <String, String>{
-          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-        };
-        final code = nameToCode[_selectedClassroom!];
-        if (code != null && code.trim().isNotEmpty) {
-          classroomCodes = <String>[code];
-        }
-      }
+      final selectedClassroomCode = _selectedClassroomCode?.trim();
+      final classroomCodes = (selectedClassroomCode != null &&
+              selectedClassroomCode.isNotEmpty)
+          ? <String>[selectedClassroomCode]
+          : null;
 
       // Resolve selected tag NAMES -> tagCodes via _tagNameToCode map.
       List<String>? tagCodes;
@@ -371,6 +379,9 @@ class _StudentSelectionSignOutFormState
                         if (isLoading) return;
                         setState(() {
                           _selectedClassroom = value;
+                          _selectedClassroomCode = value == null
+                              ? null
+                              : _classroomNameToCode[value];
                         });
                         _loadStudents();
                       },

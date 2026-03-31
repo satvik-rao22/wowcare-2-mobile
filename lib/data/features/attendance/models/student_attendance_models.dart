@@ -9,8 +9,10 @@ class StudentAttendanceDailyItemModel extends Equatable {
     required this.classroomName,
     this.signedInAt,
     this.signedInTime,
+    this.signedInBy,
     this.signedOutAt,
     this.signedOutTime,
+    this.signedOutBy,
     this.signedInMethod,
     this.signedOutMethod,
     required this.classroomCode,
@@ -26,8 +28,10 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final String? studentCode;
   final String? signedInAt;
   final StudentAttendanceTimeModel? signedInTime;
+  final String? signedInBy;
   final String? signedOutAt;
   final StudentAttendanceTimeModel? signedOutTime;
+  final String? signedOutBy;
   final String? signedInMethod;
   final String? signedOutMethod;
   final String classroomCode;
@@ -49,10 +53,14 @@ class StudentAttendanceDailyItemModel extends Equatable {
       signedInTime: json['signedInTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedInTime'])
           : null,
+      signedInBy:
+          (json['signedInBy'] ?? json['signedInByName']) as String?,
       signedOutAt: json['signedOutAt'] as String?,
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
+      signedOutBy:
+          (json['signedOutBy'] ?? json['signedOutByName']) as String?,
       // Backend exposes how the student was signed in/out (GPS, PIN, QR, APP, etc.)
       signedInMethod: json['signedInMethod'] as String?,
       signedOutMethod: json['signedOutMethod'] as String?,
@@ -78,8 +86,10 @@ class StudentAttendanceDailyItemModel extends Equatable {
       'classroomName': classroomName,
       'signedInAt': signedInAt,
       'signedInTime': signedInTime?.toJson(),
+      'signedInBy': signedInBy,
       'signedOutAt': signedOutAt,
       'signedOutTime': signedOutTime?.toJson(),
+      'signedOutBy': signedOutBy,
       'signedInMethod': signedInMethod,
       'signedOutMethod': signedOutMethod,
       'classroomCode': classroomCode,
@@ -98,8 +108,10 @@ class StudentAttendanceDailyItemModel extends Equatable {
         classroomName,
         signedInAt,
         signedInTime,
+        signedInBy,
         signedOutAt,
         signedOutTime,
+        signedOutBy,
         signedInMethod,
         signedOutMethod,
         classroomCode,
@@ -469,6 +481,7 @@ class StudentAttendanceCustomPageModel extends Equatable {
 
 class StaffAttendanceDailyItemModel extends Equatable {
   const StaffAttendanceDailyItemModel({
+    this.attendanceRecordCode,
     required this.staffCode,
     required this.staffName,
     required this.isExpectedToday,
@@ -487,6 +500,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
     this.attendedMinutes,
   });
 
+  final String? attendanceRecordCode;
   final String staffCode;
   final String staffName;
   final bool isExpectedToday;
@@ -510,17 +524,21 @@ class StaffAttendanceDailyItemModel extends Equatable {
 
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
+      attendanceRecordCode:
+          (json['attendanceRecordCode'] ?? json['code']) as String?,
       staffCode: json['staffCode'] as String? ?? '',
       staffName: json['staffName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
       classroomName: json['classroomName'] as String? ?? '',
       classroomCode: json['classroomCode'] as String? ?? '',
       attendedDays: json['attendedDays'] as int? ?? 0,
-      signedInBy: json['signedInBy'] as String?,
+      signedInBy:
+          (json['signedInBy'] ?? json['signedInByName']) as String?,
       signedInTime: json['signedInTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedInTime'])
           : null,
-      signedOutBy: json['signedOutBy'] as String?,
+      signedOutBy:
+          (json['signedOutBy'] ?? json['signedOutByName']) as String?,
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
@@ -538,6 +556,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
 
   Map<String, dynamic> toJson() {
     return {
+      'attendanceRecordCode': attendanceRecordCode,
       'staffCode': staffCode,
       'staffName': staffName,
       'isExpectedToday': isExpectedToday,
@@ -559,6 +578,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
+        attendanceRecordCode,
         staffCode,
         staffName,
         isExpectedToday,
