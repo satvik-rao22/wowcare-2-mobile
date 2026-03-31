@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class DeleteConfirmationBottomSheet extends StatefulWidget {
@@ -92,6 +91,8 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
         : widget.type == 'student_reactivate'
         ? 'Do you want to reactivate this Student -\n"${widget.name}" ?'
+        : widget.type == 'student_delete'
+        ? 'Do you want to delete this Student -\n"${widget.name}" ?'
         : widget.type == 'subsidy'
         ? 'Do you want to delete the subsidy -\n${widget.name} ?'
         : widget.type == 'classroom'
@@ -137,16 +138,6 @@ class _DeleteConfirmationBottomSheetState
         : (widget.type == 'plan_pause'
               ? 'Pause Plan'
               : (widget.type == 'plan_cancel' ? 'Cancel Plan' : "Delete"));
-
-    final bool isDeleteAction = !isPlanAction &&
-        widget.type != 'staff_deactivate' &&
-        widget.type != 'staff_reactivate' &&
-        widget.type != 'student_deactivate' &&
-        widget.type != 'student_reactivate' &&
-        widget.type != 'complete_purchase' &&
-        widget.type != 'order_purchase' &&
-        widget.type != 'reject_request' &&
-        buttonText == 'Delete';
 
     return SafeArea(
       top: false,
@@ -229,96 +220,22 @@ class _DeleteConfirmationBottomSheetState
                 ),
               ),
               SizedBox(height: verticalPadding * 1.5),
-              // Delete actions use a gradient-text delete button style.
-              if (isDeleteAction)
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _isLoading ? null : widget.onCancel,
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                          side: const BorderSide(color: Color(0xFFB1AFE9)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: AppColors.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          gradient: AppColors.buildPrimaryGradient(),
-                        ),
-                        padding: const EdgeInsets.all(1),
-                        child: TextButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  setState(() => _isLoading = true);
-                                  widget.onDelete();
-                                },
-                          style: TextButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : ShaderMask(
-                                  shaderCallback: (bounds) =>
-                                      AppColors.buildPrimaryGradient().createShader(
-                                    Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                                  ),
-                                  child: const Text(
-                                    'Delete',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else
-                CustomButtonLayout(
-                  confirmButtonLabel: buttonText,
-                  cancelButtonLabel: 'Cancel',
-                  onPressedConfirm: () {
-                    if (_isLoading) return;
-                    setState(() => _isLoading = true);
-                    // onDelete is responsible for closing the bottom sheet.
-                    widget.onDelete();
-                  },
-                  onPressedCancel: () {
-                    if (_isLoading) return;
-                    widget.onCancel();
-                  },
-                  isForm: false,
-                  isLoading: _isLoading,
-                ),
+              CustomButtonLayout(
+                confirmButtonLabel: buttonText,
+                cancelButtonLabel: 'Cancel',
+                onPressedConfirm: () {
+                  if (_isLoading) return;
+                  setState(() => _isLoading = true);
+                  // onDelete is responsible for closing the bottom sheet.
+                  widget.onDelete();
+                },
+                onPressedCancel: () {
+                  if (_isLoading) return;
+                  widget.onCancel();
+                },
+                isForm: false,
+                isLoading: _isLoading,
+              ),
             ],
           ),
         ),

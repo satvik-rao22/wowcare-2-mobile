@@ -39,6 +39,39 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   bool _showExpired = false;
   late final StudentDocumentsListCubit _documentsListCubit;
 
+  String _formatDocumentType(String type) {
+    final normalizedType = type.trim();
+    if (normalizedType.isEmpty) return normalizedType;
+
+    switch (normalizedType) {
+      case 'BIRTH_CERTIFICATE':
+      case 'Birth_Certificate':
+      case 'Birth_Ceriticate':
+        return 'Birth Certificate';
+      case 'HEALTH_FORMS':
+      case 'Health_Forms':
+        return 'Health Forms';
+      case 'REGISTRATION_FORMS':
+      case 'Registration_Forms':
+        return 'Registration Forms';
+      case 'SPECIAL_PROGRAM_FORMS':
+      case 'Special_Program_Forms':
+        return 'Special Program Forms';
+      case 'OTHER':
+      case 'Other':
+        return 'Other';
+      default:
+        final words = normalizedType.replaceAll('_', ' ').split(' ');
+        return words
+            .where((word) => word.isNotEmpty)
+            .map(
+              (word) =>
+                  '${word[0].toUpperCase()}${word.length > 1 ? word.substring(1).toLowerCase() : ''}',
+            )
+            .join(' ');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -327,7 +360,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                     children: [
                                       Divider(color: AppColors.primaryColor.withOpacity(0.1)),
                                       const SizedBox(height: 16),
-                                      _DocRow(label: 'Document Type', text: doc.documentType),
+                                      _DocRow(
+                                        label: 'Document Type',
+                                        text: _formatDocumentType(doc.documentType),
+                                      ),
                                       const SizedBox(height: 16),
                                       _DocRow(
                                         label: 'Expiry Date',

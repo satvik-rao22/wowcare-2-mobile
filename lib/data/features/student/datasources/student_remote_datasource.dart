@@ -54,6 +54,8 @@ abstract class StudentRemoteDataSource {
 
   Future<String> reactivateStudent(String code);
 
+  Future<String> deleteStudent(String code);
+
   Future<List<StudentPickupModel>> getStudentPickups({
     required String studentCode,
   });
@@ -734,6 +736,23 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Student reactivated successfully';
+  }
+
+  @override
+  Future<String> deleteStudent(String code) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentDelete(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student delete API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student deleted successfully';
   }
 
   @override

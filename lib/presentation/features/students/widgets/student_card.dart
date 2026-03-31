@@ -16,11 +16,13 @@ class StudentCard extends StatefulWidget {
     required this.tags,
     required this.sibling,
     required this.schedule,
+    this.scheduleByDay = const <String, String>{},
     required this.birthDate,
     required this.movementDate,
     required this.status,
     required this.isActive,
     this.onPrimaryAction,
+    this.onDeleteAction,
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
@@ -33,11 +35,13 @@ class StudentCard extends StatefulWidget {
   final List<String> tags;
   final Map<String, dynamic> sibling;
   final List<String> schedule;
+  final Map<String, String> scheduleByDay;
   final String birthDate;
   final String movementDate;
   final String status;
   final bool isActive;
   final VoidCallback? onPrimaryAction;
+  final VoidCallback? onDeleteAction;
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
@@ -71,6 +75,26 @@ class _StudentCardState extends State<StudentCard> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final tags = widget.tags;
+    String _toEnumDay(String shortDay) {
+      switch (shortDay) {
+        case 'Mon':
+          return 'MONDAY';
+        case 'Tue':
+          return 'TUESDAY';
+        case 'Wed':
+          return 'WEDNESDAY';
+        case 'Thu':
+          return 'THURSDAY';
+        case 'Fri':
+          return 'FRIDAY';
+        case 'Sat':
+          return 'SATURDAY';
+        case 'Sun':
+          return 'SUNDAY';
+        default:
+          return shortDay.toUpperCase();
+      }
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -339,8 +363,18 @@ class _StudentCardState extends State<StudentCard> {
                                         'Thu',
                                         'Fri',
                                       ].map((day) {
-                                        final isActive = widget.schedule
-                                            .contains(day);
+                                        final enumDay = _toEnumDay(day);
+                                        final scheduleText =
+                                            widget.scheduleByDay[enumDay];
+                                        final hasDayInList = widget.schedule.any(
+                                          (d) =>
+                                              d.trim().toLowerCase() ==
+                                              day.toLowerCase(),
+                                        );
+                                        final hasDayInMap =
+                                            scheduleText != null &&
+                                            scheduleText.trim().isNotEmpty;
+                                        final isActive = hasDayInList || hasDayInMap;
                                         final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -369,8 +403,13 @@ class _StudentCardState extends State<StudentCard> {
                                           ),
                                         );
                                         if (!isActive) return dayChip;
+                                        final tooltipText =
+                                            (scheduleText != null &&
+                                                scheduleText.trim().isNotEmpty)
+                                            ? '$day\n$scheduleText'
+                                            : '$day: Scheduled';
                                         return Tooltip(
-                                          message: '',
+                                          message: tooltipText,
                                           child: dayChip,
                                         );
                                       }),
@@ -489,6 +528,54 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ),
+                                if (!widget.isActive) ...[
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 40,
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (ctx) {
+                                              return DeleteConfirmationBottomSheet(
+                                                name: widget.name,
+                                                type: 'student_delete',
+                                                onDelete: () {
+                                                  widget.onDeleteAction?.call();
+                                                },
+                                                onCancel: () {
+                                                  Navigator.of(ctx).pop();
+                                                },
+                                              );
+                                            },
+                                          );
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(
+                                            color: Color(0xFF6C7FD8),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF6C7FD8),
+                                            height: 16 / 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Container(

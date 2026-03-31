@@ -286,6 +286,7 @@ class ApiPaths {
       '$studentList/$code/deactivate';
   static String studentReactivate(String code) =>
       '$studentList/$code/reactivate';
+  static String studentDelete(String code) => '$studentList/$code';
   static String studentImportantDates(String code) =>
       '$studentList/$code/important-dates';
   static String studentHealth(String code) => '$studentList/$code/health';

@@ -43,11 +43,12 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   final TimeOfDay _schoolStartTime = const TimeOfDay(hour: 7, minute: 0);
   final TimeOfDay _schoolEndTime = const TimeOfDay(hour: 18, minute: 0);
   Map<String, (int startMin, int endMin)> _schoolMinutesByDay = {};
+  bool _hasInitialSchedule = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSchoolRegularSchedules();
+    _hasInitialSchedule = widget.initialSchedule != null;
     if (widget.initialSchedule != null) {
       _schedule = Map<String, Map<String, TimeOfDay>>.from(
         widget.initialSchedule!.map(
@@ -61,7 +62,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
           ),
         ),
       );
+    } else {
+      _initializeDefaultSchedule();
     }
+    _loadSchoolRegularSchedules();
   }
 
   Future<void> _loadSchoolRegularSchedules() async {
@@ -82,6 +86,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       if (!mounted) return;
       setState(() {
         _schoolMinutesByDay = map;
+        if (!_hasInitialSchedule) {
+          _initializeDefaultSchedule(overwriteExisting: true);
+        }
       });
     } catch (_) {
       // Keep fallback hours if API fails.
@@ -180,10 +187,22 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     });
   }
 
-  bool _isTimeInWorkingHours(TimeOfDay time) {
+  void _enableDay(String day) {
+    setState(() {
+      _schedule[day] = {
+        'start': _defaultStartForDay(day),
+        'end': _defaultEndForDay(day),
+      };
+    });
+  }
+
+  bool _isTimeInWorkingHours(TimeOfDay time, {String? day}) {
     final timeMinutes = time.hour * 60 + time.minute;
-    final startMinutes = _schoolStartTime.hour * 60 + _schoolStartTime.minute;
-    final endMinutes = _schoolEndTime.hour * 60 + _schoolEndTime.minute;
+    final bounds = day != null ? _schoolBoundsForDay(day) : null;
+    final startMinutes =
+        bounds?.$1 ?? (_schoolStartTime.hour * 60 + _schoolStartTime.minute);
+    final endMinutes =
+        bounds?.$2 ?? (_schoolEndTime.hour * 60 + _schoolEndTime.minute);
     return timeMinutes >= startMinutes && timeMinutes <= endMinutes;
   }
 
@@ -200,6 +219,26 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   TimeOfDay _minutesToTimeOfDay(int totalMinutes) {
     final clamped = totalMinutes.clamp(0, 24 * 60);
     return TimeOfDay(hour: clamped ~/ 60, minute: clamped % 60);
+  }
+
+  TimeOfDay _defaultStartForDay(String day) {
+    final bounds = _schoolBoundsForDay(day);
+    return bounds != null ? _minutesToTimeOfDay(bounds.$1) : _schoolStartTime;
+  }
+
+  TimeOfDay _defaultEndForDay(String day) {
+    final bounds = _schoolBoundsForDay(day);
+    return bounds != null ? _minutesToTimeOfDay(bounds.$2) : _schoolEndTime;
+  }
+
+  void _initializeDefaultSchedule({bool overwriteExisting = false}) {
+    for (final day in _workingDays) {
+      if (!overwriteExisting && _schedule.containsKey(day)) continue;
+      _schedule[day] = {
+        'start': _defaultStartForDay(day),
+        'end': _defaultEndForDay(day),
+      };
+    }
   }
 
   bool _isAfter(TimeOfDay a, TimeOfDay b) {
@@ -220,11 +259,11 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
         ? _minutesToTimeOfDay(bounds.$2)
         : _schoolEndTime;
 
-    if (start != null && !_isTimeInWorkingHours(start)) {
+    if (start != null && !_isTimeInWorkingHours(start, day: day)) {
       return 'On $day, start time must be within school working hours '
           '(${_formatTime(allowedStart)} - ${_formatTime(allowedEnd)}).';
     }
-    if (end != null && !_isTimeInWorkingHours(end)) {
+    if (end != null && !_isTimeInWorkingHours(end, day: day)) {
       return 'On $day, end time must be within school working hours '
           '(${_formatTime(allowedStart)} - ${_formatTime(allowedEnd)}).';
     }
@@ -248,11 +287,6 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       return 'On $day, end time must be after start time.';
     }
     return null;
-  }
-
-  TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
-    final totalMinutes = time.hour * 60 + time.minute + minutes;
-    return TimeOfDay(hour: (totalMinutes ~/ 60) % 24, minute: totalMinutes % 60);
   }
 
   void _copyScheduleFromDay(String sourceDay) {
@@ -433,7 +467,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Select days and times for this student. Times must be within school working hours.',
+                                'Select days and times for this student. Default times are school open and close hours.',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey.shade600,
@@ -622,37 +656,31 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
           ] else
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () {
-                    final bounds = _schoolBoundsForDay(day);
-                    final defaultStart = bounds != null
-                        ? _minutesToTimeOfDay(bounds.$1)
-                        : _schoolStartTime;
-                    setState(() {
-                      _schedule[day] = {
-                        'start': defaultStart,
-                        'end': _addMinutes(defaultStart, 60),
-                      };
-                      if (_copyToAllDays) {
-                        _copyScheduleFromDay(day);
-                      }
-                    });
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: AppColors.primaryColor.withOpacity(0.1),
-                  ),
-                  child: Text(
-                    'Add Schedule',
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Holiday',
                     style: TextStyle(
                       fontFamily: 'Manrope',
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
+                      color: Colors.grey.shade600,
                     ),
                   ),
-                ),
+                  TextButton(
+                    onPressed: () => _enableDay(day),
+                    child: const Text(
+                      'Enable',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],

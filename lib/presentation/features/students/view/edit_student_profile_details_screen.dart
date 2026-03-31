@@ -115,12 +115,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
   static String _digitsOnly(String input) => input.replaceAll(RegExp(r'\D'), '');
 
-  String _displayNameWithOrdinal(String fullName, int index) {
-    final cleanName = fullName.trim();
-    if (index <= 1) return cleanName;
-    return '$cleanName ($index)';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -236,24 +230,13 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         });
       }
 
-      final baseNameCounts = <String, int>{};
-      for (final row in rawRows) {
-        final base = row['name']!;
-        baseNameCounts[base] = (baseNameCounts[base] ?? 0) + 1;
-      }
-      final baseNameSeenIndex = <String, int>{};
-
       final nameToCode = <String, String>{};
       final codeToDisplay = <String, String>{};
       final names = <String>[];
       for (final row in rawRows) {
         final base = row['name']!;
         final code = row['code']!;
-        final needsCode = (baseNameCounts[base] ?? 0) > 1;
-        final seen = (baseNameSeenIndex[base] ?? 0) + 1;
-        baseNameSeenIndex[base] = seen;
-        final displayLabel =
-            needsCode ? _displayNameWithOrdinal(base, seen) : base;
+        final displayLabel = base;
         names.add(displayLabel);
         nameToCode[displayLabel] = code;
         codeToDisplay[code] = displayLabel;
@@ -287,12 +270,31 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       final guardians =
           await dataSource.getStudentGuardians(studentCode: widget.studentCode);
 
+      String _guardianDisplayName(Map<String, dynamic> g) {
+        final first = (g['firstName'] ?? g['first_name'] ?? '').toString().trim();
+        final last = (g['lastName'] ?? g['last_name'] ?? '').toString().trim();
+        final full = '$first $last'.trim();
+        if (full.isNotEmpty) return full;
+        final direct =
+            (g['fullName'] ?? g['name'] ?? '').toString().trim();
+        if (direct.isNotEmpty) return direct;
+        final user = g['user'];
+        if (user is Map<String, dynamic>) {
+          final uf = (user['firstName'] ?? user['first_name'] ?? '').toString().trim();
+          final ul = (user['lastName'] ?? user['last_name'] ?? '').toString().trim();
+          final ufull = '$uf $ul'.trim();
+          if (ufull.isNotEmpty) return ufull;
+          final uname =
+              (user['fullName'] ?? user['name'] ?? '').toString().trim();
+          if (uname.isNotEmpty) return uname;
+        }
+        return '';
+      }
+
       final rawRows = <Map<String, String>>[];
       for (final g in guardians) {
-        final first = (g['firstName'] ?? '').toString().trim();
-        final last = (g['lastName'] ?? '').toString().trim();
+        final base = _guardianDisplayName(g);
         final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
-        final base = '$first $last'.trim();
         if (base.isEmpty) continue;
         rawRows.add(<String, String>{
           'name': base,
@@ -300,21 +302,10 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         });
       }
 
-      final baseNameCounts = <String, int>{};
-      for (final row in rawRows) {
-        final base = row['name']!;
-        baseNameCounts[base] = (baseNameCounts[base] ?? 0) + 1;
-      }
-      final baseNameSeenIndex = <String, int>{};
-
       final names = <String>[];
       for (final row in rawRows) {
         final base = row['name']!;
-        final needsCode = (baseNameCounts[base] ?? 0) > 1;
-        final seen = (baseNameSeenIndex[base] ?? 0) + 1;
-        baseNameSeenIndex[base] = seen;
-        final displayLabel =
-            needsCode ? _displayNameWithOrdinal(base, seen) : base;
+        final displayLabel = base;
         names.add(displayLabel);
       }
       if (!mounted) return;

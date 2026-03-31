@@ -1063,6 +1063,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
               movementDate: m.movementDate,
               tags: m.tags,
               schedule: m.schedule,
+              scheduleByDay: m.scheduleByDay,
             ),
           )
           .toList(),
@@ -1092,6 +1093,16 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }) async {
     final message = await _remoteDataSource.reactivateStudent(code);
     // Invalidate student list cache since status change affects listing.
+    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
+    return message;
+  }
+
+  @override
+  Future<String> deleteStudent({
+    required String code,
+    required String schoolCode,
+  }) async {
+    final message = await _remoteDataSource.deleteStudent(code);
     await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
     return message;
   }

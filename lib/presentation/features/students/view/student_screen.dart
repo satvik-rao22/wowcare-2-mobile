@@ -127,6 +127,15 @@ class _StudentScreenState extends State<StudentScreen> {
     }
   }
 
+  Future<void> _refreshAllStudentApis() async {
+    final studentCubit = context.read<StudentCubit>();
+    await Future.wait([
+      studentCubit.refreshWithCacheReset(),
+      _loadGuardianNameCodeMap(),
+      _loadStudentCounts(),
+    ]);
+  }
+
   Future<void> _openEditStudentDetails(String studentCode) async {
     try {
       final dataSource = serviceLocator<StudentRemoteDataSource>();
@@ -265,7 +274,7 @@ class _StudentScreenState extends State<StudentScreen> {
         // If student was edited, refresh + reset list cache.
         if (!mounted) return;
         if (result == true) {
-          await context.read<StudentCubit>().refreshWithCacheReset();
+          await _refreshAllStudentApis();
         }
       });
     } catch (e) {
@@ -330,6 +339,7 @@ class _StudentScreenState extends State<StudentScreen> {
       'Tags': student.tags,
       // Use schedule derived from regularSchedules if available; otherwise empty.
       'schedule': student.schedule,
+      'scheduleByDay': student.scheduleByDay,
       // Keep raw DOB; card widget is responsible for display formatting
       'birthDate': student.dob,
       'movementDate': student.movementDate,
@@ -541,7 +551,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             final studentName = (result['studentName'] as String?) ?? '';
                             final studentCode = (result['studentCode'] as String?) ?? '';
                             // New student added successfully → reset cache + refresh list
-                            await studentCubit.refreshWithCacheReset();
+                            await _refreshAllStudentApis();
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               showModalBottomSheet(
                                 context: context,
@@ -972,6 +982,7 @@ class _StudentScreenState extends State<StudentScreen> {
                               sibling:
                                   studentMap['sibling'] as Map<String, dynamic>,
                               schedule: studentMap['schedule'] as List<String>,
+                              scheduleByDay: studentMap['scheduleByDay'] as Map<String, String>? ?? const <String, String>{},
                               birthDate: studentMap['birthDate'] as String,
                               movementDate:
                                   studentMap['movementDate'] as String,
@@ -1004,6 +1015,30 @@ class _StudentScreenState extends State<StudentScreen> {
                                     message: message,
                                     isSuccess: true,
                                   );
+                                  await _refreshAllStudentApis();
+                                  Navigator.of(context).maybePop();
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  final msg =
+                                      ApiErrorHandler.extractErrorMessage(e);
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: msg,
+                                    isError: true,
+                                  );
+                                }
+                              },
+                              onDeleteAction: () async {
+                                try {
+                                  final message =
+                                      await studentCubit.deleteStudent(student.code);
+                                  if (!mounted) return;
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: message,
+                                    isSuccess: true,
+                                  );
+                                  await _refreshAllStudentApis();
                                   Navigator.of(context).maybePop();
                                 } catch (e) {
                                   if (!mounted) return;

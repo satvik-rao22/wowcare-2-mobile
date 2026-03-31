@@ -27,6 +27,11 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  Future<String> deleteStudent({
+    required String code,
+    required String schoolCode,
+  });
+
   Future<Student> createStudent({
     required String schoolCode,
     required String firstName,

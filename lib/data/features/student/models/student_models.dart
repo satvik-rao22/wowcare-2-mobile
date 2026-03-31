@@ -11,6 +11,7 @@ class StudentListItemModel extends Equatable {
     this.movementDate = '',
     this.tags = const <String>[],
     this.schedule = const <String>[],
+    this.scheduleByDay = const <String, String>{},
   });
 
   final String code;
@@ -24,6 +25,8 @@ class StudentListItemModel extends Equatable {
   /// Convenience list of abbreviated weekdays derived from `regularSchedules`,
   /// e.g. ["Mon", "Tue"]. Used by UI schedule chips.
   final List<String> schedule;
+  /// Day-of-week (MONDAY, TUESDAY, ...) -> "start - end".
+  final Map<String, String> scheduleByDay;
 
   String get fullName => '$firstName $lastName'.trim();
 
@@ -55,8 +58,38 @@ class StudentListItemModel extends Equatable {
       }
     }
 
-    // Map regularSchedules -> ["Mon", "Tue", ...] for UI schedule chips.
+    String _timeToLabel(dynamic t) {
+      if (t == null) return '';
+      if (t is String) {
+        final raw = t.trim();
+        if (raw.isEmpty) return '';
+        final chunks = raw.split(':');
+        if (chunks.length >= 2) {
+          final h = int.tryParse(chunks[0]) ?? 0;
+          final m = int.tryParse(chunks[1]) ?? 0;
+          final dt = DateTime(2000, 1, 1, h, m);
+          final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+          final minute = dt.minute.toString().padLeft(2, '0');
+          final period = dt.hour >= 12 ? 'PM' : 'AM';
+          return '$hour12:$minute $period';
+        }
+        return raw;
+      }
+      if (t is Map) {
+        final h = int.tryParse('${t['hour'] ?? 0}') ?? 0;
+        final m = int.tryParse('${t['minute'] ?? 0}') ?? 0;
+        final dt = DateTime(2000, 1, 1, h, m);
+        final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+        final minute = dt.minute.toString().padLeft(2, '0');
+        final period = dt.hour >= 12 ? 'PM' : 'AM';
+        return '$hour12:$minute $period';
+      }
+      return '';
+    }
+
+    // Map regularSchedules -> ["Mon", "Tue", ...] and time range map.
     final scheduleDays = <String>[];
+    final scheduleByDay = <String, String>{};
     final rawSchedules = json['regularSchedules'];
     if (rawSchedules is List) {
       for (final item in rawSchedules) {
@@ -91,6 +124,11 @@ class StudentListItemModel extends Equatable {
         if (label != null && !scheduleDays.contains(label)) {
           scheduleDays.add(label);
         }
+        final startLabel = _timeToLabel(item['startTime']);
+        final endLabel = _timeToLabel(item['endTime']);
+        if (dow.isNotEmpty && startLabel.isNotEmpty && endLabel.isNotEmpty) {
+          scheduleByDay[dow] = '$startLabel - $endLabel';
+        }
       }
     }
 
@@ -104,6 +142,7 @@ class StudentListItemModel extends Equatable {
       movementDate: json['movementDate'] as String? ?? '',
       tags: tags,
       schedule: scheduleDays,
+      scheduleByDay: scheduleByDay,
     );
   }
 
@@ -118,6 +157,7 @@ class StudentListItemModel extends Equatable {
       'movementDate': movementDate,
       'tags': tags,
       'schedule': schedule,
+      'scheduleByDay': scheduleByDay,
     };
   }
 

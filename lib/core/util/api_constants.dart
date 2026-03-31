@@ -116,48 +116,48 @@ abstract final class ApiMicroservices {
 //   static const String activityBaseUrl = 'https://qs176zl8-8084.inc1.devtunnels.ms/wowcare-activity-ms';
 // }
 
-/// Devtunnel — per microservice (Swagger on each host, prefix `wnmrl4rn`).
+/// Devtunnel — per microservice (Swagger on each host, prefix `qs176zl8`).
 /// | Service    | Swagger / base |
-/// | User       | https://wnmrl4rn-8086.inc1.devtunnels.ms |
-/// | Student    | https://wnmrl4rn-8085.inc1.devtunnels.ms |
-/// | Classroom  | https://wnmrl4rn-8087.inc1.devtunnels.ms |
-/// | Staff      | https://wnmrl4rn-8088.inc1.devtunnels.ms |
-/// | School     | https://wnmrl4rn-8081.inc1.devtunnels.ms |
-/// | Activity   | https://wnmrl4rn-8082.inc1.devtunnels.ms/wowcare-activity-ms |
-/// | Document   | https://wnmrl4rn-8000.inc1.devtunnels.ms (presign under `/document-ms/...`) |
+/// | User       | https://qs176zl8-8086.inc1.devtunnels.ms |
+/// | Student    | https://qs176zl8-8085.inc1.devtunnels.ms |
+/// | Classroom  | https://qs176zl8-8082.inc1.devtunnels.ms |
+/// | Staff      | https://qs176zl8-8083.inc1.devtunnels.ms |
+/// | School     | https://qs176zl8-8081.inc1.devtunnels.ms |
+/// | Activity   | https://qs176zl8-8084.inc1.devtunnels.ms/wowcare-activity-ms |
+/// | Document   | https://qs176zl8-8000.inc1.devtunnels.ms (presign under `/document-ms/...`) |
 class ApiConstants {
   ApiConstants._();
 
   /// User MS (8086)
-  static const String baseUrl = 'https://wnmrl4rn-8086.inc1.devtunnels.ms';
+  static const String baseUrl = 'https://qs176zl8-8086.inc1.devtunnels.ms';
 
   /// Student MS (8085)
   static const String studentBaseUrl =
-      'https://wnmrl4rn-8085.inc1.devtunnels.ms';
+      'https://qs176zl8-8085.inc1.devtunnels.ms';
 
-  /// Classroom MS (8087)
+  /// Classroom MS (8082)
   static const String classroomBaseUrl =
-      'https://wnmrl4rn-8087.inc1.devtunnels.ms';
+      'https://qs176zl8-8082.inc1.devtunnels.ms';
 
-  /// Staff MS (8088)
-  static const String staffBaseUrl = 'https://wnmrl4rn-8088.inc1.devtunnels.ms';
+  /// Staff MS (8083)
+  static const String staffBaseUrl = 'https://qs176zl8-8083.inc1.devtunnels.ms';
 
   /// School / organization MS (8081)
-  static const String schoolMs = 'https://wnmrl4rn-8081.inc1.devtunnels.ms';
+  static const String schoolMs = 'https://qs176zl8-8081.inc1.devtunnels.ms';
 
   /// Attendance — API base with path prefix (adjust if attendance runs on another tunnel).
   static const String attendanceBaseUrl =
-      'https://wnmrl4rn-8083.inc1.devtunnels.ms/attendance';
+      'https://qs176zl8-8083.inc1.devtunnels.ms/attendance';
 
-  /// Activity MS (8082, context path `/wowcare-activity-ms`)
+  /// Activity MS (8084, context path `/wowcare-activity-ms`)
   static const String activityBaseUrl =
-      'https://wnmrl4rn-8082.inc1.devtunnels.ms/wowcare-activity-ms';
+      'https://qs176zl8-8084.inc1.devtunnels.ms/wowcare-activity-ms';
 
   /// Document MS — host only. Upload-session responses return a path like
   /// `/document-ms/api/v1`; presign is **not** routed on the activity host in devtunnel.
   /// Use the gateway tunnel that serves document-ms (e.g. **8000**), not 8082.
   static const String documentMsBaseUrl =
-      'https://wnmrl4rn-8000.inc1.devtunnels.ms';
+      'https://qs176zl8-8000.inc1.devtunnels.ms';
 
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {

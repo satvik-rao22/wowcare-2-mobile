@@ -181,7 +181,8 @@ class StudentCubit extends Cubit<StudentState> {
         lastName: state.lastNameFilter,
       );
     }
-    await refresh();
+    // Force reload even if another refresh was triggered very recently.
+    await refresh(ignoreRefreshingGuard: true);
   }
 
   Future<void> loadNextPage() async {
@@ -265,7 +266,7 @@ class StudentCubit extends Cubit<StudentState> {
       code: code,
       schoolCode: schoolCode,
     );
-    await refresh();
+    await refreshWithCacheReset();
     return message;
   }
 
@@ -276,7 +277,17 @@ class StudentCubit extends Cubit<StudentState> {
       code: code,
       schoolCode: schoolCode,
     );
-    await refresh();
+    await refreshWithCacheReset();
+    return message;
+  }
+
+  Future<String> deleteStudent(String code) async {
+    final schoolCode = await _resolveSchoolCode();
+    final message = await _repository.deleteStudent(
+      code: code,
+      schoolCode: schoolCode,
+    );
+    await refreshWithCacheReset();
     return message;
   }
 

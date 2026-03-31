@@ -449,65 +449,42 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       return;
     }
 
-    // Ask if user wants to add schedule
+    // Keep original flow: after parent completion, ask for schedule.
     final addSchedule = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add schedule for this child now?',
+        title: 'Do you want to add schedule?',
         confirmText: 'Yes',
         cancelText: 'Skip',
-        icon: Icons.calendar_today,
+        icon: Icons.schedule,
         onConfirm: () => Navigator.of(context).pop(true),
         onCancel: () => Navigator.of(context).pop(false),
       ),
     );
 
+    dynamic scheduleData;
     if (addSchedule == true) {
-      // Navigate to step 3
-      Navigator.push(
+      final step3Result = await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep3Screen(),
-        ),
-      ).then((step3Result) {
-        _handleStep3Result(step1Data, parents, step3Result);
-      });
-    } else {
-      // Complete without schedule
-      _completeWizard(step1Data, parents, null);
+        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
+      );
+      if (step3Result is Map<String, Map<String, TimeOfDay>>) {
+        scheduleData = step3Result;
+      } else if (step3Result is Map) {
+        scheduleData = Map<String, Map<String, TimeOfDay>>.from(
+          step3Result.map(
+            (k, v) => MapEntry(
+              k.toString(),
+              Map<String, TimeOfDay>.from(v as Map),
+            ),
+          ),
+        );
+      }
     }
-  }
 
-  void _handleStep3Result(
-    Map<String, dynamic> step1Data,
-    List<dynamic> parents,
-    dynamic step3Result,
-  ) async {
-    // Ask if user wants to create recurring invoices
-    final addInvoices = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to create recurring invoices for this child now?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
-        icon: Icons.receipt_long,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
-      ),
-    );
-
-    if (addInvoices == true) {
-      // TODO: Navigate to recurring invoices screen
-      // For now, just complete the wizard
-      _completeWizard(step1Data, parents, step3Result);
-    } else {
-      // Complete the wizard
-      _completeWizard(step1Data, parents, step3Result);
-    }
+    _completeWizard(step1Data, parents, scheduleData);
   }
 
   Future<void> _completeWizard(
@@ -571,7 +548,35 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         final bool selectFromExisting =
             map['selectFromExisting'] as bool? ?? false;
         if (selectFromExisting) {
-          // Existing parents linking flow is not implemented yet.
+          final selectedExistingParents =
+              (map['selectedExistingParents'] as List<dynamic>? ?? const <dynamic>[])
+                  .map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+          if (selectedExistingParents.isEmpty) {
+            continue;
+          }
+          try {
+            final nameCodeMap =
+                await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
+            for (final selectedName in selectedExistingParents) {
+              final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
+              if (guardianCode.isEmpty) continue;
+              await repo.linkExistingGuardian(
+                guardianCode: guardianCode,
+                studentCode: student.code,
+              );
+            }
+          } catch (e) {
+            final message = ApiErrorHandler.extractErrorMessage(e);
+            if (mounted) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Failed to link existing parent: $message',
+                isError: true,
+              );
+            }
+          }
           continue;
         }
 
