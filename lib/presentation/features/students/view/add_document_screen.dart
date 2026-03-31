@@ -329,8 +329,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           builder: (context, state) {
             return CustomButtonLayout(
               confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+              cancelButtonLabel: 'Cancel',
               onPressedConfirm: () => _addDocument(context),
-              showCancelButton: false,
+              onPressedCancel: () => Navigator.pop(context, false),
+              showCancelButton: true,
               isForm: false,
               isLoading: state.isLoading,
             );

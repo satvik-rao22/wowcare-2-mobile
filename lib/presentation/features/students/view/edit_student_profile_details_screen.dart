@@ -22,7 +22,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -114,6 +114,12 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   static final RegExp _zipDigitsRegex = RegExp(r'^\d{5}(\d{4})?$'); // 5 or 9 digits (ZIP / ZIP+4)
 
   static String _digitsOnly(String input) => input.replaceAll(RegExp(r'\D'), '');
+
+  String _displayNameWithOrdinal(String fullName, int index) {
+    final cleanName = fullName.trim();
+    if (index <= 1) return cleanName;
+    return '$cleanName ($index)';
+  }
 
   @override
   void initState() {
@@ -213,8 +219,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
               .trim()
               .toLowerCase();
 
-      final nameToCode = <String, String>{};
-      final names = <String>[];
+      final rawRows = <Map<String, String>>[];
       for (final s in page.items) {
         if (s.code.toString().trim() == currentStudentCode) {
           continue;
@@ -225,8 +230,33 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
             display.trim().toLowerCase() == currentStudentName) {
           continue;
         }
-        names.add(display);
-        nameToCode[display] = s.code;
+        rawRows.add(<String, String>{
+          'name': display,
+          'code': s.code.toString().trim(),
+        });
+      }
+
+      final baseNameCounts = <String, int>{};
+      for (final row in rawRows) {
+        final base = row['name']!;
+        baseNameCounts[base] = (baseNameCounts[base] ?? 0) + 1;
+      }
+      final baseNameSeenIndex = <String, int>{};
+
+      final nameToCode = <String, String>{};
+      final codeToDisplay = <String, String>{};
+      final names = <String>[];
+      for (final row in rawRows) {
+        final base = row['name']!;
+        final code = row['code']!;
+        final needsCode = (baseNameCounts[base] ?? 0) > 1;
+        final seen = (baseNameSeenIndex[base] ?? 0) + 1;
+        baseNameSeenIndex[base] = seen;
+        final displayLabel =
+            needsCode ? _displayNameWithOrdinal(base, seen) : base;
+        names.add(displayLabel);
+        nameToCode[displayLabel] = code;
+        codeToDisplay[code] = displayLabel;
       }
 
       setState(() {
@@ -235,11 +265,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
         // If initial siblings are codes, map them to names for display.
         if (widget.initialSiblings.isNotEmpty) {
-          final codeToName = {
-            for (final e in nameToCode.entries) e.value: e.key,
-          };
           _selectedSiblings = widget.initialSiblings
-              .map((code) => codeToName[code] ?? code)
+              .map((code) => codeToDisplay[code] ?? code)
               .where((n) => n.trim().isNotEmpty)
               .toList();
         } else {
@@ -256,15 +283,40 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   Future<void> _loadGuardiansForCustody() async {
     try {
       if (widget.studentCode.trim().isEmpty) return;
-      final repo = serviceLocator<StudentRepository>();
-      if (repo is! StudentRepositoryImpl) return;
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
       final guardians =
-          await repo.getStudentGuardians(studentCode: widget.studentCode);
-      final names = guardians
-          .map((g) => '${g.firstName} ${g.lastName}'.trim())
-          .where((n) => n.isNotEmpty)
-          .toSet()
-          .toList();
+          await dataSource.getStudentGuardians(studentCode: widget.studentCode);
+
+      final rawRows = <Map<String, String>>[];
+      for (final g in guardians) {
+        final first = (g['firstName'] ?? '').toString().trim();
+        final last = (g['lastName'] ?? '').toString().trim();
+        final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
+        final base = '$first $last'.trim();
+        if (base.isEmpty) continue;
+        rawRows.add(<String, String>{
+          'name': base,
+          'code': code,
+        });
+      }
+
+      final baseNameCounts = <String, int>{};
+      for (final row in rawRows) {
+        final base = row['name']!;
+        baseNameCounts[base] = (baseNameCounts[base] ?? 0) + 1;
+      }
+      final baseNameSeenIndex = <String, int>{};
+
+      final names = <String>[];
+      for (final row in rawRows) {
+        final base = row['name']!;
+        final needsCode = (baseNameCounts[base] ?? 0) > 1;
+        final seen = (baseNameSeenIndex[base] ?? 0) + 1;
+        baseNameSeenIndex[base] = seen;
+        final displayLabel =
+            needsCode ? _displayNameWithOrdinal(base, seen) : base;
+        names.add(displayLabel);
+      }
       if (!mounted) return;
 
       setState(() {

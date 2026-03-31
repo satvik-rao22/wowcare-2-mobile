@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 
 import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../student_health_tab_cards/student_dates_tab_card.dart';
@@ -98,8 +99,22 @@ class _StudentHealthTabState extends State<StudentHealthTab>
   @override
   Widget build(BuildContext context) {
     final bool isImmunizationTab = _tabController.index == 3;
-    return Column(
+    return Stack(
       children: [
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: AppColors.buildScaffoldGradient(),
+            ),
+            child: Image.asset(
+              MediaRes.wowcareMobileBg,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+        ),
+        Column(
+          children: [
         if (isImmunizationTab) ...[
           SizedBox(height: 10,),
           CustomSectionCard(
@@ -280,11 +295,9 @@ class _StudentHealthTabState extends State<StudentHealthTab>
             ],
           ),
         ),
+          ],
+        ),
       ],
-
-
-
-
     );
   }
 }

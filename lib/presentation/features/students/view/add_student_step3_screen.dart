@@ -5,6 +5,10 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -34,14 +38,16 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   Map<String, Map<String, TimeOfDay>> _schedule = {};
   bool _copyToAllDays = false;
 
-  // School working days and hours (should come from settings/API)
+  // School working days and hours
   final List<String> _workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   final TimeOfDay _schoolStartTime = const TimeOfDay(hour: 7, minute: 0);
   final TimeOfDay _schoolEndTime = const TimeOfDay(hour: 18, minute: 0);
+  Map<String, (int startMin, int endMin)> _schoolMinutesByDay = {};
 
   @override
   void initState() {
     super.initState();
+    _loadSchoolRegularSchedules();
     if (widget.initialSchedule != null) {
       _schedule = Map<String, Map<String, TimeOfDay>>.from(
         widget.initialSchedule!.map(
@@ -58,11 +64,42 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     }
   }
 
+  Future<void> _loadSchoolRegularSchedules() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+      final repo = serviceLocator<StaffRepository>();
+      final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final map = <String, (int, int)>{};
+      for (final d in days) {
+        map[d.dayOfWeek] = (
+          _localTimeStringToMinutes(d.startTime),
+          _localTimeStringToMinutes(d.endTime),
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _schoolMinutesByDay = map;
+      });
+    } catch (_) {
+      // Keep fallback hours if API fails.
+    }
+  }
+
   Future<void> _selectTime(String day, String timeType) async {
     final currentSchedule = _schedule[day];
+    final bounds = _schoolBoundsForDay(day);
+    final defaultStart = bounds != null
+        ? _minutesToTimeOfDay(bounds.$1)
+        : _schoolStartTime;
+    final defaultEnd = bounds != null
+        ? _minutesToTimeOfDay(bounds.$2)
+        : _schoolEndTime;
     final currentTime = timeType == 'start'
-        ? (currentSchedule?['start'] ?? _schoolStartTime)
-        : (currentSchedule?['end'] ?? _schoolEndTime);
+        ? (currentSchedule?['start'] ?? defaultStart)
+        : (currentSchedule?['end'] ?? defaultEnd);
 
     try {
       final picked = await showTimePicker(
@@ -86,43 +123,50 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       );
 
       if (picked != null) {
-        // Validate time is within school working hours
-        if (!_isTimeInWorkingHours(picked)) {
+        final nextDayTimes = Map<String, TimeOfDay>.from(_schedule[day] ?? {});
+        nextDayTimes[timeType] = picked;
+
+        final dayErr = _validateDaySchedule(day, nextDayTimes);
+        if (dayErr != null) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Time must be within school working hours (${_formatTime(_schoolStartTime)} - ${_formatTime(_schoolEndTime)})',
+            message: dayErr,
             isError: true,
           );
           return;
         }
 
-        setState(() {
-          if (_schedule[day] == null) {
-            _schedule[day] = {};
+        if (_copyToAllDays &&
+            nextDayTimes['start'] != null &&
+            nextDayTimes['end'] != null) {
+          final start = nextDayTimes['start']!;
+          final end = nextDayTimes['end']!;
+          final merged = <String, Map<String, TimeOfDay>>{};
+          for (final d in _workingDays) {
+            merged[d] = {
+              'start': TimeOfDay(hour: start.hour, minute: start.minute),
+              'end': TimeOfDay(hour: end.hour, minute: end.minute),
+            };
           }
-          _schedule[day]![timeType] = picked;
-
-          // Validate end time is after start time
-          if (_schedule[day]!['start'] != null && _schedule[day]!['end'] != null) {
-            final start = _schedule[day]!['start']!;
-            final end = _schedule[day]!['end']!;
-            if (!_isAfter(end, start)) {
+          for (final d in _workingDays) {
+            final err = _validateDaySchedule(d, merged[d]);
+            if (err != null) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'End time must be after start time',
+                message: err,
                 isError: true,
               );
-              // Auto-adjust end time to be 1 hour after start
-              _schedule[day]!['end'] = _addMinutes(start, 60);
-              if (!_isTimeInWorkingHours(_schedule[day]!['end']!)) {
-                _schedule[day]!['end'] = _schoolEndTime;
-              }
+              return;
             }
           }
+          setState(() {
+            _schedule = merged;
+          });
+          return;
+        }
 
-          if (_copyToAllDays) {
-            _copyScheduleFromDay(day);
-          }
+        setState(() {
+          _schedule[day] = nextDayTimes;
         });
       }
     } catch (e) {
@@ -143,10 +187,67 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     return timeMinutes >= startMinutes && timeMinutes <= endMinutes;
   }
 
+  int _localTimeStringToMinutes(String s) {
+    final p = s.trim().split(':');
+    if (p.length < 2) return 0;
+    final h = int.tryParse(p[0]) ?? 0;
+    final m = int.tryParse(p[1]) ?? 0;
+    return (h * 60 + m).clamp(0, 24 * 60);
+  }
+
+  (int, int)? _schoolBoundsForDay(String day) => _schoolMinutesByDay[day.toUpperCase()];
+
+  TimeOfDay _minutesToTimeOfDay(int totalMinutes) {
+    final clamped = totalMinutes.clamp(0, 24 * 60);
+    return TimeOfDay(hour: clamped ~/ 60, minute: clamped % 60);
+  }
+
   bool _isAfter(TimeOfDay a, TimeOfDay b) {
     final aMinutes = a.hour * 60 + a.minute;
     final bMinutes = b.hour * 60 + b.minute;
     return aMinutes > bMinutes;
+  }
+
+  String? _validateDaySchedule(String day, Map<String, TimeOfDay>? times) {
+    if (times == null) return null;
+    final start = times['start'];
+    final end = times['end'];
+    final bounds = _schoolBoundsForDay(day);
+    final allowedStart = bounds != null
+        ? _minutesToTimeOfDay(bounds.$1)
+        : _schoolStartTime;
+    final allowedEnd = bounds != null
+        ? _minutesToTimeOfDay(bounds.$2)
+        : _schoolEndTime;
+
+    if (start != null && !_isTimeInWorkingHours(start)) {
+      return 'On $day, start time must be within school working hours '
+          '(${_formatTime(allowedStart)} - ${_formatTime(allowedEnd)}).';
+    }
+    if (end != null && !_isTimeInWorkingHours(end)) {
+      return 'On $day, end time must be within school working hours '
+          '(${_formatTime(allowedStart)} - ${_formatTime(allowedEnd)}).';
+    }
+    if (bounds != null) {
+      if (start != null) {
+        final sm = start.hour * 60 + start.minute;
+        if (sm < bounds.$1 || sm > bounds.$2) {
+          return 'On $day, start time must be within school hours '
+              '(${_formatTime(allowedStart)} - ${_formatTime(allowedEnd)}).';
+        }
+      }
+      if (end != null) {
+        final em = end.hour * 60 + end.minute;
+        if (em < bounds.$1 || em > bounds.$2) {
+          return 'On $day, end time must be within school hours '
+              '(${_formatTime(allowedStart)} - ${_formatTime(allowedEnd)}).';
+        }
+      }
+    }
+    if (start != null && end != null && !_isAfter(end, start)) {
+      return 'On $day, end time must be after start time.';
+    }
+    return null;
   }
 
   TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
@@ -178,6 +279,21 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
         break;
       }
     }
+  }
+
+  bool _validateAllScheduledDays() {
+    for (final day in _workingDays) {
+      final err = _validateDaySchedule(day, _schedule[day]);
+      if (err != null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: err,
+          isError: true,
+        );
+        return false;
+      }
+    }
+    return true;
   }
 
   String _formatTime(TimeOfDay time) {
@@ -215,6 +331,15 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'End time must be after start time for $day',
+          isError: true,
+        );
+        return;
+      }
+      final err = _validateDaySchedule(day, times);
+      if (err != null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: err,
           isError: true,
         );
         return;
@@ -308,7 +433,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Select days and times for this student. Times must be within school working hours (${_formatTime(_schoolStartTime)} - ${_formatTime(_schoolEndTime)}).',
+                                'Select days and times for this student. Times must be within school working hours.',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey.shade600,
@@ -324,6 +449,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                     isToggled: _copyToAllDays,
                                     labelOnLeftSide: true,
                                     onToggle: (v) {
+                                      if (v && !_validateAllScheduledDays()) {
+                                        return;
+                                      }
                                       setState(() {
                                         _copyToAllDays = v;
                                         if (_copyToAllDays) {
@@ -469,7 +597,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 Expanded(
                   child: _buildTimeField(
                     'Start Time',
-                    schedule!['start'] ?? _schoolStartTime,
+                    schedule!['start'] ??
+                        (_schoolBoundsForDay(day) != null
+                            ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$1)
+                            : _schoolStartTime),
                     () => _selectTime(day, 'start'),
                     responsive,
                   ),
@@ -478,7 +609,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 Expanded(
                   child: _buildTimeField(
                     'End Time',
-                    schedule['end'] ?? _schoolEndTime,
+                    schedule['end'] ??
+                        (_schoolBoundsForDay(day) != null
+                            ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$2)
+                            : _schoolEndTime),
                     () => _selectTime(day, 'end'),
                     responsive,
                   ),
@@ -492,10 +626,14 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 width: double.infinity,
                 child: TextButton(
                   onPressed: () {
+                    final bounds = _schoolBoundsForDay(day);
+                    final defaultStart = bounds != null
+                        ? _minutesToTimeOfDay(bounds.$1)
+                        : _schoolStartTime;
                     setState(() {
                       _schedule[day] = {
-                        'start': _schoolStartTime,
-                        'end': _addMinutes(_schoolStartTime, 60),
+                        'start': defaultStart,
+                        'end': _addMinutes(defaultStart, 60),
                       };
                       if (_copyToAllDays) {
                         _copyScheduleFromDay(day);
