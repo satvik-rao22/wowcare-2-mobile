@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'dart:convert';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
@@ -16,6 +17,8 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 // Student entity for Transfer UI & API payload
 class StudentEntity {
@@ -76,6 +79,8 @@ class StudentTransferForm extends StatefulWidget {
 }
 
 class _StudentTransferFormState extends State<StudentTransferForm> {
+  DateTime _selectedTransferDate = DateTime.now();
+  bool? _isStaffAdminPersona;
   String? selectedClassroom;
   String currentClassroom = '';
   List<String> availableClassrooms = [];
@@ -89,19 +94,54 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     currentStudents = List.from(widget.students);
     _classroomNameToCode = Map<String, String>.from(widget.classroomNameToCode);
     if (widget.students.isNotEmpty) {
-      currentClassroom = widget.students.first.roomName;
+      currentClassroom = _deriveCurrentClassroomName();
       availableClassrooms = _filteredClassroomNames(
         _classroomNameToCode,
       );
     }
     _loadAvailableClassroomsFromApi();
+    _loadPersonaFlags();
+  }
+
+  Future<void> _loadPersonaFlags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      if (!isAdmin) {
+        final rolesJson = await storage.getString(StorageKeys.roles);
+        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
+          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
+          for (final r in roles) {
+            final roleCode =
+                ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
+            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+              isAdmin = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _isStaffAdminPersona = isAdmin;
+        if (!isAdmin) {
+          _selectedTransferDate = DateTime.now();
+        }
+      });
+    } catch (_) {}
   }
 
   List<String> _filteredClassroomNames(Map<String, String> classroomNameToCode) {
-    final currentRoomNames = currentStudents
-        .map((s) => s.roomName.trim())
-        .where((name) => name.isNotEmpty)
-        .toSet();
+    // Determine names of classrooms currently occupied by selected students
+    final codeToName = _codeToNameMap();
+    final currentRoomNames = currentStudents.map((s) {
+      final code = s.classroomCode.trim();
+      final resolved = code.isNotEmpty ? (codeToName[code] ?? '') : '';
+      final fallback = s.roomName.trim();
+      return (resolved.isNotEmpty ? resolved : fallback);
+    }).where((name) => name.isNotEmpty).toSet();
 
     return classroomNameToCode.entries
         .where((entry) => entry.key.trim().isNotEmpty)
@@ -133,6 +173,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       if (!mounted || apiMap.isEmpty) return;
       setState(() {
         _classroomNameToCode = apiMap;
+        // Re-derive current classroom once we have a reliable map
+        currentClassroom = _deriveCurrentClassroomName();
         availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
         if (selectedClassroom != null &&
             !availableClassrooms.contains(selectedClassroom)) {
@@ -142,6 +184,31 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     } catch (_) {
       // Keep fallback map from widget.classroomNameToCode if API load fails.
     }
+  }
+
+  Map<String, String> _codeToNameMap() {
+    if (_classroomNameToCode.isEmpty) return const <String, String>{};
+    // Reverse map name->code to code->name
+    final map = <String, String>{};
+    _classroomNameToCode.forEach((name, code) {
+      if (code.trim().isNotEmpty && name.trim().isNotEmpty) {
+        map[code.trim()] = name.trim();
+      }
+    });
+    return map;
+  }
+
+  String _deriveCurrentClassroomName() {
+    if (currentStudents.isEmpty) return '';
+    final first = currentStudents.first;
+    // Prefer resolving by classroomCode using loaded map
+    final code = first.classroomCode.trim();
+    if (code.isNotEmpty) {
+      final resolved = _codeToNameMap()[code] ?? '';
+      if (resolved.isNotEmpty) return resolved;
+    }
+    // Fallback to provided roomName if available
+    return first.roomName;
   }
 
   void _removeStudent(StudentEntity student) {
@@ -198,10 +265,20 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       ApiConstants.attendanceBaseUrl,
     );
 
-    final today = DateTime.now();
+    final now = DateTime.now();
+    final effectiveDate = (_isStaffAdminPersona ?? false) ? _selectedTransferDate : now;
+    final today = DateTime(now.year, now.month, now.day);
+    final pickedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
+    final safeDate = pickedDay.isAfter(today) ? today : effectiveDate;
     final transferDate =
-        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final transferredAt = DateTime.now().toUtc();
+        '${safeDate.year.toString().padLeft(4, '0')}-${safeDate.month.toString().padLeft(2, '0')}-${safeDate.day.toString().padLeft(2, '0')}';
+    final transferredAt = DateTime(
+      safeDate.year,
+      safeDate.month,
+      safeDate.day,
+      now.hour,
+      now.minute,
+    ).toUtc();
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -296,8 +373,12 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       );
 
       if (success) {
-        Navigator.pop(context);
-        widget.refreshCallback?.call();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const StudentAttendanceTabbedView(),
+          ),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -344,6 +425,40 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
               ),
             ),
             const SizedBox(height: 20),
+            // Date - single line
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Date'),
+                      const SizedBox(height: 8),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: _selectedTransferDate,
+                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final pickedDay =
+                                DateTime(date.year, date.month, date.day);
+                            _selectedTransferDate =
+                                pickedDay.isAfter(today) ? today : date;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Below: Current classroom and Transfer to classroom
             Row(
               children: [
                 Expanded(

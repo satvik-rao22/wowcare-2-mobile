@@ -105,48 +105,6 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                       size: avatarSize,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
-                    // Status dot for absent list
-                    if (staff.hasSignIn &&
-                        (staff.signOutTime == null ||
-                            staff.signOutTime!.isEmpty))
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.successColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (staff.expectedToday &&
-                        !staff.hasSignIn &&
-                        (staff.signOutTime == null ||
-                            staff.signOutTime!.isEmpty) &&
-                        (staff.signInTime == null ||
-                            staff.signInTime!.isEmpty))
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.errorColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 SizedBox(width: spacing),

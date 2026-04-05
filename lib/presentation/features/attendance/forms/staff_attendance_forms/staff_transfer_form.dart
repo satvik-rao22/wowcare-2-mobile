@@ -18,6 +18,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffTransferForm extends StatefulWidget {
   const StaffTransferForm({
@@ -36,6 +38,7 @@ class StaffTransferForm extends StatefulWidget {
 }
 
 class _StaffTransferFormState extends State<StaffTransferForm> {
+  DateTime _selectedTransferDate = DateTime.now();
   String? selectedClassroom;
   String currentClassroom = 'Classroom A';
   List<String> availableClassrooms = ['Classroom B', 'Classroom C', 'Classroom D'];
@@ -67,6 +70,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     if (!mounted) return;
     setState(() {
       _isStaffAdminPersona = isAdmin;
+      if (!isAdmin) {
+        _selectedTransferDate = DateTime.now();
+      }
     });
   }
 
@@ -205,7 +211,18 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       for (final code in staffCodes) code: toClassroomCode,
     };
 
-    final transferredAt = DateTime.now().toUtc();
+    final now = DateTime.now();
+    final effectiveDate = (_isStaffAdminPersona ?? false) ? _selectedTransferDate : now;
+    final today = DateTime(now.year, now.month, now.day);
+    final pickedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
+    final safeDate = pickedDay.isAfter(today) ? today : effectiveDate;
+    final transferredAt = DateTime(
+      safeDate.year,
+      safeDate.month,
+      safeDate.day,
+      now.hour,
+      now.minute,
+    ).toUtc();
 
     final payload = <String, dynamic>{
       'staffCode': staffCode,
@@ -247,7 +264,16 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       );
 
       if (success) {
-        Navigator.pop(context);
+        if (isStaffAdmin) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const StaffAttendanceTabbedView(),
+            ),
+            (route) => false,
+          );
+        } else {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -295,6 +321,33 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
             const SizedBox(height: 20),
             Row(
               children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const AppText.label('Date'),
+                    const SizedBox(height: 8),
+                    CustomDateTimeField(
+                      hasLabel: false,
+                      isRangePicker: false,
+                      isTime: false,
+                      fetchInitialTime: false,
+                      initialDate: _selectedTransferDate,
+                      isDisabled: _isStaffAdminPersona == false,
+                      onDateSelected: (date) {
+                        setState(() {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          final picked = DateTime(date.year, date.month, date.day);
+                          _selectedTransferDate =
+                              picked.isAfter(today) ? today : date;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

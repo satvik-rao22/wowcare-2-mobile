@@ -207,10 +207,23 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     return filtered;
   }
 
+  String? _formatDesignation(String? raw) {
+    if (raw == null) return null;
+    final cleaned = raw.trim().replaceAll('_', ' ').toLowerCase();
+    if (cleaned.isEmpty) return null;
+    // Title-case each word
+    final words = cleaned.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final formatted = words
+        .map((w) => w[0].toUpperCase() + (w.length > 1 ? w.substring(1) : ''))
+        .join(' ');
+    return formatted;
+  }
+
   void _clearAllFiltersAndSearch() {
     setState(() {
       _searchController.clear();
       _searchQuery = '';
+      _selectedDate = DateTime.now();
       _showAbsentOnly = false;
       _statusLegendFilter = null;
       _staffFilters = null;
@@ -511,6 +524,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     for (final item in state.items) {
       final signInTime = item.formattedSignInTime;
       final signOutTime = item.formattedSignOutTime;
+      final String? rawDesignation =
+          item.designation.isNotEmpty ? item.designation.first : null;
+      final String? formattedDesignation = _formatDesignation(rawDesignation);
 
       _staffMembers.add(
         StaffAttendanceCardData(
@@ -518,8 +534,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           id: item.staffCode,
           staffName: item.staffName,
           staffPhotoUuid: null,
-          designationName:
-              item.designation.isNotEmpty ? item.designation.first : null,
+          designationName: formattedDesignation,
           roomName: item.classroomName,
           expectedToday: item.isExpectedToday,
           hasSignIn: item.hasSignIn,

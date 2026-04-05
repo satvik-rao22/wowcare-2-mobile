@@ -19,6 +19,20 @@ class StudentAttendanceDailyItem extends Equatable {
     required this.tagCodes,
     required this.tagNames,
     this.duration,
+    // Transfer-related fields
+    this.isTransfer,
+    this.sequenceNumber,
+    this.totalSequenceCount,
+    this.hasNextTransfer,
+    this.isLastSequenceEntry,
+    this.fromClassroomCode,
+    this.fromClassroomName,
+    this.toClassroomCode,
+    this.toClassroomName,
+    this.transferTime,
+    this.nextActionTime,
+    this.transferredBy,
+    this.transferReason,
   });
 
   final String? attendanceRecordCode;
@@ -41,6 +55,21 @@ class StudentAttendanceDailyItem extends Equatable {
   final List<String> tagCodes;
   final List<String> tagNames;
   final String? duration;
+
+  // Transfer-related fields
+  final bool? isTransfer;
+  final int? sequenceNumber;
+  final int? totalSequenceCount;
+  final bool? hasNextTransfer;
+  final bool? isLastSequenceEntry;
+  final String? fromClassroomCode;
+  final String? fromClassroomName;
+  final String? toClassroomCode;
+  final String? toClassroomName;
+  final StudentAttendanceTime? transferTime;
+  final StudentAttendanceTime? nextActionTime;
+  final String? transferredBy;
+  final String? transferReason;
 
   /// Helper to check if student has signed in
   bool get hasSignIn => signedInAt != null && signedInAt!.isNotEmpty;
@@ -70,6 +99,20 @@ class StudentAttendanceDailyItem extends Equatable {
         tagCodes,
         tagNames,
         duration,
+        // Transfer-related fields
+        isTransfer,
+        sequenceNumber,
+        totalSequenceCount,
+        hasNextTransfer,
+        isLastSequenceEntry,
+        fromClassroomCode,
+        fromClassroomName,
+        toClassroomCode,
+        toClassroomName,
+        transferTime,
+        nextActionTime,
+        transferredBy,
+        transferReason,
       ];
 }
 

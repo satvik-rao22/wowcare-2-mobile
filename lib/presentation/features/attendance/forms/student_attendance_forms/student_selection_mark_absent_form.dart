@@ -29,7 +29,7 @@ class StudentSelectionMarkAbsentForm extends StatefulWidget {
 class _StudentSelectionMarkAbsentFormState
     extends State<StudentSelectionMarkAbsentForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroom = null;
   String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   List<StudentEntity> _filteredStudents = [];
@@ -113,7 +113,8 @@ class _StudentSelectionMarkAbsentFormState
       _classroomList = _classroomNameToCode.keys.toList(growable: false);
       if (_selectedClassroomCode != null &&
           !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-        _selectedClassroom = '';
+        _selectedClassroom = null;
+        _selectedClassroom = null;
         _selectedClassroomCode = null;
       }
       _isClassroomDataReady = _classroomList.isNotEmpty;
@@ -258,7 +259,7 @@ class _StudentSelectionMarkAbsentFormState
   List<StudentEntity> _getVisibleStudents() {
     return _filteredStudents.isEmpty &&
             _searchController.text.isEmpty &&
-            _selectedClassroom!.isEmpty &&
+            (_selectedClassroom == null || _selectedClassroom!.isEmpty) &&
             _selectedTag.isEmpty
         ? _allStudents
         : _filteredStudents;

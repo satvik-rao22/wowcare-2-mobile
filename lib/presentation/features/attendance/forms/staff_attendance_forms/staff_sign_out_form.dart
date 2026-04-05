@@ -20,6 +20,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffSignOutForm extends StatefulWidget {
   const StaffSignOutForm({super.key, this.staff, this.staffList});
@@ -276,7 +278,16 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       );
 
       if (success) {
-        Navigator.pop(context);
+        if (isStaffAdmin) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const StaffAttendanceTabbedView(),
+            ),
+            (route) => false,
+          );
+        } else {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -330,31 +341,21 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     children: [
                       const AppText.label('Date'),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                          color: Colors.grey.shade100,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            AppText.value(
-                              DateUtilsNew.formatToReadableDate(selectedDate),
-                            ),
-                            SvgPicture.asset(
-                              MediaRes.calender_icon,
-                              colorFilter: ColorFilter.mode(
-                                Colors.grey.shade600,
-                                BlendMode.srcIn,
-                              ),
-                            )
-                          ],
-                        ),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: selectedDate,
+                        isDisabled: _isStaffAdminPersona == false,
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            selectedDate = picked.isAfter(today) ? today : date;
+                          });
+                        },
                       ),
                     ],
                   ),

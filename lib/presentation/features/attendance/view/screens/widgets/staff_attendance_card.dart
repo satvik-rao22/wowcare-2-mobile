@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 
 enum SignMethod {
   gps,
@@ -138,49 +139,10 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                     DocumentImageWidget(
                       fileUuid: staff.staffPhotoUuid ?? '',
                       name: staff.staffName,
+                      staffCode: staff.id,
                       size: avatarSize,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
-                    // Status dot logic
-                    if (staff.hasSignIn && staff.signOutTime == null)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.successColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (staff.expectedToday == true &&
-                        !staff.hasSignIn &&
-                        (staff.signOutTime == null ||
-                            staff.signOutTime!.isEmpty) &&
-                        (staff.signInTime == null ||
-                            staff.signInTime!.isEmpty))
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.errorColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 SizedBox(width: spacing),
@@ -438,23 +400,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                 SizedBox(
                   width: double.infinity,
                   height: buttonHeight,
-                  child: OutlinedButton(
-                    onPressed: widget.onView,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: AppText.body(
-                      "View",
-                      style: TextStyle(
-                        fontSize: buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                      ),
-                    ),
+                  child: CustomCancelButton(
+                    cancelButtonLabel: 'View',
+                    onPressedCancel: widget.onView,
                   ),
                 ),
               ],
@@ -530,26 +478,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
               Expanded(
                 child: SizedBox(
                   height: buttonHeight,
-                  child: OutlinedButton(
-                    onPressed: widget.onView,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: EdgeInsets.zero,
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: Text(
-                      "View",
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                        height: 19 / buttonFontSize,
-                      ),
-                    ),
+                  child: CustomCancelButton(
+                    cancelButtonLabel: 'View',
+                    onPressedCancel: widget.onView,
                   ),
                 ),
               ),

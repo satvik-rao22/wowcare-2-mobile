@@ -39,7 +39,7 @@ class StudentSelectionSignInForm extends StatefulWidget {
 class _StudentSelectionSignInFormState
     extends State<StudentSelectionSignInForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroom = null;
   String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   Set<StudentEntity> selectedStudents = {};
@@ -109,7 +109,7 @@ class _StudentSelectionSignInFormState
         _classroomList = _classroomNameToCode.keys.toList(growable: false);
         if (_selectedClassroomCode != null &&
             !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-          _selectedClassroom = '';
+          _selectedClassroom = null;
           _selectedClassroomCode = null;
         }
         _isClassroomDataReady = true;
@@ -131,7 +131,7 @@ class _StudentSelectionSignInFormState
       _classroomList = _classroomNameToCode.keys.toList(growable: false);
       if (_selectedClassroomCode != null &&
           !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-        _selectedClassroom = '';
+        _selectedClassroom = null;
         _selectedClassroomCode = null;
       }
       _isClassroomDataReady = _classroomList.isNotEmpty;
@@ -312,7 +312,7 @@ class _StudentSelectionSignInFormState
     setState(() {
       isSelectAllChecked = false;
       selectedStudents.clear();
-      _selectedClassroom = '';
+      _selectedClassroom = null;
       _selectedClassroomCode = null;
       _selectedTag.clear();
       _filteredStudents = List.from(_allStudents);

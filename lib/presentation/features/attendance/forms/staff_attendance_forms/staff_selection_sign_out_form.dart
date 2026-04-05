@@ -31,7 +31,7 @@ class StaffSelectionSignOutForm extends StatefulWidget {
 class _StaffSelectionSignOutFormState
     extends State<StaffSelectionSignOutForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroom = null;
   List<String> _selectedTag = [];
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
@@ -42,7 +42,17 @@ class _StaffSelectionSignOutFormState
     'Classroom C',
     'Classroom D'
   ];
-  final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
+  final List<String> _designations = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
+  ];
 
   List<StaffEntity> _filteredStaff = [];
 
@@ -115,16 +125,32 @@ class _StaffSelectionSignOutFormState
         );
       }).toList();
 
+      // Local filtering for Designation and Search
+      List<StaffEntity> locallyFiltered = staffList;
+      if (_selectedTag.isNotEmpty) {
+        final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
+        locallyFiltered = locallyFiltered.where((s) {
+          final d = (s.designation ?? '').trim().toUpperCase();
+          return selected.contains(d);
+        }).toList();
+      }
+      if (searchText != null && searchText.trim().isNotEmpty) {
+        final q = searchText.toLowerCase();
+        locallyFiltered = locallyFiltered
+            .where((s) => s.name.toLowerCase().contains(q))
+            .toList();
+      }
+
       // Preselect based on initial staff codes if provided
       if (widget.initialStaffCodes != null &&
           widget.initialStaffCodes!.isNotEmpty) {
-        selectedStaff = staffList
+        selectedStaff = locallyFiltered
             .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
             .toSet();
       }
 
       setState(() {
-        _filteredStaff = List.from(staffList);
+        _filteredStaff = List.from(locallyFiltered);
         _isLoading = false;
         isSelectAllChecked = _filteredStaff.isNotEmpty &&
             _filteredStaff.every((s) => selectedStaff.contains(s));
@@ -242,8 +268,8 @@ class _StaffSelectionSignOutFormState
               const SizedBox(width: 12),
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tags,
+                  hintText: 'Designation',
+                  items: _designations,
                   selectedItems: _selectedTag,
                   onChanged: (selectedItems) {
                     setState(() {

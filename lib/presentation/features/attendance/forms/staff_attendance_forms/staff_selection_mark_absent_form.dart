@@ -30,7 +30,7 @@ class StaffSelectionMarkAbsentForm extends StatefulWidget {
 class _StaffSelectionMarkAbsentFormState
     extends State<StaffSelectionMarkAbsentForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroom = null;
   List<String> _selectedTag = [];
   List<StaffEntity> _filteredStaff = [];
   Set<StaffEntity> selectedStaff = {};
@@ -45,7 +45,17 @@ class _StaffSelectionMarkAbsentFormState
     'Classroom C',
     'Classroom D'
   ];
-  final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
+  final List<String> _designations = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
+  ];
 
   late final GetStaffAbsentFormListUseCase _getStaffAbsentFormListUseCase;
 
@@ -86,6 +96,12 @@ class _StaffSelectionMarkAbsentFormState
           final classroomName = 'Classroom '
               '${String.fromCharCode(65 + ((staff.primaryRoomId - 1) % 4))}';
           matchesRoom = _selectedClassroom == classroomName;
+        }
+
+        if (_selectedTag.isNotEmpty) {
+          final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
+          final d = (staff.designation ?? '').trim().toUpperCase();
+          matchesTag = selected.contains(d);
         }
 
         return matchesSearch && matchesRoom && matchesTag;
@@ -183,6 +199,7 @@ class _StaffSelectionMarkAbsentFormState
           name: item.staffName,
           primaryRoomId: 0,
           photoUuid: null,
+          // Absent form entity doesn't expose designation list; use a safe default label.
           designation: 'Staff',
           staffCode: item.staffCode,
         );
@@ -286,8 +303,8 @@ class _StaffSelectionMarkAbsentFormState
               const SizedBox(width: 12),
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tags,
+                  hintText: 'Designation',
+                  items: _designations,
                   selectedItems: _selectedTag,
                   onChanged: (selectedItems) {
                     setState(() {

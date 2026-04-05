@@ -203,6 +203,34 @@ class AttendanceRepositoryImpl
       tagCodes: model.tagCodes,
       tagNames: model.tagNames,
       duration: model.duration,
+      // Transfer-related fields
+      isTransfer: model.isTransfer,
+      sequenceNumber: model.sequenceNumber,
+      totalSequenceCount: model.totalSequenceCount,
+      hasNextTransfer: model.hasNextTransfer,
+      isLastSequenceEntry: model.isLastSequenceEntry,
+      fromClassroomCode: model.fromClassroomCode,
+      fromClassroomName: model.fromClassroomName,
+      toClassroomCode: model.toClassroomCode,
+      toClassroomName: model.toClassroomName,
+      transferTime: model.transferTime != null
+          ? StudentAttendanceTime(
+              hour: model.transferTime!.hour,
+              minute: model.transferTime!.minute,
+              second: model.transferTime!.second,
+              nano: model.transferTime!.nano,
+            )
+          : null,
+      nextActionTime: model.nextActionTime != null
+          ? StudentAttendanceTime(
+              hour: model.nextActionTime!.hour,
+              minute: model.nextActionTime!.minute,
+              second: model.nextActionTime!.second,
+              nano: model.nextActionTime!.nano,
+            )
+          : null,
+      transferredBy: model.transferredBy,
+      transferReason: model.transferReason,
     );
   }
 

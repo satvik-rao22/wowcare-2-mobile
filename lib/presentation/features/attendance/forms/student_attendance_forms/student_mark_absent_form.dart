@@ -12,6 +12,11 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'dart:convert';
 
 // Mock student entity for UI-only implementation
 class StudentEntity {
@@ -74,6 +79,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   Map<String, TextEditingController> notesControllers = {};
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
+  bool? _isStaffAdminPersona;
 
   late final MarkStudentsAbsentUseCase _markStudentsAbsentUseCase;
 
@@ -86,6 +92,39 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     }
 
     currentStudents = List.from(widget.students);
+    _loadPersonaFlags();
+  }
+
+  Future<void> _loadPersonaFlags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      if (!isAdmin) {
+        final rolesJson = await storage.getString(StorageKeys.roles);
+        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
+          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
+          for (final r in roles) {
+            final roleCode =
+                ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
+            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+              isAdmin = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _isStaffAdminPersona = isAdmin;
+        if (!isAdmin) {
+          final now = DateTime.now();
+          startDate = DateTime(now.year, now.month, now.day);
+          endDate = startDate;
+        }
+      });
+    } catch (_) {}
   }
 
   void _removeStudent(StudentEntity student) {
@@ -113,26 +152,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStartDate ? startDate : endDate,
-      firstDate: isStartDate ? DateTime.now() : startDate,
-      lastDate: DateTime(2025, 12, 31),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStartDate) {
-          startDate = picked;
-          if (startDate.isAfter(endDate)) {
-            endDate = startDate;
-          }
-        } else {
-          endDate = picked;
-        }
-      });
-    }
-  }
+  Future<void> _selectDate(BuildContext context, bool isStartDate) async {}
 
   Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
@@ -229,8 +249,12 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      Navigator.pop(context);
-      widget.refreshCallback?.call();
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const StudentAttendanceTabbedView(),
+        ),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
@@ -300,31 +324,24 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                     children: [
                       const AppText.label('Start Date'),
                       const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => _selectDate(context, true),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            border:
-                                Border.all(color: Colors.grey.shade200),
-                            borderRadius: BorderRadius.circular(8),
-                            color: const Color.fromRGBO(249, 245, 250, 1),
-                          ),
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              AppText.value(
-                                DateUtilsNew.formatToReadableDate(
-                                    startDate),
-                              ),
-                              SvgPicture.asset(MediaRes.calender_icon),
-                            ],
-                          ),
-                        ),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: startDate,
+                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            startDate = picked.isAfter(today) ? today : date;
+                            if (endDate.isBefore(startDate)) {
+                              endDate = startDate;
+                            }
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -336,31 +353,24 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                     children: [
                       const AppText.label('End Date'),
                       const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => _selectDate(context, false),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            border:
-                                Border.all(color: Colors.grey.shade200),
-                            borderRadius: BorderRadius.circular(8),
-                            color: const Color.fromRGBO(249, 245, 250, 1),
-                          ),
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              AppText.value(
-                                DateUtilsNew.formatToReadableDate(
-                                    endDate),
-                              ),
-                              SvgPicture.asset(MediaRes.calender_icon),
-                            ],
-                          ),
-                        ),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: endDate,
+                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            endDate = picked.isAfter(today) ? today : date;
+                            if (endDate.isBefore(startDate)) {
+                              endDate = startDate;
+                            }
+                          });
+                        },
                       ),
                     ],
                   ),

@@ -17,6 +17,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import 'staff_entity.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
 class StaffMarkAbsentForm extends StatefulWidget {
   const StaffMarkAbsentForm({super.key, this.staff, this.staffList});
@@ -96,26 +98,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     super.dispose();
   }
 
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStartDate ? startDate : endDate,
-      firstDate: isStartDate ? DateTime.now() : startDate,
-      lastDate: DateTime(2025, 12, 31),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStartDate) {
-          startDate = picked;
-          if (startDate.isAfter(endDate)) {
-            endDate = startDate;
-          }
-        } else {
-          endDate = picked;
-        }
-      });
-    }
-  }
+  Future<void> _selectDate(BuildContext context, bool isStartDate) async {}
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -214,7 +197,18 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      Navigator.pop(context);
+      final isAdmin =
+          _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+      if (isAdmin) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const StaffAttendanceTabbedView(),
+          ),
+          (route) => false,
+        );
+      } else {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
@@ -314,11 +308,61 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
             Row(
               children: [
                 Expanded(
-                  child: _buildDateField(context, true),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Start Date'),
+                      const SizedBox(height: 8),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: startDate,
+                        isDisabled: _isStaffAdminPersona == false,
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            startDate = picked.isAfter(today) ? today : date;
+                            if (endDate.isBefore(startDate)) {
+                              endDate = startDate;
+                            }
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
-                  child: _buildDateField(context, false),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('End Date'),
+                      const SizedBox(height: 8),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: endDate,
+                        isDisabled: _isStaffAdminPersona == false,
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            endDate = picked.isAfter(today) ? today : date;
+                            if (endDate.isBefore(startDate)) {
+                              endDate = startDate;
+                            }
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

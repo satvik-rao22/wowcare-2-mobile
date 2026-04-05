@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_shimmer.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
@@ -377,37 +378,54 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing / 2),
-                        CustomDateTimeField(
-                          hasLabel: false,
-                          isRangePicker: true,
-                          initialDate: _rangeStart ?? DateTime.now(),
-                          onRangeSelected: (start, end) {
-                            if (end == null) {
-                              setState(() {
-                                _rangeStart = start;
-                                _rangeEnd = null;
-                              });
-                              return;
-                            }
-
-                            if (start.isAfter(end)) {
-                              CoreUtils.showTopSnackBarFromSnackBar(
-                                context: context,
-                                snackBar: 
-                                SnackBar(
-                                  content: const Text(
-                                      'Start date cannot be after end date'),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-                            setState(() {
-                              _rangeStart = start;
-                              _rangeEnd = end;
-                            });
-                            _loadAbsentStaff(reset: true);
-                          },
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: true,
+                                fetchInitialTime: true,
+                                onRangeSelected: (start, end) {
+                                  if (end == null) {
+                                    setState(() {
+                                      _rangeStart = start;
+                                      _rangeEnd = null;
+                                    });
+                                    return;
+                                  }
+                                  if (start.isAfter(end)) {
+                                    CoreUtils.showTopSnackBarFromSnackBar(
+                                      context: context,
+                                      snackBar: 
+                                      SnackBar(
+                                        content: const Text('Start date cannot be after end date'),
+                                        backgroundColor: AppColors.errorColor,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  setState(() {
+                                    _rangeStart = start;
+                                    _rangeEnd = end;
+                                  });
+                                  _loadAbsentStaff(reset: true);
+                                },
+                              ),
+                            ),
+                            SizedBox(width: responsive.horizontalSpacing / 2),
+                            CustomClearAllChip(
+                              onTap: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _selectedClassroomNames = <String>[];
+                                  final now = DateTime.now();
+                                  _rangeStart = DateTime(now.year, now.month, 1);
+                                  _rangeEnd = DateTime(now.year, now.month + 1, 0);
+                                });
+                                _loadAbsentStaff(reset: true);
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

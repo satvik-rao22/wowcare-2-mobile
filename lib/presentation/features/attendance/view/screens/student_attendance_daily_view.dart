@@ -395,18 +395,58 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
   // Convert entity to card data
   StudentAttendanceCardData _entityToCardData(StudentAttendanceDailyItem item, int index) {
+    // Compute effective sign-in / sign-out times based on transfer rules
+    String? effectiveSignIn;
+    String? effectiveSignOut;
+    bool transferSignIn = false;
+    bool transferSignOut = false;
+
+    final int seq = item.sequenceNumber ?? 1;
+    final int totalSeq = item.totalSequenceCount ?? 1;
+
+    // If no transfers exist
+    if (totalSeq <= 1) {
+      effectiveSignIn = item.formattedSignInTime;
+      effectiveSignOut = item.formattedSignOutTime;
+    } else {
+      final isFirst = seq == 1;
+      final isLast = seq == totalSeq;
+
+      if (isFirst && !isLast) {
+        // First entry with a subsequent transfer
+        effectiveSignIn = item.formattedSignInTime;
+        effectiveSignOut = item.nextActionTime?.formattedTime;
+        transferSignOut = effectiveSignOut != null;
+      } else if (!isFirst && !isLast) {
+        // Intermediate transfer
+        effectiveSignIn = item.transferTime?.formattedTime;
+        effectiveSignOut = item.nextActionTime?.formattedTime;
+        transferSignIn = effectiveSignIn != null;
+        transferSignOut = effectiveSignOut != null;
+      } else if (isLast) {
+        // Latest/last transfer
+        effectiveSignIn = isFirst
+            ? item.formattedSignInTime
+            : item.transferTime?.formattedTime;
+        // Actual sign-out time of the entry
+        effectiveSignOut = item.formattedSignOutTime;
+        transferSignIn = !isFirst && effectiveSignIn != null;
+        // signOut on last is not transfer-derived
+      }
+    }
+
     return StudentAttendanceCardData(
       id: '${item.studentName}_${item.classroomCode}_$index',
       attendanceRecordCode: item.attendanceRecordCode,
       studentCode: item.studentCode,
       studentName: item.studentName,
       studentPhotoUuid: null, // API doesn't provide this
-      roomName: item.classroomName,
+      roomName: _resolveClassroomNameByCode(item.classroomCode) ?? item.classroomCode,
       classroomCode: item.classroomCode,
       expectedToday: item.isExpectedToday,
       hasSignIn: item.hasSignIn,
-      signInTime: item.formattedSignInTime,
-      signOutTime: item.formattedSignOutTime,
+      signInTime: effectiveSignIn ?? item.formattedSignInTime,
+      signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
       signInBy: _normalizeByName(item.signedInBy),
       signOutBy: _normalizeByName(item.signedOutBy),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
@@ -416,7 +456,23 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       studentId: index, // Use index as placeholder
       roomId: index, // Use index as placeholder
       schoolId: 1, // Use placeholder
+      sequenceNumber: item.sequenceNumber,
+      totalSequenceCount: item.totalSequenceCount,
+      isTransferSignIn: transferSignIn,
+      isTransferSignOut: transferSignOut,
     );
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null || code.isEmpty) return null;
+    final classrooms = _classroomCubit.state.classrooms;
+    if (classrooms.isEmpty) return null;
+    for (final c in classrooms) {
+      if (c.code == code) {
+        return c.name;
+      }
+    }
+    return null;
   }
 
   String? _normalizeByName(String? raw) {
@@ -704,6 +760,19 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                             }
                           },
                           onDelete: () {
+                            // Deletion validation: allow delete only if this is the last sequence entry
+                            if ((student.totalSequenceCount ?? 1) !=
+                                (student.sequenceNumber ?? 1)) {
+                              CoreUtils.showTopSnackBarFromSnackBar(
+                                context: context,
+                                snackBar: const SnackBar(
+                                  content: Text(
+                                    'Only the latest transfer entry can be deleted.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
@@ -1002,6 +1071,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     ? () {
                         setState(() {
                           _searchController.clear();
+                          _selectedDate = DateTime.now();
                           _statusLegendFilter = null;
                           _studentFilters = null;
                           _selectedClassroomNames = [];

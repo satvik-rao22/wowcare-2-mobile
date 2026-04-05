@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -175,6 +176,17 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     return filtered;
   }
 
+  String? _formatDesignation(String? raw) {
+    if (raw == null) return null;
+    final cleaned = raw.trim().replaceAll('_', ' ').toLowerCase();
+    if (cleaned.isEmpty) return null;
+    final words = cleaned.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final formatted = words
+        .map((w) => w[0].toUpperCase() + (w.length > 1 ? w.substring(1) : ''))
+        .join(' ');
+    return formatted;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
@@ -210,8 +222,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                   id: item.staffCode,
                   staffId: 0,
                   staffName: item.staffName,
-                  designationName:
-                      item.designation.isNotEmpty ? item.designation.first : null,
+                  designationName: _formatDesignation(
+                      item.designation.isNotEmpty ? item.designation.first : null),
                   staffPhotoUuid: '',
                   roomName: item.classroomName,
                   daysAttended: item.attendedDays.toString(),
@@ -299,31 +311,48 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                     ],
                   ),
                   SizedBox(height: responsive.verticalSpacing / 2),
-                  CustomDateTimeField(
-                    hasLabel: false,
-                    isRangePicker: true,
-                    initialDate: _customRangeStart,
-                    onRangeSelected: (start, end) {
-                      // In this screen, the picker is range-based, but `end` can be null
-                      // during selection. Only validate when we have both dates.
-                      if (end != null && start.isAfter(end)) {
-                        CoreUtils.showTopSnackBarFromSnackBar(
-                          context: context,
-                          snackBar: 
-                          SnackBar(
-                                    content: const Text(
-                                        'Start date cannot be after end date'),
-                            backgroundColor: AppColors.errorColor,
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() {
-                        _customRangeStart = start;
-                        _customRangeEnd = end;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomDateTimeField(
+                          hasLabel: false,
+                          isRangePicker: true,
+                          fetchInitialTime: true,
+                          onRangeSelected: (start, end) {
+                            if (end != null && start.isAfter(end)) {
+                              CoreUtils.showTopSnackBarFromSnackBar(
+                                context: context,
+                                snackBar: 
+                                SnackBar(
+                                  content: const Text('Start date cannot be after end date'),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                              return;
+                            }
+                            setState(() {
+                              _customRangeStart = start;
+                              _customRangeEnd = end;
+                            });
+                            _loadAttendanceData(reset: true);
+                          },
+                        ),
+                      ),
+                      SizedBox(width: responsive.horizontalSpacing / 2),
+                      CustomClearAllChip(
+                        onTap: () {
+                          setState(() {
+                            _customSearchController.clear();
+                            _searchQuery = '';
+                            _selectedClassroomNames = <String>[];
+                            final now = DateTime.now();
+                            _customRangeStart = DateTime(now.year, now.month, 1);
+                            _customRangeEnd = DateTime(now.year, now.month + 1, 0);
+                          });
+                          _loadAttendanceData(reset: true);
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),

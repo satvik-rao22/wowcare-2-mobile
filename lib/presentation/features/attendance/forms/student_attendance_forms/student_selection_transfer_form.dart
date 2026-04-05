@@ -29,7 +29,7 @@ class StudentSelectionTransferForm extends StatefulWidget {
 class _StudentSelectionTransferFormState
     extends State<StudentSelectionTransferForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroom = null;
   String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   List<StudentEntity> _filteredStudents = [];
@@ -113,7 +113,8 @@ class _StudentSelectionTransferFormState
       _classroomList = _classroomNameToCode.keys.toList(growable: false);
       if (_selectedClassroomCode != null &&
           !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-        _selectedClassroom = '';
+        _selectedClassroom = null;
+        _selectedClassroom = null;
         _selectedClassroomCode = null;
       }
       _isClassroomDataReady = _classroomList.isNotEmpty;

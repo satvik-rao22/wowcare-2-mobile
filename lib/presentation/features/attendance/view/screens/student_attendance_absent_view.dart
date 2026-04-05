@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -21,12 +22,15 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -81,6 +85,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
+  List<String> _selectedTagNames = <String>[];
+  List<String> _availableTagNames = <String>[];
+  Map<String, String> _tagNameToCode = <String, String>{};
+  bool _isLoadingTagMap = false;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStudentIndex;
@@ -112,6 +120,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
+    _loadTagData();
     
     // Set up scroll listener for pagination
     _scrollController.addListener(_onScroll);
@@ -146,6 +155,46 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       _isClassroomDataReady = !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+  }
+
+  Future<void> _loadTagData() async {
+    if (_isLoadingTagMap) return;
+    setState(() {
+      _isLoadingTagMap = true;
+    });
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) {
+        setState(() {
+          _isLoadingTagMap = false;
+        });
+        return;
+      }
+
+      // Load full name->code map for sending tagCodes to API
+      final getMap = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final map = await getMap(schoolCode: schoolCode);
+
+      // Load just names for UI dropdown
+      final getNames = serviceLocator<GetTagNamesForSchoolUseCase>();
+      final names = await getNames(schoolCode: schoolCode);
+
+      if (!mounted) return;
+      setState(() {
+        _tagNameToCode = map;
+        _availableTagNames = names;
+        // Remove any previously-selected tags that no longer exist
+        _selectedTagNames.removeWhere((name) => !_availableTagNames.contains(name));
+        _isLoadingTagMap = false;
+      });
+    } catch (e) {
+      debugPrint('Failed to load tag data: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTagMap = false;
+      });
+    }
   }
 
   @override
@@ -191,6 +240,17 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final codes = _selectedClassroomNames
         .map((n) => nameToCode[n])
         .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
+  List<String>? _resolveSelectedTagCodes() {
+    if (_selectedTagNames.isEmpty) return null;
+    if (_tagNameToCode.isEmpty) return null;
+    final codes = _selectedTagNames
+        .map((n) => _tagNameToCode[n])
+        .whereType<String>() // remove nulls
         .where((c) => c.trim().isNotEmpty)
         .toList();
     return codes.isEmpty ? null : codes;
@@ -280,6 +340,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
     final classroomCodes = _resolveSelectedClassroomCodes();
+    final tagCodes = _resolveSelectedTagCodes();
 
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromStr,
@@ -291,6 +352,9 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       queryParameters['classroomCodes'] = classroomCodes;
+    }
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
     }
 
     final trimmedSearch = _searchQuery.trim();
@@ -505,24 +569,66 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
+                  // Row 1: Full-width Search Bar
+                  Row(
+                    children: [
+                      Expanded(child: CustomSearchBar(controller: _searchController, hintText: 'Search Students')),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Row 2: Date Range (70%) + Clear All (30%)
                   Row(
                     children: [
                       Expanded(
-                        flex: 3,
-                        child: CustomSearchBar(
-                          controller: _searchController,
-                          hintText: 'Search Students',
+                        flex: 7,
+                        child: CustomDateTimeField(
+                          hasLabel: false,
+                          isRangePicker: true,
+                          // Let the field compute and DISPLAY a default start–end (current month)
+                          // so both dates are visible on first open.
+                          fetchInitialTime: true,
+                          onRangeSelected: (start, end) {
+                            setState(() {
+                              _rangeStart = start;
+                              _rangeEnd = end;
+                            });
+                            _loadAbsentStudents(reset: true);
+                          },
                         ),
                       ),
                       SizedBox(width: responsive.horizontalSpacing / 2),
                       Expanded(
-                        flex: 2,
+                        flex: 3,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: CustomClearAllChip(
+                            onTap: () {
+                              setState(() {
+                                _searchController.clear();
+                                _selectedClassroomNames = <String>[];
+                                _selectedTagNames = <String>[];
+                                // Reset to current month
+                                final now = DateTime.now();
+                                _rangeStart = DateTime(now.year, now.month, 1);
+                                _rangeEnd = DateTime(now.year, now.month + 1, 0);
+                              });
+                              _loadAbsentStudents(reset: true);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Row 3: Classroom (50%) + Tags (50%)
+                  Row(
+                    children: [
+                      Expanded(
                         child: BlocBuilder<ClassroomCubit, ClassroomState>(
                           bloc: _classroomCubit,
                           builder: (context, state) {
                             final items = state.classrooms.map((c) => c.name).toList();
-                            final isLoading =
-                                state.isLoading || !_isClassroomDataReady;
+                            final isLoading = state.isLoading || !_isClassroomDataReady;
                             if (isLoading && items.isEmpty) {
                               return ShimmerLoader(height: 40);
                             }
@@ -541,21 +647,23 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                           },
                         ),
                       ),
+                      SizedBox(width: responsive.horizontalSpacing / 2),
+                      Expanded(
+                        child: _isLoadingTagMap && _availableTagNames.isEmpty
+                            ? ShimmerLoader(height: 40)
+                            : CustomMultiSelectDropdown(
+                                hintText: 'Tags',
+                                items: _availableTagNames,
+                                selectedItems: _selectedTagNames,
+                                onChanged: (values) {
+                                  setState(() {
+                                    _selectedTagNames = List<String>.from(values);
+                                  });
+                                  _loadAbsentStudents(reset: true);
+                                },
+                              ),
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  CustomDateTimeField(
-                    hasLabel: false,
-                    isRangePicker: true,
-                    fetchInitialTime: false,
-                    initialDate: _rangeStart,
-                    onRangeSelected: (start, end) {
-                      setState(() {
-                        _rangeStart = start;
-                        _rangeEnd = end;
-                      });
-                        _loadAbsentStudents(reset: true);
-                    },
                   ),
                 ],
               ),

@@ -22,6 +22,8 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 // Student entity used for Sign-In UI & API payload
 class StudentEntity {
@@ -75,12 +77,48 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   TimeOfDay selectedTime = TimeOfDay.now();
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
+  bool? _isStaffAdminPersona;
 
   @override
   void initState() {
     super.initState();
     setCurrentDateTime();
     currentStudents = List.from(widget.students);
+    _loadPersonaFlags();
+  }
+
+  Future<void> _loadPersonaFlags() async {
+    final isAdmin = await _resolveIsStaffAdminPersona();
+    if (!mounted) return;
+    setState(() {
+      _isStaffAdminPersona = isAdmin;
+      if (!_isStaffAdminPersona!) {
+        setCurrentDateTime();
+      }
+    });
+  }
+
+  Future<bool> _resolveIsStaffAdminPersona() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+        return true;
+      }
+      final rolesJson = await storage.getString(StorageKeys.roles);
+      if (rolesJson == null || rolesJson.trim().isEmpty) return false;
+      final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
+      for (final r in roles) {
+        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+            .toString()
+            .toUpperCase();
+        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
   }
 
   void setCurrentDateTime() {
@@ -164,20 +202,26 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       ApiConstants.attendanceBaseUrl,
     );
 
+    // Determine effective date/time based on persona (admins can backdate, others locked to now)
+    final now = DateTime.now();
+    final isAdmin = _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    final DateTime effectiveDate = isAdmin ? selectedDate : now;
+    final TimeOfDay effectiveTime =
+        isAdmin ? selectedTime : TimeOfDay.fromDateTime(now);
+
     final attendanceDate =
-        '${selectedDate.year.toString().padLeft(4, '0')}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+        '${effectiveDate.year.toString().padLeft(4, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
 
     final occurredAt = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      selectedTime.hour,
-      selectedTime.minute,
+      effectiveDate.year,
+      effectiveDate.month,
+      effectiveDate.day,
+      effectiveTime.hour,
+      effectiveTime.minute,
     ).toUtc();
 
     if (isParent) {
-      final now = DateTime.now();
-      final selectedDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      final selectedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
       final today = DateTime(now.year, now.month, now.day);
       if (selectedDay.isAfter(today)) {
         if (!mounted) return;
@@ -185,6 +229,19 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           context: context,
           snackBar: const SnackBar(
             content: Text('Parents cannot sign in for future dates.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+    } else if (isAdmin) {
+      // Admin cannot sign in for a future date/time
+      if (occurredAt.isAfter(now.toUtc())) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('You cannot sign in for future date/time.'),
             backgroundColor: AppColors.warningColor,
           ),
         );
@@ -301,8 +358,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
 
       if (success) {
-        Navigator.pop(context);
-        widget.refreshCallback();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const StudentAttendanceTabbedView(),
+          ),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -362,31 +423,22 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     children: [
                       const AppText.label('Date'),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                          color: Colors.grey.shade100,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            AppText.value(
-                              DateUtilsNew.formatToReadableDate(selectedDate),
-                            ),
-                            SvgPicture.asset(
-                              MediaRes.calender_icon,
-                              colorFilter: ColorFilter.mode(
-                                Colors.grey.shade600,
-                                BlendMode.srcIn,
-                              ),
-                            )
-                          ],
-                        ),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: selectedDate,
+                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        onDateSelected: (date) {
+                          setState(() {
+                            // Prevent future dates even if picked
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final pickedDay = DateTime(date.year, date.month, date.day);
+                            selectedDate = pickedDay.isAfter(today) ? today : date;
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -398,13 +450,16 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     children: [
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
-                      SimpleTimePickerField(
-                        time: selectedTime,
-                        onTimeSelected: (t) {
-                          setState(() {
-                            selectedTime = t;
-                          });
-                        },
+                      IgnorePointer(
+                        ignoring: !(_isStaffAdminPersona ?? false),
+                        child: SimpleTimePickerField(
+                          time: selectedTime,
+                          onTimeSelected: (t) {
+                            setState(() {
+                              selectedTime = t;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),

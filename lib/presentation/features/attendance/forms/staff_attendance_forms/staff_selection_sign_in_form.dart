@@ -34,7 +34,7 @@ class StaffSelectionSignInForm extends StatefulWidget {
 class _StaffSelectionSignInFormState
     extends State<StaffSelectionSignInForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroom = null;
   List<String> _selectedTag = [];
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
@@ -45,7 +45,18 @@ class _StaffSelectionSignInFormState
     'Classroom C',
     'Classroom D'
   ];
-  final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
+  // Use designation list similar to StaffFilterScreen
+  final List<String> _designations = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
+  ];
 
   List<StaffEntity> _filteredStaff = [];
 
@@ -87,6 +98,7 @@ class _StaffSelectionSignInFormState
               ? <String>[_selectedClassroom!]
               : null;
 
+      // Map UI "Designation" selection to backend tagCodes parameter for compatibility
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
       final searchText =
@@ -116,16 +128,32 @@ class _StaffSelectionSignInFormState
         );
       }).toList();
 
+      // Apply local filter for Designation (in addition to backend)
+      List<StaffEntity> locallyFiltered = staffList;
+      if (_selectedTag.isNotEmpty) {
+        final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
+        locallyFiltered = locallyFiltered.where((s) {
+          final d = (s.designation ?? '').trim().toUpperCase();
+          return selected.contains(d);
+        }).toList();
+      }
+      if (searchText != null && searchText.trim().isNotEmpty) {
+        final q = searchText.toLowerCase();
+        locallyFiltered = locallyFiltered
+            .where((s) => s.name.toLowerCase().contains(q))
+            .toList();
+      }
+
       // Preselect staff based on initial staff codes if provided
       if (widget.initialStaffCodes != null &&
           widget.initialStaffCodes!.isNotEmpty) {
-        selectedStaff = staffList
+        selectedStaff = locallyFiltered
             .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
             .toSet();
       }
 
       setState(() {
-        _filteredStaff = List.from(staffList);
+        _filteredStaff = List.from(locallyFiltered);
         _isLoading = false;
         isSelectAllChecked = _filteredStaff.isNotEmpty &&
             _filteredStaff.every((s) => selectedStaff.contains(s));
@@ -243,8 +271,8 @@ class _StaffSelectionSignInFormState
               const SizedBox(width: 12),
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tags,
+                  hintText: 'Designation',
+                  items: _designations,
                   selectedItems: _selectedTag,
                   onChanged: (selectedItems) {
                     setState(() {
