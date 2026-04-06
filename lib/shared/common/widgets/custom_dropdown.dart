@@ -254,6 +254,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                   descendantsAreFocusable: false,
                   child: PopupMenuButton<String>(
                     enabled: widget.isEnabled,
+                    padding: EdgeInsets.zero,
                     constraints: BoxConstraints(
                       minWidth: constraints.maxWidth,
                       maxWidth: constraints.maxWidth,

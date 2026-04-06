@@ -344,7 +344,14 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
           .whereType<Map<String, dynamic>>()
           .map(StudentPickupModel.fromJson)
           .toList(growable: false);
-      if (list.isNotEmpty) return list;
+      if (list.isNotEmpty) {
+        // Older cached payloads may not include pickup code. If so, bypass cache
+        // so edit flow can always call PATCH /pickup/{code}.
+        final hasMissingCode = list.any(
+          (p) => (p.code ?? '').trim().isEmpty,
+        );
+        if (!hasMissingCode) return list;
+      }
     }
 
     // Fallback to API
@@ -357,12 +364,17 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       {
         'items': models
             .map((e) => {
+                  'code': e.code,
                   'studentCode': e.studentCode,
                   'firstName': e.firstName,
                   'lastName': e.lastName,
                   'email': e.email,
                   'phoneNumber': e.phoneNumber,
                   'relation': e.relation,
+                  'clockPin': e.clockPin,
+                'relationshipDescription': e.relationshipDescription,
+                'pickupType': e.pickupType,
+                'guardianCode': e.guardianCode,
                 })
             .toList(),
       },
@@ -378,6 +390,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String email,
     required String phoneNumber,
     required String relation,
+    String? relationshipDescription,
+    required String pickupType,
+    String? guardianCode,
   }) async {
     final message = await _remoteDataSource.addPickup(
       studentCode: studentCode,
@@ -386,6 +401,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       email: email,
       phoneNumber: phoneNumber,
       relation: relation,
+      relationshipDescription: relationshipDescription,
+      pickupType: pickupType,
+      guardianCode: guardianCode,
     );
 
     await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
@@ -402,6 +420,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String phoneNumber,
     required String relation,
     String? clockPin,
+    String? relationshipDescription,
+    String? pickupType,
+    String? guardianCode,
   }) async {
     final body = <String, dynamic>{
       'studentCode': studentCode,
@@ -412,6 +433,13 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       'relation': relation,
       'code': code,
       if (clockPin != null && clockPin.trim().isNotEmpty) 'clockPin': clockPin,
+      if (relationshipDescription != null &&
+          relationshipDescription.trim().isNotEmpty)
+        'relationshipDescription': relationshipDescription.trim(),
+      if (pickupType != null && pickupType.trim().isNotEmpty)
+        'pickupType': pickupType.trim(),
+      if (guardianCode != null && guardianCode.trim().isNotEmpty)
+        'guardianCode': guardianCode.trim(),
     };
 
     final message = await _remoteDataSource.updatePickup(
@@ -959,16 +987,19 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
 
   Future<List<StudentGuardianModel>> getStudentGuardians({
     required String studentCode,
+    bool forceRefresh = false,
   }) async {
-    // Try cache first
-    final cached =
-        await _cacheManager.loadCache(_studentGuardiansCacheKey(studentCode));
-    if (cached != null) {
-      final list = (cached['items'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
-          .map(StudentGuardianModel.fromJson)
-          .toList(growable: false);
-      if (list.isNotEmpty) return list;
+    // Try cache first unless caller explicitly requests a fresh network fetch.
+    if (!forceRefresh) {
+      final cached =
+          await _cacheManager.loadCache(_studentGuardiansCacheKey(studentCode));
+      if (cached != null) {
+        final list = (cached['items'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(StudentGuardianModel.fromJson)
+            .toList(growable: false);
+        if (list.isNotEmpty) return list;
+      }
     }
 
     // Fallback to API

@@ -10,6 +10,9 @@ class StudentPickupModel extends Equatable {
     required this.phoneNumber,
     required this.relation,
     this.clockPin,
+    this.relationshipDescription,
+    this.pickupType,
+    this.guardianCode,
   });
 
   final String? code;
@@ -20,6 +23,9 @@ class StudentPickupModel extends Equatable {
   final String phoneNumber;
   final String relation;
   final String? clockPin;
+  final String? relationshipDescription;
+  final String? pickupType;
+  final String? guardianCode;
 
   String get fullName => ('$firstName $lastName').trim();
 
@@ -33,6 +39,9 @@ class StudentPickupModel extends Equatable {
       phoneNumber: json['phoneNumber'] as String? ?? '',
       relation: json['relation'] as String? ?? '',
       clockPin: json['clockPin'] as String?,
+      relationshipDescription: json['relationshipDescription'] as String?,
+      pickupType: json['pickupType'] as String?,
+      guardianCode: json['guardianCode'] as String?,
     );
   }
 
@@ -46,6 +55,9 @@ class StudentPickupModel extends Equatable {
         phoneNumber,
         relation,
         clockPin,
+        relationshipDescription,
+        pickupType,
+        guardianCode,
       ];
 }
 

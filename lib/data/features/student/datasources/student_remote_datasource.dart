@@ -70,6 +70,9 @@ abstract class StudentRemoteDataSource {
     required String email,
     required String phoneNumber,
     required String relation,
+    String? relationshipDescription,
+    required String pickupType,
+    String? guardianCode,
   });
 
   Future<String> updatePickup({
@@ -793,6 +796,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     required String email,
     required String phoneNumber,
     required String relation,
+    String? relationshipDescription,
+    required String pickupType,
+    String? guardianCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.pickup,
@@ -806,6 +812,12 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'email': email,
       'phoneNumber': phoneNumber,
       'relation': relation,
+      if (relationshipDescription != null &&
+          relationshipDescription.trim().isNotEmpty)
+        'relationshipDescription': relationshipDescription.trim(),
+      'pickupType': pickupType,
+      if (guardianCode != null && guardianCode.trim().isNotEmpty)
+        'guardianCode': guardianCode.trim(),
     };
 
     final response = await _client.post<dynamic>(

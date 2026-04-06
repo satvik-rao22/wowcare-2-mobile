@@ -149,25 +149,30 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         // as first/last name. Other fields are left blank or defaulted,
         // but the payload shape matches the normal pickup create.
         final display = _selectedCarer!.trim();
-        String first = display;
-        String last = '';
-        if (display.contains(' ')) {
-          final parts = display.split(' ');
-          first = parts.first;
-          if (parts.length > 1) {
-            last = parts.sublist(1).join(' ').trim();
-          }
-        }
+        final parts = display.split(' ').where((e) => e.trim().isNotEmpty).toList();
+        final first = parts.isEmpty ? '' : parts.first;
+        final last = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
         final repo =
             serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+        final schoolCode =
+            await _storageService.getString(StorageKeys.schoolCode) ?? '';
+        String? guardianCode;
+        if (schoolCode.trim().isNotEmpty) {
+          final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
+            schoolCode: schoolCode.trim(),
+          );
+          guardianCode = nameCodeMap[_selectedCarer!.trim()];
+        }
         final message = await repo.addPickup(
           studentCode: widget.studentCode,
           firstName: first,
           lastName: last,
           email: '',
           phoneNumber: '',
-          relation: '',
+          relation: 'OTHER',
+          pickupType: 'CARPOOL',
+          guardianCode: guardianCode,
         );
 
         if (!mounted) return;
@@ -263,13 +268,18 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     });
 
     try {
-      // API expects phoneNumber in ###-###-#### format.
       final formattedPhone =
           '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
 
       final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
       final String message;
-      if (_isEditMode) {
+      if (_isEditLikeMode) {
+        // Edit card flow must update existing pickup only.
+        if (!_isEditMode) {
+          throw Exception(
+            'Pickup code is missing for edit. Please reopen the pickup card and try again.',
+          );
+        }
         message = await repo.updatePickup(
           code: widget.pickupCode!.trim(),
           studentCode: widget.studentCode,
@@ -279,6 +289,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           phoneNumber: formattedPhone,
           relation: relation,
           clockPin: (widget.initialClockPin ?? '').trim(),
+          pickupType: 'CAREGIVER',
         );
       } else {
         message = await repo.addPickup(
@@ -288,6 +299,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           email: email,
           phoneNumber: formattedPhone,
           relation: relation,
+          pickupType: 'CAREGIVER',
         );
       }
 

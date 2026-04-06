@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -26,7 +24,8 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.suffix,
     this.isField = false,
     this.width,
-    this.gapHeight = 70,
+    /// Extra spacing between the field and dropdown (in addition to field height).
+    this.gapHeight = 6,
     this.maxDropdownHeight = 250,
 
   }) : super(key: key);
@@ -40,6 +39,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   late List<String> _localSelectedItems;
   bool isDropdownOpen = false;
   final LayerLink _layerLink = LayerLink();
+  final GlobalKey _fieldKey = GlobalKey();
   OverlayEntry? _overlayEntry;
 
 
@@ -97,8 +97,10 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   }
 
   OverlayEntry _createOverlayEntry() {
-    RenderBox renderBox = context.findRenderObject() as RenderBox;
-    var size = renderBox.size;
+    final renderObject =
+        _fieldKey.currentContext?.findRenderObject() ?? context.findRenderObject();
+    final renderBox = renderObject as RenderBox;
+    final size = renderBox.size;
 
     return OverlayEntry(
       builder: (context) => Stack(
@@ -126,7 +128,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               link: _layerLink,
               showWhenUnlinked: false,
               //offset: Offset(0.0, size.height + 5.0),
-              offset: Offset.fromDirection(pi / 2, widget.gapHeight),
+              offset: Offset(0.0, size.height + widget.gapHeight),
               child: Material(
                 elevation: 8.0,
                 borderRadius: BorderRadius.circular(8),
@@ -251,6 +253,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
             ),
           if (widget.label != null) const SizedBox(height: 8),
           GestureDetector(
+            key: _fieldKey,
             onTap: _toggleDropdown,
             child: Container(
               height: 40,

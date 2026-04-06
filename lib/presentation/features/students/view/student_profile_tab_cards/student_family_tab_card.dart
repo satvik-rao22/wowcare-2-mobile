@@ -40,6 +40,16 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   late Future<List<Map<String, dynamic>>> _guardiansFuture;
   bool _isMutating = false;
 
+  String _extractGuardianClockPin(Map<String, dynamic> guardian) {
+    final raw = (guardian['clockPin'] ??
+            guardian['clockInPin'] ??
+            guardian['clockinPin'] ??
+            '')
+        .toString()
+        .trim();
+    return raw.isEmpty ? '—' : raw;
+  }
+
   String _formatPhoneNumber(String? raw) {
     final digits = (raw ?? '').replaceAll(RegExp(r'\D'), '');
     if (digits.length == 10) {
@@ -54,7 +64,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     _guardiansFuture = _loadGuardians();
   }
 
-  Future<List<Map<String, dynamic>>> _loadGuardians() async {
+  Future<List<Map<String, dynamic>>> _loadGuardians({bool forceRefresh = false}) async {
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const <Map<String, dynamic>>[];
@@ -67,7 +77,10 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return const <Map<String, dynamic>>[];
     }
 
-    final models = await repo.getStudentGuardians(studentCode: studentCode);
+    final models = await repo.getStudentGuardians(
+      studentCode: studentCode,
+      forceRefresh: forceRefresh,
+    );
     return models.map((e) => e.toJson()).toList(growable: false);
   }
   Future<void> _onAddParent() async {
@@ -230,7 +243,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
-          _guardiansFuture = _loadGuardians();
+          _guardiansFuture = _loadGuardians(forceRefresh: true);
         });
         await widget.onRefresh?.call();
       },
@@ -312,9 +325,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                               (data[i]['relationToStudent'] ?? '').toString(),
                           email: (data[i]['email'] ?? '').toString(),
                           phone: _formatPhoneNumber((data[i]['mobile'] ?? '').toString()),
-                          pin: ((data[i]['clockPin'] ?? '').toString().trim().isEmpty)
-                              ? '—'
-                              : (data[i]['clockPin'] ?? '').toString().trim(),
+                          pin: _extractGuardianClockPin(data[i]),
                           isLoading: _isMutating,
                           onEdit: () => _onEditParent(data[i]),
                           onDelete: () => _onDeleteParent(data[i]),

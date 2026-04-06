@@ -468,6 +468,7 @@ class StudentGuardianModel extends Equatable {
     required this.lastName,
     required this.mobile,
     required this.email,
+    this.clockPin,
     required this.relationToStudent,
     required this.primaryContact,
     required this.legalCustody,
@@ -479,6 +480,7 @@ class StudentGuardianModel extends Equatable {
   final String lastName;
   final String mobile;
   final String email;
+  final String? clockPin;
   final String relationToStudent;
   final bool primaryContact;
   final bool legalCustody;
@@ -493,6 +495,7 @@ class StudentGuardianModel extends Equatable {
       lastName: json['lastName'] as String? ?? '',
       mobile: json['mobile'] as String? ?? '',
       email: json['email'] as String? ?? '',
+      clockPin: json['clockPin'] as String?,
       relationToStudent: json['relationToStudent'] as String? ?? '',
       primaryContact: json['primaryContact'] as bool? ?? false,
       legalCustody: json['legalCustody'] as bool? ?? false,
@@ -507,6 +510,7 @@ class StudentGuardianModel extends Equatable {
       'lastName': lastName,
       'mobile': mobile,
       'email': email,
+      'clockPin': clockPin,
       'relationToStudent': relationToStudent,
       'primaryContact': primaryContact,
       'legalCustody': legalCustody,
@@ -521,6 +525,7 @@ class StudentGuardianModel extends Equatable {
         lastName,
         mobile,
         email,
+        clockPin,
         relationToStudent,
         primaryContact,
         legalCustody,

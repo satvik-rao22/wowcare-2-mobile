@@ -1,4 +1,5 @@
 import 'api_constants.dart';
+import 'api_paths_uat.dart';
 
 // Legacy flat paths (no microservice segment) — kept for reference only; do not use.
 // import 'api_constants.dart';
@@ -131,6 +132,7 @@ class ApiPaths {
   /// Maps [path] to [ApiMicroservices] for [ApiConstants.baseUrlForMicroservice].
   /// Paths do not include the MS name in the URL.
   static String microserviceKeyFromPath(String path) {
+    if (ApiConstants.isUat) return ApiPathsUat.microserviceKeyFromPath(path);
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
@@ -184,13 +186,15 @@ class ApiPaths {
 
   /// Full URL: host from [ApiConstants.baseUrlForMicroservice] + [path].
   static String url(String path) {
+    if (ApiConstants.isUat) return ApiPathsUat.url(path);
     final p = path.startsWith('/') ? path : '/$path';
     final ms = microserviceKeyFromPath(p);
     return '${ApiConstants.baseUrlForMicroservice(ms)}$p';
   }
 
   /// Same as [url]; the [baseUrl] argument is ignored (kept for call-site compatibility).
-  static String urlWithBase(String path, String baseUrl) => url(path);
+  static String urlWithBase(String path, String baseUrl) =>
+      ApiConstants.isUat ? ApiPathsUat.urlWithBase(path, baseUrl) : url(path);
 
   // —— Auth (user host) ——
   static const String authLogin = '/api/v1/auth/login';

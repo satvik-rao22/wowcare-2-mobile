@@ -204,6 +204,7 @@ abstract class StudentRepository {
     required String code,
     required String studentCode,
   });
+
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

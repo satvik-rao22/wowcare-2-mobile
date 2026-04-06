@@ -1,3 +1,5 @@
+import 'api_constants_uat.dart';
+
 // Previous multi-port devtunnel layout (user/school/classroom/staff/student).
 // class ApiConstants {
 //   ApiConstants._();
@@ -58,6 +60,7 @@ abstract final class ApiMicroservices {
   static const String classroom = 'classroom';
   static const String attendance = 'attendance';
   static const String activity = 'activity';
+  static const String document = 'document';
 }
 
 // UAT (single host for all REST) — swap back in when pointing at production/UAT.
@@ -128,39 +131,57 @@ abstract final class ApiMicroservices {
 class ApiConstants {
   ApiConstants._();
 
-  /// User MS (8086)
-  static const String baseUrl = 'https://qs176zl8-8086.inc1.devtunnels.ms';
+  /// Build-time environment selector.
+  /// Set with: `--dart-define=ENVIRONMENT=UAT` (otherwise defaults to LOCAL).
+  static const String _environment =
+      String.fromEnvironment('ENVIRONMENT', defaultValue: 'LOCAL');
 
-  /// Student MS (8085)
-  static const String studentBaseUrl =
-      'https://qs176zl8-8085.inc1.devtunnels.ms';
+  static bool get isUat => _environment.toUpperCase() == 'UAT';
 
-  /// Classroom MS (8082)
-  static const String classroomBaseUrl =
-      'https://qs176zl8-8082.inc1.devtunnels.ms';
+  /// User MS (LOCAL devtunnel) or UAT base host.
+  static String get baseUrl => isUat
+      ? ApiConstantsUat.baseUrl
+      : 'https://qs176zl8-8086.inc1.devtunnels.ms';
 
-  /// Staff MS (8083)
-  static const String staffBaseUrl = 'https://qs176zl8-8083.inc1.devtunnels.ms';
+  /// Student MS (LOCAL devtunnel) or UAT base host.
+  static String get studentBaseUrl => isUat
+      ? ApiConstantsUat.studentBaseUrl
+      : 'https://qs176zl8-8085.inc1.devtunnels.ms';
 
-  /// School / organization MS (8081)
-  static const String schoolMs = 'https://qs176zl8-8081.inc1.devtunnels.ms';
+  /// Classroom MS (LOCAL devtunnel) or UAT base host.
+  static String get classroomBaseUrl => isUat
+      ? ApiConstantsUat.classroomBaseUrl
+      : 'https://qs176zl8-8082.inc1.devtunnels.ms';
 
-  /// Attendance — API base with path prefix (adjust if attendance runs on another tunnel).
-  static const String attendanceBaseUrl =
-      'https://qs176zl8-8083.inc1.devtunnels.ms/attendance';
+  /// Staff MS (LOCAL devtunnel) or UAT base host.
+  static String get staffBaseUrl => isUat
+      ? ApiConstantsUat.staffBaseUrl
+      : 'https://qs176zl8-8083.inc1.devtunnels.ms';
 
-  /// Activity MS (8084, context path `/wowcare-activity-ms`)
-  static const String activityBaseUrl =
-      'https://qs176zl8-8084.inc1.devtunnels.ms/wowcare-activity-ms';
+  /// School / organization MS (LOCAL devtunnel) or UAT base host.
+  static String get schoolMs =>
+      isUat ? ApiConstantsUat.schoolMs : 'https://qs176zl8-8081.inc1.devtunnels.ms';
 
-  /// Document MS — host only. Upload-session responses return a path like
-  /// `/document-ms/api/v1`; presign is **not** routed on the activity host in devtunnel.
-  /// Use the gateway tunnel that serves document-ms (e.g. **8000**), not 8082.
-  static const String documentMsBaseUrl =
-      'https://qs176zl8-8000.inc1.devtunnels.ms';
+  /// Attendance base (LOCAL devtunnel) or UAT base host.
+  static String get attendanceBaseUrl => isUat
+      ? ApiConstantsUat.attendanceBaseUrl
+      : 'https://qs176zl8-8083.inc1.devtunnels.ms/attendance';
+
+  /// Activity base (LOCAL devtunnel) or UAT base host.
+  static String get activityBaseUrl => isUat
+      ? ApiConstantsUat.activityBaseUrl
+      : 'https://qs176zl8-8084.inc1.devtunnels.ms/wowcare-activity-ms';
+
+  /// Document MS base (LOCAL devtunnel) or UAT base host.
+  ///
+  /// Root UAT constants may not define a dedicated document host; in that case we
+  /// default to the main base URL.
+  static String get documentMsBaseUrl =>
+      isUat ? ApiConstantsUat.documentMsBaseUrl : 'https://qs176zl8-8000.inc1.devtunnels.ms';
 
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {
+    if (isUat) return ApiConstantsUat.baseUrlForMicroservice(microserviceKey);
     switch (microserviceKey) {
       case ApiMicroservices.staff:
         return staffBaseUrl;
@@ -175,6 +196,8 @@ class ApiConstants {
         return attendanceBaseUrl;
       case ApiMicroservices.activity:
         return activityBaseUrl;
+      case ApiMicroservices.document:
+        return documentMsBaseUrl;
       case ApiMicroservices.user:
       default:
         return baseUrl;
