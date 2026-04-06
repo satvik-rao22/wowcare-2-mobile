@@ -47,18 +47,18 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     _pickupsFuture = _buildPickupsFuture();
   }
 
-  Future<List<StudentPickupModel>> _buildPickupsFuture() {
+  Future<List<StudentPickupModel>> _buildPickupsFuture({bool forceRefresh = false}) {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return Future.value(const <StudentPickupModel>[]);
     }
     final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-    return repo.getStudentPickups(studentCode: code);
+    return repo.getStudentPickups(studentCode: code, forceRefresh: forceRefresh);
   }
 
   Future<void> _handleRefresh() async {
     setState(() {
-      _pickupsFuture = _buildPickupsFuture();
+      _pickupsFuture = _buildPickupsFuture(forceRefresh: true);
     });
     await widget.onRefresh?.call();
     try {
@@ -157,6 +157,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           studentCode: widget.studentCode ?? '',
                           pickupCode: pickups[i].code ?? '',
                           clockPin: pickups[i].clockPin ?? '',
+                          pickupType: pickups[i].pickupType ?? '',
                           name: pickups[i].fullName.isNotEmpty
                               ? pickups[i].fullName
                               : '-',
@@ -224,6 +225,7 @@ class _PickupCard extends StatefulWidget {
     required this.studentCode,
     required this.pickupCode,
     required this.clockPin,
+    required this.pickupType,
     required this.firstName,
     required this.lastName,
     required this.rawPhoneNumber,
@@ -240,6 +242,7 @@ class _PickupCard extends StatefulWidget {
   final String studentCode;
   final String pickupCode;
   final String clockPin;
+  final String pickupType;
   final String firstName;
   final String lastName;
   final String rawPhoneNumber;
@@ -259,6 +262,14 @@ class _PickupCard extends StatefulWidget {
 }
 
 class _PickupCardState extends State<_PickupCard> {
+  String _formatPickupType(String raw) {
+    final t = raw.trim().toUpperCase();
+    if (t == 'CARPOOL') return 'Carpool';
+    if (t == 'CAREGIVER') return 'Caregiver';
+    if (t.isEmpty) return '-';
+    return t.substring(0, 1) + t.substring(1).toLowerCase();
+  }
+
   Future<void> _onEdit() async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -334,6 +345,7 @@ class _PickupCardState extends State<_PickupCard> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    final isCarpool = widget.pickupType.trim().toUpperCase() == 'CARPOOL';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -386,6 +398,27 @@ class _PickupCardState extends State<_PickupCard> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Type',
+                            style: AppTextStyles.label.copyWith(
+                              color: AppColors.primaryColor.withOpacity(0.5),
+                              fontSize: 14,
+                              letterSpacing: 14 * (-3 / 100),
+                            ),
+                          ),
+                          Text(
+                            _formatPickupType(widget.pickupType),
+                            style: AppTextStyles.value.copyWith(
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -457,14 +490,23 @@ class _PickupCardState extends State<_PickupCard> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      CustomButtonLayout(
-                        confirmButtonLabel: 'Edit',
-                        cancelButtonLabel: 'Delete',
-                        onPressedConfirm: widget.isLoading ? null : _onEdit,
-                        onPressedCancel: widget.isLoading ? null : _onDelete,
-                        isForm: false,
-                        isLoading: widget.isLoading,
-                      ),
+                      if (isCarpool)
+                        CustomButtonLayout(
+                          confirmButtonLabel: 'Delete',
+                          onPressedConfirm: widget.isLoading ? null : _onDelete,
+                          showCancelButton: false,
+                          isForm: false,
+                          isLoading: widget.isLoading,
+                        )
+                      else
+                        CustomButtonLayout(
+                          confirmButtonLabel: 'Edit',
+                          cancelButtonLabel: 'Delete',
+                          onPressedConfirm: widget.isLoading ? null : _onEdit,
+                          onPressedCancel: widget.isLoading ? null : _onDelete,
+                          isForm: false,
+                          isLoading: widget.isLoading,
+                        ),
                       const SizedBox(height: 12),
                     ],
                   ),

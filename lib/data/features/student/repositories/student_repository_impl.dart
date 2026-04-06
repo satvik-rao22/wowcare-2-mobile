@@ -21,6 +21,14 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   final StudentRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
 
+  /// Raw guardians list for a school (includes email/mobile/code).
+  /// Not part of the domain interface; used by UI flows that need full guardian details.
+  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+    required String schoolCode,
+  }) {
+    return _remoteDataSource.getGuardiansBySchool(schoolCode: schoolCode);
+  }
+
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
   static String _studentListCacheKey(
     String schoolCode, {
@@ -335,22 +343,25 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
 
   Future<List<StudentPickupModel>> getStudentPickups({
     required String studentCode,
+    bool forceRefresh = false,
   }) async {
-    // Try cache first
-    final cached =
-        await _cacheManager.loadCache(_studentPickupsCacheKey(studentCode));
-    if (cached != null) {
-      final list = (cached['items'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
-          .map(StudentPickupModel.fromJson)
-          .toList(growable: false);
-      if (list.isNotEmpty) {
-        // Older cached payloads may not include pickup code. If so, bypass cache
-        // so edit flow can always call PATCH /pickup/{code}.
-        final hasMissingCode = list.any(
-          (p) => (p.code ?? '').trim().isEmpty,
-        );
-        if (!hasMissingCode) return list;
+    // Try cache first unless caller explicitly requests a fresh network fetch.
+    if (!forceRefresh) {
+      final cached =
+          await _cacheManager.loadCache(_studentPickupsCacheKey(studentCode));
+      if (cached != null) {
+        final list = (cached['items'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(StudentPickupModel.fromJson)
+            .toList(growable: false);
+        if (list.isNotEmpty) {
+          // Older cached payloads may not include pickup code. If so, bypass cache
+          // so edit flow can always call PATCH /pickup/{code}.
+          final hasMissingCode = list.any(
+            (p) => (p.code ?? '').trim().isEmpty,
+          );
+          if (!hasMissingCode) return list;
+        }
       }
     }
 
@@ -374,7 +385,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
                   'clockPin': e.clockPin,
                 'relationshipDescription': e.relationshipDescription,
                 'pickupType': e.pickupType,
-                'guardianCode': e.guardianCode,
+                'carpoolId': e.carpoolId,
                 })
             .toList(),
       },
@@ -392,7 +403,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String relation,
     String? relationshipDescription,
     required String pickupType,
-    String? guardianCode,
+    String? carpoolId,
   }) async {
     final message = await _remoteDataSource.addPickup(
       studentCode: studentCode,
@@ -403,7 +414,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       relation: relation,
       relationshipDescription: relationshipDescription,
       pickupType: pickupType,
-      guardianCode: guardianCode,
+      carpoolId: carpoolId,
     );
 
     await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
@@ -422,7 +433,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     String? clockPin,
     String? relationshipDescription,
     String? pickupType,
-    String? guardianCode,
+    String? carpoolId,
   }) async {
     final body = <String, dynamic>{
       'studentCode': studentCode,
@@ -438,8 +449,8 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         'relationshipDescription': relationshipDescription.trim(),
       if (pickupType != null && pickupType.trim().isNotEmpty)
         'pickupType': pickupType.trim(),
-      if (guardianCode != null && guardianCode.trim().isNotEmpty)
-        'guardianCode': guardianCode.trim(),
+      if (carpoolId != null && carpoolId.trim().isNotEmpty)
+        'carpoolId': carpoolId.trim(),
     };
 
     final message = await _remoteDataSource.updatePickup(

@@ -12,7 +12,7 @@ class StudentPickupModel extends Equatable {
     this.clockPin,
     this.relationshipDescription,
     this.pickupType,
-    this.guardianCode,
+    this.carpoolId,
   });
 
   final String? code;
@@ -25,7 +25,7 @@ class StudentPickupModel extends Equatable {
   final String? clockPin;
   final String? relationshipDescription;
   final String? pickupType;
-  final String? guardianCode;
+  final String? carpoolId;
 
   String get fullName => ('$firstName $lastName').trim();
 
@@ -41,7 +41,7 @@ class StudentPickupModel extends Equatable {
       clockPin: json['clockPin'] as String?,
       relationshipDescription: json['relationshipDescription'] as String?,
       pickupType: json['pickupType'] as String?,
-      guardianCode: json['guardianCode'] as String?,
+      carpoolId: (json['carpoolId'] ?? json['guardianCode']) as String?,
     );
   }
 
@@ -57,7 +57,7 @@ class StudentPickupModel extends Equatable {
         clockPin,
         relationshipDescription,
         pickupType,
-        guardianCode,
+        carpoolId,
       ];
 }
 

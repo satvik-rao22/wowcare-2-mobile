@@ -50,6 +50,17 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   bool _selectFromExisting = true;
   String? _selectedCarer;
+  String? _selectedRelation;
+
+  final List<String> _relationOptions = const [
+    'Mother',
+    'Father',
+    'Grandmother',
+    'Grandfather',
+    'Stepmother',
+    'Stepfather',
+    'Other',
+  ];
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -59,6 +70,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   // Loaded from guardian API (same as filters & AddStudentStep2Screen).
   List<String> _existingCarers = const [];
+  Map<String, Map<String, String>> _guardianDetailsByName = const {};
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final StorageService _storageService;
@@ -86,6 +98,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       _phoneController.text =
           _formatPhoneInput((widget.initialPhoneNumber ?? '').trim());
       _relationController.text = (widget.initialRelation ?? '').trim();
+      _selectedRelation = (widget.initialRelation ?? '').trim().isEmpty
+          ? null
+          : (widget.initialRelation ?? '').trim();
     } else {
       _loadExistingCarers();
     }
@@ -114,10 +129,31 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
       final names =
           await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final rawGuardians =
+          await repo.getGuardiansRawForSchool(schoolCode: schoolCode);
+      final details = <String, Map<String, String>>{};
+      for (final g in rawGuardians) {
+        final first = (g['firstName'] ?? '').toString().trim();
+        final last = (g['lastName'] ?? '').toString().trim();
+        final email = (g['email'] ?? '').toString().trim();
+        final mobile = (g['mobile'] ?? '').toString().trim();
+        final code = (g['code'] ?? '').toString().trim();
+        final display = '$first $last'.trim();
+        if (display.isEmpty) continue;
+        details[display] = <String, String>{
+          'code': code,
+          'firstName': first,
+          'lastName': last,
+          'email': email,
+          'mobile': mobile,
+        };
+      }
       if (!mounted) return;
 
       setState(() {
         _existingCarers = names;
+        _guardianDetailsByName = details;
         if (_selectedCarer != null &&
             !_existingCarers.contains(_selectedCarer)) {
           _selectedCarer = null;
@@ -138,6 +174,14 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         );
         return;
       }
+      if ((_selectedRelation ?? '').trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a relation',
+          isError: true,
+        );
+        return;
+      }
 
       if (_isSubmitting) return;
       setState(() {
@@ -149,30 +193,36 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         // as first/last name. Other fields are left blank or defaulted,
         // but the payload shape matches the normal pickup create.
         final display = _selectedCarer!.trim();
-        final parts = display.split(' ').where((e) => e.trim().isNotEmpty).toList();
-        final first = parts.isEmpty ? '' : parts.first;
-        final last = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+        final guardian = _guardianDetailsByName[display];
+        final parts =
+            display.split(' ').where((e) => e.trim().isNotEmpty).toList();
+        final first = (guardian?['firstName'] ?? '').trim().isNotEmpty
+            ? guardian!['firstName']!.trim()
+            : (parts.isEmpty ? display : parts.first);
+        final last = (guardian?['lastName'] ?? '').trim().isNotEmpty
+            ? guardian!['lastName']!.trim()
+            : (parts.length > 1 ? parts.sublist(1).join(' ').trim() : '');
 
+        final guardianCode = (guardian?['code'] ?? '').trim();
+        final email = (guardian?['email'] ?? '').trim();
+        final mobileDigits =
+            (guardian?['mobile'] ?? '').replaceAll(RegExp(r'\D'), '');
+
+        final relationEnum = (_selectedRelation ?? '')
+            .trim()
+            .toUpperCase()
+            .replaceAll(' ', '_');
         final repo =
             serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-        final schoolCode =
-            await _storageService.getString(StorageKeys.schoolCode) ?? '';
-        String? guardianCode;
-        if (schoolCode.trim().isNotEmpty) {
-          final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
-            schoolCode: schoolCode.trim(),
-          );
-          guardianCode = nameCodeMap[_selectedCarer!.trim()];
-        }
         final message = await repo.addPickup(
           studentCode: widget.studentCode,
           firstName: first,
           lastName: last,
-          email: '',
-          phoneNumber: '',
-          relation: 'OTHER',
+          email: email,
+          phoneNumber: mobileDigits,
+          relation: relationEnum.isEmpty ? 'OTHER' : relationEnum,
           pickupType: 'CARPOOL',
-          guardianCode: guardianCode,
+          carpoolId: guardianCode,
         );
 
         if (!mounted) return;
@@ -268,8 +318,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     });
 
     try {
-      final formattedPhone =
-          '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
+      final normalizedPhone = digits;
 
       final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
       final String message;
@@ -286,7 +335,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           firstName: first,
           lastName: last,
           email: email,
-          phoneNumber: formattedPhone,
+          phoneNumber: normalizedPhone,
           relation: relation,
           clockPin: (widget.initialClockPin ?? '').trim(),
           pickupType: 'CAREGIVER',
@@ -297,7 +346,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           firstName: first,
           lastName: last,
           email: email,
-          phoneNumber: formattedPhone,
+          phoneNumber: normalizedPhone,
           relation: relation,
           pickupType: 'CAREGIVER',
         );
@@ -454,6 +503,27 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             onSelect: (val) => setState(() {
                               _selectedCarer = val;
                             }),
+                          ),
+                          SizedBox(height: responsive.verticalSpacing),
+                          CustomDropdown(
+                            label: "Relation",
+                            hintText: 'Select',
+                            items: _relationOptions,
+                            selectedItem: _selectedRelation,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            showAsterisk: true,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onSelect: (val) {
+                              setState(() {
+                                _selectedRelation = val;
+                                _relationController.text = (val ?? '').trim();
+                              });
+                            },
                           ),
                         ] else ...[
                           Row(
