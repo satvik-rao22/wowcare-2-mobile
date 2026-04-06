@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
@@ -131,7 +132,7 @@ class _EditStudentPhysicalExamScreenState
       CoreUtils.logApiError(e.toString());
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Failed to add physical exam',
+        message: ApiErrorHandler.extractErrorMessage(e),
         isError: true,
       );
     } finally {

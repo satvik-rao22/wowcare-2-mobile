@@ -252,6 +252,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final relation = _relationController.text.trim();
+    final normalizedRelation = _toRelationEnum(relation);
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -336,7 +337,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           lastName: last,
           email: email,
           phoneNumber: normalizedPhone,
-          relation: relation,
+          relation: normalizedRelation,
           clockPin: (widget.initialClockPin ?? '').trim(),
           pickupType: 'CAREGIVER',
         );
@@ -347,7 +348,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           lastName: last,
           email: email,
           phoneNumber: normalizedPhone,
-          relation: relation,
+          relation: normalizedRelation,
           pickupType: 'CAREGIVER',
         );
       }
@@ -719,6 +720,11 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     final take = digits.length >= 10 ? 10 : digits.length;
     final d = digits.substring(0, take);
     return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
+  }
+
+  String _toRelationEnum(String raw) {
+    final normalized = raw.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '_');
+    return normalized.isEmpty ? 'OTHER' : normalized;
   }
 }
 

@@ -52,6 +52,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late Future<StudentHealthModel?> _healthFuture;
   late String _displayName;
   late String _displayClassroom;
+  /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
+  String? _profileStatusUpper;
 
   @override
   void initState() {
@@ -80,7 +82,128 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final nextClassroom = (profile.classroom ?? '').trim();
       _displayClassroom =
           nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
+      _profileStatusUpper = profile.status.trim().toUpperCase();
     });
+  }
+
+  void _showHealthDetailsDialog(StudentHealthModel health) {
+    final items = <Widget>[];
+    void addLine(String text, Widget leading) {
+      final t = text.trim();
+      if (t.isEmpty) return;
+      items.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leading,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  t,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xff573353),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final med = (health.medications ?? '').trim();
+    if (med.isNotEmpty) {
+      addLine(
+        med,
+        SvgPicture.asset(
+          MediaRes.healthIcon,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+    final allergy = (health.allergy ?? '').trim();
+    if (allergy.isNotEmpty) {
+      addLine(
+        allergy,
+        SvgPicture.asset(
+          MediaRes.alertIcon,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+    final diet = (health.dietRestrictions ?? '').trim();
+    if (diet.isNotEmpty) {
+      addLine(
+        diet,
+        Image.asset(
+          MediaRes.foodIcon2,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+    if (health.photoPermission == false) {
+      addLine(
+        'Photo permission not granted',
+        SvgPicture.asset(
+          MediaRes.cameraIcon,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+
+    if (items.isEmpty) return;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Details',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xff573353),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...items,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<StudentHealthModel?> _buildHealthFuture() async {
@@ -245,6 +368,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Widget _buildStudentProfileCard(BuildContext context) {
+    final isUpcoming = (_profileStatusUpper ?? '') == 'UPCOMING';
     return Card(
       margin: EdgeInsets.zero,
       color: Colors.white,
@@ -264,7 +388,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         name: _displayName,
                         size: 90,
                         fontSize: 24,
-                        statusColor: const Color(0xFF00B115),
+                        statusColor: isUpcoming
+                            ? const Color(0xFFFFC107)
+                            : const Color(0xFF00B115),
+                        statusTooltip:
+                            isUpcoming ? 'Upcoming student' : 'Active',
                       ),
                       Positioned(
                         right: -2,
@@ -350,43 +478,51 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                             return const SizedBox.shrink();
                           }
 
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              if (hasDietRestrictions)
-                                Image.asset(
-                                  MediaRes.foodIcon2,
-                                  height: 20,
-                                  width: 20,
-                                ),
-                              if (hasMedication)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: SvgPicture.asset(
-                                    MediaRes.healthIcon,
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              final h = health;
+                              if (h == null) return;
+                              _showHealthDetailsDialog(h);
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                if (hasDietRestrictions)
+                                  Image.asset(
+                                    MediaRes.foodIcon2,
                                     height: 20,
                                     width: 20,
                                   ),
-                                ),
-                              if (hasAllergy)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: SvgPicture.asset(
-                                    MediaRes.alertIcon,
-                                    height: 20,
-                                    width: 20,
+                                if (hasMedication)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: SvgPicture.asset(
+                                      MediaRes.healthIcon,
+                                      height: 20,
+                                      width: 20,
+                                    ),
                                   ),
-                                ),
-                              if (isPhotoPermissionOff)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4),
-                                  child: SvgPicture.asset(
-                                    MediaRes.cameraIcon,
-                                    height: 20,
-                                    width: 20,
+                                if (hasAllergy)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: SvgPicture.asset(
+                                      MediaRes.alertIcon,
+                                      height: 20,
+                                      width: 20,
+                                    ),
                                   ),
-                                ),
-                            ],
+                                if (isPhotoPermissionOff)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: SvgPicture.asset(
+                                      MediaRes.cameraIcon,
+                                      height: 20,
+                                      width: 20,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           );
                         },
                       ),

@@ -16,6 +16,8 @@ class DocumentImageWidget extends StatefulWidget {
   final Widget? errorWidget;
   final double? fontSize;
   final Color? statusColor; // optional small status dot color
+  /// When set, shown in the status-dot tooltip instead of the default staff messages.
+  final String? statusTooltip;
 
   const DocumentImageWidget({
     Key? key,
@@ -30,6 +32,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.errorWidget,
     this.fontSize,
     this.statusColor,
+    this.statusTooltip,
   }) : super(key: key);
 
   @override
@@ -95,7 +98,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           right: 2,
           top: 2,
           child: Tooltip(
-            message: _statusTooltipMessage(widget.statusColor!),
+            message: widget.statusTooltip ??
+                _statusTooltipMessage(widget.statusColor!),
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(

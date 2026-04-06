@@ -173,7 +173,7 @@ abstract class StudentRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
-  /// Updates the student's siblings via `PUT /api/v1/student/{studentCode}/siblings`.
+  /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
   Future<String> updateStudentSiblings({
     required String studentCode,
     required List<String> siblingCodes,
@@ -227,6 +227,8 @@ abstract class StudentRemoteDataSource {
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
+    String? relation,
+    String? relationDescription,
   });
 
   /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
@@ -238,6 +240,7 @@ abstract class StudentRemoteDataSource {
   /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.
   Future<String> deleteGuardian({
     required String code,
+    required String studentCode,
   });
 
   /// Fetches tags for a school via `GET /api/v1/tags`.
@@ -401,9 +404,14 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       ApiConstants.studentBaseUrl,
     );
 
+    // Spring expects repeated query keys for collections, e.g.
+    // tagCodes=T1&tagCodes=T2 — not bracket or CSV serialization.
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: Options(
+        listFormat: ListFormat.multi,
+      ),
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1185,6 +1193,8 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
+    String? relation,
+    String? relationDescription,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.guardianExisting,
@@ -1196,6 +1206,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       queryParameters: <String, dynamic>{
         'guardianCode': guardianCode,
         'studentCode': studentCode,
+        if (relation != null && relation.trim().isNotEmpty)
+          'relation': relation.trim(),
+        if (relationDescription != null &&
+            relationDescription.trim().isNotEmpty)
+          'relationDescription': relationDescription.trim(),
       },
     );
 
@@ -1233,13 +1248,19 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   @override
   Future<String> deleteGuardian({
     required String code,
+    required String studentCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       '${ApiPaths.guardian}/$code',
       ApiConstants.studentBaseUrl,
     );
 
-    final response = await _client.delete<dynamic>(endpoint);
+    final response = await _client.delete<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'studentCode': studentCode,
+      },
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected guardian delete API response format');

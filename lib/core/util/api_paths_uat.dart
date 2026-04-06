@@ -25,7 +25,6 @@ class ApiPathsUat {
       'users',
       'school-users',
       'organization-admins',
-      'physicians',
       'guardian-user',
       'guardian',
     },
@@ -48,6 +47,7 @@ class ApiPathsUat {
       'student-documents',
       'student-tags',
       'regular-schedules',
+      'physicians',
       'tags',
       'guardian',
       'pickup',
@@ -87,7 +87,6 @@ class ApiPathsUat {
       case 'users':
       case 'school-users':
       case 'organization-admins':
-      case 'physicians':
       case 'guardian-user':
         return ApiMicroservices.user;
       case 'schools':
@@ -106,6 +105,7 @@ class ApiPathsUat {
       case 'student-documents':
       case 'student-tags':
       case 'regular-schedules':
+      case 'physicians':
       case 'tags':
       case 'guardian':
       case 'pickup':

@@ -37,6 +37,8 @@ class StudentFamilyTabCard extends StatefulWidget {
 }
 
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
+  static const int _maxParentsPerStudent = 4;
+
   late Future<List<Map<String, dynamic>>> _guardiansFuture;
   bool _isMutating = false;
 
@@ -93,6 +95,21 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         isError: true,
       );
       return;
+    }
+
+    final repo = serviceLocator<StudentRepository>();
+    if (repo is StudentRepositoryImpl) {
+      final existing = await repo.getStudentGuardians(studentCode: studentCode);
+      if (existing.length >= _maxParentsPerStudent) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'You can add up to $_maxParentsPerStudent parents or guardians per student.',
+          isError: true,
+        );
+        return;
+      }
     }
 
     final result = await Navigator.of(context).push<bool>(

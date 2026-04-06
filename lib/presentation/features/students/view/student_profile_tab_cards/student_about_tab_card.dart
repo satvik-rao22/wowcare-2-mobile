@@ -67,6 +67,23 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     return value;
   }
 
+  String? _prettyGender(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    switch (raw.trim().toUpperCase()) {
+      case 'MALE':
+        return 'Male';
+      case 'FEMALE':
+        return 'Female';
+      case 'OTHER':
+      case 'NON_BINARY':
+      case 'NONBINARY':
+      case 'PREFER_NOT_TO_SAY':
+        return 'Other';
+      default:
+        return raw;
+    }
+  }
+
   String _formatAddress(Map<String, dynamic> address) {
     final parts = <String>[];
     if (address['street'] != null && address['street'].toString().isNotEmpty) {
@@ -265,6 +282,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 initialFirstName: profile.firstName,
                 initialLastName: profile.lastName,
                 initialStatus: statusDisplay,
+                initialGender: profile.gender,
                 initialClassroom: profile.classroom ?? '',
                 initialBirthDate: birthDate,
                 initialNotes: profile.notes ?? '',
@@ -334,7 +352,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'Gender',
-          value: _getValueOrDash(widget.studentProfile?.gender),
+          value: _getValueOrDash(_prettyGender(widget.studentProfile?.gender)),
         ),
 
         ProfileField(
@@ -745,13 +763,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 ],
               ),
             ],
-          ),
-        ),
-
-        ProfileField(
-          label: 'School leaving Date',
-          value: _formatDate(
-            widget.studentProfile?.importantDates?.schoolLeavingDate,
           ),
         ),
 

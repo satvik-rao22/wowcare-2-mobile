@@ -151,7 +151,23 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
     final cubit = context.read<StudentDocumentCubit>();
 
-    final documentType = _selectedDocumentType!.toUpperCase().replaceAll(' ', '_');
+    String _toDocumentTypeEnum(String uiValue) {
+      switch (uiValue.trim()) {
+        case 'Birth Certificate':
+          return 'BIRTH_CERTIFICATE';
+        case 'Registration Forms':
+          return 'REGISTRATION_FORM';
+        case 'Special Program Forms':
+          return 'SPECIAL_PROGRAM_FORM';
+        case 'Health Forms':
+          return 'HEALTH_FORM';
+        case 'Other':
+        default:
+          return 'OTHER';
+      }
+    }
+
+    final documentType = _toDocumentTypeEnum(_selectedDocumentType!);
 
     final payload = (
       studentCode: widget.studentCode,

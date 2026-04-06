@@ -11,6 +11,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
@@ -65,7 +66,7 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
-        // NOTE: Do not call tags API for now (as requested).
+        _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
       }
@@ -85,6 +86,26 @@ class _StudentScreenState extends State<StudentScreen> {
     context.read<StudentCubit>().updateSearch(query);
     // Trigger search API on each keystroke without dropping rapid updates.
     context.read<StudentCubit>().refresh(ignoreRefreshingGuard: true);
+  }
+
+  Future<void> _loadTagNameCodeMap() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final map = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _tagNameToCode = map;
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
   }
 
   Future<void> _loadGuardianNameCodeMap() async {
@@ -131,6 +152,7 @@ class _StudentScreenState extends State<StudentScreen> {
     final studentCubit = context.read<StudentCubit>();
     await Future.wait([
       studentCubit.refreshWithCacheReset(),
+      _loadTagNameCodeMap(),
       _loadGuardianNameCodeMap(),
       _loadStudentCounts(),
     ]);
@@ -244,6 +266,7 @@ class _StudentScreenState extends State<StudentScreen> {
               initialFirstName: profile.firstName,
               initialLastName: profile.lastName,
               initialStatus: statusDisplay,
+              initialGender: profile.gender,
               initialClassroom: profile.classroom ?? '',
               initialBirthDate: birthDate,
               initialNotes: profile.notes ?? '',

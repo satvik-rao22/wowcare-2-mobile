@@ -57,7 +57,7 @@ abstract class StudentRepository {
     required Map<String, dynamic> fields,
   });
 
-  /// Updates the student's siblings via `/api/v1/student/{studentCode}/siblings`.
+  /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
   Future<String> updateStudentSiblings({
     required String studentCode,
     required List<String> siblingCodes,
@@ -188,6 +188,8 @@ abstract class StudentRepository {
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
+    String? relation,
+    String? relationDescription,
   });
 
   /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.

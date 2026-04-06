@@ -38,6 +38,8 @@ class StudentPickupTabCard extends StatefulWidget {
 }
 
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
+  static const int _maxPickupsPerStudent = 4;
+
   late Future<List<StudentPickupModel>> _pickupsFuture;
   bool _isMutating = false;
 
@@ -96,6 +98,20 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                       onTap: () async {
                         final code = widget.studentCode ?? '';
                         if (code.isEmpty) return;
+                        final repo =
+                            serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+                        final current =
+                            await repo.getStudentPickups(studentCode: code);
+                        if (current.length >= _maxPickupsPerStudent) {
+                          if (!mounted) return;
+                          CoreUtils.showTopSnackBar(
+                            context: context,
+                            message:
+                                'You can add up to $_maxPickupsPerStudent pickup contacts per student.',
+                            isError: true,
+                          );
+                          return;
+                        }
                         final result = await Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => AddPickupScreen(studentCode: code),

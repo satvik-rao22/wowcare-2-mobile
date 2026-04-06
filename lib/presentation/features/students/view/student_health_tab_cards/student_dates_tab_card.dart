@@ -46,14 +46,35 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     _physicalExamFuture = _buildPhysicalExamFuture();
   }
 
-  Future<List<StudentPhysicalExamModel>> _buildPhysicalExamFuture() async {
+  Future<List<StudentPhysicalExamModel>> _buildPhysicalExamFuture({
+    bool forceRefresh = false,
+  }) async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return const <StudentPhysicalExamModel>[];
     }
 
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-    return repo.getStudentPhysicalExams(studentCode: code);
+    final repo = serviceLocator<StudentRepository>();
+    if (repo is! StudentRepositoryImpl) {
+      return const <StudentPhysicalExamModel>[];
+    }
+    return repo.getStudentPhysicalExams(
+      studentCode: code,
+      forceRefresh: forceRefresh,
+    );
+  }
+
+  /// Reload exams from API (bypasses cache). Use after add/edit/delete or pull-to-refresh.
+  Future<void> _reloadPhysicalExams() async {
+    setState(() {
+      _physicalExamFuture = _buildPhysicalExamFuture(forceRefresh: true);
+      _hasShownErrorSnackBar = false;
+    });
+    try {
+      await _physicalExamFuture;
+    } catch (_) {
+      // Errors surface via FutureBuilder.
+    }
   }
 
   String _formatExamDate(String? isoDate) {
@@ -313,16 +334,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                   );
                                   Navigator.of(context).pop();
                                   if (!mounted) return;
-                                  setState(() {
-                                    _physicalExamFuture =
-                                        (serviceLocator<StudentRepository>()
-                                                as StudentRepositoryImpl)
-                                            .getStudentPhysicalExams(
-                                      studentCode: studentCode,
-                                      forceRefresh: true,
-                                    );
-                                    _hasShownErrorSnackBar = false;
-                                  });
+                                  await _reloadPhysicalExams();
                                 } catch (e) {
                                   if (!context.mounted) return;
                                   CoreUtils.logApiError(e.toString());
@@ -354,24 +366,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   @override
   Widget build(BuildContext context) {
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _physicalExamFuture =
-              serviceLocator<StudentRepository>() is StudentRepositoryImpl
-                  ? (serviceLocator<StudentRepository>() as StudentRepositoryImpl)
-                      .getStudentPhysicalExams(
-                      studentCode: widget.studentCode ?? '',
-                      forceRefresh: true,
-                    )
-                  : _buildPhysicalExamFuture();
-          _hasShownErrorSnackBar = false;
-        });
-        try {
-          await _physicalExamFuture;
-        } catch (_) {
-          // handled in FutureBuilder
-        }
-      },
+      onRefresh: _reloadPhysicalExams,
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -432,7 +427,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         : () async {
                       final code = widget.studentCode;
                       if (code == null || code.isEmpty) return;
-                      await Navigator.of(context).push<bool>(
+                      final result = await Navigator.of(context).push<bool>(
                         MaterialPageRoute(
                           builder: (_) => EditStudentPhysicalExamScreen(
                             studentCode: code,
@@ -440,6 +435,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           ),
                         ),
                       );
+                      if (!mounted || result != true) return;
+                      await _reloadPhysicalExams();
                     },
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

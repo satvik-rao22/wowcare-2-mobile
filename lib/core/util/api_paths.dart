@@ -284,7 +284,8 @@ class ApiPaths {
   static const String studentRegularSchedules =
       '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
-  static String studentSiblings(String code) => '$studentList/$code/siblings';
+  /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`
+  static String studentSiblings(String code) => '$studentList/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
   static String studentDeactivate(String code) =>
       '$studentList/$code/deactivate';

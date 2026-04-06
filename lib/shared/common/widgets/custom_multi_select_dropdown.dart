@@ -92,7 +92,11 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   void _closeDropdown() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-
+    if (mounted) {
+      setState(() {
+        isDropdownOpen = false;
+      });
+    }
 
   }
 
@@ -237,22 +241,22 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         ? widget.hintText
         : '${_localSelectedItems.length} $displaySuffix';
 
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.label != null)
-            Text(
-              widget.label!,
-              style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.label != null)
+          Text(
+            widget.label!,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.5),
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
             ),
-          if (widget.label != null) const SizedBox(height: 8),
-          GestureDetector(
+          ),
+        if (widget.label != null) const SizedBox(height: 8),
+        CompositedTransformTarget(
+          link: _layerLink,
+          child: GestureDetector(
             key: _fieldKey,
             onTap: _toggleDropdown,
             child: Container(
@@ -281,8 +285,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                     ),
                   ),
                   Icon(
-                    isDropdownOpen 
-                        ? Icons.keyboard_arrow_up 
+                    isDropdownOpen
+                        ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
                     size: 24,
                   ),
@@ -290,8 +294,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

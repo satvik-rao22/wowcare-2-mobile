@@ -876,7 +876,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       final first = (item['firstName'] ?? '').toString().trim();
       final last = (item['lastName'] ?? '').toString().trim();
       final email = (item['email'] ?? '').toString().trim();
-      final code = (item['code'] ?? '').toString().trim();
+      final code = (item['guardianCode'] ?? item['code'] ?? '')
+          .toString()
+          .trim();
 
       String display;
       if (first.isEmpty && last.isEmpty) {
@@ -897,10 +899,14 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
+    String? relation,
+    String? relationDescription,
   }) async {
     final message = await _remoteDataSource.linkExistingGuardian(
       guardianCode: guardianCode,
       studentCode: studentCode,
+      relation: relation,
+      relationDescription: relationDescription,
     );
 
     // Existing guardian linked – invalidate guardians cache so next load is fresh.
@@ -930,7 +936,10 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String code,
     required String studentCode,
   }) async {
-    final message = await _remoteDataSource.deleteGuardian(code: code);
+    final message = await _remoteDataSource.deleteGuardian(
+      code: code,
+      studentCode: studentCode,
+    );
 
     await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
 

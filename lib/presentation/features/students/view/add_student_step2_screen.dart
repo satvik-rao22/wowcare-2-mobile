@@ -251,6 +251,13 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final nameCodeMap =
         await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
 
+    final relationLabel = (_selectedRelation ?? '').trim();
+    final relationOther = _relationOtherController.text.trim();
+    final relationEnum = relationLabel.toUpperCase().replaceAll(' ', '_');
+    final relationDescription = relationLabel == 'Other' && relationOther.isNotEmpty
+        ? relationOther
+        : null;
+
     for (final selected in _selectedExistingParents) {
       final key = selected.trim();
       if (key.isEmpty) continue;
@@ -260,6 +267,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       await repo.linkExistingGuardian(
         guardianCode: guardianCode,
         studentCode: studentCode,
+        relation: relationEnum,
+        relationDescription: relationDescription,
       );
     }
   }
@@ -301,6 +310,23 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please select at least one parent',
+          isError: true,
+        );
+        return;
+      }
+      if (_selectedRelation == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a relation',
+          isError: true,
+        );
+        return;
+      }
+      if (_selectedRelation == 'Other' &&
+          _relationOtherController.text.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please specify the relation',
           isError: true,
         );
         return;
@@ -661,6 +687,43 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         });
                                       },
                                     ),
+                                    SizedBox(height: responsive.verticalSpacing),
+                                    CustomDropdown(
+                                      label: "Relation",
+                                      hintText: 'Select',
+                                      items: _relationOptions,
+                                      selectedItem: _selectedRelation,
+                                      labelStyle: TextStyle(
+                                        fontSize: responsive.labelFontSize,
+                                        fontFamily: "Manrope",
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xff573353),
+                                      ),
+                                      showAsterisk: true,
+                                      labelBottomSpacing:
+                                          responsive.isTablet ? 8.0 : 6.0,
+                                      onSelect: (val) {
+                                        setState(() {
+                                          _selectedRelation = val;
+                                        });
+                                      },
+                                    ),
+                                    if (_showRelationOther) ...[
+                                      SizedBox(height: responsive.verticalSpacing),
+                                      _buildInputField(
+                                        "Specify Relation",
+                                        "E.g. Grandmother",
+                                        _relationOtherController,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r"[A-Za-z\s\-']"),
+                                          ),
+                                          LengthLimitingTextInputFormatter(50),
+                                          NameCapitalizationFormatter(),
+                                          TrimFormatter(),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ] else ...[

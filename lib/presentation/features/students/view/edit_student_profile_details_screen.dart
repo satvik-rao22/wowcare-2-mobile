@@ -44,6 +44,7 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialSiblings = const [],
     this.initialLegalCustodians = const [],
     this.initialSubsidy = false,
+    this.initialGender,
   });
   static const String routeName = '/edit-student-profile-details-screen';
 
@@ -64,6 +65,8 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final List<String> initialSiblings;
   final List<String> initialLegalCustodians;
   final bool initialSubsidy;
+  /// Raw API value e.g. MALE, FEMALE, or null.
+  final String? initialGender;
 
   @override
   _EditStudentProfileDetailsScreenState createState() => _EditStudentProfileDetailsScreenState();
@@ -90,7 +93,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
-  String? _selectedAddressType;
 
   // API-backed options and mappings
   List<String> _availableTagNames = [];
@@ -102,7 +104,12 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   List<String> _availableGuardianNames = [];
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
-  final List<String> _addressTypeOptions = ['Current address', 'Permanent address', 'Other'];
+  final List<String> _genderOptions = const [
+    'Male',
+    'Female',
+    'Other',
+  ];
+  String? _selectedGender;
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
   // Country is fixed to United States for this form.
@@ -114,6 +121,38 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   static final RegExp _zipDigitsRegex = RegExp(r'^\d{5}(\d{4})?$'); // 5 or 9 digits (ZIP / ZIP+4)
 
   static String _digitsOnly(String input) => input.replaceAll(RegExp(r'\D'), '');
+
+  static String? _genderDisplayFromApi(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    switch (raw.trim().toUpperCase()) {
+      case 'MALE':
+        return 'Male';
+      case 'FEMALE':
+        return 'Female';
+      case 'OTHER':
+      case 'NON_BINARY':
+      case 'NONBINARY':
+      case 'PREFER_NOT_TO_SAY':
+        return 'Other';
+      default:
+        return null;
+    }
+  }
+
+  /// API expects uppercase: MALE, FEMALE, OTHER.
+  static String? _genderApiFromDisplay(String? display) {
+    if (display == null || display.trim().isEmpty) return null;
+    switch (display) {
+      case 'Male':
+        return 'MALE';
+      case 'Female':
+        return 'FEMALE';
+      case 'Other':
+        return 'OTHER';
+      default:
+        return null;
+    }
+  }
 
   @override
   void initState() {
@@ -152,8 +191,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     // Accept legacy stored formats: "12345", "123456789", or "12345-6789"
     final initialZipRaw = widget.initialZipCode ?? '';
     _zipCodeController.text = _formatUsZipForDisplay(initialZipRaw);
-    // Default address type to CURRENT; can be changed via dropdown.
-    _selectedAddressType = _addressTypeOptions.first;
+
+    final g = _genderDisplayFromApi(widget.initialGender);
+    _selectedGender = g != null && _genderOptions.contains(g) ? g : null;
 
     // Load dynamic dropdown data
     _loadTags();
@@ -492,15 +532,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (_selectedAddressType == null || _selectedAddressType!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Address type is required',
-        isError: true,
-      );
-      return;
-    }
-
     setState(() {
       _isSubmitting = true;
     });
@@ -573,6 +604,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       final repository = serviceLocator<StudentRepository>();
 
       // 1) Core profile PATCH /api/v1/student/{code}/profile
+      final genderApi = _genderApiFromDisplay(_selectedGender);
+
       final profilePayload = <String, dynamic>{
         'firstName': first,
         'lastName': last,
@@ -581,7 +614,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         'notes': _notesController.text.trim(),
         if (fteNumber != null) 'fte': fteNumber,
         'subsidy': subsidy,
-        // gender and profilePhotoUrl omitted for now (not in this form)
+        if (genderApi != null) 'gender': genderApi.toUpperCase(),
         'classroom': <String, dynamic>{
           'code': classroomCode,
           'name': selectedClassroomName,
@@ -594,19 +627,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
 
       // 2) Address PATCH /api/v1/student/{studentCode}/address
-      String _mapAddressTypeToApiValue(String uiLabel) {
-        switch (uiLabel.toLowerCase()) {
-          case 'current address':
-            return 'CURRENT';
-          case 'permanent address':
-            // Keep backend's enum spelling.
-            return 'PERMENENT';
-          case 'other':
-          default:
-            return 'OTHER';
-        }
-      }
-
       final addressPayload = <String, dynamic>{
         'line1': street,
         'line2': _street2Controller.text.trim(),
@@ -616,7 +636,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         'country': countryCode,
         // Backend uses postalCode; UI display layer will format as needed.
         'postalCode': zipDigits,
-        'addressType': _mapAddressTypeToApiValue(_selectedAddressType!),
+        'addressType': 'CURRENT',
       };
 
       await repository.updateStudentAddress(
@@ -845,6 +865,14 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
+                          "Gender",
+                          "Select",
+                          _genderOptions,
+                          _selectedGender,
+                          (v) => setState(() => _selectedGender = v),
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildCustomDropdown(
                           "Classroom",
                           (classroomState.isLoading && classroomOptions.isEmpty)
                               ? "Loading..."
@@ -898,15 +926,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State Subsidy", "Select", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
-                        SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown(
-                          "Address Type",
-                          "Select",
-                          _addressTypeOptions,
-                          _selectedAddressType,
-                          (v) => setState(() => _selectedAddressType = v),
-                          isRequired: true,
-                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Street",
