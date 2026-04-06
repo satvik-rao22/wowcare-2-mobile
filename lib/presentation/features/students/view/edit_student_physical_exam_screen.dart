@@ -51,6 +51,8 @@ class _EditStudentPhysicalExamScreenState
         _status = 'Scheduled';
       } else if (upper == 'DUE') {
         _status = 'Due';
+      } else if (upper == 'OVERDUE') {
+        _status = 'Overdue';
       } else {
         _status = initial;
       }
@@ -111,6 +113,11 @@ class _EditStudentPhysicalExamScreenState
           apiStatus = 'SCHEDULED';
           break;
         case 'DUE':
+          apiStatus = 'DUE';
+          break;
+        case 'OVERDUE':
+          apiStatus = 'OVERDUE';
+          break;
         default:
           apiStatus = 'DUE';
       }

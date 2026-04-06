@@ -97,6 +97,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
         return 'Completed';
       case 'DUE':
         return 'Due';
+      case 'OVERDUE':
+        return 'Overdue';
       default:
         final lower = raw.toLowerCase();
         return lower.isEmpty ? raw : lower[0].toUpperCase() + lower.substring(1);
@@ -242,7 +244,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               child: _DialogDropdown(
                                 label: 'Status *',
                                 value: statusUi,
-                                options: const ['Due', 'Scheduled', 'Completed'],
+                                options: const [
+                                  'Due',
+                                  'Overdue',
+                                  'Scheduled',
+                                  'Completed',
+                                ],
                                 onChanged: (v) =>
                                     setLocalState(() => statusUi = v),
                               ),
@@ -286,7 +293,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             _DialogDropdown(
                               label: 'Status *',
                               value: statusUi,
-                              options: const ['Due', 'Scheduled', 'Completed'],
+                              options: const [
+                                'Due',
+                                'Overdue',
+                                'Scheduled',
+                                'Completed',
+                              ],
                               onChanged: (v) => setLocalState(() => statusUi = v),
                             ),
                           ],
@@ -301,11 +313,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         onPressedConfirm: canSave
                             ? () async {
                                 if (selectedDate == null) return;
-                                final statusApi = statusUi == 'Completed'
-                                    ? 'COMPLETED'
-                                    : statusUi == 'Scheduled'
-                                        ? 'SCHEDULED'
-                                        : 'DUE';
+                                final statusApi = switch (statusUi) {
+                                  'Completed' => 'COMPLETED',
+                                  'Scheduled' => 'SCHEDULED',
+                                  'Overdue' => 'OVERDUE',
+                                  _ => 'DUE',
+                                };
 
                                 setLocalState(() => isSaving = true);
                                 try {
@@ -520,15 +533,20 @@ class _PhysicalExamCard extends StatelessWidget {
 
   Color _statusLabelColor() {
     final upper = status.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0xFF38C820);
-    if (upper == 'DUE') return const Color(0xFFEABA00);
-    return AppColors.primaryColor.withOpacity(0.8);
+    // Completed — dark forest green on mint (design reference)
+    if (upper == 'COMPLETED') return const Color(0xFF1B5E20);
+    // Due / Overdue (API DUE / OVERDUE) — dark red on light rose
+    if (upper == 'DUE' || upper == 'OVERDUE') return const Color(0xFFC62828);
+    // Scheduled — deeper purple on lavender
+    if (upper == 'SCHEDULED') return const Color(0xFF6A1B9A);
+    return AppColors.primaryColor.withOpacity(0.85);
   }
 
   Color _statusBgColor() {
     final upper = status.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0x1A38C820);
-    if (upper == 'DUE') return const Color(0x1AEABA00);
+    if (upper == 'COMPLETED') return const Color(0xFFE8F5E9);
+    if (upper == 'DUE' || upper == 'OVERDUE') return const Color(0xFFFFEBEE);
+    if (upper == 'SCHEDULED') return const Color(0xFFF3E5F5);
     return const Color(0xFFF3F4FB);
   }
 
