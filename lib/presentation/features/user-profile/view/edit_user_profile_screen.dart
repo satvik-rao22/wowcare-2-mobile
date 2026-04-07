@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -13,6 +11,7 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../../../../shared/constants/location_constants.dart';
+import '../../staff/widgets/staff_form_layout.dart';
 
 class EditUserProfileScreen extends StatefulWidget {
   const EditUserProfileScreen({super.key, this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
@@ -37,7 +36,6 @@ class EditUserProfileScreen extends StatefulWidget {
 }
 
 class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -433,196 +431,162 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: Colors.white,
-        appBar: const CustomAppBar(hasBackButton: true,),
-        body: Stack(
+    return StaffFormLayout(
+      title: 'Edit My Profile',
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            Column(
+            Row(
               children: [
                 Expanded(
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: responsive.horizontalSpacing,
-                            ),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Edit My Profile',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: responsive.titleFontSize,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: responsive.isTablet ? 32.0 : 10.0),
-                          Container(
-                            width: responsive.containerWidth,
-                            margin: EdgeInsets.symmetric(
-                                horizontal: responsive.horizontalSpacing
-                            ),
-                            padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildInputField(
-                                          "First Name",
-                                          "E.g. John",
-                                          _firstNameController,
-                                          isRequired: true
-                                      ),
-                                    ),
-                                    SizedBox(width: responsive.horizontalSpacing),
-                                    Expanded(
-                                      child: _buildInputField(
-                                          "Last Name",
-                                          "E.g. Smith",
-                                          _lastNameController,
-                                          isRequired: true
-                                      ),
-                                    ),
-
-                                  ],
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Email", "E.g. Jessica@wowcare.com", _emailController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Phone Number", "E.g. (000) 000-0000", _phoneNoController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Address line 2", "E.g. Address line 2", _addressLine2Controller, isRequired: false),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("City", "Eg. Nashua", _cityController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                Opacity(
-                                  opacity: 0.8,
-                                  child: CustomDropdown(
-                                    label: "Country",
-                                    hintText: 'United States',
-                                    items: const <String>['United States'],
-                                    selectedItem: 'United States',
-                                    isEnabled: false,
-                                    showAsterisk: true,
-                                    labelStyle: TextStyle(
-                                      fontSize: responsive.labelFontSize + 1,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
-                                    ),
-                                    selectedTextStyle: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: responsive.inputFontSize,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade700,
-                                      height: 19 / 14,
-                                    ),
-                                    popupItemTextStyle: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: responsive.inputFontSize,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
-                                    ),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: responsive.isTablet ? 16.0 : 12.0,
-                                      vertical: responsive.isTablet ? 16.0 : 12.0,
-                                    ),
-                                    onSelect: null,
-                                  ),
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Zip Code", "E.g. 12345 or 12345-6789", _zipCodeController, isRequired: true),
-
-                              ],
-
-                            ),
-                          )
-                        ],
-                      ),
-                    )
+                  child: _buildInputField(
+                    "First Name",
+                    "E.g. John",
+                    _firstNameController,
+                    isRequired: true,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(width: responsive.horizontalSpacing),
+                Expanded(
+                  child: _buildInputField(
+                    "Last Name",
+                    "E.g. Smith",
+                    _lastNameController,
+                    isRequired: true,
+                  ),
+                ),
               ],
-            )
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Email",
+              "E.g. Jessica@wowcare.com",
+              _emailController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Phone Number",
+              "E.g. (000) 000-0000",
+              _phoneNoController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Street",
+              "Eg. Street no",
+              _streetController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Address line 2",
+              "E.g. Address line 2",
+              _addressLine2Controller,
+              isRequired: false,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "City",
+              "Eg. Nashua",
+              _cityController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildCustomDropdown(
+              "State",
+              "Select",
+              _stateOptions,
+              _selectedState,
+              (v) => setState(() => _selectedState = v),
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            Opacity(
+              opacity: 0.8,
+              child: CustomDropdown(
+                label: "Country",
+                hintText: 'United States',
+                items: const <String>['United States'],
+                selectedItem: 'United States',
+                isEnabled: false,
+                showAsterisk: true,
+                labelStyle: TextStyle(
+                  fontSize: responsive.labelFontSize + 1,
+                  fontFamily: "Manrope",
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xff573353),
+                ),
+                selectedTextStyle: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.inputFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                  height: 19 / 14,
+                ),
+                popupItemTextStyle: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.inputFontSize,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xff573353),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: responsive.isTablet ? 16.0 : 12.0,
+                  vertical: responsive.isTablet ? 16.0 : 12.0,
+                ),
+                onSelect: null,
+              ),
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Zip Code",
+              "E.g. 12345 or 12345-6789",
+              _zipCodeController,
+              isRequired: true,
+            ),
           ],
         ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom, left: 16, right: 16, top: 8,
+      ),
+      bottomBar: Container(
+        padding: EdgeInsets.only(
+          bottom: safeAreaBottom,
+          left: 16,
+          right: 16,
+          top: 8,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              offset: const Offset(0, -4),
+              blurRadius: 16,
+            ),
+          ],
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
+        ),
+        child: Container(
+          height: responsive.buttonHeight,
           decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
+            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
+            color: _isSubmitting ? Colors.grey[300] : null,
+            borderRadius:
+                BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : () => _saveProfileDetails(),
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+          child: TextButton(
+            onPressed: _isSubmitting ? null : () => _saveProfileDetails(),
+            child: Text(
+              'Save',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: responsive.buttonFontSize,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ),
