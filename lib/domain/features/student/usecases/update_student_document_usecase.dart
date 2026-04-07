@@ -18,6 +18,7 @@ class UpdateStudentDocumentUseCase {
     required String storagePath,
     required String mimeType,
     required int size,
+    String? uploadedBy,
     String? notes,
   }) async {
     try {
@@ -30,6 +31,7 @@ class UpdateStudentDocumentUseCase {
         storagePath: storagePath,
         mimeType: mimeType,
         size: size,
+        uploadedBy: uploadedBy,
         notes: notes,
       );
       return Right(message);

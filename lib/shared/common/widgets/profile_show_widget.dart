@@ -16,6 +16,9 @@ class DocumentImageWidget extends StatefulWidget {
   final Widget? errorWidget;
   final double? fontSize;
   final Color? statusColor; // optional small status dot color
+  /// Optional status string (e.g. UPCOMING/ACTIVE) to auto-pick [statusColor].
+  /// If [statusColor] is provided, it takes precedence.
+  final String? status;
   /// When set, shown in the status-dot tooltip instead of the default staff messages.
   final String? statusTooltip;
 
@@ -32,6 +35,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.errorWidget,
     this.fontSize,
     this.statusColor,
+    this.status,
     this.statusTooltip,
   }) : super(key: key);
 
@@ -89,7 +93,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Widget _buildAvatarWithStatus(Widget avatar) {
-    if (widget.statusColor == null) return avatar;
+    final effectiveColor = widget.statusColor ?? _statusDotColorFromStatus(widget.status);
+    if (effectiveColor == null) return avatar;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -99,7 +104,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           top: 2,
           child: Tooltip(
             message: widget.statusTooltip ??
-                _statusTooltipMessage(widget.statusColor!),
+                _statusTooltipMessage(effectiveColor, status: widget.status),
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
@@ -116,7 +121,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               width: widget.size * 0.22,
               height: widget.size * 0.22,
               decoration: BoxDecoration(
-                color: widget.statusColor,
+                color: effectiveColor,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
               ),
@@ -127,7 +132,16 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     );
   }
 
-  String _statusTooltipMessage(Color c) {
+  Color? _statusDotColorFromStatus(String? status) {
+    final upper = (status ?? '').trim().toUpperCase();
+    if (upper.isEmpty) return null;
+    if (upper == 'UPCOMING') return const Color(0xFFFFC107); // amber/yellow
+    return null;
+  }
+
+  String _statusTooltipMessage(Color c, {String? status}) {
+    final upper = (status ?? '').trim().toUpperCase();
+    if (upper == 'UPCOMING') return 'Upcoming student';
     if (c.green >= c.red && c.green > 120) return 'Staff is signed in';
     if (c.red > 180 && c.green < 120) return 'Staff is absent';
     return 'Status';

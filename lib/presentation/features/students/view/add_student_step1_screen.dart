@@ -655,12 +655,27 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           try {
             final nameCodeMap =
                 await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
+
+            final relationLabel =
+                (map['relation'] as String?)?.trim() ?? '';
+            final relationOther =
+                (map['relationOther'] as String?)?.trim() ?? '';
+            final relationEnum = relationLabel.isEmpty
+                ? null
+                : relationLabel.toUpperCase().replaceAll(' ', '_');
+            final relationDescription =
+                relationLabel == 'Other' && relationOther.isNotEmpty
+                    ? relationOther
+                    : null;
+
             for (final selectedName in selectedExistingParents) {
               final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
               if (guardianCode.isEmpty) continue;
               await repo.linkExistingGuardian(
                 guardianCode: guardianCode,
                 studentCode: student.code,
+                relation: relationEnum,
+                relationDescription: relationDescription,
               );
             }
           } catch (e) {

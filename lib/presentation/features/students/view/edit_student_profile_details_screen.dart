@@ -894,7 +894,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildDateField("Birthdate", _selectedBirthDate),
+                        _buildDateField("Date of birth", _selectedBirthDate),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Notes",

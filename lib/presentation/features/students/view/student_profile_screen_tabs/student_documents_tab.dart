@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -38,6 +37,8 @@ class StudentDocumentsTab extends StatefulWidget {
 class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   bool _showExpired = false;
   late final StudentDocumentsListCubit _documentsListCubit;
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
   String _formatDocumentType(String type) {
     final normalizedType = type.trim();
@@ -72,6 +73,28 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     }
   }
 
+  String _formatIsoDate(String? iso) {
+    final raw = (iso ?? '').trim();
+    if (raw.isEmpty) return '-';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      return DateFormat('MMM dd, yyyy').format(dt);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  String _formatExpiryDate(String? expiryDate) {
+    final raw = (expiryDate ?? '').trim();
+    if (raw.isEmpty) return '-';
+    try {
+      final d = DateTime.parse(raw);
+      return DateFormat('MMM dd, yyyy').format(d);
+    } catch (_) {
+      return raw;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +110,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
     _documentsListCubit.close();
     super.dispose();
   }
@@ -254,7 +279,17 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           ),
           BlocBuilder<StudentDocumentsListCubit, StudentDocumentsListState>(
             builder: (context, state) {
-              final documents = state.documents;
+              final query = _searchController.text.trim().toLowerCase();
+              final documents = query.isEmpty
+                  ? state.documents
+                  : state.documents.where((d) {
+                      final name = d.documentName.toLowerCase();
+                      final type = d.documentType.toLowerCase();
+                      final uploadedBy = (d.uploadedBy ?? '').toLowerCase();
+                      return name.contains(query) ||
+                          type.contains(query) ||
+                          uploadedBy.contains(query);
+                    }).toList(growable: false);
 
               return CustomRefreshIndicator(
                 onRefresh: () async {
@@ -280,29 +315,59 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                     return false;
                   },
                   child: SingleChildScrollView(
-                    controller: widget.scrollController,
+                    controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(6, 16, 6, 88),
+                      // Extra bottom padding so the floating add button doesn't overlap the last items.
+                      padding: const EdgeInsets.fromLTRB(6, 16, 6, 96),
                       child: Column(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.cardBorderColor, width: 1),
-                              borderRadius: BorderRadius.circular(12),
-                              color: Colors.white,
+                              border: Border.all(
+                                color: AppColors.primaryColor.withOpacity(0.2),
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              color: Colors.white.withOpacity(0.88),
                             ),
-                            child: CustomToggle(
-                              label: 'Show Expired Documents',
-                              isToggled: _showExpired,
-                              onToggle: (v) {
-                                setState(() => _showExpired = v);
-                                _documentsListCubit.refresh(
-                                  studentCode,
-                                  expiredOnly: v ? true : null,
-                                );
-                              },
+                            child: Column(
+                              children: [
+                                TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search documents...',
+                                    prefixIcon: const Icon(Icons.search),
+                                    suffixIcon: _searchController.text.trim().isEmpty
+                                        ? null
+                                        : IconButton(
+                                            onPressed: () => setState(() {
+                                              _searchController.clear();
+                                            }),
+                                            icon: const Icon(Icons.close),
+                                          ),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8F7FA),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                                const SizedBox(height: 12),
+                                CustomToggle(
+                                  label: 'Show Expired Documents',
+                                  isToggled: _showExpired,
+                                  onToggle: (v) {
+                                    setState(() => _showExpired = v);
+                                    _documentsListCubit.refresh(
+                                      studentCode,
+                                      expiredOnly: v ? true : null,
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -313,7 +378,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                             )
                           else if (documents.isEmpty)
                             Text(
-                              _showExpired ? 'No expired documents found' : 'No documents found',
+                              _showExpired
+                                  ? 'No expired documents found'
+                                  : (query.isEmpty
+                                      ? 'No documents found'
+                                      : 'No documents match your search'),
                               style: const TextStyle(
                                 color: AppColors.primaryColor,
                                 fontSize: 16,
@@ -328,132 +397,175 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                               itemCount: documents.length,
                               itemBuilder: (context, i) {
                                 final doc = documents[i];
-                                final expiryDate = DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
+                                final uploadedOn = _formatIsoDate(doc.createdAt);
+                                final expiryDisplay = _formatExpiryDate(doc.expiryDate);
+                                final uploadedBy = (doc.uploadedBy ?? '').trim().isEmpty
+                                    ? 'system'
+                                    : doc.uploadedBy!.trim();
+                                final docTypeDisplay =
+                                    _formatDocumentType(doc.documentType);
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: ExpansionTile(
-                                    title: Text(
-                                      doc.documentName,
-                                      style: const TextStyle(
-                                        color: AppColors.primaryColor,
-                                        fontWeight: FontWeight.w500,
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.88),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: AppColors.primaryColor.withOpacity(0.2),
                                       ),
                                     ),
-                                    trailing: const SizedBox.shrink(),
-                                    backgroundColor: Colors.white,
-                                    collapsedBackgroundColor: Colors.white,
-                                    collapsedShape: RoundedRectangleBorder(
-                                      side: BorderSide(
-                                        color: AppColors.cardBorderColor,
-                                        width: 1,
+                                    child: Theme(
+                                      data: Theme.of(context).copyWith(
+                                        dividerColor: Colors.transparent,
                                       ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      side: BorderSide(
-                                        color: AppColors.cardBorderColor,
-                                        width: 1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                    children: [
-                                      Divider(color: AppColors.primaryColor.withOpacity(0.1)),
-                                      const SizedBox(height: 16),
-                                      _DocRow(
-                                        label: 'Document Type',
-                                        text: _formatDocumentType(doc.documentType),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _DocRow(
-                                        label: 'Expiry Date',
-                                        text: DateFormat('MMM dd, yyyy').format(expiryDate),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _DocRow(
-                                        label: 'Document',
-                                        text: doc.documentName,
-                                        trailingIcon: Icons.insert_drive_file_outlined,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Row(
+                                      child: ExpansionTile(
+                                        tilePadding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 4,
+                                        ),
+                                        childrenPadding: const EdgeInsets.fromLTRB(
+                                          16,
+                                          0,
+                                          16,
+                                          16,
+                                        ),
+                                        title: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                doc.documentName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.primaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              docTypeDisplay,
+                                              style: TextStyle(
+                                                fontFamily: 'Manrope',
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.primaryColor.withOpacity(0.7),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                         children: [
-                                          Expanded(
-                                            child: Container(
-                                              height: 40,
-                                              decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(8),
-                                                gradient: AppColors.buildPrimaryGradient(),
-                                              ),
-                                              child: TextButton(
-                                                onPressed: () => _handleEdit(context, doc),
-                                                style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                                                child: const Text(
-                                                  'Edit',
-                                                  style: TextStyle(
-                                                    fontFamily: 'Manrope',
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Colors.white,
-                                                    height: 16 / 16,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
+                                          const Divider(
+                                            height: 1,
+                                            color: Color(0xFFE9ECEF),
                                           ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: SizedBox(
-                                              height: 40,
-                                              child: OutlinedButton(
-                                                onPressed: () => _handleDelete(context, doc),
-                                                style: OutlinedButton.styleFrom(
-                                                  side: const BorderSide(color: Color(0xFF6C7FD8)),
-                                                  shape: RoundedRectangleBorder(
+                                          const SizedBox(height: 12),
+                                          _DocumentDetailRow(
+                                            label: 'Document Type',
+                                            value: docTypeDisplay,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _DocumentDetailRow(
+                                            label: 'Uploaded By',
+                                            value: uploadedBy,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _DocumentDetailRow(
+                                            label: 'Uploaded On',
+                                            value: uploadedOn,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _DocumentDetailRow(
+                                            label: 'Expiry Date',
+                                            value: expiryDisplay,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Container(
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
                                                     borderRadius: BorderRadius.circular(8),
+                                                    gradient: AppColors.buildPrimaryGradient(),
                                                   ),
-                                                  padding: EdgeInsets.zero,
-                                                ),
-                                                child: const Text(
-                                                  'Delete',
-                                                  style: TextStyle(
-                                                    fontFamily: 'Manrope',
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF6C7FD8),
-                                                    height: 16 / 16,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Container(
-                                              height: 40,
-                                              decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(8),
-                                                gradient: AppColors.buildPrimaryGradient(),
-                                              ),
-                                              child: TextButton(
-                                                onPressed: () => _handleDownload(context, doc),
-                                                style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                                                child: const Text(
-                                                  'Download',
-                                                  style: TextStyle(
-                                                    fontFamily: 'Manrope',
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Colors.white,
-                                                    height: 16 / 16,
+                                                  child: TextButton(
+                                                    onPressed: () => _handleEdit(context, doc),
+                                                    style: TextButton.styleFrom(
+                                                      padding: EdgeInsets.zero,
+                                                    ),
+                                                    child: const Text(
+                                                      'Edit',
+                                                      style: TextStyle(
+                                                        fontFamily: 'Manrope',
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: SizedBox(
+                                                  height: 40,
+                                                  child: OutlinedButton(
+                                                    onPressed: () => _handleDelete(context, doc),
+                                                    style: OutlinedButton.styleFrom(
+                                                      side: const BorderSide(
+                                                        color: Color(0xFF6C7FD8),
+                                                      ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      padding: EdgeInsets.zero,
+                                                    ),
+                                                    child: const Text(
+                                                      'Delete',
+                                                      style: TextStyle(
+                                                        fontFamily: 'Manrope',
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Color(0xFF6C7FD8),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Container(
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    gradient: AppColors.buildPrimaryGradient(),
+                                                  ),
+                                                  child: TextButton(
+                                                    onPressed: () => _handleDownload(context, doc),
+                                                    style: TextButton.styleFrom(
+                                                      padding: EdgeInsets.zero,
+                                                    ),
+                                                    child: const Text(
+                                                      'Download',
+                                                      style: TextStyle(
+                                                        fontFamily: 'Manrope',
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 );
                               },
@@ -504,11 +616,14 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 }
 
-class _DocRow extends StatelessWidget {
-  const _DocRow({required this.label, required this.text, this.trailingIcon});
+class _DocumentDetailRow extends StatelessWidget {
+  const _DocumentDetailRow({
+    required this.label,
+    required this.value,
+  });
+
   final String label;
-  final String text;
-  final IconData? trailingIcon;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -516,37 +631,30 @@ class _DocRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 120,
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: Color(0xff573353),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
           child: Text(
-            label,
+            value.isEmpty ? '-' : value,
+            textAlign: TextAlign.right,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              fontSize: 14,
-              letterSpacing: 14 * (-3 / 100),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        if (trailingIcon == null)
-          Expanded(
-            child: Text(
-              text,
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          )
-        else
-          SvgPicture.asset(
-            MediaRes.documents_drawer_Icon,
-            height: 20,
-          ),
       ],
     );
   }

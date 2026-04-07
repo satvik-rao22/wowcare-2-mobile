@@ -142,31 +142,8 @@ class _StudentCardState extends State<StudentCard> {
                                 fileUuid: '',
                                 name: widget.name,
                                 size: 45,
+                                status: widget.status,
                               ),
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: widget.status == 'Upcoming'
-                                        ? const Color.fromARGB(255, 253, 205, 22)
-                                        : widget.status == 'Active'
-                                        ? const Color.fromRGBO(0, 177, 21, 1)
-                                        : widget.status == 'Inactive'
-                                        ? const Color.fromRGBO(200, 32, 32, 1)
-                                        : Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
-                                  ),
-
-                                ),
-                              ),
-
                             ],
                           ),
                           SizedBox(width: isTablet ? 16 : 9),

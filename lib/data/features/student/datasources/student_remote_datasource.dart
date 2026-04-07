@@ -1207,7 +1207,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
         'guardianCode': guardianCode,
         'studentCode': studentCode,
         if (relation != null && relation.trim().isNotEmpty)
-          'relation': relation.trim(),
+          'relation': relation.trim().toUpperCase(),
         if (relationDescription != null &&
             relationDescription.trim().isNotEmpty)
           'relationDescription': relationDescription.trim(),

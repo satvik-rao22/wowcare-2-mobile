@@ -66,6 +66,7 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
+        _applyFiltersToCubit();
         _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
@@ -313,7 +314,7 @@ class _StudentScreenState extends State<StudentScreen> {
   Future<void> _applyFiltersToCubit() async {
     final statusFilter = _currentFilters['Status']?.isNotEmpty == true
         ? _currentFilters['Status']!.first
-        : null;
+        : 'Active';
 
     // Map selected classroom names to codes for the API
     final classroomState = context.read<ClassroomCubit>().state;
@@ -377,7 +378,9 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _clearAllFilters() async {
     setState(() {
-      _currentFilters.clear();
+      _currentFilters
+        ..clear()
+        ..['Status'] = ['Active'];
       _showInactive = false;
     });
     await _applyFiltersToCubit();
@@ -657,7 +660,6 @@ class _StudentScreenState extends State<StudentScreen> {
                           number: total,
                           items: items,
                           fullWidthBar: false,
-                          selectedFilterValue: (_currentFilters['Status']?.length == 1) ? _currentFilters['Status']!.first : null,
                           onLegendTap: (String label, String? filterValue) async {
                             setState(() {
                               final current = _currentFilters['Status'];

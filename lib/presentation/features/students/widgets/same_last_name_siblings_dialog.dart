@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -41,6 +42,29 @@ class _SameLastNameSiblingsBody extends StatefulWidget {
 
 class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
   final Set<String> _selectedCodes = <String>{};
+
+  void _showLimitReached() {
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Limit Reached: You can only select one student as a sibling',
+      isWarning: true,
+    );
+  }
+
+  void _toggleSingleSelect(String code) {
+    final selected = _selectedCodes.contains(code);
+    if (selected) {
+      _selectedCodes.remove(code);
+      return;
+    }
+
+    if (_selectedCodes.isNotEmpty) {
+      _showLimitReached();
+      return;
+    }
+    _selectedCodes.add(code);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,11 +185,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             BorderRadius.circular(borderRadius / 2),
                         onTap: () {
                           setState(() {
-                            if (selected) {
-                              _selectedCodes.remove(code);
-                            } else {
-                              _selectedCodes.add(code);
-                            }
+                            _toggleSingleSelect(code);
                           });
                         },
                         child: Container(
@@ -191,7 +211,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                                   onChanged: (v) {
                                     setState(() {
                                       if (v == true) {
-                                        _selectedCodes.add(code);
+                                        _toggleSingleSelect(code);
                                       } else {
                                         _selectedCodes.remove(code);
                                       }

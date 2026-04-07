@@ -128,9 +128,17 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     if (studentCode.isEmpty) return;
 
     DateTime? selectedDate = initialDate;
-    String statusUi = (initialStatusUi ?? '').trim().isNotEmpty
-        ? initialStatusUi!.trim()
-        : 'Scheduled';
+    final initialStatusTrim = (initialStatusUi ?? '').trim();
+    final initialIsOverdue = initialStatusTrim.toUpperCase() == 'OVERDUE' ||
+        initialStatusTrim.toLowerCase() == 'overdue';
+
+    // "Overdue" can be returned by API and should be displayed, but it should
+    // not be a selectable option in the edit dropdown.
+    String statusUi = initialStatusTrim.isNotEmpty ? initialStatusTrim : 'Scheduled';
+    bool didChangeStatus = false;
+    if (initialIsOverdue) {
+      statusUi = 'Due';
+    }
     bool isSaving = false;
 
     await showModalBottomSheet<void>(
@@ -246,12 +254,13 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 value: statusUi,
                                 options: const [
                                   'Due',
-                                  'Overdue',
                                   'Scheduled',
                                   'Completed',
                                 ],
-                                onChanged: (v) =>
-                                    setLocalState(() => statusUi = v),
+                                onChanged: (v) => setLocalState(() {
+                                  didChangeStatus = true;
+                                  statusUi = v;
+                                }),
                               ),
                             ),
                           ],
@@ -295,11 +304,13 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               value: statusUi,
                               options: const [
                                 'Due',
-                                'Overdue',
                                 'Scheduled',
                                 'Completed',
                               ],
-                              onChanged: (v) => setLocalState(() => statusUi = v),
+                              onChanged: (v) => setLocalState(() {
+                                didChangeStatus = true;
+                                statusUi = v;
+                              }),
                             ),
                           ],
                         ),
@@ -313,12 +324,13 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         onPressedConfirm: canSave
                             ? () async {
                                 if (selectedDate == null) return;
-                                final statusApi = switch (statusUi) {
-                                  'Completed' => 'COMPLETED',
-                                  'Scheduled' => 'SCHEDULED',
-                                  'Overdue' => 'OVERDUE',
-                                  _ => 'DUE',
-                                };
+                                final statusApi = (!didChangeStatus && initialIsOverdue)
+                                    ? 'OVERDUE'
+                                    : switch (statusUi) {
+                                        'Completed' => 'COMPLETED',
+                                        'Scheduled' => 'SCHEDULED',
+                                        _ => 'DUE',
+                                      };
 
                                 setLocalState(() => isSaving = true);
                                 try {
@@ -535,8 +547,10 @@ class _PhysicalExamCard extends StatelessWidget {
     final upper = status.trim().toUpperCase();
     // Completed — dark forest green on mint (design reference)
     if (upper == 'COMPLETED') return const Color(0xFF1B5E20);
-    // Due / Overdue (API DUE / OVERDUE) — dark red on light rose
-    if (upper == 'DUE' || upper == 'OVERDUE') return const Color(0xFFC62828);
+    // Overdue — dark red on light rose
+    if (upper == 'OVERDUE') return const Color(0xFFC62828);
+    // Due — yellow (design reference)
+    if (upper == 'DUE') return const Color(0xFFEABA00);
     // Scheduled — deeper purple on lavender
     if (upper == 'SCHEDULED') return const Color(0xFF6A1B9A);
     return AppColors.primaryColor.withOpacity(0.85);
@@ -545,7 +559,8 @@ class _PhysicalExamCard extends StatelessWidget {
   Color _statusBgColor() {
     final upper = status.trim().toUpperCase();
     if (upper == 'COMPLETED') return const Color(0xFFE8F5E9);
-    if (upper == 'DUE' || upper == 'OVERDUE') return const Color(0xFFFFEBEE);
+    if (upper == 'OVERDUE') return const Color(0xFFFFEBEE);
+    if (upper == 'DUE') return const Color(0xFFFFF8E1);
     if (upper == 'SCHEDULED') return const Color(0xFFF3E5F5);
     return const Color(0xFFF3F4FB);
   }

@@ -250,6 +250,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         expiryDate: m.expiryDate,
         expired: false,
         createdAt: m.createdAt,
+        uploadedBy: m.uploadedBy,
       );
     }).toList();
 
@@ -272,6 +273,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String storagePath,
     required String mimeType,
     required int size,
+    String? uploadedBy,
     String? notes,
   }) async {
     final request = StudentDocumentRequestModel(
@@ -283,6 +285,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       size: size,
       ownerType: 'STUDENT',
       ownerId: studentCode,
+      uploadedBy: uploadedBy,
       notes: notes,
     );
 
@@ -303,6 +306,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String storagePath,
     required String mimeType,
     required int size,
+    String? uploadedBy,
     String? notes,
   }) async {
     final request = StudentDocumentRequestModel(
@@ -314,6 +318,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       size: size,
       ownerType: 'STUDENT',
       ownerId: studentCode,
+      uploadedBy: uploadedBy,
       notes: notes,
     );
 
