@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.wowcare"
+    namespace = "com.wiseowl.wowcareapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +22,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.wowcare"
+        applicationId = "com.wiseowl.wowcareapp"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

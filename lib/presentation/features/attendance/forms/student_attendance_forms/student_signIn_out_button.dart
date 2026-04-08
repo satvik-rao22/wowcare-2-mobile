@@ -5,10 +5,10 @@ import 'package:schoolerp/features/student/domain/entities/studentData.dart';
 import 'package:schoolerp/src/attendance/presentation/views/forms/student_attendance_forms/student_sign_in_form.dart';
 import 'package:schoolerp/src/attendance/presentation/views/forms/student_attendance_forms/student_sign_out_form.dart';
 
+import '../../../../../shared/common/widgets/custom_confirm_button.dart';
+
 class StudentSignInOutButton extends StatefulWidget {
-  const StudentSignInOutButton({
-    super.key,
-  });
+  const StudentSignInOutButton({super.key});
 
   static const String routeName = '/student-sign-in-out_button';
 
@@ -28,10 +28,12 @@ class _StudentSignInOutButtonState extends State<StudentSignInOutButton> {
         ModalRoute.of(context)!.settings.arguments as List<StudentEntity>;
 
     // Segregate students based on their sign-in status
-    final signedInStudents =
-        students.where((student) => student.isSignedIn).toList();
-    final signedOutStudents =
-        students.where((student) => !student.isSignedIn).toList();
+    final signedInStudents = students
+        .where((student) => student.isSignedIn)
+        .toList();
+    final signedOutStudents = students
+        .where((student) => !student.isSignedIn)
+        .toList();
 
     return GlobalScaffold(
       hasBackButton: true,
