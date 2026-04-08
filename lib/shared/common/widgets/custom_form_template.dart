@@ -3,6 +3,9 @@ import 'package:schoolerp/core/common/widgets/custom_button_layout.dart';
 import 'package:schoolerp/core/common/widgets/custom_scaffold.dart';
 import 'package:schoolerp/core/res/colors.dart';
 
+import '../../../app/theme/colors.dart';
+import 'custom_scaffold.dart';
+
 class CustomFormTemplate extends StatelessWidget {
   const CustomFormTemplate({
     super.key,
@@ -58,9 +61,7 @@ class CustomFormTemplate extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: isScrollable
-                      ? SingleChildScrollView(
-                          child: formContent,
-                        )
+                      ? SingleChildScrollView(child: formContent)
                       : formContent,
                 ),
               ),

@@ -145,6 +145,7 @@ class CustomDropdown extends StatefulWidget {
     this.fieldHeight,
     this.selectedTextStyle,
     this.popupItemTextStyle,
+    this.isRequired = false,
     this.contentPadding,
     this.height = null,
     this.leadingIcon,
@@ -152,6 +153,7 @@ class CustomDropdown extends StatefulWidget {
 
   final String? label;
   final String hintText;
+  final bool isRequired;
   final List<String> items;
   final bool isField;
   final bool isEnabled;
@@ -168,6 +170,7 @@ class CustomDropdown extends StatefulWidget {
   final TextStyle? popupItemTextStyle;
   final EdgeInsets? contentPadding;
   final double? height;
+
   /// Optional leading widget (e.g. an icon) shown before the text.
   final Widget? leadingIcon;
 
@@ -215,13 +218,14 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 fontSize: widget.labelStyle?.fontSize ?? 13,
                 fontWeight: widget.labelStyle?.fontWeight ?? FontWeight.w400,
                 fontFamily: widget.labelStyle?.fontFamily ?? 'Manrope',
-
-
               ),
               children: [
                 TextSpan(text: widget.label!),
                 if (widget.showAsterisk)
-                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Colors.red),
+                  ),
               ],
             ),
           ),
@@ -230,7 +234,12 @@ class _CustomDropdownState extends State<CustomDropdown> {
         LayoutBuilder(
           builder: (context, constraints) {
             return Container(
-              constraints: BoxConstraints(minHeight: widget.height ?? widget.fieldHeight ?? (widget.isField ? 40 : 30)),
+              constraints: BoxConstraints(
+                minHeight:
+                    widget.height ??
+                    widget.fieldHeight ??
+                    (widget.isField ? 40 : 30),
+              ),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFFB1AFE9).withOpacity(0.102),
@@ -266,11 +275,15 @@ class _CustomDropdownState extends State<CustomDropdown> {
                           Expanded(
                             child: Text(
                               item,
-                              style: widget.popupItemTextStyle ?? TextStyle(
-                                color: AppColors.primaryColor.withOpacity(0.9),
-                                fontSize: widget.isField ? 17 : 15,
-                                fontWeight: FontWeight.w400,
-                              ),
+                              style:
+                                  widget.popupItemTextStyle ??
+                                  TextStyle(
+                                    color: AppColors.primaryColor.withOpacity(
+                                      0.9,
+                                    ),
+                                    fontSize: widget.isField ? 17 : 15,
+                                    fontWeight: FontWeight.w400,
+                                  ),
                             ),
                           ),
                         ],
@@ -279,7 +292,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
                   }).toList();
                 },
                 child: Padding(
-                  padding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      widget.contentPadding ??
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -290,13 +305,19 @@ class _CustomDropdownState extends State<CustomDropdown> {
                       Flexible(
                         child: Text(
                           selectedItem ?? widget.hintText,
-                          style: widget.selectedTextStyle ?? TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
-                            color: selectedItem != null ? const Color(0xff573353) : Colors.grey[600],
-                            height: 19 / 14,
-                          ),
+                          style:
+                              widget.selectedTextStyle ??
+                              TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 14,
+                                fontWeight: selectedItem != null
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: selectedItem != null
+                                    ? const Color(0xff573353)
+                                    : Colors.grey[600],
+                                height: 19 / 14,
+                              ),
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.left,
                         ),

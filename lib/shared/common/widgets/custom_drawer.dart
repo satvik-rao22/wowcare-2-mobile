@@ -17,7 +17,7 @@ import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:wowcare/presentation/features/staff-scheduling/view/staff-scheduling.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -525,6 +525,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             if (_currentRoute != StaffScreen.routeName) {
                               Navigator.pushNamed(
                                   context, StaffScreen.routeName);
+                            }
+                          },
+                        ),
+                           _CustomExpansionTile(
+                          title: 'Staff-Schedule',
+                          icon: MediaRes.staffs_drawer_icon,
+                          isCurrentRoute:
+                              _currentRoute == StaffSchedulingScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != StaffSchedulingScreen.routeName) {
+                              Navigator.pushNamed(
+                                  context, StaffSchedulingScreen.routeName);
                             }
                           },
                         ),

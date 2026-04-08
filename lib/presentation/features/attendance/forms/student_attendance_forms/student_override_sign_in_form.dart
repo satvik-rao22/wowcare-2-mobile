@@ -32,7 +32,8 @@ class StudentOverrideSignInForm extends StatefulWidget {
   static const String routeName = '/student-override-sign-in-form';
 
   @override
-  _StudentOverrideSignInFormState createState() => _StudentOverrideSignInFormState();
+  _StudentOverrideSignInFormState createState() =>
+      _StudentOverrideSignInFormState();
 }
 
 class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
@@ -75,7 +76,6 @@ class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
       });
     }
   }
-
 
   String _formatTimeForValidation() {
     final now = DateTime.now();
@@ -168,7 +168,9 @@ class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
         final absentRecordId = widget.absentRecordIds[student.id];
         if (absentRecordId != null) {
           try {
-            await context.read<AbsentCubit>().deleteAttendance(id: absentRecordId);
+            await context.read<AbsentCubit>().deleteAttendance(
+              id: absentRecordId,
+            );
           } catch (e) {
             print('Error deleting absent record for student ${student.id}: $e');
             // Continue with sign in even if delete fails
@@ -177,36 +179,40 @@ class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
 
         // Step 2: Create attendance record
         await context.read<AttendanceCubit>().createSingleAttendance(
-              signInTime: time,
-              signOutTime: '',
-              attendedTime: '00:00:00',
-              noSignOutCount: null,
-              totalHours: null,
-              daysAttended: null,
-              signInBy: context.isPersonnel
+          signInTime: time,
+          signOutTime: '',
+          attendedTime: '00:00:00',
+          noSignOutCount: null,
+          totalHours: null,
+          daysAttended: null,
+          signInBy: context.isPersonnel
+              ? context.currentStaff!.name
+              : context.isGuardian
+              ? context.currentGuardian!.fullName
+              : context.currentStaff!.name,
+          signOutBy: '',
+          note: 'Override Sign In - Previously marked absent',
+          hasSignIn: true,
+          hasStudentId: true,
+          date: currentUTC,
+          roomId: student.roomId,
+          signInStaffId: context.isPersonnel ? context.currentStaff!.id : 0,
+          signOutStaffId: null,
+          status: 'A',
+          schoolId: context.isPersonnel
+              ? context.currentUser!.schoolId
+              : context.currentGuardian!.schoolId,
+          studentId: student.id,
+          lastModified: dateTimeUTC,
+          lastModifiedBy:
+              '${context.isPersonnel
                   ? context.currentStaff!.name
                   : context.isGuardian
-                      ? context.currentGuardian!.fullName
-                      : context.currentStaff!.name,
-              signOutBy: '',
-              note: 'Override Sign In - Previously marked absent',
-              hasSignIn: true,
-              hasStudentId: true,
-              date: currentUTC,
-              roomId: student.roomId,
-              signInStaffId: context.isPersonnel ? context.currentStaff!.id : 0,
-              signOutStaffId: null,
-              status: 'A',
-              schoolId: context.isPersonnel
-                  ? context.currentUser!.schoolId
-                  : context.currentGuardian!.schoolId,
-              studentId: student.id,
-              lastModified: dateTimeUTC,
-              lastModifiedBy:
-                  '${context.isPersonnel ? context.currentStaff!.name : context.isGuardian ? context.currentGuardian!.fullName : context.currentStaff!.name} from Mobile (Override)',
-              staffId: 0,
-              isPrimary: true,
-            );
+                  ? context.currentGuardian!.fullName
+                  : context.currentStaff!.name} from Mobile (Override)',
+          staffId: 0,
+          isPrimary: true,
+        );
       }
 
       if (mounted) {
@@ -270,161 +276,113 @@ class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: BlocConsumer<AbsentCubit, AbsentState>(
-            listener: (context, absentState) {
-              if (absentState is AttendanceDeleted) {
-                // Handle successful absent record deletion
-              } else if (absentState is AuthErrorAbsent) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  isError: true,
-                  isWarning: false,
-                  isSuccess: false,
-                  isAdjust: false,
-                  message: 'Error deleting absent record: ${absentState.message}',
-                );
-              }
-            },
-            builder: (context, absentState) {
-                return SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Override Sign-In',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Color.fromRGBO(87, 51, 82, 1),
+                listener: (context, absentState) {
+                  if (absentState is AttendanceDeleted) {
+                    // Handle successful absent record deletion
+                  } else if (absentState is AuthErrorAbsent) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      isError: true,
+                      isWarning: false,
+                      isSuccess: false,
+                      isAdjust: false,
+                      message:
+                          'Error deleting absent record: ${absentState.message}',
+                    );
+                  }
+                },
+                builder: (context, absentState) {
+                  return SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Override Sign-In',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color.fromRGBO(87, 51, 82, 1),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Warning Banner (extra for override)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          border: Border.all(color: Colors.orange.shade200),
-                          borderRadius: BorderRadius.circular(8),
+                        const SizedBox(height: 12),
+                        // Warning Banner (extra for override)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            border: Border.all(color: Colors.orange.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.orange.shade600,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Override Sign In',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.orange.shade800,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'This will delete the absent record and sign in the student for today.',
+                                      style: TextStyle(
+                                        color: Colors.orange.shade700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(
+                        const SizedBox(height: 30),
+                        GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 14,
+                                mainAxisSpacing: 14,
+                                childAspectRatio: 3.5,
+                              ),
+                          itemCount: currentStudents.length,
+                          itemBuilder: (context, index) => RemoveStudentTile(
+                            student: currentStudents[index],
+                            onRemove: () =>
+                                _removeStudent(currentStudents[index]),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
                           children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              color: Colors.orange.shade600,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Override Sign In',
+                                  const Text(
+                                    'Date',
                                     style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.orange.shade800,
+                                      color: Color.fromRGBO(87, 51, 83, 0.5),
                                       fontSize: 14,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'This will delete the absent record and sign in the student for today.',
-                                    style: TextStyle(
-                                      color: Colors.orange.shade700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 14,
-                          mainAxisSpacing: 14,
-                          childAspectRatio: 3.5,
-                        ),
-                        itemCount: currentStudents.length,
-                        itemBuilder: (context, index) => RemoveStudentTile(
-                          student: currentStudents[index],
-                          onRemove: () => _removeStudent(currentStudents[index]),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Date',
-                                  style: TextStyle(
-                                    color: Color.fromRGBO(87, 51, 83, 0.5),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: Colors.grey.shade100,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        DateUtilsNew.formatToReadableDate(selectedDate),
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                      SvgPicture.asset(
-                                        MediaRes.calender_icon,
-                                        colorFilter: ColorFilter.mode(
-                                          Colors.grey.shade600,
-                                          BlendMode.srcIn,
-                                        ),
-                                      )
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Time',
-                                  style: TextStyle(
-                                    color: Color.fromRGBO(87, 51, 83, 0.5),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                InkWell(
-                                  onTap: () {
-                                    _selectTime();
-                                  },
-                                  child: Container(
+                                  const SizedBox(height: 8),
+                                  Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
                                       vertical: 12,
@@ -434,45 +392,107 @@ class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
                                         color: Colors.grey.shade300,
                                       ),
                                       borderRadius: BorderRadius.circular(8),
-                                      color: const Color.fromRGBO(249, 245, 250, 1),
+                                      color: Colors.grey.shade100,
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          selectedTime.format(context),
-                                          style: const TextStyle(
+                                          DateUtilsNew.formatToReadableDate(
+                                            selectedDate,
+                                          ),
+                                          style: TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w500,
-                                            color: Colors.black,
+                                            color: Colors.grey.shade600,
                                           ),
                                         ),
-                                        SvgPicture.asset(MediaRes.clock_icon)
+                                        SvgPicture.asset(
+                                          MediaRes.calender_icon,
+                                          colorFilter: ColorFilter.mode(
+                                            Colors.grey.shade600,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (_formatTimeForValidation().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            _formatTimeForValidation(),
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 12,
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Time',
+                                    style: TextStyle(
+                                      color: Color.fromRGBO(87, 51, 83, 0.5),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  InkWell(
+                                    onTap: () {
+                                      _selectTime();
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        color: const Color.fromRGBO(
+                                          249,
+                                          245,
+                                          250,
+                                          1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            selectedTime.format(context),
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          SvgPicture.asset(MediaRes.clock_icon),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                    ],
-                  ),
-                );
-            },
+                        const SizedBox(height: 8),
+                        if (_formatTimeForValidation().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _formatTimeForValidation(),
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           );
@@ -481,10 +501,11 @@ class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
       hasBackButton: true,
       showCustomNavigationBar: false,
       customButtonLayout: CustomButtonLayout(
-        confirmButtonLabel: _isProcessing ? 'Processing...' : 'Override Sign In',
+        confirmButtonLabel: _isProcessing
+            ? 'Processing...'
+            : 'Override Sign In',
         onPressedConfirm: _isProcessing ? null : _processOverrideSignIn,
       ),
     );
   }
 }
-

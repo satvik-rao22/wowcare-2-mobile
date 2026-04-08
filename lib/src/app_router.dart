@@ -12,6 +12,9 @@ import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.d
 import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
+import '../presentation/features/staff-scheduling/view/add-schedule.dart';
+import '../presentation/features/staff-scheduling/view/publish-shift-conformation.dart';
+import '../presentation/features/staff-scheduling/view/staff-scheduling.dart';
 import '../presentation/features/students/view/student_screen.dart';
 import '../app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -45,33 +48,47 @@ Route<dynamic> generateRoute(RouteSettings settings) {
               create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
             ),
             BlocProvider<ClassroomCubit>(
-              create: (_) => serviceLocator<ClassroomCubit>()
-                ..loadActiveClassrooms(
-                  // Staff screen should see all active locations,
-                  // not just type=CLASSROOM.
-                  onlyTypeClassroom: false,
-                ),
+              create: (_) =>
+                  serviceLocator<ClassroomCubit>()..loadActiveClassrooms(
+                    // Staff screen should see all active locations,
+                    // not just type=CLASSROOM.
+                    onlyTypeClassroom: false,
+                  ),
             ),
           ],
           child: const StaffScreen(),
         ),
         settings: settings,
       );
+    case StaffSchedulingScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const StaffSchedulingScreen(),
+        settings: settings,
+      );
+
+    // MaterialPageRoute(
+    //   builder: (_) => MultiBlocProvider(
+    //     providers: [
+
+    //     ],
+    //     child: const StaffSchedulingScreen(),
+    //   ),
+    //   settings: settings,
+    // );
     case EditImportantDatesScreen.routeName:
       // Get staffCode from route arguments
       final args = settings.arguments as Map<String, dynamic>?;
       final staffCode = args?['staffCode'] as String? ?? '';
       return MaterialPageRoute(
-        builder: (_) => EditImportantDatesScreen(
-          staffCode: staffCode,
-        ),
+        builder: (_) => EditImportantDatesScreen(staffCode: staffCode),
         settings: settings,
       );
     case EditProfileDetailsScreen.routeName:
       // Optional navigation via named route; expects staffCode in arguments.
       // When coming from "add staff" -> "Yes" (additional details), args may include initial* for prefill.
       final args = settings.arguments as Map<String, dynamic>?;
-      final staffCode = args?['staffCode'] as String? ?? args?['userCode'] as String? ?? '';
+      final staffCode =
+          args?['staffCode'] as String? ?? args?['userCode'] as String? ?? '';
       List<String>? _listArg(String key) {
         final raw = args?[key];
         if (raw == null) return null;
@@ -81,7 +98,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       Map<String, String>? _mapArg(String key) {
         final raw = args?[key];
         if (raw == null) return null;
-        if (raw is Map) return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
+        if (raw is Map)
+          return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
         return null;
       }
       return MaterialPageRoute(
@@ -151,6 +169,12 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         builder: (_) => const RoleSelectionScreen(),
         settings: settings,
       );
+
+    case AddShiftScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const AddShiftScreen(),
+        settings: settings,
+      );
     default:
       return MaterialPageRoute(
         builder: (_) => const OnboardingScreen(),
@@ -158,5 +182,3 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
   }
 }
-
-

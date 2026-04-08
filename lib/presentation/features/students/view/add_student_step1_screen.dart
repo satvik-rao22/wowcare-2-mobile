@@ -60,7 +60,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   static const int _nameMaxLength = 50;
   static const int _duplicateQueryPageSize = 25;
-  static const int _duplicateQueryMaxPages = 10; // safety cap (25 * 10 = 250 scanned)
+  static const int _duplicateQueryMaxPages =
+      10; // safety cap (25 * 10 = 250 scanned)
 
   String? _selectedStatus;
   String? _selectedClassroom;
@@ -209,7 +210,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _onNext() async {
     _trimAllInputs();
-    
+
     if (_firstNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -227,7 +228,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       );
       return;
     }
-    
+
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -365,17 +366,23 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         builder: (ctx) {
           return DuplicateStudentBottomSheet(
             enteredName: enteredName,
-            matches: matches.map((m) => m.fullName.isNotEmpty ? m.fullName : enteredName).toList(),
+            matches: matches
+                .map((m) => m.fullName.isNotEmpty ? m.fullName : enteredName)
+                .toList(),
             onTapMatch: (matchName) {
               final match = matches.firstWhere(
-                (m) => (m.fullName.isNotEmpty ? m.fullName : enteredName) == matchName,
+                (m) =>
+                    (m.fullName.isNotEmpty ? m.fullName : enteredName) ==
+                    matchName,
                 orElse: () => matches.first,
               );
               Navigator.of(ctx).pop(false);
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => StudentProfileScreen(
-                    name: match.fullName.isNotEmpty ? match.fullName : enteredName,
+                    name: match.fullName.isNotEmpty
+                        ? match.fullName
+                        : enteredName,
                     classroom: match.classroom,
                     tags: match.tags,
                     schedule: match.schedule,
@@ -397,7 +404,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     }
   }
 
-  void _handleStep2Result(Map<String, dynamic> step1Data, List<dynamic> parents) async {
+  void _handleStep2Result(
+    Map<String, dynamic> step1Data,
+    List<dynamic> parents,
+  ) async {
     // Ask if user wants to add another parent
     final addAnother = await showModalBottomSheet<bool>(
       context: context,
@@ -425,7 +435,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         ),
       ).then((nextParentResult) {
         if (nextParentResult != null) {
-          final updatedParents = List<dynamic>.from(parents)..add(nextParentResult);
+          final updatedParents = List<dynamic>.from(parents)
+            ..add(nextParentResult);
           _handleStep2Result(step1Data, updatedParents);
         }
       });
@@ -451,9 +462,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       // Navigate to step 3
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep3Screen(),
-        ),
+        MaterialPageRoute(builder: (context) => AddStudentStep3Screen()),
       ).then((step3Result) {
         _handleStep3Result(step1Data, parents, step3Result);
       });
@@ -509,15 +518,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final status = rawStatus.toUpperCase();
       final classroom = (step1Data['classroom'] as String?) ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
-      final DateTime? schoolStartDate = step1Data['schoolStartDate'] as DateTime?;
+      final DateTime? schoolStartDate =
+          step1Data['schoolStartDate'] as DateTime?;
 
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       final organizationCode =
           await storage.getString(StorageKeys.organizationCode) ?? '';
-      final userCode =
-          await storage.getString(StorageKeys.userCode) ?? '';
+      final userCode = await storage.getString(StorageKeys.userCode) ?? '';
 
       final repo = serviceLocator<StudentRepository>();
 
@@ -548,16 +556,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           continue;
         }
 
-        final parentFirst =
-            (map['firstName'] as String?)?.trim() ?? '';
-        final parentLast =
-            (map['lastName'] as String?)?.trim() ?? '';
+        final parentFirst = (map['firstName'] as String?)?.trim() ?? '';
+        final parentLast = (map['lastName'] as String?)?.trim() ?? '';
         final parentEmail =
             (map['email'] as String?)?.trim().toLowerCase() ?? '';
-        final parentPhoneRaw =
-            (map['phoneNumber'] as String?)?.trim() ?? '';
-        final parentPhoneDigits =
-            parentPhoneRaw.replaceAll(RegExp(r'\D'), '');
+        final parentPhoneRaw = (map['phoneNumber'] as String?)?.trim() ?? '';
+        final parentPhoneDigits = parentPhoneRaw.replaceAll(RegExp(r'\D'), '');
 
         if (parentFirst.isEmpty ||
             parentLast.isEmpty ||
@@ -566,19 +570,16 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           continue;
         }
 
-        final relationLabel =
-            (map['relation'] as String?)?.trim() ?? '';
-        final relationOther =
-            (map['relationOther'] as String?)?.trim() ?? '';
-        final relationToStudent = (relationLabel == 'Other' && relationOther.isNotEmpty
-                ? relationOther
-                : relationLabel)
-            .toUpperCase();
+        final relationLabel = (map['relation'] as String?)?.trim() ?? '';
+        final relationOther = (map['relationOther'] as String?)?.trim() ?? '';
+        final relationToStudent =
+            (relationLabel == 'Other' && relationOther.isNotEmpty
+                    ? relationOther
+                    : relationLabel)
+                .toUpperCase();
 
-        final bool primaryContact =
-            map['isEmergencyContact'] as bool? ?? true;
-        final bool legalCustody =
-            map['isChildCustody'] as bool? ?? true;
+        final bool primaryContact = map['isEmergencyContact'] as bool? ?? true;
+        final bool legalCustody = map['isChildCustody'] as bool? ?? true;
 
         try {
           await repo.createGuardianUser(
@@ -593,8 +594,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             legalCustody: legalCustody,
             profilePhotoUrl: null,
             userCode: userCode.isEmpty ? null : userCode,
-            organizationCode:
-                organizationCode.isEmpty ? null : organizationCode,
+            organizationCode: organizationCode.isEmpty
+                ? null
+                : organizationCode,
           );
         } catch (e) {
           final message = ApiErrorHandler.extractErrorMessage(e);
@@ -704,8 +706,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
-        final classroomNames =
-            classroomState.classrooms.map((c) => c.name).toList();
+        final classroomNames = classroomState.classrooms
+            .map((c) => c.name)
+            .toList();
 
         return GestureDetector(
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -731,7 +734,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                     const SizedBox(height: 16),
                     Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing),
+                        horizontal: responsive.horizontalSpacing,
+                      ),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -750,14 +754,15 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       child: Container(
                         width: responsive.containerWidth,
                         margin: EdgeInsets.symmetric(
-                            horizontal: responsive.horizontalSpacing),
+                          horizontal: responsive.horizontalSpacing,
+                        ),
                         padding: EdgeInsets.all(
-                            responsive.isTablet ? 32.0 : 16.0),
+                          responsive.isTablet ? 32.0 : 16.0,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.all(
-                            Radius.circular(
-                                responsive.isTablet ? 40.0 : 24.0),
+                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -787,8 +792,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                       color: const Color(0xff573353),
                                     ),
                                     showAsterisk: true,
-                                    labelBottomSpacing:
-                                        responsive.isTablet ? 8.0 : 6.0,
+                                    labelBottomSpacing: responsive.isTablet
+                                        ? 8.0
+                                        : 6.0,
                                     onSelect: (val) {
                                       setState(() {
                                         _selectedStatus = val;
@@ -812,8 +818,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                       color: const Color(0xff573353),
                                     ),
                                     showAsterisk: true,
-                                    labelBottomSpacing:
-                                        responsive.isTablet ? 8.0 : 6.0,
+                                    labelBottomSpacing: responsive.isTablet
+                                        ? 8.0
+                                        : 6.0,
                                     onSelect: (val) {
                                       setState(() {
                                         _selectedClassroom = val;
@@ -870,10 +877,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                   ),
                 ],
                 borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
               child: CustomButtonLayout(
@@ -947,7 +952,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -957,7 +965,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -1011,10 +1021,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             child: _profilePhoto != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _profilePhoto!,
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1073,7 +1080,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -1086,7 +1096,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -1158,7 +1170,10 @@ class NameCapitalizationFormatter extends TextInputFormatter {
     String text = newValue.text;
 
     // Remove trailing spaces
-    text = text.replaceFirst(RegExp(r"\s+"), ' '); // collapse multiple spaces inside
+    text = text.replaceFirst(
+      RegExp(r"\s+"),
+      ' ',
+    ); // collapse multiple spaces inside
     text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
     text = text.replaceAll(RegExp(r"\s+\z"), '');
 
@@ -1194,4 +1209,3 @@ class TrimFormatter extends TextInputFormatter {
     );
   }
 }
-

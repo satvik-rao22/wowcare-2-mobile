@@ -163,15 +163,15 @@ class _MyAppState extends State<MyApp> {
             child: Sizer(
               builder: (context, orientation, screenType) {
                 return MultiBlocProvider(
-                  providers: [
-                    BlocProvider<AuthCubit>(
-                      create: (_) {
-                        final cubit = serviceLocator<AuthCubit>();
-                        cubit.initialize();
-                        return cubit;
-                      },
-                    ),
-                  ],
+                    providers: [
+                      BlocProvider<AuthCubit>(
+                        create: (_) {
+                          final cubit = serviceLocator<AuthCubit>();
+                          cubit.initialize();
+                          return cubit;
+                        },
+                      ),
+                    ],
                   child: MaterialApp(
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
