@@ -138,46 +138,56 @@ class ApiConstants {
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';
 
+  /// Tunnel sets (prefix before `-PORT.inc1.devtunnels.ms`)
+  static const String preshtiaTunnelId = 'qs176zl8';
+  static const String sairamTunnelId = 'wnmrl4rn';
+
+  /// Active LOCAL tunnel set.
+  static const String _localTunnelId = sairamTunnelId;
+
   /// User MS (LOCAL devtunnel) or UAT base host.
   static String get baseUrl => isUat
       ? ApiConstantsUat.baseUrl
-      : 'https://qs176zl8-8086.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8086.inc1.devtunnels.ms';
 
   /// Student MS (LOCAL devtunnel) or UAT base host.
   static String get studentBaseUrl => isUat
       ? ApiConstantsUat.studentBaseUrl
-      : 'https://qs176zl8-8085.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8085.inc1.devtunnels.ms';
 
   /// Classroom MS (LOCAL devtunnel) or UAT base host.
   static String get classroomBaseUrl => isUat
       ? ApiConstantsUat.classroomBaseUrl
-      : 'https://qs176zl8-8082.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8087.inc1.devtunnels.ms';
 
   /// Staff MS (LOCAL devtunnel) or UAT base host.
   static String get staffBaseUrl => isUat
       ? ApiConstantsUat.staffBaseUrl
-      : 'https://qs176zl8-8083.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8088.inc1.devtunnels.ms';
 
   /// School / organization MS (LOCAL devtunnel) or UAT base host.
-  static String get schoolMs =>
-      isUat ? ApiConstantsUat.schoolMs : 'https://qs176zl8-8081.inc1.devtunnels.ms';
+  static String get schoolMs => isUat
+      ? ApiConstantsUat.schoolMs
+      : 'https://$_localTunnelId-8081.inc1.devtunnels.ms';
 
   /// Attendance base (LOCAL devtunnel) or UAT base host.
   static String get attendanceBaseUrl => isUat
       ? ApiConstantsUat.attendanceBaseUrl
-      : 'https://qs176zl8-8083.inc1.devtunnels.ms/attendance';
+      : '$staffBaseUrl/attendance';
 
   /// Activity base (LOCAL devtunnel) or UAT base host.
   static String get activityBaseUrl => isUat
       ? ApiConstantsUat.activityBaseUrl
-      : 'https://qs176zl8-8084.inc1.devtunnels.ms/wowcare-activity-ms';
+      : 'https://$_localTunnelId-8082.inc1.devtunnels.ms/wowcare-activity-ms';
 
   /// Document MS base (LOCAL devtunnel) or UAT base host.
   ///
   /// Root UAT constants may not define a dedicated document host; in that case we
   /// default to the main base URL.
   static String get documentMsBaseUrl =>
-      isUat ? ApiConstantsUat.documentMsBaseUrl : 'https://qs176zl8-8000.inc1.devtunnels.ms';
+      isUat
+          ? ApiConstantsUat.documentMsBaseUrl
+          : 'https://fitten-vallie-forthrightly.ngrok-free.dev/document-ms';
 
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {

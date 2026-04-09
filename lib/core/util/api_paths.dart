@@ -129,6 +129,28 @@ import 'api_paths_uat.dart';
 class ApiPaths {
   ApiPaths._();
 
+  /// Whether [path] should include org+school headers:
+  /// `X-Organization-Code` and `X-School-Code`.
+  ///
+  /// Some endpoints (e.g. `GET /api/v1/student-classroom`) require these headers.
+  static bool requiresOrganizationAndSchoolHeaders(String path) {
+    if (ApiConstants.isUat) {
+      return ApiPathsUat.requiresOrganizationAndSchoolHeaders(path);
+    }
+    final p = path.startsWith('/') ? path : '/$path';
+    if (!p.startsWith('/api/v1/')) return false;
+
+    // Public endpoints: no org/school context.
+    if (p.startsWith(authLogin) || p.startsWith(authForgotPassword)) {
+      return false;
+    }
+
+    // Document MS is namespaced separately.
+    if (p.startsWith('/document-ms/')) return false;
+
+    return true;
+  }
+
   /// Maps [path] to [ApiMicroservices] for [ApiConstants.baseUrlForMicroservice].
   /// Paths do not include the MS name in the URL.
   static String microserviceKeyFromPath(String path) {
@@ -374,17 +396,43 @@ class ApiPaths {
   static const String activityTypesRoot = '/api/v1/activity-types';
 
   // —— Document host (base path returned by upload-session response) ——
-  static const String documentUploadSessionsRoot = '/document-ms/api/v1/upload-sessions';
+  static const String documentUploadSessionsRoot = '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
     required String documentApiBasePath,
     required String sessionCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/document-ms/api/v1';
+    if (base.isEmpty) base = '/api/v1';
     if (!base.startsWith('/')) base = '/$base';
+    // If backend returns `/document-ms/api/v1`, strip the `/document-ms` prefix
+    // because [ApiConstants.documentMsBaseUrl] already includes it in LOCAL.
+    if (base.startsWith('/document-ms/')) {
+      base = base.replaceFirst('/document-ms', '');
+      if (base.isEmpty) base = '/api/v1';
+    }
     base = base.replaceAll(RegExp(r'/+$'), '');
     return '$base/upload-sessions/$sessionCode/assets/presign';
+  }
+
+  static String documentAssetCompletePath({
+    required String documentApiBasePath,
+    required String sessionCode,
+    required String assetCode,
+  }) {
+    var base = documentApiBasePath.trim();
+    if (base.isEmpty) base = '/api/v1';
+    if (!base.startsWith('/')) base = '/$base';
+    // If backend returns `/document-ms/api/v1`, strip the `/document-ms` prefix
+    // because [ApiConstants.documentMsBaseUrl] already includes it in LOCAL.
+    if (base.startsWith('/document-ms/')) {
+      base = base.replaceFirst('/document-ms', '');
+      if (base.isEmpty) base = '/api/v1';
+    }
+    base = base.replaceAll(RegExp(r'/+$'), '');
+    final s = sessionCode.trim();
+    final a = assetCode.trim();
+    return '$base/upload-sessions/$s/assets/$a/complete';
   }
 
   static String documentUploadSessionPath(String sessionCode) =>

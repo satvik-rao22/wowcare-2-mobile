@@ -17,6 +17,18 @@ class ApiHeaders {
       if (accessToken.isNotEmpty) 'Authorization': 'Bearer $accessToken',
     };
   }
+
+  static Map<String, String> organizationAndSchool({
+    required String organizationCode,
+    required String schoolCode,
+  }) {
+    final org = organizationCode.trim();
+    final school = schoolCode.trim();
+    return {
+      if (org.isNotEmpty) 'X-Organization-Code': org,
+      if (school.isNotEmpty) 'X-School-Code': school,
+    };
+  }
 }
 
 

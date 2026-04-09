@@ -138,6 +138,22 @@ class ImageUploadService {
     );
   }
 
+  Future<void> completeAssetUpload({
+    required String sessionCode,
+    required String assetCode,
+    required String documentApiBasePath,
+  }) async {
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final path = ApiPaths.documentAssetCompletePath(
+      documentApiBasePath: documentApiBasePath,
+      sessionCode: sessionCode,
+      assetCode: assetCode,
+    );
+    final endpoint = '$origin$path';
+
+    await _apiClient.client.post<dynamic>(endpoint);
+  }
+
   Future<void> uploadFileToPresignedUrl({
     required File file,
     required String presignedPutUrl,

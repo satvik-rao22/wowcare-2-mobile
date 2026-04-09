@@ -60,6 +60,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   bool _isUploadingMedia = false;
   List<File> _newPhotos = [];
   final Map<String, String> _uploadedAssetCodeByPath = {};
+  String? _lastUploadContextKey;
 
   int get _uploadedPhotoCount => _newPhotos
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
@@ -370,6 +371,23 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
+    final normalizedStudentCodes = studentCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList()
+      ..sort();
+    final uploadContextKey = [
+      organizationCode.trim(),
+      schoolCode.trim(),
+      classroomCode.trim(),
+      normalizedStudentCodes.join(','),
+    ].join('|');
+    if (_lastUploadContextKey != uploadContextKey) {
+      // Prevent reusing asset codes uploaded under a different classroom/session context.
+      _uploadedAssetCodeByPath.clear();
+      _lastUploadContextKey = uploadContextKey;
+    }
+
     final ownerCode = studentCodes.first;
     final missing = _newPhotos
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
@@ -409,6 +427,11 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
             presignedPutUrl: presign.presignedPutUrl,
             requiredHeaders: presign.requiredHeaders,
             fallbackContentType: 'image/jpeg',
+          );
+          await _imageUploadService.completeAssetUpload(
+            sessionCode: uploadSession.sessionCode,
+            assetCode: presign.assetCode,
+            documentApiBasePath: uploadSession.documentApiBasePath,
           );
           _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
           sessionAssetCodes.add(presign.assetCode);
