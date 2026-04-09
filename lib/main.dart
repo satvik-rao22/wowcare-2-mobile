@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -22,8 +23,6 @@ import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
 // App starts from Splash and follows onboarding / login-context redirect flow.
 // Create a global instance of NotificationService that will be initialized later
 // final NotificationService notificationService = NotificationService();
@@ -36,40 +35,43 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 //   // You can do minimal processing here, but avoid heavy work
 // }
 
+// Future<void> main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+
+//   // Initialize dependency injection
+//   await configureDependencies();
+
+//   // Only initialize if not already
+//   if (Platform.isIOS) {
+//     await Firebase.initializeApp(); // auto from GoogleService-Info.plist
+//   } else {
+//     // await Firebase.initializeApp(
+//     //   options: DefaultFirebaseOptions.currentPlatform,
+//     // );
+//   }
+
+//   // Set up background message handler
+//   // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+//   // await init();
+//   // await initOld();
+
+//   SystemChrome.setPreferredOrientations([
+//     DeviceOrientation.portraitUp,
+//     DeviceOrientation.portraitDown,
+//     DeviceOrientation.landscapeLeft,
+//     DeviceOrientation.landscapeRight
+//   ]);
+
+//   runApp(const MyApp());
+// }
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize dependency injection
+  // ❌ Disable Firebase for now
+  // await Firebase.initializeApp();
+
   await configureDependencies();
-
-  // TEMP: When bypassing login, force a known schoolCode into storage so
-  // any school-scoped APIs work during testing.
-  // if (kBypassLogin) {
-  //   final storage = serviceLocator<StorageService>();
-  //   await storage.saveString(StorageKeys.schoolCode, DebugDefaults.schoolCode);
-  // }
-
-  // Only initialize if not already
-  if (Platform.isIOS) {
-    await Firebase.initializeApp(); // auto from GoogleService-Info.plist
-  } else {
-    // await Firebase.initializeApp(
-    //   options: DefaultFirebaseOptions.currentPlatform,
-    // );
-  }
-
-  // Set up background message handler
-  // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // await init();
-  // await initOld();
-
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
 
   runApp(const MyApp());
 }
@@ -163,15 +165,15 @@ class _MyAppState extends State<MyApp> {
             child: Sizer(
               builder: (context, orientation, screenType) {
                 return MultiBlocProvider(
-                    providers: [
-                      BlocProvider<AuthCubit>(
-                        create: (_) {
-                          final cubit = serviceLocator<AuthCubit>();
-                          cubit.initialize();
-                          return cubit;
-                        },
-                      ),
-                    ],
+                  providers: [
+                    BlocProvider<AuthCubit>(
+                      create: (_) {
+                        final cubit = serviceLocator<AuthCubit>();
+                        cubit.initialize();
+                        return cubit;
+                      },
+                    ),
+                  ],
                   child: MaterialApp(
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
@@ -181,7 +183,7 @@ class _MyAppState extends State<MyApp> {
                     //     : const SplashScreenWrapper(),
                     home: const SplashScreenWrapper(),
                     onGenerateRoute: generateRoute,
-                    navigatorKey: navigatorKey,
+                    navigatorKey: CoreUtils.rootNavigatorKey,
                   ),
                 );
               },
@@ -695,5 +697,5 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   //   @override
   //   Widget build(BuildContext context) {
   //     return const SplashScreen();
-  // }
+  //   }
 }

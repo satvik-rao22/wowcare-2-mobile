@@ -11,6 +11,7 @@ class StudentDocumentRequestModel extends Equatable {
     required this.size,
     required this.ownerType,
     required this.ownerId,
+    this.uploadedBy,
     this.notes,
   });
 
@@ -22,24 +23,38 @@ class StudentDocumentRequestModel extends Equatable {
   final int size;
   final String ownerType;
   final String ownerId;
+  final String? uploadedBy;
   final String? notes;
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
       'type': type,
-      'expiryDate': expiryDate,
+      'expiryDate': expiryDate.trim().isEmpty ? null : expiryDate,
       'storagePath': storagePath,
       'mimeType': mimeType,
       'size': size,
       'ownerType': ownerType,
       'ownerId': ownerId,
+      if (uploadedBy != null && uploadedBy!.trim().isNotEmpty)
+        'uploadedBy': uploadedBy!.trim(),
       'notes': notes ?? '',
     };
   }
 
   @override
-  List<Object?> get props => [name, type, expiryDate, storagePath, mimeType, size, ownerType, ownerId, notes];
+  List<Object?> get props => [
+        name,
+        type,
+        expiryDate,
+        storagePath,
+        mimeType,
+        size,
+        ownerType,
+        ownerId,
+        uploadedBy,
+        notes,
+      ];
 }
 
 /// Response model for POST /api/v1/student-documents.
@@ -83,6 +98,7 @@ class StudentDocumentItemModel extends Equatable {
     this.ownerId,
     this.notes,
     this.createdAt,
+    this.uploadedBy,
   });
 
   final String code;
@@ -95,6 +111,7 @@ class StudentDocumentItemModel extends Equatable {
   final String? ownerId;
   final String? notes;
   final String? createdAt;
+  final String? uploadedBy;
 
   factory StudentDocumentItemModel.fromJson(Map<String, dynamic> json) {
     return StudentDocumentItemModel(
@@ -108,6 +125,7 @@ class StudentDocumentItemModel extends Equatable {
       ownerId: json['ownerId'] as String?,
       notes: json['notes'] as String?,
       createdAt: json['createdAt'] as String?,
+      uploadedBy: (json['uploadedBy'] ?? '').toString(),
     );
   }
 
@@ -123,11 +141,24 @@ class StudentDocumentItemModel extends Equatable {
       'ownerId': ownerId,
       'notes': notes,
       'createdAt': createdAt,
+      'uploadedBy': uploadedBy,
     };
   }
 
   @override
-  List<Object?> get props => [code, name, type, expiryDate, storagePath, mimeType, size, ownerId, notes, createdAt];
+  List<Object?> get props => [
+        code,
+        name,
+        type,
+        expiryDate,
+        storagePath,
+        mimeType,
+        size,
+        ownerId,
+        notes,
+        createdAt,
+        uploadedBy,
+      ];
 }
 
 class StudentDocumentsPageModel extends Equatable {

@@ -11,6 +11,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
@@ -26,6 +27,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -45,6 +47,7 @@ class _StudentScreenState extends State<StudentScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _showActivitiesPanel = false;
+  bool _showInactive = false;
   List<bool> _selectedDemo = [];
   bool _selectAll = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
@@ -63,7 +66,8 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
-        // NOTE: Do not call tags API for now (as requested).
+        _applyFiltersToCubit();
+        _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
       }
@@ -81,8 +85,28 @@ class _StudentScreenState extends State<StudentScreen> {
   void _onSearchChanged() {
     final query = _searchController.text.trim();
     context.read<StudentCubit>().updateSearch(query);
-    // Refresh to apply search filter
-    context.read<StudentCubit>().refreshWithCacheReset();
+    // Trigger search API on each keystroke without dropping rapid updates.
+    context.read<StudentCubit>().refresh(ignoreRefreshingGuard: true);
+  }
+
+  Future<void> _loadTagNameCodeMap() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase =
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final map = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _tagNameToCode = map;
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
   }
 
   Future<void> _loadGuardianNameCodeMap() async {
@@ -123,6 +147,16 @@ class _StudentScreenState extends State<StudentScreen> {
     } catch (_) {
       // Non-critical for UI; keep defaults.
     }
+  }
+
+  Future<void> _refreshAllStudentApis() async {
+    final studentCubit = context.read<StudentCubit>();
+    await Future.wait([
+      studentCubit.refreshWithCacheReset(),
+      _loadTagNameCodeMap(),
+      _loadGuardianNameCodeMap(),
+      _loadStudentCounts(),
+    ]);
   }
 
   Future<void> _openEditStudentDetails(String studentCode) async {
@@ -233,6 +267,7 @@ class _StudentScreenState extends State<StudentScreen> {
               initialFirstName: profile.firstName,
               initialLastName: profile.lastName,
               initialStatus: statusDisplay,
+              initialGender: profile.gender,
               initialClassroom: profile.classroom ?? '',
               initialBirthDate: birthDate,
               initialNotes: profile.notes ?? '',
@@ -263,7 +298,7 @@ class _StudentScreenState extends State<StudentScreen> {
         // If student was edited, refresh + reset list cache.
         if (!mounted) return;
         if (result == true) {
-          await context.read<StudentCubit>().refreshWithCacheReset();
+          await _refreshAllStudentApis();
         }
       });
     } catch (e) {
@@ -279,7 +314,7 @@ class _StudentScreenState extends State<StudentScreen> {
   Future<void> _applyFiltersToCubit() async {
     final statusFilter = _currentFilters['Status']?.isNotEmpty == true
         ? _currentFilters['Status']!.first
-        : null;
+        : 'Active';
 
     // Map selected classroom names to codes for the API
     final classroomState = context.read<ClassroomCubit>().state;
@@ -328,6 +363,7 @@ class _StudentScreenState extends State<StudentScreen> {
       'Tags': student.tags,
       // Use schedule derived from regularSchedules if available; otherwise empty.
       'schedule': student.schedule,
+      'scheduleByDay': student.scheduleByDay,
       // Keep raw DOB; card widget is responsible for display formatting
       'birthDate': student.dob,
       'movementDate': student.movementDate,
@@ -342,9 +378,25 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _clearAllFilters() async {
     setState(() {
-      _currentFilters.clear();
+      _currentFilters
+        ..clear()
+        ..['Status'] = ['Active'];
+      _showInactive = false;
     });
     await _applyFiltersToCubit();
+  }
+
+  String _statusChipLabel() {
+    final statusList = _currentFilters['Status'];
+    if (statusList != null && statusList.isNotEmpty) {
+      return statusList.first;
+    }
+    return _showInactive ? 'Inactive' : 'Active';
+  }
+
+  void _syncShowInactiveFromStatus(String? status) {
+    final upper = (status ?? '').trim().toUpperCase();
+    _showInactive = upper == 'INACTIVE';
   }
 
   bool _canShowActivitiesButton(selectedCount, List<Student> students) {
@@ -525,7 +577,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             final studentName = (result['studentName'] as String?) ?? '';
                             final studentCode = (result['studentCode'] as String?) ?? '';
                             // New student added successfully → reset cache + refresh list
-                            await studentCubit.refreshWithCacheReset();
+                            await _refreshAllStudentApis();
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               showModalBottomSheet(
                                 context: context,
@@ -608,7 +660,6 @@ class _StudentScreenState extends State<StudentScreen> {
                           number: total,
                           items: items,
                           fullWidthBar: false,
-                          selectedFilterValue: (_currentFilters['Status']?.length == 1) ? _currentFilters['Status']!.first : null,
                           onLegendTap: (String label, String? filterValue) async {
                             setState(() {
                               final current = _currentFilters['Status'];
@@ -617,6 +668,11 @@ class _StudentScreenState extends State<StudentScreen> {
                               } else {
                                 _currentFilters['Status'] = [filterValue!];
                               }
+                              _syncShowInactiveFromStatus(
+                                _currentFilters['Status']?.isNotEmpty == true
+                                    ? _currentFilters['Status']!.first
+                                    : null,
+                              );
                             });
                             await _applyFiltersToCubit();
                           },
@@ -825,16 +881,59 @@ class _StudentScreenState extends State<StudentScreen> {
                                 //   ),
                                 //   color: Color.fromRGBO(177, 175, 233, 0.3),
                                 // ),
-                                const CustomClearAllChip(onTap: null, label: 'Active'),// should be turned on by default and show active students
+                                CustomClearAllChip(
+                                  onTap: null,
+                                  label: _statusChipLabel(),
+                                ),
                                 const SizedBox(width: 8),
                                 CustomClearAllChip(onTap: () => _clearAllFilters()),
                               ],
                             ),
-                            // CustomToggle(
-                            //   label: '',
-                            //   isToggled: _showInactive,
-                            //   onToggle: (v) => setState(() => _showInactive = v),
-                            // ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Show inactive',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xff573353),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                CustomToggle(
+                                  label: '',
+                                  isToggled: _showInactive,
+                                  onToggle: (v) async {
+                                    setState(() {
+                                      _showInactive = v;
+                                      _currentFilters['Status'] =
+                                          [v ? 'Inactive' : 'Active'];
+                                    });
+                                    await _applyFiltersToCubit();
+
+                                    if (!mounted) return;
+                                    final err = context
+                                        .read<StudentCubit>()
+                                        .state
+                                        .errorMessage;
+                                    if (err != null && err.isNotEmpty) {
+                                      CoreUtils.logApiError(err);
+                                    } else {
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: v
+                                            ? 'Showing inactive students'
+                                            : 'Showing active students',
+                                        isSuccess: true,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ],
@@ -908,6 +1007,7 @@ class _StudentScreenState extends State<StudentScreen> {
                               sibling:
                                   studentMap['sibling'] as Map<String, dynamic>,
                               schedule: studentMap['schedule'] as List<String>,
+                              scheduleByDay: studentMap['scheduleByDay'] as Map<String, String>? ?? const <String, String>{},
                               birthDate: studentMap['birthDate'] as String,
                               movementDate:
                                   studentMap['movementDate'] as String,
@@ -940,6 +1040,30 @@ class _StudentScreenState extends State<StudentScreen> {
                                     message: message,
                                     isSuccess: true,
                                   );
+                                  await _refreshAllStudentApis();
+                                  Navigator.of(context).maybePop();
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  final msg =
+                                      ApiErrorHandler.extractErrorMessage(e);
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: msg,
+                                    isError: true,
+                                  );
+                                }
+                              },
+                              onDeleteAction: () async {
+                                try {
+                                  final message =
+                                      await studentCubit.deleteStudent(student.code);
+                                  if (!mounted) return;
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: message,
+                                    isSuccess: true,
+                                  );
+                                  await _refreshAllStudentApis();
                                   Navigator.of(context).maybePop();
                                 } catch (e) {
                                   if (!mounted) return;

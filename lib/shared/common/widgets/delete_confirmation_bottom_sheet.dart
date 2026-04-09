@@ -75,6 +75,10 @@ class _DeleteConfirmationBottomSheetState
         ? (widget.type == 'plan_cancel'
             ? 'Do you want to cancel this plan - "${widget.planName ?? ''}" for student ${widget.name}?'
             : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
+        : widget.type == 'guardian'
+        ? 'Do you want to delete this Parent/Guardian -\n"${widget.name}" ?'
+        : widget.type == 'pickup'
+        ? 'Do you want to delete this Pickup -\n"${widget.name}" ?'
         : widget.type == 'user'
         ? "Do you want to delete this User"
         : widget.type == 'Activity'
@@ -87,6 +91,8 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
         : widget.type == 'student_reactivate'
         ? 'Do you want to reactivate this Student -\n"${widget.name}" ?'
+        : widget.type == 'student_delete'
+        ? 'Do you want to delete this Student -\n"${widget.name}" ?'
         : widget.type == 'subsidy'
         ? 'Do you want to delete the subsidy -\n${widget.name} ?'
         : widget.type == 'classroom'
@@ -214,7 +220,6 @@ class _DeleteConfirmationBottomSheetState
                 ),
               ),
               SizedBox(height: verticalPadding * 1.5),
-              // Buttons row (shared layout with built-in loader)
               CustomButtonLayout(
                 confirmButtonLabel: buttonText,
                 cancelButtonLabel: 'Cancel',

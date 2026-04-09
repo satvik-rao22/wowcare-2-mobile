@@ -733,7 +733,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                       final apiClient =
                                           serviceLocator<ApiClient>().client;
                                       final endpoint = ApiPaths.urlWithBase(
-                                        '/api/v1/student-attendance-records/${student.attendanceRecordCode}',
+                                        ApiPaths.studentAttendanceRecords(
+                                          student.attendanceRecordCode!,
+                                        ),
                                         ApiConstants.attendanceBaseUrl,
                                       );
 

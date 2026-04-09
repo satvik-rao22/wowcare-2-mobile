@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -14,6 +11,7 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../../../../shared/constants/location_constants.dart';
+import '../../staff/widgets/staff_form_layout.dart';
 
 class EditUserProfileScreen extends StatefulWidget {
   const EditUserProfileScreen({super.key, this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
@@ -38,7 +36,6 @@ class EditUserProfileScreen extends StatefulWidget {
 }
 
 class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -56,12 +53,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   // Full lists sourced from shared `location_constants.dart`
   final List<String> _stateOptions =
       US_STATES.map((state) => state.name).toList();
-  final List<String> _countryOptions =
-      COUNTRY_LIST.map((country) => country.name).toList();
 
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
+  static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
   @override
   void initState() {
@@ -83,6 +79,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
         ? widget.initialCountry
         : null;
     _zipCodeController.text = widget.initialZipCode ?? '';
+    // Country is fixed to United States in this form.
+    _selectedCountry = 'United States';
 
     // Prefetch latest profile from my-profile API and hydrate controllers.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -103,13 +101,10 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     super.dispose();
   }
 
-  /// Resolves staffCode for the currently logged-in user.
-  /// Uses cached staffCode when valid; falls back to `/api/v1/staff/code`
-  /// via the StaffRepository when needed.
+  /// Resolves staffCode for the currently logged-in user from local cache.
   Future<String> _resolveLoggedInStaffCode() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final repo = serviceLocator<StaffRepository>();
 
       final currentUserCode =
           (await storage.getString(StorageKeys.userCode) ?? '').trim();
@@ -123,35 +118,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
           currentUserCode.isNotEmpty &&
           cachedStaffUser == currentUserCode) {
         return cachedStaffCode;
-      } else {
-        await storage.remove(StorageKeys.staffCode);
-        await storage.remove(StorageKeys.staffCodeUser);
       }
-
-      final organizationCode =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-
-      if (currentUserCode.isEmpty ||
-          organizationCode.isEmpty ||
-          schoolCode.isEmpty) {
-        return '';
-      }
-
-      final resolvedCode = await repo.getStaffCodeForUser(
-        userCode: currentUserCode,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
-
-      final code = (resolvedCode ?? '').trim();
-      if (code.isNotEmpty) {
-        await storage.saveString(StorageKeys.staffCode, code);
-        await storage.saveString(StorageKeys.staffCodeUser, currentUserCode);
-      }
-
-      return code;
+      return '';
     } catch (_) {
       return '';
     }
@@ -239,14 +207,18 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       _cityController.text = _toTitleCase(address.city);
     }
     if (address.zipCode.isNotEmpty) {
-      _zipCodeController.text = address.zipCode;
+      _zipCodeController.text = _formatUsZipForDisplay(address.zipCode);
     }
-
-    _selectedState =
-        address.state.isNotEmpty ? _toTitleCase(address.state) : _selectedState;
-    _selectedCountry = address.country.isNotEmpty
-        ? _toTitleCase(address.country)
-        : _selectedCountry;
+    if (address.state.isNotEmpty) {
+      final match = US_STATES.firstWhere(
+        (s) =>
+            s.name.toLowerCase() == address.state.toLowerCase() ||
+            s.abbreviation.toLowerCase() == address.state.toLowerCase(),
+        orElse: () => US_STATES.first,
+      );
+      _selectedState = match.name;
+    }
+    _selectedCountry = 'United States';
   }
 
   Future<void> _saveProfileDetails() async {
@@ -300,6 +272,14 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       );
       return;
     }
+    if (!_e164Regex.hasMatch('+$phoneDigits')) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please enter a valid 10-digit phone number',
+        isError: true,
+      );
+      return;
+    }
     if (_streetController.text.isEmpty) {
       CoreUtils.showTopSnackBar(context: context, message:'Street is required', isError: true);
       return;
@@ -320,8 +300,13 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       CoreUtils.showTopSnackBar(context: context, message:'Zip Code is required', isError: true);
       return;
     }
-    if (!RegExp(r'^\d{3,10}$').hasMatch(zip)) {
-      CoreUtils.showTopSnackBar(context: context, message:'Zip Code must contain only numbers (3–10 digits)', isError: true);
+    final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
+    if (!RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
+        isError: true,
+      );
       return;
     }
     if ((_selectedState ?? '').trim().isEmpty) {
@@ -369,8 +354,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
         'addressLine2': address2,
         'addressCity': city,
         'addressState': _selectedState ?? '',
-        'addressZipCode': zip,
-        'addressCountry': _selectedCountry ?? '',
+        'addressZipCode': zipDigits,
+        'addressCountry': 'United States',
       };
 
       // If email changed, call email-change API before updating profile.
@@ -446,162 +431,162 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: Colors.white,
-        appBar: const CustomAppBar(hasBackButton: true,),
-        body: Stack(
+    return StaffFormLayout(
+      title: 'Edit My Profile',
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            Column(
+            Row(
               children: [
                 Expanded(
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: responsive.horizontalSpacing,
-                            ),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Edit My Profile',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: responsive.titleFontSize,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: responsive.isTablet ? 32.0 : 10.0),
-                          Container(
-                            width: responsive.containerWidth,
-                            margin: EdgeInsets.symmetric(
-                                horizontal: responsive.horizontalSpacing
-                            ),
-                            padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildInputField(
-                                          "First Name",
-                                          "E.g. John",
-                                          _firstNameController,
-                                          isRequired: true
-                                      ),
-                                    ),
-                                    SizedBox(width: responsive.horizontalSpacing),
-                                    Expanded(
-                                      child: _buildInputField(
-                                          "Last Name",
-                                          "E.g. Smith",
-                                          _lastNameController,
-                                          isRequired: true
-                                      ),
-                                    ),
-
-                                  ],
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Email", "E.g. Jessica@wowcare.com", _emailController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Phone Number", "E.g. (000) 000-0000", _phoneNoController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Street", "Eg. Street no", _streetController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Address line 2", "E.g. Address line 2", _addressLine2Controller, isRequired: false),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("City", "Eg. Nashua", _cityController, isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField("Zip Code", "Eg. 85001", _zipCodeController, isRequired: true),
-
-                              ],
-
-                            ),
-                          )
-                        ],
-                      ),
-                    )
+                  child: _buildInputField(
+                    "First Name",
+                    "E.g. John",
+                    _firstNameController,
+                    isRequired: true,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(width: responsive.horizontalSpacing),
+                Expanded(
+                  child: _buildInputField(
+                    "Last Name",
+                    "E.g. Smith",
+                    _lastNameController,
+                    isRequired: true,
+                  ),
+                ),
               ],
-            )
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Email",
+              "E.g. Jessica@wowcare.com",
+              _emailController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Phone Number",
+              "E.g. (000) 000-0000",
+              _phoneNoController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Street",
+              "Eg. Street no",
+              _streetController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Address line 2",
+              "E.g. Address line 2",
+              _addressLine2Controller,
+              isRequired: false,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "City",
+              "Eg. Nashua",
+              _cityController,
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildCustomDropdown(
+              "State",
+              "Select",
+              _stateOptions,
+              _selectedState,
+              (v) => setState(() => _selectedState = v),
+              isRequired: true,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            Opacity(
+              opacity: 0.8,
+              child: CustomDropdown(
+                label: "Country",
+                hintText: 'United States',
+                items: const <String>['United States'],
+                selectedItem: 'United States',
+                isEnabled: false,
+                showAsterisk: true,
+                labelStyle: TextStyle(
+                  fontSize: responsive.labelFontSize + 1,
+                  fontFamily: "Manrope",
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xff573353),
+                ),
+                selectedTextStyle: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.inputFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                  height: 19 / 14,
+                ),
+                popupItemTextStyle: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.inputFontSize,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xff573353),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: responsive.isTablet ? 16.0 : 12.0,
+                  vertical: responsive.isTablet ? 16.0 : 12.0,
+                ),
+                onSelect: null,
+              ),
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _buildInputField(
+              "Zip Code",
+              "E.g. 12345 or 12345-6789",
+              _zipCodeController,
+              isRequired: true,
+            ),
           ],
         ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom, left: 16, right: 16, top: 8,
+      ),
+      bottomBar: Container(
+        padding: EdgeInsets.only(
+          bottom: safeAreaBottom,
+          left: 16,
+          right: 16,
+          top: 8,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              offset: const Offset(0, -4),
+              blurRadius: 16,
+            ),
+          ],
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
+        ),
+        child: Container(
+          height: responsive.buttonHeight,
           decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
+            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
+            color: _isSubmitting ? Colors.grey[300] : null,
+            borderRadius:
+                BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : () => _saveProfileDetails(),
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+          child: TextButton(
+            onPressed: _isSubmitting ? null : () => _saveProfileDetails(),
+            child: Text(
+              'Save',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: responsive.buttonFontSize,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ),
@@ -652,7 +637,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
                     ? TextInputType.phone
                     : TextInputType.text),
             inputFormatters: label == 'Zip Code'
-                ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+                ? <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(9),
+                    _ZipCodeFormatter(),
+                  ]
                 : (label == 'Phone Number'
                     ? <TextInputFormatter>[
                         FilteringTextInputFormatter.digitsOnly,
@@ -725,6 +714,43 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       ),
     );
   }
+}
+
+/// Formats US ZIP codes as either:
+/// - 12345
+/// - 12345-6789
+class _ZipCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    final buffer = StringBuffer();
+    for (var i = 0; i < digitsOnly.length && i < 9; i++) {
+      if (i == 5) buffer.write('-');
+      buffer.write(digitsOnly[i]);
+    }
+    final formatted = buffer.toString();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+String _formatUsZipForDisplay(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+  if (digits.length <= 5) return digits.substring(0, digits.length);
+  final first5 = digits.substring(0, 5);
+  final last4 = digits.substring(5, digits.length.clamp(5, 9));
+  return last4.isEmpty ? first5 : '$first5-$last4';
 }
 
 /// Simple phone formatter to display US numbers as (XXX) XXX-XXXX

@@ -17,6 +17,7 @@ class AddStudentDocumentUseCase {
     required String storagePath,
     required String mimeType,
     required int size,
+    String? uploadedBy,
     String? notes,
   }) async {
     try {
@@ -28,6 +29,7 @@ class AddStudentDocumentUseCase {
         storagePath: storagePath,
         mimeType: mimeType,
         size: size,
+        uploadedBy: uploadedBy,
         notes: notes,
       );
       return Right(message);

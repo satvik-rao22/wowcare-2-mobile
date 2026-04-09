@@ -17,11 +17,13 @@ class StudentHealthTabCard extends StatefulWidget {
   const StudentHealthTabCard({
     required this.scrollController,
     this.studentCode,
+    this.onHealthChanged,
     super.key,
   });
 
   final ScrollController scrollController;
   final String? studentCode;
+  final VoidCallback? onHealthChanged;
 
 
   @override
@@ -48,7 +50,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
     try {
       final model = await repo.getStudentHealth(studentCode: code);
-      _photoPermission = true; // backend currently omits this; default to true
+      _photoPermission = model.photoPermission ?? true;
       return model;
     } catch (_) {
       rethrow;
@@ -128,6 +130,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                           _healthFuture = _buildHealthFuture();
                           _hasShownErrorSnackBar = false;
                         });
+                        widget.onHealthChanged?.call();
                       }
                     },
                     child: Row(
@@ -179,8 +182,14 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                           studentCode: code,
                           body: body,
                         );
+                        widget.onHealthChanged?.call();
                       } catch (e) {
                         CoreUtils.logApiError(e.toString());
+                        if (mounted) {
+                          setState(() {
+                            _photoPermission = !v;
+                          });
+                        }
                         if (!mounted) return;
                         CoreUtils.showTopSnackBar(
                           context: context,

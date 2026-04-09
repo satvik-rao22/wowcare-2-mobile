@@ -54,6 +54,8 @@ abstract class StudentRemoteDataSource {
 
   Future<String> reactivateStudent(String code);
 
+  Future<String> deleteStudent(String code);
+
   Future<List<StudentPickupModel>> getStudentPickups({
     required String studentCode,
   });
@@ -68,6 +70,18 @@ abstract class StudentRemoteDataSource {
     required String email,
     required String phoneNumber,
     required String relation,
+    String? relationshipDescription,
+    required String pickupType,
+    String? carpoolId,
+  });
+
+  Future<String> updatePickup({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  Future<String> deletePickup({
+    required String code,
   });
 
   /// Fetches physicians associated with a student via `/api/v1/physicians`.
@@ -159,7 +173,7 @@ abstract class StudentRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
-  /// Updates the student's siblings via `PUT /api/v1/student/{studentCode}/siblings`.
+  /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
   Future<String> updateStudentSiblings({
     required String studentCode,
     required List<String> siblingCodes,
@@ -212,6 +226,20 @@ abstract class StudentRemoteDataSource {
   /// Returns the backend `message` field.
   Future<String> linkExistingGuardian({
     required String guardianCode,
+    required String studentCode,
+    String? relation,
+    String? relationDescription,
+  });
+
+  /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
+  Future<String> updateGuardian({
+    required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.
+  Future<String> deleteGuardian({
+    required String code,
     required String studentCode,
   });
 
@@ -341,14 +369,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }) async {
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
-      // Backward-compatible pagination params
       'page': page,
       'size': size,
       'sort': 'desc',
-      // Newer backend contract (pageable as required)
-      'pageable.page': page,
-      'pageable.size': size,
-      'pageable.sort': <String>['desc'],
     };
 
     if (code != null && code.isNotEmpty) {
@@ -381,9 +404,14 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       ApiConstants.studentBaseUrl,
     );
 
+    // Spring expects repeated query keys for collections, e.g.
+    // tagCodes=T1&tagCodes=T2 — not bracket or CSV serialization.
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: Options(
+        listFormat: ListFormat.multi,
+      ),
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -722,6 +750,23 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<String> deleteStudent(String code) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentDelete(code),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student delete API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Student deleted successfully';
+  }
+
+  @override
   Future<List<StudentPickupModel>> getStudentPickups({
     required String studentCode,
   }) async {
@@ -759,6 +804,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     required String email,
     required String phoneNumber,
     required String relation,
+    String? relationshipDescription,
+    required String pickupType,
+    String? carpoolId,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.pickup,
@@ -772,6 +820,12 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'email': email,
       'phoneNumber': phoneNumber,
       'relation': relation,
+      if (relationshipDescription != null &&
+          relationshipDescription.trim().isNotEmpty)
+        'relationshipDescription': relationshipDescription.trim(),
+      'pickupType': pickupType,
+      if (carpoolId != null && carpoolId.trim().isNotEmpty)
+        'carpoolId': carpoolId.trim(),
     };
 
     final response = await _client.post<dynamic>(
@@ -785,6 +839,48 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final root = response.data! as Map<String, dynamic>;
     return root['message']?.toString() ?? 'Pickup added successfully';
+  }
+
+  @override
+  Future<String> updatePickup({
+    required String code,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.pickup}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected pickup update API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Pickup updated successfully';
+  }
+
+  @override
+  Future<String> deletePickup({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.pickup}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected pickup delete API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    return root['message']?.toString() ?? 'Pickup deleted successfully';
   }
 
   @override
@@ -992,13 +1088,10 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? userCode,
     String? organizationCode,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.guardianUser,
-      ApiConstants.studentBaseUrl,
-    );
+    // User MS (8086); [urlWithBase] second arg is ignored — do not use studentBaseUrl here.
+    final endpoint = ApiPaths.url(ApiPaths.guardianUser);
 
     final body = <String, dynamic>{
-      'code': '', // let backend generate
       'schoolCode': schoolCode,
       'studentCode': studentCode,
       'firstName': firstName,
@@ -1008,10 +1101,16 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'relationToStudent': relationToStudent,
       'primaryContact': primaryContact,
       'legalCustody': legalCustody,
-      'profilePhotoUrl': profilePhotoUrl ?? '',
-      'userCode': userCode ?? '',
-      'organizationCode': organizationCode ?? '',
     };
+    if (profilePhotoUrl != null && profilePhotoUrl.trim().isNotEmpty) {
+      body['profilePhotoUrl'] = profilePhotoUrl.trim();
+    }
+    if (userCode != null && userCode.trim().isNotEmpty) {
+      body['userCode'] = userCode.trim();
+    }
+    if (organizationCode != null && organizationCode.trim().isNotEmpty) {
+      body['organizationCode'] = organizationCode.trim();
+    }
 
     final response = await _client.post<dynamic>(
       endpoint,
@@ -1094,6 +1193,8 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
+    String? relation,
+    String? relationDescription,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.guardianExisting,
@@ -1105,6 +1206,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       queryParameters: <String, dynamic>{
         'guardianCode': guardianCode,
         'studentCode': studentCode,
+        if (relation != null && relation.trim().isNotEmpty)
+          'relation': relation.trim().toUpperCase(),
+        if (relationDescription != null &&
+            relationDescription.trim().isNotEmpty)
+          'relationDescription': relationDescription.trim(),
       },
     );
 
@@ -1117,23 +1223,68 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getTagsBySchool({
-    required String schoolCode,
+  Future<String> updateGuardian({
+    required String code,
+    required Map<String, dynamic> body,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.tags,
+      '${ApiPaths.guardian}/$code',
       ApiConstants.studentBaseUrl,
     );
 
-    final response = await _client.get<dynamic>(
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Guardian updated successfully';
+  }
+
+  @override
+  Future<String> deleteGuardian({
+    required String code,
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.guardian}/$code',
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.delete<dynamic>(
       endpoint,
       queryParameters: <String, dynamic>{
-        'schoolCode': schoolCode,
-        // Load first page with a reasonable size; tags list is usually small.
-        'pageable.page': 0,
-        'pageable.size': 100,
+        'studentCode': studentCode,
       },
     );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian delete API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Guardian deleted successfully';
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getTagsBySchool({
+    required String schoolCode,
+  }) async {
+    // Full [Uri] so Dio does not merge with [BaseOptions.baseUrl]
+    // (which would incorrectly yield …/api/v1/user/tags on the user host).
+    final uri = Uri.parse(ApiPaths.url(ApiPaths.tags)).replace(
+      queryParameters: <String, String>{
+        'schoolCode': schoolCode,
+        'page': '0',
+        'size': '100',
+      },
+    );
+
+    final response = await _client.getUri<dynamic>(uri);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected tags API response format');

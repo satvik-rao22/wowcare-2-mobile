@@ -88,7 +88,16 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                   GradientAddButton(
                     onTap: () {
                       if(widget.fromStudentProfile){
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => ChooseActivity(selectedStudents: [?widget.studentName],)));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChooseActivity(
+                              selectedStudents: widget.studentName != null
+                                  ? [Map<String, dynamic>.from(widget.studentName!)]
+                                  : <Map<String, dynamic>>[],
+                            ),
+                          ),
+                        );
                       } else {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityStudentSelection()));
                       }
@@ -108,8 +117,17 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
             child: TabBarView(
               controller: _tabController,
               children: [
-                ActivityDailyTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName?['name'],),
-                ActivityCustomTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName?['name'],)
+                ActivityDailyTab(
+                  fromStudentProfile: widget.fromStudentProfile,
+                  studentName: widget.studentName?['name']?.toString(),
+                  studentProfile: widget.fromStudentProfile
+                      ? widget.studentName
+                      : null,
+                ),
+                ActivityCustomTab(
+                  fromStudentProfile: widget.fromStudentProfile,
+                  studentName: widget.studentName?['name']?.toString(),
+                )
 
               ],
             ),

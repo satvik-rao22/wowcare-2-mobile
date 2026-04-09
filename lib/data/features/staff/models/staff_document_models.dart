@@ -109,7 +109,8 @@ class StaffDocumentItemModel extends Equatable {
       documentNotes: json['documentNotes'] as String?,
       expired: json['expired'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
-      updatedBy: json['updatedBy'] as String? ?? '',
+      // API may return either `uploadedBy` (current) or `updatedBy` (legacy).
+      updatedBy: (json['uploadedBy'] ?? json['updatedBy'] ?? '').toString(),
       updatedAt: json['updatedAt'] as String? ?? '',
     );
   }

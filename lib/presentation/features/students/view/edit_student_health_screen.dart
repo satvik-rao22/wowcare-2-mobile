@@ -40,7 +40,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         TextEditingController(text: (initial?.medications ?? '').trim());
     _dietRestrictionsController =
         TextEditingController(text: (initial?.dietRestrictions ?? '').trim());
-    _photoPermission = true; // default; will be updated once API includes it
+    _photoPermission = initial?.photoPermission ?? true;
   }
 
   @override

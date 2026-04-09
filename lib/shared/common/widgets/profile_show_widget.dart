@@ -10,6 +10,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_today_si
 class DocumentImageWidget extends StatefulWidget {
   final String fileUuid;
   final String? name;
+
   /// Optional staff code for attendance status dot.
   final String? staffCode;
 
@@ -24,6 +25,12 @@ class DocumentImageWidget extends StatefulWidget {
   final Widget? errorWidget;
   final double? fontSize;
   final Color? statusColor; // optional small status dot color
+  /// Optional status string (e.g. UPCOMING/ACTIVE) to auto-pick [statusColor].
+  /// If [statusColor] is provided, it takes precedence.
+  final String? status;
+
+  /// When set, shown in the status-dot tooltip instead of the default staff messages.
+  final String? statusTooltip;
 
   const DocumentImageWidget({
     Key? key,
@@ -40,6 +47,8 @@ class DocumentImageWidget extends StatefulWidget {
     this.errorWidget,
     this.fontSize,
     this.statusColor,
+    this.status,
+    this.statusTooltip,
   }) : super(key: key);
 
   @override
@@ -56,7 +65,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   void initState() {
     super.initState();
     _avatarColor = _pickStableProfileAvatarColor(
-      widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid,
+      widget.name?.trim().isNotEmpty == true
+          ? widget.name!.trim()
+          : widget.fileUuid,
     );
     _loadAttendanceStatusIfNeeded();
   }
@@ -64,9 +75,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   @override
   void didUpdateWidget(DocumentImageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.name != widget.name || oldWidget.fileUuid != widget.fileUuid) {
+    if (oldWidget.name != widget.name ||
+        oldWidget.fileUuid != widget.fileUuid) {
       _avatarColor = _pickStableProfileAvatarColor(
-        widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid,
+        widget.name?.trim().isNotEmpty == true
+            ? widget.name!.trim()
+            : widget.fileUuid,
       );
     }
 
@@ -170,8 +184,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Widget _buildAvatarWithStatus(Widget avatar) {
-    final dotColor = _statusDotColor ?? widget.statusColor;
-    if (dotColor == null) return avatar;
+    final effectiveColor =
+        widget.statusColor ?? _statusDotColorFromStatus(widget.status);
+    if (effectiveColor == null) return avatar;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -180,7 +195,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           right: 2,
           top: 2,
           child: Tooltip(
-            message: _statusTooltipMessage(),
+            message:
+                widget.statusTooltip ??
+                _statusTooltipMessage(effectiveColor, status: widget.status),
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
@@ -197,7 +214,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               width: widget.size * 0.22,
               height: widget.size * 0.22,
               decoration: BoxDecoration(
-                color: dotColor,
+                color: effectiveColor,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
               ),
@@ -208,23 +225,30 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     );
   }
 
-  String _statusTooltipMessage() {
-    if (_statusLabel != null) {
-      // Prefix with "Staff"/"Student" when we know which one it is.
-      if (widget.staffCode != null && widget.staffCode!.isNotEmpty) {
-        return 'Staff is ${_statusLabel!.toLowerCase()}';
-      }
-      if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
-        return 'Student is ${_statusLabel!.toLowerCase()}';
-      }
-      return _statusLabel!;
-    }
+  Color? _statusDotColorFromStatus(String? status) {
+    final upper = (status ?? '').trim().toUpperCase();
+    if (upper.isEmpty) return null;
+    if (upper == 'UPCOMING') return const Color(0xFFFFC107); // amber/yellow
+    return null;
+  }
+
+  String _statusTooltipMessage(Color c, {String? status}) {
+    final upper = (status ?? '').trim().toUpperCase();
+    if (upper == 'UPCOMING') return 'Upcoming student';
+    if (c.green >= c.red && c.green > 120) return 'Staff is signed in';
+    if (c.red > 180 && c.green < 120) return 'Staff is absent';
     return 'Status';
   }
 
   Widget _buildInitialsAvatar() {
     return CircleAvatar(
-      backgroundColor: _avatarColor ?? _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid),
+      backgroundColor:
+          _avatarColor ??
+          _pickStableProfileAvatarColor(
+            widget.name?.trim().isNotEmpty == true
+                ? widget.name!.trim()
+                : widget.fileUuid,
+          ),
       radius: widget.size / 2,
       child: Text(
         StringUtils.getInitials(widget.name!),
@@ -238,7 +262,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Widget _buildPlaceholder() {
-    final placeholder = widget.errorWidget ??
+    final placeholder =
+        widget.errorWidget ??
         (widget.placeholderAsset != null
             ? Image.asset(
                 widget.placeholderAsset!,
@@ -258,7 +283,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return _buildImageContainer(child: placeholder);
     } else {
       return CircleAvatar(
-        backgroundColor: _avatarColor ?? _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid),
+        backgroundColor:
+            _avatarColor ??
+            _pickStableProfileAvatarColor(
+              widget.name?.trim().isNotEmpty == true
+                  ? widget.name!.trim()
+                  : widget.fileUuid,
+            ),
         radius: widget.size / 2,
         child: Text(
           StringUtils.getInitials(widget.name!),

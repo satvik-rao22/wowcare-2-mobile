@@ -7,6 +7,7 @@ import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/entities/create_school_user_result.dart';
 import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/school_user.dart';
+import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../datasources/staff_remote_datasource.dart';
 import '../models/staff_models.dart';
@@ -373,9 +374,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
+    bool forEditStaff = false,
   }) async {
     final profileModel = await _remoteDataSource.getStaffProfile(
       staffCode: staffCode,
+      forEditStaff: forEditStaff,
     );
 
     // Cache the profile
@@ -623,6 +626,54 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     required String staffCode,
     required List<Map<String, String>> dates,
   }) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Final safety guard: never allow PHYSICAL_CHECKUP Due/Scheduled in past
+    // (reverse rule of Completed) even if any UI path misses validation.
+    for (final date in dates) {
+      final type = (date['importantDateType'] ?? '').trim().toUpperCase();
+      if (type != 'PHYSICAL_CHECKUP') continue;
+
+      final status = (date['status'] ?? '').trim().toUpperCase();
+      final dueDate = (date['dueDate'] ?? '').trim();
+      if (dueDate.isEmpty) continue;
+
+      DateTime? parsed;
+      try {
+        parsed = DateTime.parse(dueDate);
+      } catch (_) {
+        parsed = null;
+      }
+      if (parsed == null) continue;
+      final picked = DateTime(parsed.year, parsed.month, parsed.day);
+
+      final isDueOrScheduled =
+          status == 'DUE' || status == 'SCHEDULED' || status == 'OVERDUE';
+      final isCompleted = status == 'COMPLETED';
+
+      print(
+        '[ImportantDates Guard] staffCode=$staffCode type=$type status=$status dueDate=$dueDate today=$today picked=$picked',
+      );
+
+      if (isDueOrScheduled && picked.isBefore(today)) {
+        print(
+          '[ImportantDates Guard] BLOCK: Due/Scheduled picked date is before today.',
+        );
+        throw Exception(
+          'For Due/Scheduled status, Physical Checkup Date must be today or future',
+        );
+      }
+      if (isCompleted && picked.isAfter(today)) {
+        print(
+          '[ImportantDates Guard] BLOCK: Completed picked date is after today.',
+        );
+        throw Exception(
+          'For Completed status, Physical Checkup Date must be today or past',
+        );
+      }
+    }
+
     final dateRequests = dates
         .map(
           (date) => ImportantDateRequestModel(
@@ -668,6 +719,16 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
 
     return message;
+  }
+
+  @override
+  Future<List<SchoolRegularScheduleDay>> getSchoolRegularSchedules({
+    required String schoolCode,
+  }) async {
+    final model = await _remoteDataSource.getSchoolRegularSchedules(
+      schoolCode: schoolCode,
+    );
+    return model.days;
   }
 
   @override
@@ -799,6 +860,38 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       _staffListCacheKey(schoolCode, status: 'ARCHIVE'),
     ]);
 
+    return message;
+  }
+
+  @override
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final message = await _remoteDataSource.deactivateOrganizationAdmin(
+      userCode: userCode,
+      organizationCode: organizationCode,
+    );
+
+    // For organization-admin deactivation we cannot reliably invalidate
+    // school-scoped caches here because we don't have a `schoolCode` value.
+    // Callers already refresh the visible staff list after the operation.
+    return message;
+  }
+
+  @override
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final message = await _remoteDataSource.activateOrganizationAdmin(
+      userCode: userCode,
+      organizationCode: organizationCode,
+    );
+
+    // For organization-admin activation we cannot reliably invalidate
+    // school-scoped caches here because we don't have a `schoolCode` value.
+    // Callers already refresh the visible staff list after the operation.
     return message;
   }
 

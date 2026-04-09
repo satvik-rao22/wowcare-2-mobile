@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.da
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -68,6 +69,32 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
     } catch (e) {
       return dateString;
     }
+  }
+
+  /// US ZIP+4: inserts hyphen after 5 digits when 9+ digits (e.g. 030601234 → 03060-1234).
+  String _formatZipCodeDisplay(String? zip) {
+    if (zip == null || zip.trim().isEmpty) return '';
+    final digits = zip.replaceAll(RegExp(r'\D'), '');
+    if (digits.length >= 9) {
+      return '${digits.substring(0, 5)}-${digits.substring(5, 9)}';
+    }
+    if (digits.length == 5) {
+      return digits;
+    }
+    return zip.trim();
+  }
+
+  /// Address line for display with formatted ZIP (hyphen for ZIP+4).
+  String _formatAddressForDisplay(StaffProfileAddress address) {
+    final zip = _formatZipCodeDisplay(address.zipCode);
+    final parts = <String>[];
+    if (address.street.isNotEmpty) parts.add(address.street);
+    if (address.line2.isNotEmpty) parts.add(address.line2);
+    if (address.city.isNotEmpty) parts.add(address.city);
+    if (address.state.isNotEmpty) parts.add(address.state);
+    if (zip.isNotEmpty) parts.add(zip);
+    if (address.country.isNotEmpty) parts.add(address.country);
+    return parts.isEmpty ? '' : parts.join(', ');
   }
 
   String _formatPhoneNumber(String? number) {
@@ -179,6 +206,8 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                 ),
               );
             }
+
+            final addressDisplay = _formatAddressForDisplay(profile.address);
 
             // Notify parent about updated summary info (name, classroom, role)
             // so the header card stays in sync with this tab.
@@ -347,7 +376,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
             const SizedBox(height: 16),
             _Field(
               label: 'Address',
-              value: profile.address.formattedAddress.isEmpty ? '-' : profile.address.formattedAddress,
+              value: addressDisplay.isEmpty ? '-' : addressDisplay,
             ),
             const SizedBox(height: 16),
             _Field(

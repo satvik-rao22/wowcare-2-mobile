@@ -22,6 +22,7 @@ class StudentProfileTab extends StatefulWidget {
     required this.schedule,
     required this.sibling,
     this.studentCode,
+    this.onProfileChanged,
   });
 
   final int initialTabIndex;
@@ -32,6 +33,7 @@ class StudentProfileTab extends StatefulWidget {
   final List<String> schedule;
   final Map<String, dynamic> sibling;
   final String? studentCode;
+  final ValueChanged<StudentProfileModel>? onProfileChanged;
 
 
 
@@ -63,7 +65,14 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     // Fetch student profile if studentCode is provided
     if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
       final dataSource = serviceLocator<StudentRemoteDataSource>();
-      _profileFuture = dataSource.getStudentProfile(widget.studentCode!);
+      final future = dataSource.getStudentProfile(widget.studentCode!);
+      _profileFuture = future;
+      future.then((profile) {
+        if (!mounted) return;
+        widget.onProfileChanged?.call(profile);
+      }).catchError((_) {
+        // UI handles profile load errors in FutureBuilder.
+      });
     } else {
       _profileFuture = Future<StudentProfileModel?>.value(null);
     }
@@ -80,7 +89,8 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     });
     try {
       // Wait for the future to complete to ensure data is loaded
-      await newFuture;
+      final refreshed = await newFuture;
+      widget.onProfileChanged?.call(refreshed);
     } catch (_) {
       // UI handles errors via FutureBuilder
     }
@@ -395,7 +405,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                           ? profileData.fullName 
                           : widget.name,
                       classroom: profileData.classroom ?? widget.classroom,
-                      studentCode: widget.studentCode,
+                      studentCode: profileData.code,
                       onRefresh: _refreshProfile,
                     ),
                   ],

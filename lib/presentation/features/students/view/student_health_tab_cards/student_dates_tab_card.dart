@@ -46,14 +46,35 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     _physicalExamFuture = _buildPhysicalExamFuture();
   }
 
-  Future<List<StudentPhysicalExamModel>> _buildPhysicalExamFuture() async {
+  Future<List<StudentPhysicalExamModel>> _buildPhysicalExamFuture({
+    bool forceRefresh = false,
+  }) async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return const <StudentPhysicalExamModel>[];
     }
 
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-    return repo.getStudentPhysicalExams(studentCode: code);
+    final repo = serviceLocator<StudentRepository>();
+    if (repo is! StudentRepositoryImpl) {
+      return const <StudentPhysicalExamModel>[];
+    }
+    return repo.getStudentPhysicalExams(
+      studentCode: code,
+      forceRefresh: forceRefresh,
+    );
+  }
+
+  /// Reload exams from API (bypasses cache). Use after add/edit/delete or pull-to-refresh.
+  Future<void> _reloadPhysicalExams() async {
+    setState(() {
+      _physicalExamFuture = _buildPhysicalExamFuture(forceRefresh: true);
+      _hasShownErrorSnackBar = false;
+    });
+    try {
+      await _physicalExamFuture;
+    } catch (_) {
+      // Errors surface via FutureBuilder.
+    }
   }
 
   String _formatExamDate(String? isoDate) {
@@ -76,6 +97,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
         return 'Completed';
       case 'DUE':
         return 'Due';
+      case 'OVERDUE':
+        return 'Overdue';
       default:
         final lower = raw.toLowerCase();
         return lower.isEmpty ? raw : lower[0].toUpperCase() + lower.substring(1);
@@ -105,9 +128,17 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     if (studentCode.isEmpty) return;
 
     DateTime? selectedDate = initialDate;
-    String statusUi = (initialStatusUi ?? '').trim().isNotEmpty
-        ? initialStatusUi!.trim()
-        : 'Scheduled';
+    final initialStatusTrim = (initialStatusUi ?? '').trim();
+    final initialIsOverdue = initialStatusTrim.toUpperCase() == 'OVERDUE' ||
+        initialStatusTrim.toLowerCase() == 'overdue';
+
+    // "Overdue" can be returned by API and should be displayed, but it should
+    // not be a selectable option in the edit dropdown.
+    String statusUi = initialStatusTrim.isNotEmpty ? initialStatusTrim : 'Scheduled';
+    bool didChangeStatus = false;
+    if (initialIsOverdue) {
+      statusUi = 'Due';
+    }
     bool isSaving = false;
 
     await showModalBottomSheet<void>(
@@ -221,9 +252,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               child: _DialogDropdown(
                                 label: 'Status *',
                                 value: statusUi,
-                                options: const ['Due', 'Scheduled', 'Completed'],
-                                onChanged: (v) =>
-                                    setLocalState(() => statusUi = v),
+                                options: const [
+                                  'Due',
+                                  'Scheduled',
+                                  'Completed',
+                                ],
+                                onChanged: (v) => setLocalState(() {
+                                  didChangeStatus = true;
+                                  statusUi = v;
+                                }),
                               ),
                             ),
                           ],
@@ -265,8 +302,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             _DialogDropdown(
                               label: 'Status *',
                               value: statusUi,
-                              options: const ['Due', 'Scheduled', 'Completed'],
-                              onChanged: (v) => setLocalState(() => statusUi = v),
+                              options: const [
+                                'Due',
+                                'Scheduled',
+                                'Completed',
+                              ],
+                              onChanged: (v) => setLocalState(() {
+                                didChangeStatus = true;
+                                statusUi = v;
+                              }),
                             ),
                           ],
                         ),
@@ -280,11 +324,13 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         onPressedConfirm: canSave
                             ? () async {
                                 if (selectedDate == null) return;
-                                final statusApi = statusUi == 'Completed'
-                                    ? 'COMPLETED'
-                                    : statusUi == 'Scheduled'
-                                        ? 'SCHEDULED'
-                                        : 'DUE';
+                                final statusApi = (!didChangeStatus && initialIsOverdue)
+                                    ? 'OVERDUE'
+                                    : switch (statusUi) {
+                                        'Completed' => 'COMPLETED',
+                                        'Scheduled' => 'SCHEDULED',
+                                        _ => 'DUE',
+                                      };
 
                                 setLocalState(() => isSaving = true);
                                 try {
@@ -313,16 +359,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                   );
                                   Navigator.of(context).pop();
                                   if (!mounted) return;
-                                  setState(() {
-                                    _physicalExamFuture =
-                                        (serviceLocator<StudentRepository>()
-                                                as StudentRepositoryImpl)
-                                            .getStudentPhysicalExams(
-                                      studentCode: studentCode,
-                                      forceRefresh: true,
-                                    );
-                                    _hasShownErrorSnackBar = false;
-                                  });
+                                  await _reloadPhysicalExams();
                                 } catch (e) {
                                   if (!context.mounted) return;
                                   CoreUtils.logApiError(e.toString());
@@ -354,24 +391,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   @override
   Widget build(BuildContext context) {
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _physicalExamFuture =
-              serviceLocator<StudentRepository>() is StudentRepositoryImpl
-                  ? (serviceLocator<StudentRepository>() as StudentRepositoryImpl)
-                      .getStudentPhysicalExams(
-                      studentCode: widget.studentCode ?? '',
-                      forceRefresh: true,
-                    )
-                  : _buildPhysicalExamFuture();
-          _hasShownErrorSnackBar = false;
-        });
-        try {
-          await _physicalExamFuture;
-        } catch (_) {
-          // handled in FutureBuilder
-        }
-      },
+      onRefresh: _reloadPhysicalExams,
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -432,7 +452,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         : () async {
                       final code = widget.studentCode;
                       if (code == null || code.isEmpty) return;
-                      await Navigator.of(context).push<bool>(
+                      final result = await Navigator.of(context).push<bool>(
                         MaterialPageRoute(
                           builder: (_) => EditStudentPhysicalExamScreen(
                             studentCode: code,
@@ -440,6 +460,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           ),
                         ),
                       );
+                      if (!mounted || result != true) return;
+                      await _reloadPhysicalExams();
                     },
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -523,15 +545,23 @@ class _PhysicalExamCard extends StatelessWidget {
 
   Color _statusLabelColor() {
     final upper = status.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0xFF38C820);
+    // Completed — dark forest green on mint (design reference)
+    if (upper == 'COMPLETED') return const Color(0xFF1B5E20);
+    // Overdue — dark red on light rose
+    if (upper == 'OVERDUE') return const Color(0xFFC62828);
+    // Due — yellow (design reference)
     if (upper == 'DUE') return const Color(0xFFEABA00);
-    return AppColors.primaryColor.withOpacity(0.8);
+    // Scheduled — deeper purple on lavender
+    if (upper == 'SCHEDULED') return const Color(0xFF6A1B9A);
+    return AppColors.primaryColor.withOpacity(0.85);
   }
 
   Color _statusBgColor() {
     final upper = status.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0x1A38C820);
-    if (upper == 'DUE') return const Color(0x1AEABA00);
+    if (upper == 'COMPLETED') return const Color(0xFFE8F5E9);
+    if (upper == 'OVERDUE') return const Color(0xFFFFEBEE);
+    if (upper == 'DUE') return const Color(0xFFFFF8E1);
+    if (upper == 'SCHEDULED') return const Color(0xFFF3E5F5);
     return const Color(0xFFF3F4FB);
   }
 

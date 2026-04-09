@@ -4,6 +4,7 @@ import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
+import '../entities/school_regular_schedule_day.dart';
 
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
@@ -48,8 +49,11 @@ abstract class StaffRepository {
     bool? expired,
   });
 
+  /// Fetches profile. When [forEditStaff] is false uses my-profile endpoint (logged-in
+  /// user); when true uses `staff/{staffCode}/profile` (edit staff details).
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
+    bool forEditStaff = false,
   });
 
   /// Resolves staffCode for a given userCode + organizationCode + schoolCode
@@ -62,7 +66,7 @@ abstract class StaffRepository {
 
   /// Updates staff profile core details (name, status, phone, designation, jobTag, classrooms, etc.).
   ///
-  /// [fields] should follow the backend PATCH contract for `/api/v1/staff/{staffCode}/profile`.
+  /// [fields] should follow the backend PATCH contract for `/api/v1/staff/staff/my-profile/{staffCode}`.
   Future<String> updateStaffProfile({
     required String staffCode,
     required Map<String, dynamic> fields,
@@ -78,7 +82,7 @@ abstract class StaffRepository {
   });
 
   /// Updates the *logged-in* staff member's basic profile + address via
-  /// `PATCH /api/v1/staff/my-profile/{staffCode}` (my-profile controller).
+  /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
   ///
   /// [fields] should match the backend contract:
   /// {
@@ -139,6 +143,12 @@ abstract class StaffRepository {
     required List<Map<String, dynamic>> breakSchedules,
   });
 
+  /// School regular schedules (operating hours per weekday) for validation on
+  /// the staff schedule editor.
+  Future<List<SchoolRegularScheduleDay>> getSchoolRegularSchedules({
+    required String schoolCode,
+  });
+
   Future<CreateSchoolUserResult> createSchoolAdminUser({
     required String firstName,
     required String lastName,
@@ -173,6 +183,20 @@ abstract class StaffRepository {
     required String organizationCode,
     required String schoolCode,
     required String role,
+  });
+
+  /// Deactivates an organization admin via
+  /// `POST /api/v1/organization-admins/deactivate`.
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
+  /// Activates an organization admin via
+  /// `POST /api/v1/user/organization-admins/activate`.
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
   });
 
   Future<String> activateSchoolUser({

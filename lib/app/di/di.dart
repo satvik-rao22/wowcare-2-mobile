@@ -92,12 +92,18 @@ import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
+import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
+import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
+import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
+import '../../presentation/features/staff-scheduling/cubit/classroom_schedule_cubit.dart';
+import '../../presentation/features/staff-scheduling/cubit/schedule_form_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -115,8 +121,6 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_tog
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/classroom_schedule_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/schedule_form_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -388,6 +392,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateActivityUseCase>(
     () => CreateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
+    () => CreateActivityUploadSessionsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateActivityAssetPresignUseCase>(
+    () => CreateActivityAssetPresignUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetDailyActivityFeedUseCase>(
+    () => GetDailyActivityFeedUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetRangeActivityFeedUseCase>(
+    () => GetRangeActivityFeedUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentClassroomListUseCase>(
     () => GetStudentClassroomListUseCase(serviceLocator()),

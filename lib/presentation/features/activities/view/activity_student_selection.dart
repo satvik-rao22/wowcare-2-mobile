@@ -288,8 +288,21 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
   void _applyFilters() => setState(() {});
 
-  Future<void> _refreshStudents() async {
-    await _loadStudentsForCurrentFilters(refresh: true);
+  Future<void> _onPullRefresh() async {
+    if (_schoolCode == null || _schoolCode!.trim().isEmpty) {
+      _showWarningMessage(
+        'School code is not set. Please ensure you are logged in and a school is selected.',
+      );
+      return;
+    }
+    await Future.wait([
+      _loadClassrooms(),
+      _loadTags(),
+    ]);
+    if (!mounted) return;
+    if (_selectedClassroom != null) {
+      await _loadStudentsForCurrentFilters(refresh: true);
+    }
   }
 
   @override
@@ -461,88 +474,100 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                             ),
           const SizedBox(height: 12),
           Expanded(
-            child: _isLoadingFilters || _isLoadingStudents
-                ? const Center(child: PrimaryCircularLoader())
-                : _filteredStudents.isEmpty
-                                ? Center(
-                              child: Text(
-                                _selectedClassroom == null
-                                    ? 'Select a classroom to view students or use the search bar'
+            child: CustomRefreshIndicator(
+              onRefresh: _onPullRefresh,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  if (_isLoadingFilters || _isLoadingStudents)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: PrimaryCircularLoader()),
+                    )
+                  else if (_filteredStudents.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Text(
+                          _selectedClassroom == null
+                              ? 'Select a classroom to view students or use the search bar'
                               : (_studentsError ??
                                   'No students match the selected filters'),
-                                style: TextStyle(
-                                  color: Colors.grey[600],
+                          style: TextStyle(
+                            color: Colors.grey[600],
                             fontSize: 14,
                             fontFamily: 'Manrope',
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                    : CustomRefreshIndicator(
-                        onRefresh: _refreshStudents,
-                        child: GridView.builder(
-                          shrinkWrap: false,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: responsive.isTablet ? 3 : 2,
-                            crossAxisSpacing: responsive.isTablet ? 16 : 12,
-                            mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                            mainAxisExtent: 52,
-                                ),
-                                itemCount: _filteredStudents.length,
-                                itemBuilder: (context, index) {
-                                  final student = _filteredStudents[index];
-                            final String name = student.fullName;
-                            final bool isNapping = student.nap;
-                            final String studentCode = student.studentCode;
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    SliverGrid(
+                      gridDelegate:
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: responsive.isTablet ? 3 : 2,
+                        crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                        mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                        mainAxisExtent: 72,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final student = _filteredStudents[index];
+                          final String name = student.fullName;
+                          final bool isNapping = student.nap;
+                          final String studentCode = student.studentCode;
 
-                            final bool isSelected = _selectedStudents.any(
-                              (s) => s['studentCode'] == studentCode,
-                            );
+                          final bool isSelected = _selectedStudents.any(
+                            (s) => s['studentCode'] == studentCode,
+                          );
 
-                            return _ActivityStudentListItem(
-                                    name: name,
-                                    isSelected: isSelected,
-                              onSelectionChanged: (selected) {
-                                ScaffoldMessenger.of(context)
-                                    .removeCurrentSnackBar();
-                                      setState(() {
-                                  if (selected == true) {
-                                    _selectedStudents.add({
-                                      'name': name,
-                                                'classroom': _selectedClassroom!,
-                                      'classroomCode': student.classroomCode,
-                                      'studentCode': student.studentCode,
-                                      'profilePictureUrl':
-                                          student.profilePictureUrl,
-                                      'status': student.status,
-                                      'expectedToday': student.expectedToday,
-                                      'signedIn': student.signedIn,
-                                      'absent': student.absent,
-                                      'notMarked': student.notMarked,
-                                      'nappingStatus': isNapping,
-                                      'photoPermission': student.photoPermission,
-                                      'notes': student.notes,
-                                      'medication': student.medication,
-                                      'allergies': student.allergies,
-                                      'dietaryRestriction':
-                                          student.dietaryRestriction,
-                                    });
-                                        } else {
-                                    _selectedStudents.removeWhere(
-                                      (s) =>
-                                          s['studentCode'] == studentCode,
-                                    );
-                                        }
-                                        _updateSelectAllState();
-                                      });
-                                    },
+                          return _ActivityStudentListItem(
+                            name: name,
+                            isSelected: isSelected,
+                            onSelectionChanged: (selected) {
+                              ScaffoldMessenger.of(context)
+                                  .removeCurrentSnackBar();
+                              setState(() {
+                                if (selected == true) {
+                                  _selectedStudents.add({
+                                    'name': name,
+                                    'classroom': _selectedClassroom!,
+                                    'classroomCode': student.classroomCode,
+                                    'studentCode': student.studentCode,
+                                    'profilePictureUrl':
+                                        student.profilePictureUrl,
+                                    'status': student.status,
+                                    'expectedToday': student.expectedToday,
+                                    'signedIn': student.signedIn,
+                                    'absent': student.absent,
+                                    'notMarked': student.notMarked,
+                                    'nappingStatus': isNapping,
+                                    'photoPermission': student.photoPermission,
+                                    'notes': student.notes,
+                                    'medication': student.medication,
+                                    'allergies': student.allergies,
+                                    'dietaryRestriction':
+                                        student.dietaryRestriction,
+                                  });
+                                } else {
+                                  _selectedStudents.removeWhere(
+                                    (s) =>
+                                        s['studentCode'] == studentCode,
                                   );
-                          },
-                  ),
-                ),
+                                }
+                                _updateSelectAllState();
+                              });
+                            },
+                          );
+                        },
+                        childCount: _filteredStudents.length,
+                      ),
+                    ),
+                ],
               ),
+            ),
+          ),
             ],
           ),
       bottomBar: Padding(
@@ -684,7 +709,8 @@ class _ActivityStudentListItem extends StatelessWidget {
               const SizedBox(width: 8),
           Expanded(
                 child: Text(
-                  name.split(' ').first,
+                  name.trim().isEmpty ? 'Student' : name.trim(),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.primaryColor,

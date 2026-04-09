@@ -21,6 +21,13 @@ class StaffImportantDatesTab extends StatefulWidget {
 
 class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
   final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
+  static const List<String> _orderedTypes = <String>[
+    'HIRE_DATE',
+    'CDA',
+    'FIRST_AID_CPR',
+    'BRC',
+    'PHYSICAL_CHECKUP',
+  ];
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -146,21 +153,6 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
   @override
   Widget build(BuildContext context) {
     final items = List<Map<String, String>>.from(_items);
-    // Keep stable ordering by known types first.
-    const typeOrder = <String, int>{
-      'HIRE_DATE': 0,
-      'CDA': 1,
-      'FIRST_AID_CPR': 2,
-      'BRC': 3,
-      'PHYSICAL_CHECKUP': 4,
-    };
-    items.sort((a, b) {
-      final at = (a['importantDateType'] ?? '').toUpperCase();
-      final bt = (b['importantDateType'] ?? '').toUpperCase();
-      final ai = typeOrder[at] ?? 999;
-      final bi = typeOrder[bt] ?? 999;
-      return ai.compareTo(bi);
-    });
 
     return MediaQuery.removePadding(
       context: context,
@@ -170,123 +162,89 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
         onRefresh: () => _loadDates(useCache: false),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Important Dates',
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.edit,
-                        size: 10,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (_isLoading)
-                  const Center(
-                    child: PrimaryCircularLoader(
-                      size: 24,
-                      strokeWidth: 2,
-                    ),
-                  )
-                else if (_errorMessage != null)
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 14,
-                    ),
-                  )
-                else if (items.isEmpty)
-                  const Text(
-                    'No important dates available.',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                    ),
-                  )
-                else
-                  ..._buildRows(items),
-              ],
-            ),
-          ),
+          child: _buildContent(items),
         ),
       ),
     );
   }
 
-  List<Widget> _buildRows(List<Map<String, String>> items) {
-    final rows = <Widget>[];
-    bool hasPhysicalCheckup = false;
+  Widget _buildContent(List<Map<String, String>> items) {
+    if (_isLoading) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        padding: const EdgeInsets.all(8),
+        child: const Center(
+          child: PrimaryCircularLoader(
+            size: 24,
+            strokeWidth: 2,
+          ),
+        ),
+      );
+    }
 
+    if (_errorMessage != null) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          _errorMessage!,
+          style: const TextStyle(
+            color: Colors.redAccent,
+            fontSize: 14,
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: _buildDateCards(items),
+    );
+  }
+
+  List<Widget> _buildDateCards(List<Map<String, String>> items) {
+    final valuesByType = <String, String>{};
     for (final item in items) {
       final type = (item['importantDateType'] ?? '').toUpperCase();
       final dueDate = item['dueDate'] ?? '';
+      if (type.isEmpty || dueDate.trim().isEmpty) continue;
+      valuesByType[type] = dueDate;
+    }
 
-      if (type == 'PHYSICAL_CHECKUP') {
-        hasPhysicalCheckup = true;
-      }
+    final cards = <Widget>[];
+    var isFirst = true;
+    for (final type in _orderedTypes) {
+      final dueDate = valuesByType[type];
+      if (dueDate == null) continue;
 
       final label = _mapTypeToLabel(type);
       final lowerLabel = label.toLowerCase();
       final isCda = lowerLabel.contains('cda');
       final isBackgroundRecord =
           lowerLabel.contains('background') && lowerLabel.contains('record');
-      rows.add(
-        _DateRow(
-          label: label,
-          text: _formatDate(dueDate),
-          showInfo: isCda && !isBackgroundRecord,
-          infoText: 'CDA - Child Development Associate',
+      cards.add(
+        Container(
+          margin: EdgeInsets.only(top: isFirst ? 16 : 12, bottom: 0),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: _DateRow(
+            label: label,
+            text: _formatDate(dueDate),
+            showInfo: isCda && !isBackgroundRecord,
+            infoText: 'CDA - Child Development Associate',
+          ),
         ),
       );
+      isFirst = false;
     }
 
-    // If there is no physical checkup record at all, still show the label
-    // with "-" as the value, consistent with other date rows.
-    if (!hasPhysicalCheckup) {
-      rows.add(
-        _DateRow(
-          label: _mapTypeToLabel('PHYSICAL_CHECKUP'),
-          text: '-',
-        ),
-      );
-    }
-
-    // interleave spacing
-    final spaced = <Widget>[];
-    for (int i = 0; i < rows.length; i++) {
-      spaced.add(rows[i]);
-      if (i != rows.length - 1) spaced.add(const SizedBox(height: 16));
-    }
-    return spaced;
+    return cards;
   }
 }
 

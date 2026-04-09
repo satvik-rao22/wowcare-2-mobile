@@ -15,6 +15,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_document_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -100,7 +101,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     return mimeTypes[extension] ?? 'application/octet-stream';
   }
 
-  void _addDocument(BuildContext context) {
+  Future<void> _addDocument(BuildContext context) async {
     final name = _documentNameController.text.trim();
     if (name.isEmpty) {
       _showWarningMessage('Document name is required');
@@ -150,8 +151,25 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     }
 
     final cubit = context.read<StudentDocumentCubit>();
+    final uploadedBy = await resolveLoggedInStaffCode();
 
-    final documentType = _selectedDocumentType!.toUpperCase().replaceAll(' ', '_');
+    String _toDocumentTypeEnum(String uiValue) {
+      switch (uiValue.trim()) {
+        case 'Birth Certificate':
+          return 'BIRTH_CERTIFICATE';
+        case 'Registration Forms':
+          return 'REGISTRATION_FORM';
+        case 'Special Program Forms':
+          return 'SPECIAL_PROGRAM_FORM';
+        case 'Health Forms':
+          return 'HEALTH_FORM';
+        case 'Other':
+        default:
+          return 'OTHER';
+      }
+    }
+
+    final documentType = _toDocumentTypeEnum(_selectedDocumentType!);
 
     final payload = (
       studentCode: widget.studentCode,
@@ -176,6 +194,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         storagePath: payload.storagePath,
         mimeType: payload.mimeType,
         size: payload.size,
+        uploadedBy: uploadedBy,
         notes: payload.notes,
       );
     } else {
@@ -187,6 +206,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         storagePath: payload.storagePath,
         mimeType: payload.mimeType,
         size: payload.size,
+        uploadedBy: uploadedBy,
         notes: payload.notes,
       );
     }
@@ -329,8 +349,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           builder: (context, state) {
             return CustomButtonLayout(
               confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+              cancelButtonLabel: 'Cancel',
               onPressedConfirm: () => _addDocument(context),
-              showCancelButton: false,
+              onPressedCancel: () => Navigator.pop(context, false),
+              showCancelButton: true,
               isForm: false,
               isLoading: state.isLoading,
             );

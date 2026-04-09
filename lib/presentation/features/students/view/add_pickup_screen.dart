@@ -20,19 +20,47 @@ class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
     super.key,
     required this.studentCode,
+    this.pickupCode,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhoneNumber,
+    this.initialRelation,
+    this.initialClockPin,
   });
 
   static const String routeName = '/add-pickup-screen';
 
   final String studentCode;
+  final String? pickupCode;
+  final String? initialFirstName;
+  final String? initialLastName;
+  final String? initialEmail;
+  final String? initialPhoneNumber;
+  final String? initialRelation;
+  final String? initialClockPin;
 
   @override
   State<AddPickupScreen> createState() => _AddPickupScreenState();
 }
 
 class _AddPickupScreenState extends State<AddPickupScreen> {
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
+  static final RegExp _phoneRegex = RegExp(r'^\(\d{3}\)\s\d{3}-\d{4}$');
+
   bool _selectFromExisting = true;
   String? _selectedCarer;
+  String? _selectedRelation;
+
+  final List<String> _relationOptions = const [
+    'Mother',
+    'Father',
+    'Grandmother',
+    'Grandfather',
+    'Stepmother',
+    'Stepfather',
+    'Other',
+  ];
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -42,9 +70,19 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   // Loaded from guardian API (same as filters & AddStudentStep2Screen).
   List<String> _existingCarers = const [];
+  Map<String, Map<String, String>> _guardianDetailsByName = const {};
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final StorageService _storageService;
+  bool get _isEditMode =>
+      widget.pickupCode != null && widget.pickupCode!.trim().isNotEmpty;
+  bool get _hasPrefillData =>
+      (widget.initialFirstName ?? '').trim().isNotEmpty ||
+      (widget.initialLastName ?? '').trim().isNotEmpty ||
+      (widget.initialEmail ?? '').trim().isNotEmpty ||
+      (widget.initialPhoneNumber ?? '').trim().isNotEmpty ||
+      (widget.initialRelation ?? '').trim().isNotEmpty;
+  bool get _isEditLikeMode => _isEditMode || _hasPrefillData;
 
   @override
   void initState() {
@@ -52,7 +90,20 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     _getGuardianNamesForSchoolUseCase =
         serviceLocator<GetGuardianNamesForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
-    _loadExistingCarers();
+    if (_isEditLikeMode) {
+      _selectFromExisting = false;
+      _firstNameController.text = (widget.initialFirstName ?? '').trim();
+      _lastNameController.text = (widget.initialLastName ?? '').trim();
+      _emailController.text = (widget.initialEmail ?? '').trim();
+      _phoneController.text =
+          _formatPhoneInput((widget.initialPhoneNumber ?? '').trim());
+      _relationController.text = (widget.initialRelation ?? '').trim();
+      _selectedRelation = (widget.initialRelation ?? '').trim().isEmpty
+          ? null
+          : (widget.initialRelation ?? '').trim();
+    } else {
+      _loadExistingCarers();
+    }
   }
 
   @override
@@ -78,10 +129,31 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
       final names =
           await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final rawGuardians =
+          await repo.getGuardiansRawForSchool(schoolCode: schoolCode);
+      final details = <String, Map<String, String>>{};
+      for (final g in rawGuardians) {
+        final first = (g['firstName'] ?? '').toString().trim();
+        final last = (g['lastName'] ?? '').toString().trim();
+        final email = (g['email'] ?? '').toString().trim();
+        final mobile = (g['mobile'] ?? '').toString().trim();
+        final code = (g['code'] ?? '').toString().trim();
+        final display = '$first $last'.trim();
+        if (display.isEmpty) continue;
+        details[display] = <String, String>{
+          'code': code,
+          'firstName': first,
+          'lastName': last,
+          'email': email,
+          'mobile': mobile,
+        };
+      }
       if (!mounted) return;
 
       setState(() {
         _existingCarers = names;
+        _guardianDetailsByName = details;
         if (_selectedCarer != null &&
             !_existingCarers.contains(_selectedCarer)) {
           _selectedCarer = null;
@@ -102,6 +174,14 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         );
         return;
       }
+      if ((_selectedRelation ?? '').trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a relation',
+          isError: true,
+        );
+        return;
+      }
 
       if (_isSubmitting) return;
       setState(() {
@@ -113,25 +193,36 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         // as first/last name. Other fields are left blank or defaulted,
         // but the payload shape matches the normal pickup create.
         final display = _selectedCarer!.trim();
-        String first = display;
-        String last = '';
-        if (display.contains(' ')) {
-          final parts = display.split(' ');
-          first = parts.first;
-          if (parts.length > 1) {
-            last = parts.sublist(1).join(' ').trim();
-          }
-        }
+        final guardian = _guardianDetailsByName[display];
+        final parts =
+            display.split(' ').where((e) => e.trim().isNotEmpty).toList();
+        final first = (guardian?['firstName'] ?? '').trim().isNotEmpty
+            ? guardian!['firstName']!.trim()
+            : (parts.isEmpty ? display : parts.first);
+        final last = (guardian?['lastName'] ?? '').trim().isNotEmpty
+            ? guardian!['lastName']!.trim()
+            : (parts.length > 1 ? parts.sublist(1).join(' ').trim() : '');
 
+        final guardianCode = (guardian?['code'] ?? '').trim();
+        final email = (guardian?['email'] ?? '').trim();
+        final mobileDigits =
+            (guardian?['mobile'] ?? '').replaceAll(RegExp(r'\D'), '');
+
+        final relationEnum = (_selectedRelation ?? '')
+            .trim()
+            .toUpperCase()
+            .replaceAll(' ', '_');
         final repo =
             serviceLocator<StudentRepository>() as StudentRepositoryImpl;
         final message = await repo.addPickup(
           studentCode: widget.studentCode,
           firstName: first,
           lastName: last,
-          email: '',
-          phoneNumber: '',
-          relation: '',
+          email: email,
+          phoneNumber: mobileDigits,
+          relation: relationEnum.isEmpty ? 'OTHER' : relationEnum,
+          pickupType: 'CARPOOL',
+          carpoolId: guardianCode,
         );
 
         if (!mounted) return;
@@ -161,6 +252,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final relation = _relationController.text.trim();
+    final normalizedRelation = _toRelationEnum(relation);
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -178,11 +270,35 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       );
       return;
     }
+    if (!_nameRegex.hasMatch(first)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (!_nameRegex.hasMatch(last)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
     final digits = phone.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 10) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter a valid 10-digit phone number',
+        isError: true,
+      );
+      return;
+    }
+    if (!_phoneRegex.hasMatch(phone)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please enter phone as (000) 000-0000',
         isError: true,
       );
       return;
@@ -203,19 +319,39 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     });
 
     try {
-      // API expects phoneNumber in ###-###-#### format.
-      final formattedPhone =
-          '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
+      final normalizedPhone = digits;
 
       final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-      final message = await repo.addPickup(
-        studentCode: widget.studentCode,
-        firstName: first,
-        lastName: last,
-        email: email,
-        phoneNumber: formattedPhone,
-        relation: relation,
-      );
+      final String message;
+      if (_isEditLikeMode) {
+        // Edit card flow must update existing pickup only.
+        if (!_isEditMode) {
+          throw Exception(
+            'Pickup code is missing for edit. Please reopen the pickup card and try again.',
+          );
+        }
+        message = await repo.updatePickup(
+          code: widget.pickupCode!.trim(),
+          studentCode: widget.studentCode,
+          firstName: first,
+          lastName: last,
+          email: email,
+          phoneNumber: normalizedPhone,
+          relation: normalizedRelation,
+          clockPin: (widget.initialClockPin ?? '').trim(),
+          pickupType: 'CAREGIVER',
+        );
+      } else {
+        message = await repo.addPickup(
+          studentCode: widget.studentCode,
+          firstName: first,
+          lastName: last,
+          email: email,
+          phoneNumber: normalizedPhone,
+          relation: normalizedRelation,
+          pickupType: 'CAREGIVER',
+        );
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -272,7 +408,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Add Pickup',
+                      _isEditMode ? 'Edit Pickup' : 'Add Pickup',
                       style: TextStyle(
                         fontFamily: "Manrope",
                         fontSize: responsive.titleFontSize,
@@ -306,31 +442,33 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                       padding: EdgeInsets.zero,
                       children: [
                         SizedBox(height: responsive.verticalSpacing),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Select from existing',
-                              style: TextStyle(
-                                fontSize: responsive.labelFontSize,
-                                fontFamily: "Manrope",
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                        if (!_isEditLikeMode) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Select from existing',
+                                style: TextStyle(
+                                  fontSize: responsive.labelFontSize,
+                                  fontFamily: "Manrope",
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xff573353),
+                                ),
                               ),
-                            ),
-                            CustomToggle(
-                              label: '',
-                              isToggled: _selectFromExisting,
-                              onToggle: (value) {
-                                setState(() {
-                                  _selectFromExisting = value;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: responsive.verticalSpacing),
-                        if (_selectFromExisting) ...[
+                              CustomToggle(
+                                label: '',
+                                isToggled: _selectFromExisting,
+                                onToggle: (value) {
+                                  setState(() {
+                                    _selectFromExisting = value;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: responsive.verticalSpacing),
+                        ],
+                        if (_selectFromExisting && !_isEditLikeMode) ...[
                           CustomDropdown(
                             label: 'Carer',
                             hintText: 'Select Carer',
@@ -367,6 +505,27 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                               _selectedCarer = val;
                             }),
                           ),
+                          SizedBox(height: responsive.verticalSpacing),
+                          CustomDropdown(
+                            label: "Relation",
+                            hintText: 'Select',
+                            items: _relationOptions,
+                            selectedItem: _selectedRelation,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            showAsterisk: true,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onSelect: (val) {
+                              setState(() {
+                                _selectedRelation = val;
+                                _relationController.text = (val ?? '').trim();
+                              });
+                            },
+                          ),
                         ] else ...[
                           Row(
                             children: [
@@ -377,6 +536,12 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   controller: _firstNameController,
                                   isRequired: true,
                                   textCapitalization: TextCapitalization.words,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                                    LengthLimitingTextInputFormatter(50),
+                                    NameCapitalizationFormatter(),
+                                    TrimFormatter(),
+                                  ],
                                 ),
                               ),
                               SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
@@ -387,6 +552,12 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   controller: _lastNameController,
                                   isRequired: true,
                                   textCapitalization: TextCapitalization.words,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                                    LengthLimitingTextInputFormatter(50),
+                                    NameCapitalizationFormatter(),
+                                    TrimFormatter(),
+                                  ],
                                 ),
                               ),
                             ],
@@ -401,13 +572,15 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                           SizedBox(height: responsive.verticalSpacing),
                           _buildInputField(
                             label: 'Phone Number',
-                            hint: 'E.g. 000-000-0000',
+                            hint: 'E.g. (000) 000-0000',
                             controller: _phoneController,
                             isRequired: true,
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
                               LengthLimitingTextInputFormatter(10),
+                              PhoneNumberFormatter(),
+                              TrimFormatter(),
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing),
@@ -417,6 +590,12 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             controller: _relationController,
                             isRequired: true,
                             textCapitalization: TextCapitalization.words,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                              LengthLimitingTextInputFormatter(50),
+                              NameCapitalizationFormatter(),
+                              TrimFormatter(),
+                            ],
                           ),
                         ],
                         SizedBox(height: responsive.verticalSpacing),
@@ -529,6 +708,98 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  String _formatPhoneInput(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) {
+      return '(${digits.substring(0, 3)}) ${digits.substring(3)}';
+    }
+    final take = digits.length >= 10 ? 10 : digits.length;
+    final d = digits.substring(0, take);
+    return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
+  }
+
+  String _toRelationEnum(String raw) {
+    final normalized = raw.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '_');
+    return normalized.isEmpty ? 'OTHER' : normalized;
+  }
+}
+
+class PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final newText = newValue.text;
+
+    if (newText.isEmpty) {
+      return newValue;
+    }
+
+    final digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
+    final charCount = digitsOnly.length;
+
+    String formattedText;
+    if (charCount == 0) {
+      formattedText = '';
+    } else if (charCount <= 3) {
+      formattedText = '($digitsOnly';
+    } else if (charCount <= 6) {
+      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
+    } else {
+      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+class NameCapitalizationFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String text = newValue.text;
+    text = text.replaceFirst(RegExp(r"\s+"), ' ');
+    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
+    text = text.replaceAll(RegExp(r"\s+\z"), '');
+
+    if (text.isEmpty) {
+      return newValue.copyWith(
+        text: text,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    }
+
+    final firstChar = text[0].toUpperCase();
+    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
+    final formatted = firstChar + rest;
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class TrimFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final trimmed = newValue.text.trimLeft();
+    return TextEditingValue(
+      text: trimmed,
+      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 }

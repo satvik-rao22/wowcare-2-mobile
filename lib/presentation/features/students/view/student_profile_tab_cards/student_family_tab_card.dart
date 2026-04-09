@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -13,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentFamilyTabCard extends StatefulWidget {
@@ -38,15 +40,37 @@ class StudentFamilyTabCard extends StatefulWidget {
 }
 
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
+  static const int _maxParentsPerStudent = 4;
+
   late Future<List<Map<String, dynamic>>> _guardiansFuture;
+  bool _isMutating = false;
+
+  String _extractGuardianClockPin(Map<String, dynamic> guardian) {
+    final raw =
+        (guardian['clockPin'] ??
+                guardian['clockInPin'] ??
+                guardian['clockinPin'] ??
+                '')
+            .toString()
+            .trim();
+    return raw.isEmpty ? '—' : raw;
+  }
+
+  String _formatPhoneNumber(String? raw) {
+    final digits = (raw ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10) {
+      return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}';
+    }
+    return (raw ?? '').trim().isEmpty ? '-' : raw!.trim();
+  }
 
   Future<String> _resolveSchoolCode() async {
     final direct = (widget.schoolCode ?? '').trim();
     if (direct.isNotEmpty) return direct;
 
     final storage = serviceLocator<StorageService>();
-    final fromStorage =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final fromStorage = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (fromStorage.isNotEmpty) return fromStorage;
 
     // Final fallback (should never hit because StorageService also defaults).
@@ -59,7 +83,9 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     _guardiansFuture = _loadGuardians();
   }
 
-  Future<List<Map<String, dynamic>>> _loadGuardians() async {
+  Future<List<Map<String, dynamic>>> _loadGuardians({
+    bool forceRefresh = false,
+  }) async {
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const <Map<String, dynamic>>[];
@@ -72,9 +98,13 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return const <Map<String, dynamic>>[];
     }
 
-    final models = await repo.getStudentGuardians(studentCode: studentCode);
+    final models = await repo.getStudentGuardians(
+      studentCode: studentCode,
+      forceRefresh: forceRefresh,
+    );
     return models.map((e) => e.toJson()).toList(growable: false);
   }
+
   Future<void> _onAddParent() async {
     final studentCode = widget.studentCode ?? '';
     final schoolCode = await _resolveSchoolCode();
@@ -85,6 +115,21 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         isError: true,
       );
       return;
+    }
+
+    final repo = serviceLocator<StudentRepository>();
+    if (repo is StudentRepositoryImpl) {
+      final existing = await repo.getStudentGuardians(studentCode: studentCode);
+      if (existing.length >= _maxParentsPerStudent) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'You can add up to $_maxParentsPerStudent parents or guardians per student.',
+          isError: true,
+        );
+        return;
+      }
     }
 
     final result = await Navigator.of(context).push<bool>(
@@ -105,12 +150,140 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     await widget.onRefresh?.call();
   }
 
+  Future<void> _onEditParent(Map<String, dynamic> guardian) async {
+    final studentCode = widget.studentCode ?? '';
+    final schoolCode = widget.schoolCode ?? '';
+    final guardianCode = (guardian['guardianCode'] ?? guardian['code'] ?? '')
+        .toString()
+        .trim();
+    if (studentCode.isEmpty || schoolCode.isEmpty || guardianCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Guardian details are not loaded yet. Please try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    final rawRelation = (guardian['relationToStudent'] ?? '').toString().trim();
+    const relationOptions = <String>{
+      'Mother',
+      'Father',
+      'Grandmother',
+      'Grandfather',
+      'Stepmother',
+      'Stepfather',
+      'Other',
+    };
+    final normalizedRelation = rawRelation.isEmpty
+        ? null
+        : '${rawRelation[0].toUpperCase()}${rawRelation.substring(1).toLowerCase()}';
+    final isKnownRelation =
+        normalizedRelation != null &&
+        relationOptions.contains(normalizedRelation);
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddStudentStep2Screen(
+          studentCode: studentCode,
+          schoolCode: schoolCode,
+          createGuardianDirectly: true,
+          editGuardianCode: guardianCode,
+          initialUserCode: (guardian['userCode'] ?? '').toString().trim(),
+          initialFirstName: (guardian['firstName'] ?? '').toString(),
+          initialLastName: (guardian['lastName'] ?? '').toString(),
+          initialEmail: (guardian['email'] ?? '').toString(),
+          initialPhoneNumber: (guardian['mobile'] ?? '').toString(),
+          initialRelation: isKnownRelation ? normalizedRelation : 'Other',
+          initialRelationOther: isKnownRelation
+              ? null
+              : (rawRelation.isEmpty ? null : rawRelation),
+          initialIsEmergencyContact:
+              (guardian['primaryContact'] as bool?) ?? true,
+          initialIsChildCustody: (guardian['legalCustody'] as bool?) ?? true,
+        ),
+      ),
+    );
+
+    if (!mounted || result != true) return;
+    setState(() {
+      _guardiansFuture = _loadGuardians();
+    });
+    await widget.onRefresh?.call();
+  }
+
+  Future<void> _onDeleteParent(Map<String, dynamic> guardian) async {
+    final studentCode = widget.studentCode ?? '';
+    final guardianCode = (guardian['guardianCode'] ?? guardian['code'] ?? '')
+        .toString()
+        .trim();
+    final guardianName =
+        '${guardian['firstName'] ?? ''} ${guardian['lastName'] ?? ''}'.trim();
+
+    if (studentCode.isEmpty || guardianCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Guardian details are not loaded yet. Please try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return DeleteConfirmationBottomSheet(
+          name: guardianName.isEmpty ? 'this guardian' : guardianName,
+          type: 'guardian',
+          isLoading: _isMutating,
+          onCancel: () => Navigator.of(sheetContext).pop(),
+          onDelete: () async {
+            if (_isMutating) return;
+            setState(() => _isMutating = true);
+            try {
+              final repo = serviceLocator<StudentRepository>();
+              final message = await repo.deleteGuardian(
+                code: guardianCode,
+                studentCode: studentCode,
+              );
+              if (!mounted) return;
+              Navigator.of(sheetContext).pop();
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isSuccess: true,
+              );
+              setState(() {
+                _guardiansFuture = _loadGuardians();
+              });
+              await widget.onRefresh?.call();
+            } catch (e) {
+              if (!mounted) return;
+              Navigator.of(sheetContext).pop();
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: ApiErrorHandler.extractErrorMessage(e),
+                isError: true,
+              );
+            } finally {
+              if (mounted) {
+                setState(() => _isMutating = false);
+              }
+            }
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
-          _guardiansFuture = _loadGuardians();
+          _guardiansFuture = _loadGuardians(forceRefresh: true);
         });
         await widget.onRefresh?.call();
       },
@@ -150,10 +323,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
+                      child: PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
                     );
                   }
 
@@ -188,14 +358,18 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                           name:
                               '${data[i]['firstName'] ?? ''} ${data[i]['lastName'] ?? ''}'
                                   .trim(),
-                          relation:
-                              (data[i]['relationToStudent'] ?? '').toString(),
+                          relation: (data[i]['relationToStudent'] ?? '')
+                              .toString(),
                           email: (data[i]['email'] ?? '').toString(),
-                          phone: (data[i]['mobile'] ?? '').toString(),
-                          pin: '—',
+                          phone: _formatPhoneNumber(
+                            (data[i]['mobile'] ?? '').toString(),
+                          ),
+                          pin: _extractGuardianClockPin(data[i]),
+                          isLoading: _isMutating,
+                          onEdit: () => _onEditParent(data[i]),
+                          onDelete: () => _onDeleteParent(data[i]),
                         ),
-                        if (i != data.length - 1)
-                          const SizedBox(height: 12),
+                        if (i != data.length - 1) const SizedBox(height: 12),
                       ],
                     ],
                   );
@@ -216,6 +390,9 @@ class _FamilyCard extends StatelessWidget {
     required this.email,
     required this.phone,
     required this.pin,
+    required this.onEdit,
+    required this.onDelete,
+    required this.isLoading,
   });
 
   final String name;
@@ -223,6 +400,9 @@ class _FamilyCard extends StatelessWidget {
   final String email;
   final String phone;
   final String pin;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -242,19 +422,13 @@ class _FamilyCard extends StatelessWidget {
           children: [
             Container(
               height: 60,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 24 : 16,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    name: name,
-                    size: 45,
-                  ),
+                  DocumentImageWidget(fileUuid: '', name: name, size: 45),
                   SizedBox(width: isTablet ? 16 : 9),
                   Flexible(
                     child: Text(
@@ -294,9 +468,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         relation,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),
@@ -315,9 +487,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         email,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),
@@ -336,9 +506,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         phone,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),
@@ -357,9 +525,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         pin,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),
@@ -367,13 +533,10 @@ class _FamilyCard extends StatelessWidget {
                   CustomButtonLayout(
                     confirmButtonLabel: 'Edit',
                     cancelButtonLabel: 'Delete',
-                    onPressedConfirm: () {
-                      // TODO: hook up Edit parent
-                    },
-                    onPressedCancel: () {
-                      // TODO: hook up Delete parent
-                    },
+                    onPressedConfirm: isLoading ? null : onEdit,
+                    onPressedCancel: isLoading ? null : onDelete,
                     isForm: false,
+                    isLoading: isLoading,
                   ),
                   const SizedBox(height: 12),
                 ],

@@ -1,8 +1,11 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 
 import '../../../../core/util/cache_manager.dart';
+import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
+import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/entities/activity_type_details.dart';
+import '../../../../domain/features/activity/entities/activity_upload_session.dart';
 import '../../../../domain/features/activity/repositories/activity_repository.dart';
 import '../datasources/activity_remote_datasource.dart';
 import '../models/activity_settings_models.dart';
@@ -80,6 +83,48 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<ActivityFeedPage> getDailyActivityFeed({
+    required String classroomCode,
+    required String date,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  }) async {
+    final model = await _remoteDataSource.getDailyActivityFeed(
+      classroomCode: classroomCode,
+      date: date,
+      studentCode: studentCode,
+      activityTypeCode: activityTypeCode,
+      page: page,
+      size: size,
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<ActivityFeedPage> getRangeActivityFeed({
+    required String classroomCode,
+    required String startDate,
+    required String endDate,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  }) async {
+    final model = await _remoteDataSource.getRangeActivityFeed(
+      classroomCode: classroomCode,
+      startDate: startDate,
+      endDate: endDate,
+      studentCode: studentCode,
+      activityTypeCode: activityTypeCode,
+      page: page,
+      size: size,
+    );
+    return model.toEntity();
+  }
+
+  @override
   Future<ActivityTypeDetails> getActivityTypeDetails({
     required String code,
   }) async {
@@ -114,6 +159,48 @@ class ActivityRepositoryImpl implements ActivityRepository {
     );
 
     return _remoteDataSource.createActivity(request: request);
+  }
+
+  @override
+  Future<ActivityUploadSession> createActivityUploadSessions({
+    required String organizationCode,
+    required String schoolCode,
+    required String classroomCode,
+    required String activityTypeCode,
+    required String bindingMode,
+    required List<String> studentCodes,
+  }) {
+    return _remoteDataSource.createActivityUploadSessions(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      classroomCode: classroomCode,
+      activityTypeCode: activityTypeCode,
+      bindingMode: bindingMode,
+      studentCodes: studentCodes,
+    );
+  }
+
+  @override
+  Future<ActivityAssetPresign> createActivityAssetPresign({
+    required String sessionCode,
+    required String documentApiBasePath,
+    required String fileName,
+    required String contentType,
+    required int contentLengthBytes,
+    required String mediaType,
+    required String ownerType,
+    required String ownerCode,
+  }) {
+    return _remoteDataSource.createActivityAssetPresign(
+      sessionCode: sessionCode,
+      documentApiBasePath: documentApiBasePath,
+      fileName: fileName,
+      contentType: contentType,
+      contentLengthBytes: contentLengthBytes,
+      mediaType: mediaType,
+      ownerType: ownerType,
+      ownerCode: ownerCode,
+    );
   }
 }
 

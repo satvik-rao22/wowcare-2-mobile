@@ -36,23 +36,75 @@ class StudentClassroomItemModel {
   final bool dietaryRestriction;
 
   factory StudentClassroomItemModel.fromJson(Map<String, dynamic> json) {
+    final student = json['student'] is Map<String, dynamic>
+        ? json['student'] as Map<String, dynamic>
+        : null;
+    final classroom = json['classroom'] is Map<String, dynamic>
+        ? json['classroom'] as Map<String, dynamic>
+        : null;
+
+    String str(dynamic v) => v?.toString().trim() ?? '';
+
+    /// Prefer [a], then [b], for [key].
+    String pick(Map<String, dynamic>? a, Map<String, dynamic>? b, String key) {
+      for (final m in [a, b]) {
+        if (m == null) continue;
+        final s = str(m[key]);
+        if (s.isNotEmpty) return s;
+      }
+      return '';
+    }
+
+    var firstName = pick(json, student, 'firstName');
+    var lastName = pick(json, student, 'lastName');
+    final displayName = pick(json, student, 'displayName');
+
+    if (firstName.isEmpty && lastName.isEmpty && displayName.isNotEmpty) {
+      final parts =
+          displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+      if (parts.isNotEmpty) {
+        firstName = parts.first;
+        lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      }
+    }
+
+    var studentCode = pick(json, student, 'studentCode');
+    if (studentCode.isEmpty) {
+      studentCode = pick(json, student, 'code');
+    }
+
+    var classroomCode = pick(json, classroom, 'classroomCode');
+    if (classroomCode.isEmpty) {
+      classroomCode = pick(json, classroom, 'code');
+    }
+
+    bool asBool(dynamic v) {
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      return false;
+    }
+
+    final profileRaw = pick(json, student, 'profilePictureUrl');
+
     return StudentClassroomItemModel(
-      classroomCode: json['classroomCode'] as String? ?? '',
-      studentCode: json['studentCode'] as String? ?? '',
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
-      profilePictureUrl: json['profilePictureUrl'] as String?,
-      status: json['status'] as String? ?? '',
-      expectedToday: json['expectedToday'] as bool? ?? false,
-      signedIn: json['signedIn'] as bool? ?? false,
-      absent: json['absent'] as bool? ?? false,
-      notMarked: json['notMarked'] as bool? ?? false,
-      nap: json['nap'] as bool? ?? false,
-      photoPermission: json['photoPermission'] as bool? ?? false,
-      notes: json['notes'] as bool? ?? false,
-      medication: json['medication'] as bool? ?? false,
-      allergies: json['allergies'] as bool? ?? false,
-      dietaryRestriction: json['dietaryRestriction'] as bool? ?? false,
+      classroomCode: classroomCode,
+      studentCode: studentCode,
+      firstName: firstName,
+      lastName: lastName,
+      profilePictureUrl: profileRaw.isEmpty ? null : profileRaw,
+      status: pick(json, student, 'status'),
+      expectedToday: asBool(json['expectedToday'] ?? student?['expectedToday']),
+      signedIn: asBool(json['signedIn'] ?? student?['signedIn']),
+      absent: asBool(json['absent'] ?? student?['absent']),
+      notMarked: asBool(json['notMarked'] ?? student?['notMarked']),
+      nap: asBool(json['nap'] ?? student?['nap']),
+      photoPermission:
+          asBool(json['photoPermission'] ?? student?['photoPermission']),
+      notes: asBool(json['notes'] ?? student?['notes']),
+      medication: asBool(json['medication'] ?? student?['medication']),
+      allergies: asBool(json['allergies'] ?? student?['allergies']),
+      dietaryRestriction: asBool(
+          json['dietaryRestriction'] ?? student?['dietaryRestriction']),
     );
   }
 

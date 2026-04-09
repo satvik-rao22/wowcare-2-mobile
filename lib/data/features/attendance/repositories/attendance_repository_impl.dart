@@ -2,7 +2,6 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
-import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
     as staff_absent;
@@ -12,12 +11,13 @@ import '../../../../domain/features/attendance/repositories/attendance_repositor
 import '../datasources/attendance_remote_datasource.dart';
 import '../models/student_absence_record_models.dart';
 import '../models/student_attendance_models.dart';
-import '../models/staff_absence_record_models.dart';
 
 class AttendanceRepositoryImpl
     implements AttendanceRepository, AttendanceRepositoryWithCache {
-  AttendanceRepositoryImpl(this._remoteDataSource, StorageService storageService)
-      : _cacheManager = CacheManager(storageService);
+  AttendanceRepositoryImpl(
+    this._remoteDataSource,
+    StorageService storageService,
+  ) : _cacheManager = CacheManager(storageService);
 
   final AttendanceRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
@@ -31,15 +31,15 @@ class AttendanceRepositoryImpl
   }) {
     // Build identifier from filters
     final parts = <String>[attendanceDate];
-    
+
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       parts.add('classrooms=${classroomCodes.join(',')}');
     }
-    
+
     if (tagCodes != null && tagCodes.isNotEmpty) {
       parts.add('tags=${tagCodes.join(',')}');
     }
-    
+
     if (search != null && search.isNotEmpty) {
       parts.add('search=${search.trim().toLowerCase()}');
     }
@@ -82,22 +82,6 @@ class AttendanceRepositoryImpl
       identifier: identifier,
     );
   }
-
-  // Cache key for the student expected-attendance summary card.
-  static String _studentAttendanceSummaryCacheKey() =>
-      CacheManager.buildCacheKey(
-        feature: 'attendance',
-        resource: 'student_summary',
-        identifier: 'default',
-      );
-
-  // Cache key for the staff expected-attendance summary card.
-  static String _staffAttendanceSummaryCacheKey() =>
-      CacheManager.buildCacheKey(
-        feature: 'attendance',
-        resource: 'staff_summary',
-        identifier: 'default',
-      );
 
   @override
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
@@ -158,7 +142,8 @@ class AttendanceRepositoryImpl
 
   // Map model to entity
   StudentAttendanceDailyPage _mapPageModelToEntity(
-      StudentAttendanceDailyPageModel model) {
+    StudentAttendanceDailyPageModel model,
+  ) {
     return StudentAttendanceDailyPage(
       items: model.items.map((m) => _mapItemModelToEntity(m)).toList(),
       page: model.page,
@@ -170,7 +155,8 @@ class AttendanceRepositoryImpl
   }
 
   StudentAttendanceDailyItem _mapItemModelToEntity(
-      StudentAttendanceDailyItemModel model) {
+    StudentAttendanceDailyItemModel model,
+  ) {
     return StudentAttendanceDailyItem(
       attendanceRecordCode: model.attendanceRecordCode,
       studentCode: model.studentCode,
@@ -195,8 +181,6 @@ class AttendanceRepositoryImpl
               nano: model.signedOutTime!.nano,
             )
           : null,
-      signedInMethod: model.signedInMethod,
-      signedOutMethod: model.signedOutMethod,
       classroomCode: model.classroomCode,
       tagCodes: model.tagCodes,
       tagNames: model.tagNames,
@@ -438,8 +422,6 @@ class AttendanceRepositoryImpl
       attendedTime: model.attendedTime,
       attendedHours: model.attendedHours,
       attendedMinutes: model.attendedMinutes,
-      signedInMethod: model.signedInMethod,
-      signedOutMethod: model.signedOutMethod,
     );
   }
 
@@ -477,53 +459,6 @@ class AttendanceRepositoryImpl
     int size = 10,
   }) async {
     final pageModel = await _remoteDataSource.getStaffAttendanceAbsent(
-      fromAbsenceDate: fromAbsenceDate,
-      toAbsenceDate: toAbsenceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-      page: page,
-      size: size,
-    );
-
-    return _mapStaffAbsentPageModelToEntity(pageModel);
-  }
-
-  @override
-  Future<staff_absent.StaffAttendanceAbsentPage> getStaffAbsentFormList({
-    required String fromAbsenceDate,
-    required String toAbsenceDate,
-    List<String>? classroomCodes,
-    List<String>? tagCodes,
-    String? search,
-    int page = 0,
-    int size = 10,
-  }) async {
-    final pageModel = await _remoteDataSource.getStaffAbsentFormList(
-      fromAbsenceDate: fromAbsenceDate,
-      toAbsenceDate: toAbsenceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-      page: page,
-      size: size,
-    );
-
-    return _mapStaffAbsentPageModelToEntity(pageModel);
-  }
-
-  @override
-  Future<staff_absent.StaffAttendanceAbsentPage>
-      getStaffAttendanceAbsentToggleView({
-    required String fromAbsenceDate,
-    required String toAbsenceDate,
-    List<String>? classroomCodes,
-    List<String>? tagCodes,
-    String? search,
-    int page = 0,
-    int size = 10,
-  }) async {
-    final pageModel = await _remoteDataSource.getStaffAttendanceAbsentToggleView(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
       classroomCodes: classroomCodes,
@@ -645,7 +580,7 @@ class AttendanceRepositoryImpl
   }
 
   student_absent.StudentAttendanceAbsentFormPage
-      _mapStudentAbsentFormPageModelToEntity(
+  _mapStudentAbsentFormPageModelToEntity(
     StudentAttendanceAbsentFormPageModel model,
   ) {
     return student_absent.StudentAttendanceAbsentFormPage(
@@ -659,7 +594,7 @@ class AttendanceRepositoryImpl
   }
 
   student_absent.StudentAttendanceAbsentFormItem
-      _mapStudentAbsentFormItemModelToEntity(
+  _mapStudentAbsentFormItemModelToEntity(
     StudentAttendanceAbsentFormItemModel model,
   ) {
     return student_absent.StudentAttendanceAbsentFormItem(
@@ -684,7 +619,7 @@ class AttendanceRepositoryImpl
 
   @override
   Future<student_absent.StudentAttendanceAbsentFormPage>
-      getStudentAbsentFormList({
+  getStudentAbsentFormList({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -734,35 +669,8 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<String> markStaffAbsent({
-    required String staffCode,
-    required List<String> staffCodes,
-    required String absenceFromDate,
-    required String absenceToDate,
-    required String absenceReason,
-    required String absenceType,
-    required Map<String, String> absenceNotes,
-  }) async {
-    final response = await _remoteDataSource.markStaffAbsent(
-      request: StaffMarkAbsentRequestModel(
-        staffCode: staffCode,
-        staffCodes: staffCodes,
-        absenceFromDate: absenceFromDate,
-        absenceToDate: absenceToDate,
-        absenceReason: absenceReason,
-        absenceType: absenceType,
-        absenceNotes: absenceNotes,
-      ),
-    );
-
-    return response.message.isNotEmpty
-        ? response.message
-        : 'Staff marked absent successfully';
-  }
-
-  @override
   Future<student_absent.StudentAttendanceAbsentFormPage>
-      getStudentAttendanceAbsentToggleView({
+  getStudentAttendanceAbsentToggleView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -771,153 +679,17 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final pageModel =
-        await _remoteDataSource.getStudentAttendanceAbsentToggleView(
-      fromAbsenceDate: fromAbsenceDate,
-      toAbsenceDate: toAbsenceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-      page: page,
-      size: size,
-    );
+    final pageModel = await _remoteDataSource
+        .getStudentAttendanceAbsentToggleView(
+          fromAbsenceDate: fromAbsenceDate,
+          toAbsenceDate: toAbsenceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+          page: page,
+          size: size,
+        );
 
     return _mapStudentAbsentFormPageModelToEntity(pageModel);
-  }
-
-  @override
-  Future<StudentAttendanceExpectedSummary>
-      getStudentAttendanceExpectedSummary() async {
-    // 1. Try cache first (summary is lightweight and global for "today").
-    final cached = await _cacheManager.loadCache(
-      _studentAttendanceSummaryCacheKey(),
-    );
-    if (cached != null) {
-      return StudentAttendanceExpectedSummary(
-        expected: cached['expected'] as int? ?? 0,
-        present: cached['present'] as int? ?? 0,
-        absent: cached['absent'] as int? ?? 0,
-        signOut: cached['signOut'] as int? ?? 0,
-        notMarked: cached['notMarked'] as int? ?? 0,
-      );
-    }
-
-    // 2. Fallback to API and cache the result.
-    final model =
-        await _remoteDataSource.getStudentAttendanceExpectedSummaryCard();
-
-    await _cacheManager.saveCache(
-      _studentAttendanceSummaryCacheKey(),
-      {
-        'expected': model.expected,
-        'present': model.present,
-        'absent': model.absent,
-        'signOut': model.signOut,
-        'notMarked': model.notMarked,
-      },
-    );
-
-    return StudentAttendanceExpectedSummary(
-      expected: model.expected,
-      present: model.present,
-      absent: model.absent,
-      signOut: model.signOut,
-      notMarked: model.notMarked,
-    );
-  }
-
-  @override
-  Future<StudentAttendanceExpectedSummary>
-      getStaffAttendanceExpectedSummary() async {
-    // 1. Try cache first (summary is lightweight and global for "today").
-    final cached = await _cacheManager.loadCache(
-      _staffAttendanceSummaryCacheKey(),
-    );
-    if (cached != null) {
-      return StudentAttendanceExpectedSummary(
-        expected: cached['expected'] as int? ?? 0,
-        present: cached['present'] as int? ?? 0,
-        absent: cached['absent'] as int? ?? 0,
-        signOut: cached['signOut'] as int? ?? 0,
-        notMarked: cached['notMarked'] as int? ?? 0,
-      );
-    }
-
-    // 2. Fallback to API and cache the result.
-    final model =
-        await _remoteDataSource.getStaffAttendanceExpectedSummaryCard();
-
-    await _cacheManager.saveCache(
-      _staffAttendanceSummaryCacheKey(),
-      {
-        'expected': model.expected,
-        'present': model.present,
-        'absent': model.absent,
-        'signOut': model.signOut,
-        'notMarked': model.notMarked,
-      },
-    );
-
-    return StudentAttendanceExpectedSummary(
-      expected: model.expected,
-      present: model.present,
-      absent: model.absent,
-      signOut: model.signOut,
-      notMarked: model.notMarked,
-    );
-  }
-
-  @override
-  Future<String?> getStaffTodaySignInStatus(String staffCode) async {
-    final map = await _remoteDataSource.getStaffSignInStatus(
-      staffCodes: <String>[staffCode],
-    );
-    return map[staffCode];
-  }
-
-  @override
-  Future<String?> getStudentTodaySignInStatus(String studentCode) async {
-    final map = await _remoteDataSource.getStudentSignInStatus(
-      studentCodes: <String>[studentCode],
-    );
-    return map[studentCode];
-  }
-
-  @override
-  Future<String> updateStudentAttendanceRecord({
-    required String attendanceRecordCode,
-    required String staffCode,
-    DateTime? signedInAt,
-    DateTime? signedOutAt,
-    String? originalClassroomCode,
-    String? currentClassroomCode,
-    String? notes,
-    String? timeZone,
-  }) async {
-    final payload = <String, dynamic>{
-      'staffCode': staffCode,
-      // Backend expects ISO8601 with timezone (e.g., "2026-03-04T16:31:09.002Z")
-      'signedInAt': signedInAt?.toIso8601String(),
-      'signedOutAt': signedOutAt?.toIso8601String(),
-      'signedInMethod': 'APP',
-      'signedOutMethod': 'APP',
-      // Location/geofence fields are currently not captured in the UI.
-      // Send defaults as per backend schema.
-      'signedInLocationLat': 0,
-      'signedInLocationLong': 0,
-      'signedInWithinGeofence': true,
-      'signedOutLocationLat': 0,
-      'signedOutLocationLong': 0,
-      'signedOutWithinGeofence': true,
-      'originalClassroomCode': originalClassroomCode,
-      'currentClassroomCode': currentClassroomCode,
-      'notes': notes,
-      'timeZone': timeZone,
-    };
-
-    return _remoteDataSource.updateStudentAttendanceRecord(
-      attendanceRecordCode: attendanceRecordCode,
-      payload: payload,
-    );
   }
 }

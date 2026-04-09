@@ -339,8 +339,9 @@ class _ChooseActivityState extends State<ChooseActivity> {
             try {
               await _getActivityTypeDetailsUseCase(code: code);
               // NOTE: We fetch details (including parameters) here so the next
-              // screen can use cached/stateful details later. We'll wire
-              // parameter-values mapping into create screens next.
+              // screen can use cached/stateful details later. Upload-session /
+              // presign / S3 PUT / session GET happen on activity screens (e.g. Notes)
+              // when the user adds media.
             } catch (e) {
               _showWarningMessage(e.toString());
               return;

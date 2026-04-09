@@ -59,6 +59,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     return DateTime(now.year, now.month, now.day);
   }
 
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -159,8 +163,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       }
 
       final picked = _selectedPhysicalCheckupDate!;
-      if (physicalStatus == 'Completed') {
-        if (picked.isAfter(today)) {
+      final pickedOnly = _dateOnly(picked);
+      final physicalStatusUpper = physicalStatus.toUpperCase();
+      if (physicalStatusUpper == 'COMPLETED') {
+        if (pickedOnly.isAfter(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'For Completed status, Physical Checkup Date must be today or past',
@@ -168,8 +174,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
           );
           return;
         }
-      } else if (physicalStatus == 'Due' || physicalStatus == 'Scheduled') {
-        if (picked.isBefore(today)) {
+      } else if (physicalStatusUpper == 'DUE' ||
+          physicalStatusUpper == 'SCHEDULED' ||
+          physicalStatusUpper == 'OVERDUE') {
+        if (pickedOnly.isBefore(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'For Due/Scheduled status, Physical Checkup Date must be today or future',
@@ -247,24 +255,30 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       DateTime? currentDate;
       DateTime? firstDate;
       DateTime? lastDate;
+      final today = _todayDateOnly();
       switch (fieldName) {
         case 'hire':
           currentDate = _selectedHireDate;
-          lastDate = _todayDateOnly();
+          lastDate = today;
           break;
         case 'cda':
           currentDate = _selectedCdaExaminationDate;
+          // CDA expiry: past date not allowed.
+          firstDate = today;
           break;
         case 'firstAid':
           currentDate = _selectedFirstAidCprExpirationDate;
           break;
         case 'background':
           currentDate = _selectedBackgroundRecordCheckExpirationDate;
+          // BRC expiry: past date not allowed.
+          firstDate = today;
           break;
         case 'physical':
           currentDate = _selectedPhysicalCheckupDate;
-          final today = _todayDateOnly();
-          if ((_selectedPhysicalCheckupStatus ?? '').trim() == 'Completed') {
+          final statusUpper =
+              (_selectedPhysicalCheckupStatus ?? '').trim().toUpperCase();
+          if (statusUpper == 'COMPLETED') {
             lastDate = today;
           } else {
             // Due/Scheduled (and default): today or future.
@@ -286,6 +300,32 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       
       if (result != null && result['date'] != null) {
         final selected = result['date'] as DateTime;
+        final selectedOnly = _dateOnly(selected);
+        if (fieldName == 'physical') {
+          final statusUpper =
+              (_selectedPhysicalCheckupStatus ?? '').trim().toUpperCase();
+          if ((statusUpper == 'DUE' ||
+                  statusUpper == 'SCHEDULED' ||
+                  statusUpper == 'OVERDUE') &&
+              selectedOnly.isBefore(today)) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message:
+                  'For Due/Scheduled status, Physical Checkup Date must be today or future',
+              isError: true,
+            );
+            return;
+          }
+          if (statusUpper == 'COMPLETED' && selectedOnly.isAfter(today)) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message:
+                  'For Completed status, Physical Checkup Date must be today or past',
+              isError: true,
+            );
+            return;
+          }
+        }
 
         setState(() {
           switch (fieldName) {
@@ -388,7 +428,42 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
               color: const Color(0xff573353),
             ),
             labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            onSelect: (val) => setState(() => _selectedPhysicalCheckupStatus = val ?? _selectedPhysicalCheckupStatus),
+            onSelect: (val) {
+              setState(() {
+                _selectedPhysicalCheckupStatus =
+                    val ?? _selectedPhysicalCheckupStatus;
+              });
+
+              if (_selectedPhysicalCheckupDate == null) return;
+              final today = _todayDateOnly();
+              final pickedOnly = _dateOnly(_selectedPhysicalCheckupDate!);
+              final statusUpper =
+                  (_selectedPhysicalCheckupStatus ?? '').trim().toUpperCase();
+              final isDueScheduled = statusUpper == 'DUE' ||
+                  statusUpper == 'SCHEDULED' ||
+                  statusUpper == 'OVERDUE';
+
+              if (isDueScheduled && pickedOnly.isBefore(today)) {
+                setState(() => _selectedPhysicalCheckupDate = null);
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message:
+                      'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                  isError: true,
+                );
+                return;
+              }
+
+              if (statusUpper == 'COMPLETED' && pickedOnly.isAfter(today)) {
+                setState(() => _selectedPhysicalCheckupDate = null);
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message:
+                      'For Completed status, Physical Checkup Date must be today or past',
+                  isError: true,
+                );
+              }
+            },
           ),
           const SizedBox(height: 12),
         ],

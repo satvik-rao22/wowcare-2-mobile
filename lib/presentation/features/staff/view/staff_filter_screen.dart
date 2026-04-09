@@ -15,8 +15,10 @@ enum StaffFilterSection {
   status,
   sortBy,
   attendanceStatus,
+
   /// Legacy: show the old Primary Classroom dropdown.
   primaryClassroom,
+
   /// Legacy: show the old Allowed Classroom dropdown.
   allowedClassroom,
 }
@@ -25,13 +27,16 @@ enum StaffFilterSection {
 class FilterData {
   final List<int> classroomIds;
   final List<String> classrooms;
+
   /// Selected primary classroom names (for Primary Classroom dropdown).
   final List<String>? primaryClassrooms;
+
   /// Selected allowed classroom names (for Allowed Classroom dropdown).
   final List<String>? allowedClassrooms;
   final List<String> statuses;
   final List<String> tags;
   final List<String> attendanceStatuses;
+
   /// Sort direction: 'asc' or 'desc'.
   final String? sortBy;
 
@@ -67,10 +72,10 @@ class StaffFilterScreen extends StatefulWidget {
   final FilterData? initialFilters;
   final DateTime? selectedDate;
   final List<StaffFilterSection> sections;
-  
+
   const StaffFilterScreen({
-    this.initialFilters, 
-    this.selectedDate, 
+    this.initialFilters,
+    this.selectedDate,
     this.sections = const [
       StaffFilterSection.primaryClassroom,
       StaffFilterSection.allowedClassroom,
@@ -79,7 +84,7 @@ class StaffFilterScreen extends StatefulWidget {
       StaffFilterSection.sortBy,
       StaffFilterSection.attendanceStatus,
     ],
-    super.key
+    super.key,
   });
 
   static const String routeName = '/staff-filter';
@@ -89,35 +94,13 @@ class StaffFilterScreen extends StatefulWidget {
 }
 
 class _StaffFilterScreenState extends State<StaffFilterScreen> {
-  List<String> get _labelList {
-    // If the screen is used in "attendance" mode with just Classroom + Designation,
-    // show the simplified label.
-    final onlySimple =
-        widget.sections.length == 2 &&
-            widget.sections.contains(StaffFilterSection.classroom) &&
-            widget.sections.contains(StaffFilterSection.designation);
-
-    return widget.sections.map((s) {
-      switch (s) {
-        case StaffFilterSection.classroom:
-          return onlySimple ? 'Classroom' : 'Allowed Classroom';
-        case StaffFilterSection.designation:
-          return 'Designation';
-        case StaffFilterSection.status:
-          return 'Status';
-        case StaffFilterSection.sortBy:
-          return 'Sort by';
-        case StaffFilterSection.attendanceStatus:
-          return 'Attendance Status';
-        case StaffFilterSection.primaryClassroom:
-          return 'Primary Classroom';
-        case StaffFilterSection.allowedClassroom:
-          return 'Allowed Classroom';
-      }
-    }).toList();
-  }
-
-  static const List<String> _sortByOptions = ['Descending', 'Ascending'];
+  final List<String> _labelList = [
+    'Primary Classroom',
+    'Allowed Classroom',
+    'Status',
+    'Designation',
+    'Attendance Status',
+  ];
 
   // Filter lists
   List<int> _primaryClassroomIdList = [];
@@ -135,7 +118,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   List<String> _selectedAllowedClassroomList = [];
   List<String> _selectedStatusList = [];
   List<String> _selectedDesignationList = [];
-  List<String> _selectedSortByList = [];
   List<String> _selectedAttendanceStatusList = [];
 
   void _syncPrimaryClassroomIds() {
@@ -162,23 +144,26 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   void initState() {
     super.initState();
     if (widget.initialFilters != null) {
-      _selectedPrimaryClassroomIdList = List.from(widget.initialFilters!.classroomIds);
+      _selectedPrimaryClassroomIdList = List.from(
+        widget.initialFilters!.classroomIds,
+      );
       // Primary and Allowed are separate so UI shows the correct dropdown selection
       _selectedPrimaryClassroomList = List.from(
-        widget.initialFilters!.primaryClassrooms ?? widget.initialFilters!.classrooms,
+        widget.initialFilters!.primaryClassrooms ??
+            widget.initialFilters!.classrooms,
       );
       _selectedAllowedClassroomList = List.from(
         widget.initialFilters!.allowedClassrooms ?? const [],
       );
       _selectedStatusList = List.from(widget.initialFilters!.statuses);
+      // Status is single-select in this screen.
+      if (_selectedStatusList.length > 1) {
+        _selectedStatusList = <String>[_selectedStatusList.first];
+      }
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
-      final sortBy = (widget.initialFilters!.sortBy ?? 'desc').trim().toLowerCase();
-      _selectedSortByList = sortBy == 'asc' ? ['Ascending'] : ['Descending'];
-      _selectedAttendanceStatusList = List.from(widget.initialFilters!.attendanceStatuses);
-    }
-    if (widget.sections.contains(StaffFilterSection.sortBy) &&
-        _selectedSortByList.isEmpty) {
-      _selectedSortByList.add('Descending');
+      _selectedAttendanceStatusList = List.from(
+        widget.initialFilters!.attendanceStatuses,
+      );
     }
     _fetchFilterData();
   }
@@ -187,10 +172,10 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     // Load classrooms from ClassroomCubit. For staff filters, we want the same
     // set as the staff screen itself, i.e. all ACTIVE locations without
     // restricting to type=CLASSROOM.
-    context
-        .read<ClassroomCubit>()
-        .loadActiveClassrooms(onlyTypeClassroom: false);
-    
+    context.read<ClassroomCubit>().loadActiveClassrooms(
+      onlyTypeClassroom: false,
+    );
+
     setState(() {
       // Status options: ACTIVE, UPCOMING
       _statusList = ['ACTIVE', 'UPCOMING'];
@@ -217,7 +202,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         'FLOATER',
         'KIOSK_USER',
       ];
-      
+
       _attendanceStatusList = ['Expected', 'Present', 'Absent'];
     });
   }
@@ -243,33 +228,16 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         .toList();
 
     // Return Map format expected by staff_screen.dart
-    final String? status = widget.sections.contains(StaffFilterSection.status) &&
+    final String? status =
+        widget.sections.contains(StaffFilterSection.status) &&
             _selectedStatusList.isNotEmpty
         ? _selectedStatusList.first
         : null;
-    final String? designation =
-        widget.sections.contains(StaffFilterSection.designation) &&
-                _selectedDesignationList.isNotEmpty
-            ? _selectedDesignationList.first
-            : null;
-    final String sortBy = (widget.sections.contains(StaffFilterSection.sortBy) &&
-                _selectedSortByList.isNotEmpty &&
-                _selectedSortByList.first == 'Ascending')
-        ? 'asc'
-        : 'desc';
-
     Navigator.pop(context, {
       'status': status,
-      'designation': designation,
-      'primaryClassroomCodes': widget.sections.contains(StaffFilterSection.primaryClassroom)
-          ? primaryCodes
-          : const <String>[],
-      // For the simplified "Classroom" filter we reuse AllowedClassroom codes.
-      'classCodes': (widget.sections.contains(StaffFilterSection.classroom) ||
-              widget.sections.contains(StaffFilterSection.allowedClassroom))
-          ? allowedCodes
-          : const <String>[],
-      'sortBy': sortBy,
+      'designation': _selectedDesignationList,
+      'primaryClassroomCodes': primaryCodes,
+      'classCodes': allowedCodes,
     });
   }
 
@@ -307,76 +275,48 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
         // Load classrooms from cubit state
-        final classroomNames = classroomState.classrooms.map((c) => c.name).toList();
-        
+        final classroomNames = classroomState.classrooms
+            .map((c) => c.name)
+            .toList();
+
         // Update classroom lists when cubit state changes
         if (classroomNames.isNotEmpty && _primaryClassroomList.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
               _primaryClassroomList = List.from(classroomNames);
               _allowedClassroomList = List.from(classroomNames);
-              _primaryClassroomIdList = List.generate(classroomNames.length, (index) => index);
-              _allowedClassroomIdList = List.generate(classroomNames.length, (index) => index);
+              _primaryClassroomIdList = List.generate(
+                classroomNames.length,
+                (index) => index,
+              );
+              _allowedClassroomIdList = List.generate(
+                classroomNames.length,
+                (index) => index,
+              );
             });
           });
         }
-        
+
         // Check if data is loaded
-        final hasClassrooms = _primaryClassroomList.isNotEmpty;
-        final hasStatus = _statusList.isNotEmpty;
-        final hasDesignation = _designationList.isNotEmpty;
-        final hasAttendance = _attendanceStatusList.isNotEmpty;
+        if (_primaryClassroomList.isNotEmpty &&
+            _statusList.isNotEmpty &&
+            _designationList.isNotEmpty &&
+            _attendanceStatusList.isNotEmpty) {
+          final _dropdownLists = [
+            _primaryClassroomList,
+            _allowedClassroomList,
+            _statusList,
+            _designationList,
+            _attendanceStatusList,
+          ];
+          final _selectedDropdownLists = [
+            _selectedPrimaryClassroomList,
+            _selectedAllowedClassroomList,
+            _selectedStatusList,
+            _selectedDesignationList,
+            _selectedAttendanceStatusList,
+          ];
 
-        final canRender = (!widget.sections.contains(StaffFilterSection.primaryClassroom) ||
-                hasClassrooms) &&
-            (!widget.sections.contains(StaffFilterSection.allowedClassroom) ||
-                hasClassrooms) &&
-            (!widget.sections.contains(StaffFilterSection.classroom) || hasClassrooms) &&
-            (!widget.sections.contains(StaffFilterSection.status) || hasStatus) &&
-            (!widget.sections.contains(StaffFilterSection.designation) ||
-                hasDesignation) &&
-            (!widget.sections.contains(StaffFilterSection.attendanceStatus) ||
-                hasAttendance);
-
-        if (canRender) {
-          List<String> _optionsFor(StaffFilterSection section) {
-            switch (section) {
-              case StaffFilterSection.primaryClassroom:
-                return _primaryClassroomList;
-              case StaffFilterSection.allowedClassroom:
-                return _allowedClassroomList;
-              case StaffFilterSection.classroom:
-                return _allowedClassroomList;
-              case StaffFilterSection.status:
-                return _statusList;
-              case StaffFilterSection.designation:
-                return _designationList;
-              case StaffFilterSection.sortBy:
-                return _sortByOptions;
-              case StaffFilterSection.attendanceStatus:
-                return _attendanceStatusList;
-            }
-          }
-
-          List<String> _selectedFor(StaffFilterSection section) {
-            switch (section) {
-              case StaffFilterSection.primaryClassroom:
-                return _selectedPrimaryClassroomList;
-              case StaffFilterSection.allowedClassroom:
-                return _selectedAllowedClassroomList;
-              case StaffFilterSection.classroom:
-                return _selectedAllowedClassroomList;
-              case StaffFilterSection.status:
-                return _selectedStatusList;
-              case StaffFilterSection.designation:
-                return _selectedDesignationList;
-              case StaffFilterSection.sortBy:
-                return _selectedSortByList;
-              case StaffFilterSection.attendanceStatus:
-                return _selectedAttendanceStatusList;
-            }
-          }
-          
           return GridView.builder(
             padding: EdgeInsets.zero,
             itemCount: widget.sections.length,
@@ -384,47 +324,32 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 1.6, // Further reduced to 1.6 to give more height
+              childAspectRatio:
+                  1.6, // Further reduced to 1.6 to give more height
             ),
-            itemBuilder: (context, index) {
-              final section = widget.sections[index];
-              final label = _labelList[index];
-              final items = _optionsFor(section);
-              final selected = _selectedFor(section);
-
-              return CustomMultiSelectDropdown(
-                label: label,
-                hintText: 'Select',
-                items: items,
-                selectedItems: selected,
-                onChanged: (selectedItems) {
-                  setState(() {
-                    selected
+            itemBuilder: (context, index) => CustomMultiSelectDropdown(
+              label: _labelList[index],
+              hintText: 'Select',
+              items: _dropdownLists[index],
+              selectedItems: _selectedDropdownLists[index],
+              onChanged: (selectedItems) {
+                setState(() {
+                  _selectedDropdownLists[index].clear();
+                  _selectedDropdownLists[index].addAll(selectedItems);
+                  if (index == 0) _syncPrimaryClassroomIds();
+                  if (index == 1) _syncAllowedClassroomIds();
+                  // Status: single selection only (last selected).
+                  if (index == 2 && selectedItems.isNotEmpty) {
+                    _selectedStatusList
                       ..clear()
-                      ..addAll(selectedItems);
-
-                    if (section == StaffFilterSection.primaryClassroom) {
-                      _syncPrimaryClassroomIds();
-                    }
-                    if (section == StaffFilterSection.allowedClassroom ||
-                        section == StaffFilterSection.classroom) {
-                      _syncAllowedClassroomIds();
-                    }
-
-                    // Sort by: keep single selection (last selected)
-                    if (section == StaffFilterSection.sortBy &&
-                        selectedItems.isNotEmpty) {
-                      _selectedSortByList
-                        ..clear()
-                        ..add(selectedItems.last);
-                    }
-                  });
-                },
-              );
-            },
+                      ..add(selectedItems.last);
+                  }
+                });
+              },
+            ),
           );
         }
-        
+
         // Show loading state
         return GridView.builder(
           padding: EdgeInsets.zero,
@@ -438,11 +363,14 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
           itemBuilder: (context, index) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_labelList[index],
-                  style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.5),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400)),
+              Text(
+                _labelList[index],
+                style: TextStyle(
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
               const SizedBox(height: 8),
               const ShimmerLoader(height: 40),
             ],
@@ -451,7 +379,4 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       },
     );
   }
-
 }
-
-
