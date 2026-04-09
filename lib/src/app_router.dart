@@ -13,7 +13,10 @@ import 'package:wowcare/presentation/features/auth/view/role_selection_screen.da
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
 import '../presentation/features/staff-scheduling/view/add-schedule.dart';
-import '../presentation/features/staff-scheduling/view/publish-shift-conformation.dart';
+import '../presentation/features/staff-scheduling/view/classroom/classroom-view.dart';
+import '../presentation/features/staff-scheduling/view/edit-schedule.dart';
+import '../presentation/features/staff-scheduling/view/edit-shift-permission.dart';
+import '../presentation/features/staff-scheduling/view/publish-shift-schedule.dart';
 import '../presentation/features/staff-scheduling/view/staff-scheduling.dart';
 import '../presentation/features/students/view/student_screen.dart';
 import '../app/di/di.dart';
@@ -149,6 +152,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         ),
         settings: settings,
       );
+    case ClassroomViewScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const ClassroomViewScreen(),
+        settings: settings,
+      );
     case SignInScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const SignInScreen(),
@@ -167,6 +175,29 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case RoleSelectionScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const RoleSelectionScreen(),
+        settings: settings,
+      );
+
+    case PublishShiftScheduleScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const PublishShiftScheduleScreen(),
+        settings: settings,
+      );
+    case EditShiftScheduleScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const EditShiftScheduleScreen(),
+        settings: settings,
+      );
+
+    case ClassroomViewScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const ClassroomViewScreen(),
+        settings: settings,
+      );
+
+    case EditShiftScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const EditShiftScreen(),
         settings: settings,
       );
 

@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
-import '../../../../shared/common/widgets/custom_app_bar.dart';
+import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../cubit/staff_scheduling_cubit.dart';
 import '../cubit/staff_scheduling_state.dart';
 import '../widgets/schedule_card.dart';
 import '../widgets/expandable_schedule_card.dart';
 import 'add-schedule.dart';
-import 'publish-shift-conformation.dart';
 
 class StaffSchedulingScreen extends StatefulWidget {
   const StaffSchedulingScreen({super.key});
@@ -25,8 +24,8 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => StaffSchedulingCubit(),
-      child: Scaffold(
-        appBar: const CustomAppBar(hasBackButton: true),
+      child: GlobalScaffold(
+        hasBackButton: true,
         body: BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
           builder: (context, state) {
             if (state is StaffSchedulingLoaded) {

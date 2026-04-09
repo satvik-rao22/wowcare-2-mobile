@@ -13,7 +13,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        // ✅ Kotlin DSL requires this syntax
         isCoreLibraryDesugaringEnabled = true
     }
 
@@ -27,11 +26,26 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // ✅ IMPORTANT: Reduce native size
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
         release {
+            // ⚠️ Replace with your release keystore later
             signingConfig = signingConfigs.getByName("debug")
+
+            // ✅ Enable shrinking
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

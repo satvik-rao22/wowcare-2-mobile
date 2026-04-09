@@ -163,7 +163,6 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
@@ -221,8 +220,9 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       studentList: widget.studentList,
     );
 
-    final double navHeight =
-        CustomNavigationBar.navBarHeight > 0 ? CustomNavigationBar.navBarHeight : 72;
+    final double navHeight = CustomNavigationBar.navBarHeight > 0
+        ? CustomNavigationBar.navBarHeight
+        : 72;
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:dotted_border/dotted_border.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
-import '../cubit/staff_scheduling_cubit.dart';
 import '../model/staff_model.dart';
+import '../view/classroom/classroom-view.dart';
+import '../view/edit-schedule.dart';
 
 class ExpandableScheduleCard extends StatefulWidget {
   final String title; // e.g., "Thu Dec 30" or "Thu 30"
@@ -251,12 +251,20 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    staff.name,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF4B2E4C),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        ClassroomViewScreen.routeName,
+                                      );
+                                    },
+                                    child: Text(
+                                      staff.name,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF4B2E4C),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 6),
@@ -313,13 +321,21 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                               horizontal: 12,
                             ),
                             alignment: Alignment.center,
-                            child: const Text(
-                              "07:00 AM -\n05:00 PM",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                height: 1.4,
-                                color: Color(0xFF4B2E4C),
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  EditShiftScreen.routeName,
+                                );
+                              },
+                              child: const Text(
+                                "07:00 AM -\n05:00 PM",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.4,
+                                  color: Color(0xFF4B2E4C),
+                                ),
                               ),
                             ),
                           ),
