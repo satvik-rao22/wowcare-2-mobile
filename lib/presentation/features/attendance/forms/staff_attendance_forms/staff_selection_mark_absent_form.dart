@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 import 'staff_mark_absent_form.dart';
@@ -30,7 +32,7 @@ class StaffSelectionMarkAbsentForm extends StatefulWidget {
 class _StaffSelectionMarkAbsentFormState
     extends State<StaffSelectionMarkAbsentForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = null;
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   List<StaffEntity> _filteredStaff = [];
   Set<StaffEntity> selectedStaff = {};
@@ -39,12 +41,7 @@ class _StaffSelectionMarkAbsentFormState
 
   final List<StaffEntity> _allStaff = [];
 
-  final List<String> _classrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C',
-    'Classroom D'
-  ];
+  final Map<String, String> _classroomNameToCode = <String, String>{};
   final List<String> _designations = [
     'OWNER',
     'DIRECTOR',
@@ -58,6 +55,7 @@ class _StaffSelectionMarkAbsentFormState
   ];
 
   late final GetStaffAbsentFormListUseCase _getStaffAbsentFormListUseCase;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
@@ -65,6 +63,8 @@ class _StaffSelectionMarkAbsentFormState
     _searchController.addListener(_onSearchChanged);
     _getStaffAbsentFormListUseCase =
         serviceLocator<GetStaffAbsentFormListUseCase>();
+    _classroomCubit = serviceLocator<ClassroomCubit>()
+      ..loadActiveClassrooms(onlyTypeClassroom: false);
     _loadStaff();
   }
 
@@ -72,42 +72,13 @@ class _StaffSelectionMarkAbsentFormState
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _classroomCubit.close();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    _filterStaff();
-  }
+  void _onSearchChanged() => _loadStaff();
 
-  void _filterStaff() {
-    setState(() {
-      _filteredStaff = _allStaff.where((staff) {
-        bool matchesSearch = true;
-        bool matchesRoom = true;
-        bool matchesTag = true;
-
-        if (_searchController.text.isNotEmpty) {
-          matchesSearch = staff.name
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase());
-        }
-
-        if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
-          final classroomName = 'Classroom '
-              '${String.fromCharCode(65 + ((staff.primaryRoomId - 1) % 4))}';
-          matchesRoom = _selectedClassroom == classroomName;
-        }
-
-        if (_selectedTag.isNotEmpty) {
-          final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
-          final d = (staff.designation ?? '').trim().toUpperCase();
-          matchesTag = selected.contains(d);
-        }
-
-        return matchesSearch && matchesRoom && matchesTag;
-      }).toList();
-    });
-  }
+  void _filterStaff() {}
 
   void _toggleSelectAll(bool? value) {
     if (value == null) return;
@@ -143,9 +114,10 @@ class _StaffSelectionMarkAbsentFormState
   }
 
   List<StaffEntity> _getVisibleStaff() {
+    final selectedClassroomCode = _selectedClassroomCode;
     return _filteredStaff.isEmpty &&
             _searchController.text.isEmpty &&
-            (_selectedClassroom == null || _selectedClassroom!.isEmpty) &&
+            (selectedClassroomCode == null || selectedClassroomCode.isEmpty) &&
             _selectedTag.isEmpty
         ? _allStaff
         : _filteredStaff;
@@ -169,9 +141,10 @@ class _StaffSelectionMarkAbsentFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
+      final selectedClassroomCode = _selectedClassroomCode;
       final classroomCodes =
-          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
-              ? <String>[_selectedClassroom!]
+          selectedClassroomCode != null && selectedClassroomCode.isNotEmpty
+              ? <String>[selectedClassroomCode]
               : null;
 
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
@@ -198,6 +171,8 @@ class _StaffSelectionMarkAbsentFormState
           id: index + 1,
           name: item.staffName,
           primaryRoomId: 0,
+          classroomCode: item.classroomCode,
+          classroomName: item.classroomName,
           photoUuid: null,
           // Absent form entity doesn't expose designation list; use a safe default label.
           designation: 'Staff',
@@ -217,9 +192,8 @@ class _StaffSelectionMarkAbsentFormState
       if (widget.initialStaffCodes != null &&
           widget.initialStaffCodes!.isNotEmpty) {
         selectedStaff = _allStaff
-            .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
+            .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
             .toSet();
-        _filterStaff();
       }
     } catch (_) {
       if (!mounted) return;
@@ -258,7 +232,9 @@ class _StaffSelectionMarkAbsentFormState
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return StaffFormLayout(
+    return BlocProvider<ClassroomCubit>.value(
+      value: _classroomCubit,
+      child: StaffFormLayout(
       title: 'Mark Absent',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,15 +264,33 @@ class _StaffSelectionMarkAbsentFormState
           Row(
             children: [
               Expanded(
-                child: CustomDropdown(
-                  hintText: 'Classroom',
-                  items: _classrooms,
-                  selectedItem: _selectedClassroom,
-                  onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                      _filterStaff();
-                    });
+                child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                  builder: (context, state) {
+                    final classroomNames = state.classrooms.map((c) => c.name).toList();
+                    if (_classroomNameToCode.isEmpty && state.classrooms.isNotEmpty) {
+                      for (final c in state.classrooms) {
+                        _classroomNameToCode[c.name] = c.code;
+                      }
+                    }
+                    String? selectedName;
+                    for (final entry in _classroomNameToCode.entries) {
+                      if (entry.value == _selectedClassroomCode) {
+                        selectedName = entry.key;
+                        break;
+                      }
+                    }
+                    return CustomDropdown(
+                      hintText: 'Classroom',
+                      items: classroomNames,
+                      selectedItem: selectedName,
+                      onSelect: (value) {
+                        setState(() {
+                          _selectedClassroomCode =
+                              value == null ? null : _classroomNameToCode[value];
+                        });
+                        _loadStaff();
+                      },
+                    );
                   },
                 ),
               ),
@@ -309,8 +303,8 @@ class _StaffSelectionMarkAbsentFormState
                   onChanged: (selectedItems) {
                     setState(() {
                       _selectedTag = selectedItems;
-                      _filterStaff();
                     });
+                    _loadStaff();
                   },
                 ),
               ),
@@ -372,7 +366,7 @@ class _StaffSelectionMarkAbsentFormState
           showCancelButton: false,
         ),
       ),
-    );
+    ));
   }
 
 }

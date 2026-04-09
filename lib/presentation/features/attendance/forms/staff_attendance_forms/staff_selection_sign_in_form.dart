@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -12,6 +13,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 import 'staff_sign_in_form.dart';
@@ -34,17 +36,12 @@ class StaffSelectionSignInForm extends StatefulWidget {
 class _StaffSelectionSignInFormState
     extends State<StaffSelectionSignInForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = null;
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _classrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C',
-    'Classroom D'
-  ];
+  final Map<String, String> _classroomNameToCode = <String, String>{};
   // Use designation list similar to StaffFilterScreen
   final List<String> _designations = [
     'OWNER',
@@ -64,18 +61,22 @@ class _StaffSelectionSignInFormState
   String? _errorMessage;
 
   late final GetStaffSignInFormListUseCase _getStaffSignInFormListUseCase;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
     _getStaffSignInFormListUseCase =
         serviceLocator<GetStaffSignInFormListUseCase>();
+    _classroomCubit = serviceLocator<ClassroomCubit>()
+      ..loadActiveClassrooms(onlyTypeClassroom: false);
     _loadStaff();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -93,9 +94,10 @@ class _StaffSelectionSignInFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
+      final selectedClassroomCode = _selectedClassroomCode;
       final classroomCodes =
-          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
-              ? <String>[_selectedClassroom!]
+          selectedClassroomCode != null && selectedClassroomCode.isNotEmpty
+              ? <String>[selectedClassroomCode]
               : null;
 
       // Map UI "Designation" selection to backend tagCodes parameter for compatibility
@@ -121,6 +123,8 @@ class _StaffSelectionSignInFormState
           id: index + 1,
           name: item.staffName,
           primaryRoomId: 0,
+          classroomCode: item.classroomCode,
+          classroomName: item.classroomName,
           photoUuid: null,
           designation:
               item.designation.isNotEmpty ? item.designation.first : 'Staff',
@@ -133,7 +137,7 @@ class _StaffSelectionSignInFormState
       if (_selectedTag.isNotEmpty) {
         final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
         locallyFiltered = locallyFiltered.where((s) {
-          final d = (s.designation ?? '').trim().toUpperCase();
+          final d = s.designation.trim().toUpperCase();
           return selected.contains(d);
         }).toList();
       }
@@ -148,7 +152,7 @@ class _StaffSelectionSignInFormState
       if (widget.initialStaffCodes != null &&
           widget.initialStaffCodes!.isNotEmpty) {
         selectedStaff = locallyFiltered
-            .where((e) => e.staffCode != null && widget.initialStaffCodes!.contains(e.staffCode!))
+            .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
             .toSet();
       }
 
@@ -225,7 +229,9 @@ class _StaffSelectionSignInFormState
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return StaffFormLayout(
+    return BlocProvider<ClassroomCubit>.value(
+      value: _classroomCubit,
+      child: StaffFormLayout(
       title: 'Sign-In',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,15 +262,33 @@ class _StaffSelectionSignInFormState
           Row(
             children: [
               Expanded(
-                child: CustomDropdown(
-                  hintText: 'Classroom',
-                  items: _classrooms,
-                  selectedItem: _selectedClassroom,
-                  onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                    });
-                    _loadStaff();
+                child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                  builder: (context, state) {
+                    final classroomNames = state.classrooms.map((c) => c.name).toList();
+                    if (_classroomNameToCode.isEmpty && state.classrooms.isNotEmpty) {
+                      for (final c in state.classrooms) {
+                        _classroomNameToCode[c.name] = c.code;
+                      }
+                    }
+                    String? selectedName;
+                    for (final entry in _classroomNameToCode.entries) {
+                      if (entry.value == _selectedClassroomCode) {
+                        selectedName = entry.key;
+                        break;
+                      }
+                    }
+                    return CustomDropdown(
+                      hintText: 'Classroom',
+                      items: classroomNames,
+                      selectedItem: selectedName,
+                      onSelect: (value) {
+                        setState(() {
+                          _selectedClassroomCode =
+                              value == null ? null : _classroomNameToCode[value];
+                        });
+                        _loadStaff();
+                      },
+                    );
                   },
                 ),
               ),
@@ -357,7 +381,7 @@ class _StaffSelectionSignInFormState
           showCancelButton: false,
         ),
       ),
-    );
+    ));
   }
 
 }

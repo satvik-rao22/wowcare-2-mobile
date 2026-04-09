@@ -32,6 +32,10 @@ class StaffAttendanceCardData {
   final int staffId;
   final int roomId;
   final int schoolId;
+  final int? sequenceNumber;
+  final int? totalSequenceCount;
+  final bool isTransferSignIn;
+  final bool isTransferSignOut;
 
   StaffAttendanceCardData({
     this.attendanceRecordCode,
@@ -51,6 +55,10 @@ class StaffAttendanceCardData {
     required this.staffId,
     required this.roomId,
     required this.schoolId,
+    this.sequenceNumber,
+    this.totalSequenceCount,
+    this.isTransferSignIn = false,
+    this.isTransferSignOut = false,
   });
 }
 
@@ -199,9 +207,23 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(context, responsive, 'Classroom', staff.roomName),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildSignInOutRow(context, responsive, 'Sign In time & by', signIn, staff.signInMethod),
+              _buildSignInOutRow(
+                context,
+                responsive,
+                'Sign In time & by',
+                signIn,
+                staff.signInMethod,
+                showTransferIcon: staff.isTransferSignIn,
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildSignInOutRow(context, responsive, 'Sign Out time & by', signOut, staff.signOutMethod),
+              _buildSignInOutRow(
+                context,
+                responsive,
+                'Sign Out time & by',
+                signOut,
+                staff.signOutMethod,
+                showTransferIcon: staff.isTransferSignOut,
+              ),
               if (duration.isNotEmpty) ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
                 _buildDetailRow(context, responsive, 'Attended Time', duration),
@@ -246,7 +268,14 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     );
   }
 
-  Widget _buildSignInOutRow(BuildContext context, ResponsiveHelper responsive, String label, String value, SignMethod? method) {
+  Widget _buildSignInOutRow(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    String label,
+    String value,
+    SignMethod? method, {
+    bool showTransferIcon = false,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -269,6 +298,21 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             children: [
               if (method != null) ...[
                 _buildMethodIcon(method, responsive),
+                SizedBox(width: responsive.horizontalSpacing / 4),
+              ],
+              if (showTransferIcon) ...[
+                Tooltip(
+                  message: 'Transfer',
+                  child: SvgPicture.asset(
+                    MediaRes.transfer,
+                    width: responsive.isTablet ? 20 : 18,
+                    height: responsive.isTablet ? 20 : 18,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.themeColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
                 SizedBox(width: responsive.horizontalSpacing / 4),
               ],
               Expanded(

@@ -19,6 +19,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 
 // Student entity for Transfer UI & API payload
 class StudentEntity {
@@ -80,6 +81,7 @@ class StudentTransferForm extends StatefulWidget {
 
 class _StudentTransferFormState extends State<StudentTransferForm> {
   DateTime _selectedTransferDate = DateTime.now();
+  TimeOfDay _selectedTransferTime = TimeOfDay.now();
   bool? _isStaffAdminPersona;
   String? selectedClassroom;
   String currentClassroom = '';
@@ -128,6 +130,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         _isStaffAdminPersona = isAdmin;
         if (!isAdmin) {
           _selectedTransferDate = DateTime.now();
+          _selectedTransferTime = TimeOfDay.now();
         }
       });
     } catch (_) {}
@@ -272,12 +275,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     final safeDate = pickedDay.isAfter(today) ? today : effectiveDate;
     final transferDate =
         '${safeDate.year.toString().padLeft(4, '0')}-${safeDate.month.toString().padLeft(2, '0')}-${safeDate.day.toString().padLeft(2, '0')}';
+    final effectiveTime =
+        (_isStaffAdminPersona ?? false) ? _selectedTransferTime : TimeOfDay.fromDateTime(now);
     final transferredAt = DateTime(
       safeDate.year,
       safeDate.month,
       safeDate.day,
-      now.hour,
-      now.minute,
+      effectiveTime.hour,
+      effectiveTime.minute,
     ).toUtc();
 
     final staffCode = await _resolveStaffCode();
@@ -425,7 +430,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
               ),
             ),
             const SizedBox(height: 20),
-            // Date - single line
+            // Date + Time (50/50 split) - align with StaffTransferForm
             Row(
               children: [
                 Expanded(
@@ -451,6 +456,27 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                 pickedDay.isAfter(today) ? today : date;
                           });
                         },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Time'),
+                      const SizedBox(height: 8),
+                      IgnorePointer(
+                        ignoring: !(_isStaffAdminPersona ?? false),
+                        child: SimpleTimePickerField(
+                          time: _selectedTransferTime,
+                          onTimeSelected: (t) {
+                            setState(() {
+                              _selectedTransferTime = t;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),

@@ -29,10 +29,12 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 class _AttendanceField extends StatelessWidget {
   final String label;
   final String text;
+  final bool showTransferIcon;
 
   const _AttendanceField({
     required this.label,
     required this.text,
+    this.showTransferIcon = false,
   });
 
   @override
@@ -55,13 +57,35 @@ class _AttendanceField extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: AppText.value(
-            text,
-            textAlign: TextAlign.end,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (showTransferIcon) ...[
+                Tooltip(
+                  message: 'Transfer',
+                  child: SvgPicture.asset(
+                    MediaRes.transfer,
+                    width: 16,
+                    height: 16,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.themeColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Flexible(
+                child: AppText.value(
+                  text,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -77,6 +101,11 @@ class _AttendanceModel {
   final String roomName;
   final String signInBy;
   final String signOutBy;
+  final String attendedTime;
+  final int attendedHours;
+  final int attendedMinutes;
+  final bool isTransferSignIn;
+  final bool isTransferSignOut;
 
   _AttendanceModel({
     required this.date,
@@ -85,6 +114,11 @@ class _AttendanceModel {
     required this.roomName,
     required this.signInBy,
     required this.signOutBy,
+    this.attendedTime = '',
+    this.attendedHours = 0,
+    this.attendedMinutes = 0,
+    this.isTransferSignIn = false,
+    this.isTransferSignOut = false,
   });
 }
 
@@ -206,6 +240,75 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     return value.toString();
   }
 
+  /// Formats many possible API time shapes into a clean 12-hour display ("hh:mm a").
+  /// Supports:
+  /// - Map: {hour, minute, second?, nano?}
+  /// - "HH:mm", "HH:mm:ss", "HH:mm:ss.SSSSSS"
+  /// - "h:mm:ss AM", "hh:mm:ss a"
+  /// - ISO datetime strings (e.g. "2026-04-07T13:05:00.000Z")
+  String _formatTime12h(dynamic value) {
+    if (value == null) return '';
+    final s = value.toString().trim();
+    if (s.isEmpty) return '';
+
+    try {
+      if (value is Map<String, dynamic>) {
+        final hour = value['hour'] as int? ?? 0;
+        final minute = value['minute'] as int? ?? 0;
+        final dt = DateTime(2000, 1, 1, hour, minute);
+        return DateFormat('hh:mm a').format(dt);
+      }
+
+      final iso = DateTime.tryParse(s);
+      if (iso != null) {
+        return DateFormat('hh:mm a').format(iso.toLocal());
+      }
+
+      final amPmMatch =
+          RegExp(r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$')
+              .firstMatch(s);
+      if (amPmMatch != null) {
+        final hour = int.parse(amPmMatch.group(1)!);
+        final minute = int.parse(amPmMatch.group(2)!);
+        final period = amPmMatch.group(4)!.toUpperCase();
+        int h24 = hour % 12;
+        if (period == 'PM') h24 += 12;
+        final dt = DateTime(2000, 1, 1, h24, minute);
+        return DateFormat('hh:mm a').format(dt);
+      }
+
+      final hms = s.split('.')[0];
+      final parts = hms.split(':');
+      if (parts.length >= 2) {
+        final hour = int.tryParse(parts[0]) ?? 0;
+        final minute = int.tryParse(parts[1]) ?? 0;
+        final dt = DateTime(2000, 1, 1, hour, minute);
+        return DateFormat('hh:mm a').format(dt);
+      }
+    } catch (_) {
+      // fall-through to raw string
+    }
+
+    return s;
+  }
+
+  String _formatAttendedTimeForCard(_AttendanceModel attendance) {
+    final raw = attendance.attendedTime.trim();
+    if (raw.isNotEmpty) return raw;
+
+    final h = attendance.attendedHours;
+    final m = attendance.attendedMinutes;
+    if (h > 0 && m > 0) return '${h} hours ${m} minutes';
+    if (h > 0) return '${h} hours';
+    if (m > 0) return '${m} minutes';
+
+    if (attendance.signInTime.trim().isNotEmpty &&
+        attendance.signOutTime.trim().isEmpty) {
+      return 'Not Yet Signed Out';
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -305,36 +408,57 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         final loadedAttendances = content.map<_AttendanceModel>((e) {
           final m = e as Map<String, dynamic>;
 
-          String _parseTime(dynamic value) {
-            if (value == null) return '';
-            if (value is String) return value;
-            if (value is Map<String, dynamic>) {
-              final hour = value['hour'] as int? ?? 0;
-              final minute = value['minute'] as int? ?? 0;
-              final second = value['second'] as int? ?? 0;
-              final h = hour.toString().padLeft(2, '0');
-              final mStr = minute.toString().padLeft(2, '0');
-              final sStr = second.toString().padLeft(2, '0');
-              return '$h:$mStr:$sStr';
-            }
-            return value.toString();
-          }
-
           final dateStr = m['attendanceDate'] as String? ?? '';
           final parsedDate = dateStr.isNotEmpty
               ? DateTime.tryParse(dateStr) ?? DateTime.now()
               : DateTime.now();
 
-          final signInRaw = _parseTime(m['signedInTime']);
-          final signOutRaw = _parseTime(m['signedOutTime']);
+          final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
+          final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
+
+          // Keep raw times in 'hh:mm:ss a' format so existing duration parsing works.
+          final signedInRaw = _formatApiTime(m['signedInTime']);
+          final signedOutRaw = _formatApiTime(m['signedOutTime']);
+          final transferRaw = _formatApiTime(m['transferTime']);
+          final nextActionRaw = _formatApiTime(m['nextActionTime']);
+
+          String effectiveSignIn = signedInRaw;
+          String effectiveSignOut = signedOutRaw;
+          bool isTransferSignIn = false;
+          bool isTransferSignOut = false;
+
+          if (totalSequenceCount > 1) {
+            final isFirst = sequenceNumber == 1;
+            final isLast = sequenceNumber == totalSequenceCount;
+
+            if (isFirst && !isLast) {
+              effectiveSignIn = signedInRaw;
+              effectiveSignOut = nextActionRaw;
+              isTransferSignOut = effectiveSignOut.trim().isNotEmpty;
+            } else if (!isFirst && !isLast) {
+              effectiveSignIn = transferRaw;
+              effectiveSignOut = nextActionRaw;
+              isTransferSignIn = effectiveSignIn.trim().isNotEmpty;
+              isTransferSignOut = effectiveSignOut.trim().isNotEmpty;
+            } else if (isLast) {
+              effectiveSignIn = isFirst ? signedInRaw : transferRaw;
+              effectiveSignOut = signedOutRaw;
+              isTransferSignIn = !isFirst && effectiveSignIn.trim().isNotEmpty;
+            }
+          }
 
           return _AttendanceModel(
             date: parsedDate,
-            signInTime: signInRaw,
-            signOutTime: signOutRaw,
+            signInTime: effectiveSignIn,
+            signOutTime: effectiveSignOut,
             roomName: (m['classroomName'] as String?) ?? widget.roomName,
             signInBy: (m['signedInBy'] as String?) ?? '',
             signOutBy: (m['signedOutBy'] as String?) ?? '',
+            attendedTime: (m['attendedTime'] as String?) ?? '',
+            attendedHours: (m['attendedHours'] as int?) ?? 0,
+            attendedMinutes: (m['attendedMinutes'] as int?) ?? 0,
+            isTransferSignIn: isTransferSignIn,
+            isTransferSignOut: isTransferSignOut,
           );
         }).toList();
 
@@ -983,14 +1107,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   String formatTime(String time) {
-    if (time.isEmpty) {
-      return 'Not Yet Signed Out';
-    }
-    try {
-      return DateFormat("hh:mm a").format(DateFormat("hh:mm:ss a").parse(time));
-    } catch (e) {
-      return time;
-    }
+    if (time.trim().isEmpty) return 'Not Yet Signed Out';
+    return _formatTime12h(time);
   }
 
   Widget _buildAttendanceItem(int index) {
@@ -1006,7 +1124,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           ),
         ),
         trailing: AppText.body(
-          calculateAttendedTime(attendance.signInTime, attendance.signOutTime),
+          _formatAttendedTimeForCard(attendance),
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -1045,6 +1163,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           _AttendanceField(
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
+            showTransferIcon: attendance.isTransferSignIn,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1055,12 +1174,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           _AttendanceField(
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
+            showTransferIcon: attendance.isTransferSignOut,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign Out By',
             text: getFirstName(attendance.signOutBy),
           ),
+          if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _AttendanceField(
+              label: 'Attended Time',
+              text: _formatAttendedTimeForCard(attendance),
+            ),
+          ],
         ],
       ),
     );

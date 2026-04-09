@@ -471,6 +471,33 @@ class AttendanceRepositoryImpl
       attendedMinutes: model.attendedMinutes,
       signedInMethod: model.signedInMethod,
       signedOutMethod: model.signedOutMethod,
+      isTransfer: model.isTransfer,
+      sequenceNumber: model.sequenceNumber,
+      totalSequenceCount: model.totalSequenceCount,
+      hasNextTransfer: model.hasNextTransfer,
+      isLastSequenceEntry: model.isLastSequenceEntry,
+      fromClassroomCode: model.fromClassroomCode,
+      fromClassroomName: model.fromClassroomName,
+      toClassroomCode: model.toClassroomCode,
+      toClassroomName: model.toClassroomName,
+      transferTime: model.transferTime != null
+          ? StaffAttendanceTime(
+              hour: model.transferTime!.hour,
+              minute: model.transferTime!.minute,
+              second: model.transferTime!.second,
+              nano: model.transferTime!.nano,
+            )
+          : null,
+      nextActionTime: model.nextActionTime != null
+          ? StaffAttendanceTime(
+              hour: model.nextActionTime!.hour,
+              minute: model.nextActionTime!.minute,
+              second: model.nextActionTime!.second,
+              nano: model.nextActionTime!.nano,
+            )
+          : null,
+      transferredBy: model.transferredBy,
+      transferReason: model.transferReason,
     );
   }
 

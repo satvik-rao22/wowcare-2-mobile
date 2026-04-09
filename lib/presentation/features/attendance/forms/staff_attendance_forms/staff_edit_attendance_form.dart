@@ -68,12 +68,15 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     final normalized = withoutBy.replaceAll('.', '').trim();
 
     final ampmMatch = RegExp(
-      r'(\d{1,2}:\d{2}\s*[AaPp][Mm])',
+      r'(\d{1,2}:\d{2}(?::\d{2})?\s*[AaPp][Mm])',
     ).firstMatch(normalized);
     if (ampmMatch != null) {
       final candidate = ampmMatch.group(1)!.replaceAll(RegExp(r'\s+'), ' ');
       try {
-        final parsed = DateFormat.jm().parse(candidate);
+        final hasSeconds = RegExp(r':\d{2}\s*[AaPp][Mm]$').hasMatch(candidate);
+        final parsed = hasSeconds
+            ? DateFormat('h:mm:ss a').parse(candidate)
+            : DateFormat.jm().parse(candidate);
         return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
       } catch (_) {}
     }

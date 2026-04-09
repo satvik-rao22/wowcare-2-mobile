@@ -1,9 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -17,6 +16,9 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -39,12 +41,13 @@ class StaffTransferForm extends StatefulWidget {
 
 class _StaffTransferFormState extends State<StaffTransferForm> {
   DateTime _selectedTransferDate = DateTime.now();
-  String? selectedClassroom;
-  String currentClassroom = 'Classroom A';
-  List<String> availableClassrooms = ['Classroom B', 'Classroom C', 'Classroom D'];
+  TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  String? _selectedToClassroomCode;
+  final Map<String, String> _classroomNameToCode = <String, String>{};
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
@@ -62,7 +65,15 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         ),
       ];
     }
+    _classroomCubit = serviceLocator<ClassroomCubit>()
+      ..loadActiveClassrooms(onlyTypeClassroom: false);
     _loadPersonaFlags();
+  }
+
+  @override
+  void dispose() {
+    _classroomCubit.close();
+    super.dispose();
   }
 
   Future<void> _loadPersonaFlags() async {
@@ -72,6 +83,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       _isStaffAdminPersona = isAdmin;
       if (!isAdmin) {
         _selectedTransferDate = DateTime.now();
+        _selectedTransferTime = TimeOfDay.now();
       }
     });
   }
@@ -101,7 +113,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   }
 
   void _handleSubmit() {
-    if (selectedClassroom == null) {
+    if (_selectedToClassroomCode == null || _selectedToClassroomCode!.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: 
@@ -121,7 +133,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
   Future<void> _submitTransfer() async {
     if (_isSubmitting) return;
-    if (_selectedStaff.isEmpty || selectedClassroom == null) {
+    if (_selectedStaff.isEmpty ||
+        _selectedToClassroomCode == null ||
+        _selectedToClassroomCode!.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: 
@@ -204,24 +218,27 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     }
     final staffCodes = targetStaffCodes;
 
-    // TODO: Map selectedClassroom display label to a real classroom code.
-    const toClassroomCode = '';
+    final toClassroomCode = _selectedToClassroomCode!.trim();
 
     final toClassroomCodeByStaffCode = <String, String>{
       for (final code in staffCodes) code: toClassroomCode,
     };
 
     final now = DateTime.now();
-    final effectiveDate = (_isStaffAdminPersona ?? false) ? _selectedTransferDate : now;
+    final effectiveDate =
+        (_isStaffAdminPersona ?? false) ? _selectedTransferDate : now;
     final today = DateTime(now.year, now.month, now.day);
-    final pickedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
+    final pickedDay =
+        DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
     final safeDate = pickedDay.isAfter(today) ? today : effectiveDate;
+    final effectiveTime =
+        (_isStaffAdminPersona ?? false) ? _selectedTransferTime : TimeOfDay.fromDateTime(now);
     final transferredAt = DateTime(
       safeDate.year,
       safeDate.month,
       safeDate.day,
-      now.hour,
-      now.minute,
+      effectiveTime.hour,
+      effectiveTime.minute,
     ).toUtc();
 
     final payload = <String, dynamic>{
@@ -297,7 +314,12 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
   @override
   Widget build(BuildContext context) {
-    return StaffFormLayout(
+    final currentClassroom =
+        (_selectedStaff.isNotEmpty ? _selectedStaff.first.classroomName : null) ??
+            'N/A';
+    return BlocProvider<ClassroomCubit>.value(
+      value: _classroomCubit,
+      child: StaffFormLayout(
       title: 'Transfer',
       child: SingleChildScrollView(
         child: Column(
@@ -319,66 +341,86 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                     RemoveStaffTile(staff: _selectedStaff[index]),
               ),
             const SizedBox(height: 20),
+            // Date + Time (50/50 split) - match StudentTransferForm alignment
             Row(
               children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const AppText.label('Date'),
-                    const SizedBox(height: 8),
-                    CustomDateTimeField(
-                      hasLabel: false,
-                      isRangePicker: false,
-                      isTime: false,
-                      fetchInitialTime: false,
-                      initialDate: _selectedTransferDate,
-                      isDisabled: _isStaffAdminPersona == false,
-                      onDateSelected: (date) {
-                        setState(() {
-                          final now = DateTime.now();
-                          final today = DateTime(now.year, now.month, now.day);
-                          final picked = DateTime(date.year, date.month, date.day);
-                          _selectedTransferDate =
-                              picked.isAfter(today) ? today : date;
-                        });
-                      },
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Date'),
+                      const SizedBox(height: 8),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: _selectedTransferDate,
+                        isDisabled: _isStaffAdminPersona == false,
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final picked =
+                                DateTime(date.year, date.month, date.day);
+                            _selectedTransferDate =
+                                picked.isAfter(today) ? today : date;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 20),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Time'),
+                      const SizedBox(height: 8),
+                      IgnorePointer(
+                        ignoring: _isStaffAdminPersona == false,
+                        child: SimpleTimePickerField(
+                          time: _selectedTransferTime,
+                          onTimeSelected: (t) {
+                            setState(() {
+                              _selectedTransferTime = t;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Current classroom + Transfer to classroom (50/50 split) - match StudentTransferForm alignment
+            Row(
+              children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Current Classroom'),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                                color: const Color.fromRGBO(
-                                    177, 175, 233, 0.1),
-                              ),
-                              child: AppText.value(
-                                currentClassroom,
-                                style: TextStyle(
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.5),
-                                ),
-                              ),
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: const Color.fromRGBO(177, 175, 233, 0.1),
+                        ),
+                        child: AppText.value(
+                          currentClassroom,
+                          style: TextStyle(
+                            color:
+                                AppColors.primaryColor.withValues(alpha: 0.5),
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -390,40 +432,38 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                     children: [
                       const AppText.label('Transfer to Classroom'),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 0,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                          color: const Color.fromRGBO(177, 175, 233, 0.1),
-                        ),
-                        child: DropdownButton<String>(
-                          value: selectedClassroom,
-                          hint: const Text('Select classroom'),
-                          style: TextStyle(
-                            color: AppColors.primaryColor
-                                .withValues(alpha: 0.5),
-                            fontSize: 15,
-                          ),
-                          isExpanded: true,
-                          icon: SvgPicture.asset(MediaRes.arrow_drop_down),
-                          underline: Container(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedClassroom = newValue!;
-                            });
-                          },
-                          items:
-                              availableClassrooms.map((String classroom) {
-                            return DropdownMenuItem<String>(
-                              value: classroom,
-                              child: Text(classroom),
-                            );
-                          }).toList(),
-                        ),
+                      BlocBuilder<ClassroomCubit, ClassroomState>(
+                        builder: (context, state) {
+                          if (_classroomNameToCode.isEmpty &&
+                              state.classrooms.isNotEmpty) {
+                            for (final c in state.classrooms) {
+                              _classroomNameToCode[c.name] = c.code;
+                            }
+                          }
+                          final options = state.classrooms
+                              .where((c) => c.name != currentClassroom)
+                              .map((c) => c.name)
+                              .toList();
+                          String? selectedName;
+                          for (final entry in _classroomNameToCode.entries) {
+                            if (entry.value == _selectedToClassroomCode) {
+                              selectedName = entry.key;
+                              break;
+                            }
+                          }
+                          return CustomDropdown(
+                            hintText: 'Select classroom',
+                            items: options,
+                            selectedItem: selectedName,
+                            onSelect: (value) {
+                              setState(() {
+                                _selectedToClassroomCode = value == null
+                                    ? null
+                                    : _classroomNameToCode[value];
+                              });
+                            },
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -439,7 +479,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
       ),
-    );
+    ));
   }
 
 }

@@ -1,10 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -442,45 +439,6 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     );
   }
 
-  Widget _buildDateField(BuildContext context, bool isStartDate) {
-    final date = isStartDate ? startDate : endDate;
-    final label = isStartDate ? 'Start Date' : 'End Date';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppText.label(label),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () => _selectDate(context, isStartDate),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 12,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(8),
-              color: const Color.fromRGBO(249, 245, 250, 1),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                AppText.value(
-                  DateUtilsNew.formatToReadableDate(date),
-                ),
-                SvgPicture.asset(
-                  MediaRes.calender_icon,
-                  height: 20,
-                  width: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class RemoveStaffTile extends StatelessWidget {

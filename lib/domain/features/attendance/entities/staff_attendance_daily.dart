@@ -19,6 +19,19 @@ class StaffAttendanceDailyItem extends Equatable {
     this.attendedMinutes,
     this.signedInMethod,
     this.signedOutMethod,
+    this.isTransfer,
+    this.sequenceNumber,
+    this.totalSequenceCount,
+    this.hasNextTransfer,
+    this.isLastSequenceEntry,
+    this.fromClassroomCode,
+    this.fromClassroomName,
+    this.toClassroomCode,
+    this.toClassroomName,
+    this.transferTime,
+    this.nextActionTime,
+    this.transferredBy,
+    this.transferReason,
   });
 
   final String? attendanceRecordCode;
@@ -42,6 +55,20 @@ class StaffAttendanceDailyItem extends Equatable {
 
   /// Sign-out method code as returned by the API (e.g. GPS, PIN, QR, APP).
   final String? signedOutMethod;
+
+  final bool? isTransfer;
+  final int? sequenceNumber;
+  final int? totalSequenceCount;
+  final bool? hasNextTransfer;
+  final bool? isLastSequenceEntry;
+  final String? fromClassroomCode;
+  final String? fromClassroomName;
+  final String? toClassroomCode;
+  final String? toClassroomName;
+  final StaffAttendanceTime? transferTime;
+  final StaffAttendanceTime? nextActionTime;
+  final String? transferredBy;
+  final String? transferReason;
 
   bool get hasSignIn => signedInTime != null || (signedInBy != null && signedInBy!.isNotEmpty);
 
@@ -68,6 +95,19 @@ class StaffAttendanceDailyItem extends Equatable {
         attendedMinutes,
         signedInMethod,
         signedOutMethod,
+        isTransfer,
+        sequenceNumber,
+        totalSequenceCount,
+        hasNextTransfer,
+        isLastSequenceEntry,
+        fromClassroomCode,
+        fromClassroomName,
+        toClassroomCode,
+        toClassroomName,
+        transferTime,
+        nextActionTime,
+        transferredBy,
+        transferReason,
       ];
 }
 

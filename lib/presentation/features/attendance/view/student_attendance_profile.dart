@@ -34,10 +34,12 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 class _AttendanceField extends StatelessWidget {
   final String label;
   final String text;
+  final bool showTransferIcon;
 
   const _AttendanceField({
     required this.label,
     required this.text,
+    this.showTransferIcon = false,
   });
 
   @override
@@ -60,13 +62,35 @@ class _AttendanceField extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: AppText.value(
-            text,
-            textAlign: TextAlign.end,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (showTransferIcon) ...[
+                Tooltip(
+                  message: 'Transfer',
+                  child: SvgPicture.asset(
+                    MediaRes.transfer,
+                    width: 16,
+                    height: 16,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.themeColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Flexible(
+                child: AppText.value(
+                  text,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -82,6 +106,11 @@ class _AttendanceModel {
   final String roomName;
   final String signInBy;
   final String signOutBy;
+  final String attendedTime;
+  final int attendedHours;
+  final int attendedMinutes;
+  final bool isTransferSignIn;
+  final bool isTransferSignOut;
 
   _AttendanceModel({
     required this.date,
@@ -90,6 +119,11 @@ class _AttendanceModel {
     required this.roomName,
     required this.signInBy,
     required this.signOutBy,
+    this.attendedTime = '',
+    this.attendedHours = 0,
+    this.attendedMinutes = 0,
+    this.isTransferSignIn = false,
+    this.isTransferSignOut = false,
   });
 }
 
@@ -201,6 +235,16 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   _StudentModel? student;
   _AttendanceReportModel? attendanceReport;
 
+  String _resolveClassroomNameByCode(
+    String? classroomCode,
+    Map<String, String> codeToNameMap,
+    String fallback,
+  ) {
+    final code = (classroomCode ?? '').trim();
+    if (code.isEmpty) return fallback;
+    return codeToNameMap[code] ?? fallback;
+  }
+
   /// Helper to format API time (either a string or {hour, minute, ...} map)
   /// into 'hh:mm:ss a' format for further formatting / calculations.
   String _formatApiTime(dynamic value) {
@@ -215,6 +259,75 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       return '$h12:$mm:00 $period';
     }
     return value.toString();
+  }
+
+  /// Formats many possible API time shapes into a clean 12-hour display ("hh:mm a").
+  /// Supports:
+  /// - Map: {hour, minute, second?, nano?}
+  /// - "HH:mm", "HH:mm:ss", "HH:mm:ss.SSSSSS"
+  /// - "h:mm:ss AM", "hh:mm:ss a"
+  /// - ISO datetime strings (e.g. "2026-04-07T13:05:00.000Z")
+  String _formatTime12h(dynamic value) {
+    if (value == null) return '';
+    final s = value.toString().trim();
+    if (s.isEmpty) return '';
+
+    try {
+      if (value is Map<String, dynamic>) {
+        final hour = value['hour'] as int? ?? 0;
+        final minute = value['minute'] as int? ?? 0;
+        final dt = DateTime(2000, 1, 1, hour, minute);
+        return DateFormat('hh:mm a').format(dt);
+      }
+
+      final iso = DateTime.tryParse(s);
+      if (iso != null) {
+        return DateFormat('hh:mm a').format(iso.toLocal());
+      }
+
+      final amPmMatch =
+          RegExp(r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$')
+              .firstMatch(s);
+      if (amPmMatch != null) {
+        final hour = int.parse(amPmMatch.group(1)!);
+        final minute = int.parse(amPmMatch.group(2)!);
+        final period = amPmMatch.group(4)!.toUpperCase();
+        int h24 = hour % 12;
+        if (period == 'PM') h24 += 12;
+        final dt = DateTime(2000, 1, 1, h24, minute);
+        return DateFormat('hh:mm a').format(dt);
+      }
+
+      final hms = s.split('.')[0];
+      final parts = hms.split(':');
+      if (parts.length >= 2) {
+        final hour = int.tryParse(parts[0]) ?? 0;
+        final minute = int.tryParse(parts[1]) ?? 0;
+        final dt = DateTime(2000, 1, 1, hour, minute);
+        return DateFormat('hh:mm a').format(dt);
+      }
+    } catch (_) {
+      // fall-through to raw string
+    }
+
+    return s;
+  }
+
+  String _formatAttendedTimeForCard(_AttendanceModel attendance) {
+    final raw = attendance.attendedTime.trim();
+    if (raw.isNotEmpty) return raw;
+
+    final h = attendance.attendedHours;
+    final m = attendance.attendedMinutes;
+    if (h > 0 && m > 0) return '${h} hours ${m} minutes';
+    if (h > 0) return '${h} hours';
+    if (m > 0) return '${m} minutes';
+
+    if (attendance.signInTime.trim().isNotEmpty &&
+        attendance.signOutTime.trim().isEmpty) {
+      return 'Not Yet Signed Out';
+    }
+    return '';
   }
 
   @override
@@ -235,6 +348,11 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       isExpectedToday: widget.isExpectedToday,
       isPresentToday: widget.isPresentToday,
       profileStatus: widget.profileStatus,
+      isPhotoPermission: true,
+      medications: '',
+      note: '',
+      allergies: '',
+      dietRestriction: '',
     );
 
     // Load data from API
@@ -279,6 +397,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     };
 
     try {
+      final codeToNameMap = await _loadClassroomCodeToNameMap();
       // --------- Load attendance (present days / summary) ----------
       final profileResponse = await client.get<dynamic>(
         profileEndpoint,
@@ -304,14 +423,59 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               ? DateTime.tryParse(dateStr) ?? DateTime.now()
               : DateTime.now();
 
+          final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
+          final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
+
+          final signedInDisplay = _formatApiTime(m['signedInTime']);
+          final signedOutDisplay = _formatApiTime(m['signedOutTime']);
+          final transferDisplay = _formatApiTime(m['transferTime']);
+          final nextActionDisplay = _formatApiTime(m['nextActionTime']);
+
+          String effectiveSignIn = signedInDisplay;
+          String effectiveSignOut = signedOutDisplay;
+          bool isTransferSignIn = false;
+          bool isTransferSignOut = false;
+
+          if (totalSequenceCount > 1) {
+            final isFirst = sequenceNumber == 1;
+            final isLast = sequenceNumber == totalSequenceCount;
+
+            if (isFirst && !isLast) {
+              effectiveSignIn = signedInDisplay;
+              effectiveSignOut = nextActionDisplay;
+              isTransferSignOut = effectiveSignOut.isNotEmpty;
+            } else if (!isFirst && !isLast) {
+              effectiveSignIn = transferDisplay;
+              effectiveSignOut = nextActionDisplay;
+              isTransferSignIn = effectiveSignIn.isNotEmpty;
+              isTransferSignOut = effectiveSignOut.isNotEmpty;
+            } else if (isLast) {
+              effectiveSignIn = isFirst ? signedInDisplay : transferDisplay;
+              effectiveSignOut = signedOutDisplay;
+              isTransferSignIn = !isFirst && effectiveSignIn.isNotEmpty;
+            }
+          }
+
+          final fallbackClassroom = m['classroomName'] as String? ?? widget.roomName;
+          final resolvedClassroomName = _resolveClassroomNameByCode(
+            m['classroomCode'] as String?,
+            codeToNameMap,
+            fallbackClassroom,
+          );
+
           loadedAttendances.add(
             _AttendanceModel(
               date: date,
-              signInTime: _formatApiTime(m['signedInTime']),
-              signOutTime: _formatApiTime(m['signedOutTime']),
-              roomName: m['classroomName'] as String? ?? widget.roomName,
+              signInTime: effectiveSignIn,
+              signOutTime: effectiveSignOut,
+              roomName: resolvedClassroomName,
               signInBy: m['signedInBy'] as String? ?? '',
               signOutBy: m['signedOutBy'] as String? ?? 'System Auto Signout',
+              attendedTime: m['attendedTime'] as String? ?? '',
+              attendedHours: m['attendedHours'] as int? ?? 0,
+              attendedMinutes: m['attendedMinutes'] as int? ?? 0,
+              isTransferSignIn: isTransferSignIn,
+              isTransferSignOut: isTransferSignOut,
             ),
           );
         }
@@ -467,6 +631,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     } catch (_) {
       return const <String, String>{};
     }
+  }
+
+  Future<Map<String, String>> _loadClassroomCodeToNameMap() async {
+    final nameToCode = await _loadClassroomNameToCodeMap();
+    return {
+      for (final entry in nameToCode.entries) entry.value: entry.key,
+    };
   }
 
   Future<void> _handleStudentAction(String actionLabel) async {
@@ -1163,26 +1334,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   String formatTime(String time) {
-    if (time.isEmpty) {
-      return 'Not Yet Signed Out';
-    }
-    try {
-      return DateFormat("hh:mm a").format(DateFormat("hh:mm:ss a").parse(time));
-    } catch (e) {
-      return time;
-    }
+    if (time.trim().isEmpty) return 'Not Yet Signed Out';
+    return _formatTime12h(time);
   }
 
   Widget _buildAttendanceItem(int index) {
     final attendance = attendances[index];
-    final durationText =
-        calculateAttendedTime(attendance.signInTime, attendance.signOutTime);
-    final collapsedText =
-        durationText == 'Not Yet Signed Out' && attendanceReport != null
-            ? (attendanceReport!.totalAttendedHours.isNotEmpty
-                ? attendanceReport!.totalAttendedHours
-                : durationText)
-            : durationText;
+    final collapsedText = _formatAttendedTimeForCard(attendance);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -1233,6 +1391,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           _AttendanceField(
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
+            showTransferIcon: attendance.isTransferSignIn,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1243,12 +1402,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           _AttendanceField(
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
+            showTransferIcon: attendance.isTransferSignOut,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign Out By',
             text: getFirstName(attendance.signOutBy),
           ),
+          if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _AttendanceField(
+              label: 'Attended Time',
+              text: _formatAttendedTimeForCard(attendance),
+            ),
+          ],
         ],
       ),
     );

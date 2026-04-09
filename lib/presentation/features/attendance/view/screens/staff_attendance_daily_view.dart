@@ -522,8 +522,38 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     _staffMembers.clear();
 
     for (final item in state.items) {
-      final signInTime = item.formattedSignInTime;
-      final signOutTime = item.formattedSignOutTime;
+      // Compute effective sign-in/sign-out display for transfer sequences.
+      String? effectiveSignIn;
+      String? effectiveSignOut;
+      bool transferSignIn = false;
+      bool transferSignOut = false;
+      final int seq = item.sequenceNumber ?? 1;
+      final int totalSeq = item.totalSequenceCount ?? 1;
+
+      if (totalSeq <= 1) {
+        effectiveSignIn = item.formattedSignInTime;
+        effectiveSignOut = item.formattedSignOutTime;
+      } else {
+        final isFirst = seq == 1;
+        final isLast = seq == totalSeq;
+
+        if (isFirst && !isLast) {
+          effectiveSignIn = item.formattedSignInTime;
+          effectiveSignOut = item.nextActionTime?.formattedTime;
+          transferSignOut = effectiveSignOut != null;
+        } else if (!isFirst && !isLast) {
+          effectiveSignIn = item.transferTime?.formattedTime;
+          effectiveSignOut = item.nextActionTime?.formattedTime;
+          transferSignIn = effectiveSignIn != null;
+          transferSignOut = effectiveSignOut != null;
+        } else if (isLast) {
+          effectiveSignIn =
+              isFirst ? item.formattedSignInTime : item.transferTime?.formattedTime;
+          effectiveSignOut = item.formattedSignOutTime;
+          transferSignIn = !isFirst && effectiveSignIn != null;
+        }
+      }
+
       final String? rawDesignation =
           item.designation.isNotEmpty ? item.designation.first : null;
       final String? formattedDesignation = _formatDesignation(rawDesignation);
@@ -538,8 +568,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           roomName: item.classroomName,
           expectedToday: item.isExpectedToday,
           hasSignIn: item.hasSignIn,
-          signInTime: signInTime,
-          signOutTime: signOutTime,
+          signInTime: effectiveSignIn ?? item.formattedSignInTime,
+          signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
           signInBy: _normalizeByName(item.signedInBy),
           signOutBy: _normalizeByName(item.signedOutBy),
           // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
@@ -548,6 +578,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           staffId: 0,
           roomId: 0,
           schoolId: 0,
+          sequenceNumber: item.sequenceNumber,
+          totalSequenceCount: item.totalSequenceCount,
+          isTransferSignIn: transferSignIn,
+          isTransferSignOut: transferSignOut,
         ),
       );
     }
@@ -745,6 +779,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       case 'GPS':
         return SignMethod.gps;
       case 'PIN':
+      case 'KIOSK':
         // PIN entry is effectively via kiosk device.
         return SignMethod.kiosk;
       case 'QR':

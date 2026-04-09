@@ -1,10 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -228,11 +225,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     final staffCodes = targetStaffCodes;
-    const classroomCode = '';
-
     final classroomCodeByStaffCode = <String, String>{
-      for (final code in staffCodes) code: classroomCode
+      for (final s in _selectedStaff)
+        if ((s.staffCode ?? '').trim().isNotEmpty &&
+            (s.classroomCode ?? '').trim().isNotEmpty)
+          s.staffCode!.trim(): s.classroomCode!.trim(),
     };
+    final String classroomCode = classroomCodeByStaffCode.isNotEmpty
+        ? classroomCodeByStaffCode.values.first
+        : '';
 
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
