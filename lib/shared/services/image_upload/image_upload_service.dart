@@ -222,11 +222,14 @@ class ImageUploadService {
 
     final deadline = DateTime.now().add(timeout);
     while (true) {
-      final ready = await _isUploadSessionReady(
+      final result = await _getUploadSessionStatus(
         sessionCode: sessionCode,
         expectedAssetCodes: expectedSet,
       );
-      if (ready) return;
+      if (result.isReady) return;
+      if (result.failureMessage != null && result.failureMessage!.isNotEmpty) {
+        throw Exception(result.failureMessage);
+      }
       if (DateTime.now().isAfter(deadline)) {
         throw Exception('Photo processing is taking too long. Please try again.');
       }
@@ -234,7 +237,7 @@ class ImageUploadService {
     }
   }
 
-  Future<bool> _isUploadSessionReady({
+  Future<_UploadSessionStatusResult> _getUploadSessionStatus({
     required String sessionCode,
     required Set<String> expectedAssetCodes,
   }) async {
@@ -242,11 +245,17 @@ class ImageUploadService {
         '${ApiConstants.documentMsBaseUrl}${ApiPaths.documentUploadSessionPath(sessionCode)}';
     final response = await _apiClient.client.get<dynamic>(endpoint);
     final body = response.data;
-    if (body is! Map<String, dynamic>) return false;
+    if (body is! Map<String, dynamic>) {
+      return const _UploadSessionStatusResult(isReady: false);
+    }
     final data = body['data'];
-    if (data is! Map<String, dynamic>) return false;
+    if (data is! Map<String, dynamic>) {
+      return const _UploadSessionStatusResult(isReady: false);
+    }
     final assets = data['assets'];
-    if (assets is! List) return false;
+    if (assets is! List) {
+      return const _UploadSessionStatusResult(isReady: false);
+    }
 
     var readyCount = 0;
     for (final item in assets) {
@@ -255,8 +264,34 @@ class ImageUploadService {
       if (!expectedAssetCodes.contains(assetCode)) continue;
       final status = (item['status'] ?? '').toString().trim().toUpperCase();
       if (status == 'READY') readyCount++;
+      if (status == 'FAILED') {
+        final failureMessage =
+            (item['failureMessage'] ?? '').toString().trim();
+        final failureCode = (item['failureCode'] ?? '').toString().trim();
+        final message = failureMessage.isNotEmpty
+            ? failureMessage
+            : (failureCode.isNotEmpty
+                ? 'Upload processing failed: $failureCode'
+                : 'Upload processing failed');
+        return _UploadSessionStatusResult(
+          isReady: false,
+          failureMessage: message,
+        );
+      }
     }
-    return readyCount == expectedAssetCodes.length;
+    return _UploadSessionStatusResult(
+      isReady: readyCount == expectedAssetCodes.length,
+    );
   }
+}
+
+class _UploadSessionStatusResult {
+  const _UploadSessionStatusResult({
+    required this.isReady,
+    this.failureMessage,
+  });
+
+  final bool isReady;
+  final String? failureMessage;
 }
 

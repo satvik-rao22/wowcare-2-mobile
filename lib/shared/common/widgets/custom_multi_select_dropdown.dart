@@ -89,10 +89,10 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     });
   }
 
-  void _closeDropdown() {
+  void _closeDropdown({bool updateState = true}) {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    if (mounted) {
+    if (updateState && mounted) {
       setState(() {
         isDropdownOpen = false;
       });
@@ -231,7 +231,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
 
   @override
   void dispose() {
-    _closeDropdown();
+    // Do not call setState while disposing.
+    _closeDropdown(updateState: false);
     super.dispose();
   }
 

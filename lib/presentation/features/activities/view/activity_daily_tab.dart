@@ -24,6 +24,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
@@ -101,6 +102,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   final Map<String, String> _studentCodeByName = {};
   List<ActivityItem> _activities = [];
   bool _loadingFeed = false;
+  bool _isFeedRequestInFlight = false;
+  String? _lastFeedRequestKey;
+  DateTime? _lastFeedCompletedAt;
+  bool _lastFeedCompletedWithError = false;
   String? _feedError;
   String? _schoolCode;
   List<ActivitySetting> _classroomActivitySettings = [];
@@ -110,6 +115,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   late final GetClassroomActivitySettingsUseCase
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
+  late final StorageService _storageService;
+  late final CacheManager _cacheManager;
 
   final List<Color> _colorPalette = [
     const Color(0xFFB3E5FC),
@@ -226,26 +233,62 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   }
 
   Future<void> _bootstrap() async {
-    final storage = serviceLocator<StorageService>();
     final school =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
     if (!mounted) return;
     if (school.isEmpty) {
       setState(() {
         _feedError = 'School is not selected.';
         _classroomOptions = [];
-        _activities = [];
       });
       return;
     }
     _schoolCode = school;
+
+    final classroomCacheKey = CacheManager.buildCacheKey(
+      feature: 'activity',
+      resource: 'classrooms',
+      identifier: school,
+    );
+    try {
+      final cached = await _cacheManager.loadCache(classroomCacheKey);
+      if (cached != null && cached['classrooms'] is List) {
+        final list = (cached['classrooms'] as List)
+            .whereType<Map>()
+            .map((e) => <String, String>{
+                  'name': (e['name'] ?? '').toString(),
+                  'code': (e['code'] ?? '').toString(),
+                })
+            .where((e) => e['name']!.isNotEmpty && e['code']!.isNotEmpty)
+            .toList();
+        if (list.isNotEmpty && mounted) {
+          _classroomCodeByName
+            ..clear()
+            ..addEntries(list.map((c) => MapEntry(c['name']!, c['code']!)));
+          setState(() {
+            _classroomOptions = list.map((c) => c['name']!).toList()..sort();
+            _feedError = null;
+            if (_classroomOptions.isNotEmpty) {
+              final keep = _selectdClassroom != null &&
+                  _classroomOptions.contains(_selectdClassroom);
+              _selectdClassroom = keep ? _selectdClassroom : _classroomOptions.first;
+            } else {
+              _selectdClassroom = null;
+            }
+          });
+        }
+      }
+    } catch (_) {}
 
     try {
       final classrooms = await _getActiveClassroomsUseCase(
         schoolCode: school,
         onlyTypeClassroom: true,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
       _classroomCodeByName
         ..clear()
         ..addEntries(classrooms.map((c) => MapEntry(c.name, c.code)));
@@ -261,12 +304,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
           _selectdClassroom = null;
         }
       });
+      await _cacheManager.saveCache(classroomCacheKey, {
+        'classrooms': classrooms
+            .map((c) => {'name': c.name, 'code': c.code})
+            .toList(),
+      });
       await _reloadStudentsAndSettingsThenFeed();
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
       setState(() {
         _feedError = ApiErrorHandler.extractErrorMessage(e);
-        _activities = [];
       });
     }
   }
@@ -291,6 +341,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     }
 
     final code = _classroomCodeByName[classroomName]!;
+    final studentsCacheKey = CacheManager.buildCacheKey(
+      feature: 'activity',
+      resource: 'students',
+      identifier: code,
+    );
 
     try {
       final settings = await _getClassroomActivitySettingsUseCase(
@@ -310,6 +365,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     }
 
     try {
+      final cachedStudents = await _cacheManager.loadCache(studentsCacheKey);
+      if (cachedStudents != null && cachedStudents['students'] is List && mounted) {
+        final list = (cachedStudents['students'] as List)
+            .whereType<Map>()
+            .map((e) => <String, String>{
+                  'fullName': (e['fullName'] ?? '').toString(),
+                  'studentCode': (e['studentCode'] ?? '').toString(),
+                })
+            .where((e) => e['fullName']!.isNotEmpty && e['studentCode']!.isNotEmpty)
+            .toList();
+        _studentCodeByName
+          ..clear()
+          ..addEntries(list.map((e) => MapEntry(e['fullName']!, e['studentCode']!)));
+        setState(() {
+          _availableStudents = list.map((e) => e['fullName']!).toList()..sort();
+          if (_selectedStudent != null &&
+              !_availableStudents.contains(_selectedStudent)) {
+            _selectedStudent = null;
+          }
+        });
+      }
+    } catch (_) {}
+
+    try {
       final students = await _getStudentClassroomListUseCase(
         schoolCode: school,
         classroomCode: code,
@@ -326,6 +405,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             !_availableStudents.contains(_selectedStudent)) {
           _selectedStudent = null;
         }
+      });
+      await _cacheManager.saveCache(studentsCacheKey, {
+        'students': students
+            .map((s) => {
+                  'fullName': s.fullName,
+                  'studentCode': s.studentCode,
+                })
+            .toList(),
       });
     } catch (_) {
       if (mounted) {
@@ -370,6 +457,32 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     }
 
     final typeCode = _activityTypeCodeForApiFilter();
+    final requestKey = [
+      classroomCode,
+      dateStr,
+      studentCode ?? '',
+      typeCode ?? '',
+    ].join('|');
+
+    if (!refresh && _lastFeedRequestKey == requestKey) {
+      if (_isFeedRequestInFlight) {
+        // Same request is already running; skip duplicate calls.
+        return;
+      }
+      if (!_lastFeedCompletedWithError) {
+        // Last identical request already completed successfully
+        // (including empty-result success). No need to refetch.
+        return;
+      }
+      final completedAt = _lastFeedCompletedAt;
+      if (completedAt != null &&
+          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+        // Throttle repeated failed requests for same filters.
+        return;
+      }
+    }
+    _isFeedRequestInFlight = true;
+    _lastFeedRequestKey = requestKey;
 
     if (mounted) {
       setState(() {
@@ -395,24 +508,37 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
           _selectedActivityType != null &&
           _selectedActivityType!.trim().isNotEmpty) {
         final want = _selectedActivityType!.trim();
-        items = items.where((a) => a.name == want).toList();
+        final filtered = items.where((a) => a.name == want).toList();
+        // Keep original list if local label matching fails.
+        if (filtered.isNotEmpty) {
+          items = filtered;
+        }
       }
 
-      if (!mounted) return;
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
       setState(() {
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
       });
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
       setState(() {
         _loadingFeed = false;
         _feedError = ApiErrorHandler.extractErrorMessage(e);
-        if (refresh || _activities.isEmpty) {
-          _activities = [];
-        }
       });
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = true;
     }
   }
 
@@ -425,6 +551,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getStudentClassroomListUseCase =
         serviceLocator<GetStudentClassroomListUseCase>();
+    _storageService = serviceLocator<StorageService>();
+    _cacheManager = CacheManager(_storageService);
 
     isNotParent = widget.isNotParent;
     if (widget.fromStudentProfile) {
@@ -468,9 +596,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor),
+                      border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: AppColors.cardColor,
+                      color: Colors.white,
                     ),
                     child: widget.fromStudentProfile
                         ? Column(
@@ -720,9 +848,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.cardBorderColor),
+                        border: Border.all(color: AppColors.dividerColor),
                         borderRadius: BorderRadius.circular(12),
-                        color: AppColors.cardColor,
+                        color: Colors.white,
                       ),
                       child: Center(
                         child: AppText.title(
@@ -831,7 +959,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                           children: [
                                             const SizedBox(height: 15),
                                             InkWell(
-                                              onTap: () {
+                                              onTap: () async {
                                                 final destinationBuilder =
                                                 activityRoutes[activity
                                                     .name];
@@ -841,7 +969,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                   destinationBuilder(
                                                     activity,
                                                   );
-                                                  Navigator.of(
+                                                  await Navigator.of(
                                                     context,
                                                   ).push(
                                                     MaterialPageRoute(
@@ -849,6 +977,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                       nextScreen,
                                                     ),
                                                   );
+                                                  if (mounted) {
+                                                    await _loadDailyFeed(refresh: true);
+                                                  }
                                                 }
                                               },
                                               child: Container(
@@ -976,22 +1107,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                   vertical: 6,
                                                                 ),
                                                                 decoration: BoxDecoration(
-                                                                  color: activityColor,
+                                                                  color:
+                                                                      activityColor
+                                                                          .withOpacity(
+                                                                            0.5,
+                                                                          ),
                                                                   borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    20,
+                                                                      BorderRadius.circular(
+                                                                    4,
                                                                   ),
                                                                 ),
                                                                 child: Text(
                                                                   activity.name,
                                                                   style:
                                                                   const TextStyle(
-                                                                    color: Colors
-                                                                        .white,
-                                                                    fontSize: 11,
-                                                                    fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
+                                                                    color: AppColors
+                                                                        .primaryColor,
+                                                                    fontSize: 12,
                                                                   ),
                                                                 ),
                                                               ),
@@ -1013,7 +1145,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                             .themeColor,
                                                                       ),
                                                                     ),
-                                                                    onTap: () {
+                                                                    onTap: () async {
                                                                       final destinationBuilder =
                                                                       activityRoutes[activity
                                                                           .name];
@@ -1023,7 +1155,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                         destinationBuilder(
                                                                           activity,
                                                                         );
-                                                                        Navigator.of(
+                                                                        await Navigator.of(
                                                                           context,
                                                                         ).push(
                                                                           MaterialPageRoute(
@@ -1031,6 +1163,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                             nextScreen,
                                                                           ),
                                                                         );
+                                                                        if (mounted) {
+                                                                          await _loadDailyFeed(refresh: true);
+                                                                        }
                                                                       }
                                                                     },
                                                                   ),
@@ -1044,7 +1179,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                             .themeColor,
                                                                       ),
                                                                     ),
-                                                                    onTap: () {
+                                                                    onTap: () async {
                                                                       final destinationBuilder =
                                                                       editActivityRoutes[activity
                                                                           .name];
@@ -1054,7 +1189,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                         destinationBuilder(
                                                                           activity,
                                                                         );
-                                                                        Navigator.of(
+                                                                        await Navigator.of(
                                                                           context,
                                                                         ).push(
                                                                           MaterialPageRoute(
@@ -1062,6 +1197,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                             nextScreen,
                                                                           ),
                                                                         );
+                                                                        if (mounted) {
+                                                                          await _loadDailyFeed(refresh: true);
+                                                                        }
                                                                       }
                                                                     },
                                                                   ),
@@ -1896,9 +2034,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor),
+                      border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: AppColors.cardColor,
+                      color: Colors.white,
                     ),
                     child: widget.fromStudentProfile
                         ? Column(
@@ -2149,9 +2287,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
+                          border: Border.all(color: AppColors.dividerColor),
                           borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
+                          color: Colors.white,
                         ),
                         child: Center(
                           child: AppText.title(
@@ -2250,7 +2388,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                             children: [
                                               const SizedBox(height: 15),
                                               InkWell(
-                                                onTap: () {
+                                                onTap: () async {
                                                   final destinationBuilder =
                                                   activityRoutes[activity
                                                       .name];
@@ -2260,7 +2398,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                     destinationBuilder(
                                                       activity,
                                                     );
-                                                    Navigator.of(
+                                                    await Navigator.of(
                                                       context,
                                                     ).push(
                                                       MaterialPageRoute(
@@ -2268,6 +2406,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                         nextScreen,
                                                       ),
                                                     );
+                                                    if (mounted) {
+                                                      await _loadDailyFeed(refresh: true);
+                                                    }
                                                   }
                                                 },
                                                 child: Container(
@@ -2395,22 +2536,24 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                     vertical: 6,
                                                                   ),
                                                                   decoration: BoxDecoration(
-                                                                    color: activityColor,
+                                                                    color:
+                                                                        activityColor
+                                                                            .withOpacity(
+                                                                              0.5,
+                                                                            ),
                                                                     borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      20,
+                                                                        BorderRadius.circular(
+                                                                      4,
                                                                     ),
                                                                   ),
                                                                   child: Text(
                                                                     activity.name,
                                                                     style:
                                                                     const TextStyle(
-                                                                      color: Colors
-                                                                          .white,
-                                                                      fontSize: 11,
-                                                                      fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
+                                                                      color: AppColors
+                                                                          .primaryColor,
+                                                                      fontSize:
+                                                                          12,
                                                                     ),
                                                                   ),
                                                                 ),
@@ -2432,7 +2575,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                               .themeColor,
                                                                         ),
                                                                       ),
-                                                                      onTap: () {
+                                                                      onTap: () async {
                                                                         final destinationBuilder =
                                                                         activityRoutes[activity
                                                                             .name];
@@ -2442,7 +2585,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                           destinationBuilder(
                                                                             activity,
                                                                           );
-                                                                          Navigator.of(
+                                                                          await Navigator.of(
                                                                             context,
                                                                           ).push(
                                                                             MaterialPageRoute(
@@ -2450,6 +2593,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                               nextScreen,
                                                                             ),
                                                                           );
+                                                                          if (mounted) {
+                                                                            await _loadDailyFeed(refresh: true);
+                                                                          }
                                                                         }
                                                                       },
                                                                     ),
@@ -2463,7 +2609,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                               .themeColor,
                                                                         ),
                                                                       ),
-                                                                      onTap: () {
+                                                                      onTap: () async {
                                                                         final destinationBuilder =
                                                                         editActivityRoutes[activity
                                                                             .name];
@@ -2473,7 +2619,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                           destinationBuilder(
                                                                             activity,
                                                                           );
-                                                                          Navigator.of(
+                                                                          await Navigator.of(
                                                                             context,
                                                                           ).push(
                                                                             MaterialPageRoute(
@@ -2481,6 +2627,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                               nextScreen,
                                                                             ),
                                                                           );
+                                                                          if (mounted) {
+                                                                            await _loadDailyFeed(refresh: true);
+                                                                          }
                                                                         }
                                                                       },
                                                                     ),

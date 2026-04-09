@@ -23,11 +23,13 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -85,12 +87,21 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   String? _feedError;
   String? _schoolCode;
   final Map<String, String> _classroomCodeByName = {};
+  final Map<String, String> _studentCodeByName = {};
   List<ActivitySetting> _classroomActivitySettings = [];
+  bool _isFeedRequestInFlight = false;
+  String? _lastFeedRequestKey;
+  DateTime? _lastFeedCompletedAt;
+  bool _lastFeedCompletedWithError = false;
+  String? _lastResolvedClassroomCode;
 
   late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetClassroomActivitySettingsUseCase
       _getClassroomActivitySettingsUseCase;
+  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
+  late final StorageService _storageService;
+  late final CacheManager _cacheManager;
 
   final List<String> activityType = [
     'Nap Start',
@@ -108,11 +119,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     'Sign-out',
     'Absent',
   ];
-  final Map<String, List<String>> classroomStudents = {
-    '1-Blue D': ['Raghave Gupta', 'Rohan Gupta', 'Ruhi Gupta'],
-    '3-Orange-D': ['Anya Mehta', 'Kabir Mehta'],
-    '2-Red A': ['Sara Khan'],
-  };
+  final Map<String, List<String>> classroomStudents = {};
   final List<Color> _colorPalette = [
     const Color(0xFFB3E5FC),
     const Color(0xFFFFCCBC),
@@ -133,7 +140,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //   'Kabir Mehta',
   //   'Sara Khan',
   // ];
-  final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
+  final List<String> _classroomOptions = [];
   final List<ActivityItem> activities = [
     ActivityItem(
         time: "07:10 PM",
@@ -382,8 +389,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getClassroomActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getStudentClassroomListUseCase =
+        serviceLocator<GetStudentClassroomListUseCase>();
+    _storageService = serviceLocator<StorageService>();
+    _cacheManager = CacheManager(_storageService);
 
-    _selectdClassroom = _classroomOptions[0];
     _updateAvailableStudents();
     isNotParent = widget.isNotParent;
     //_selectedStudent = _allStudents[0];
@@ -425,34 +435,72 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   }
 
   Future<void> _bootstrapRangeFeed() async {
-    final storage = serviceLocator<StorageService>();
-    _schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    _schoolCode = (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
 
-    if (_schoolCode == null || _schoolCode!.isEmpty) {
+    if ((_schoolCode ?? '').isEmpty) {
       if (!mounted) return;
       setState(() {
         _feedError = 'School is not selected.';
-        activities.clear();
       });
       return;
     }
 
+    final school = _schoolCode ?? '';
+    final classroomCacheKey = CacheManager.buildCacheKey(
+      feature: 'activity',
+      resource: 'classrooms',
+      identifier: school,
+    );
+    try {
+      final cached = await _cacheManager.loadCache(classroomCacheKey);
+      if (cached != null && cached['classrooms'] is List) {
+        final list = (cached['classrooms'] as List)
+            .whereType<Map>()
+            .map((e) => <String, String>{
+                  'name': (e['name'] ?? '').toString(),
+                  'code': (e['code'] ?? '').toString(),
+                })
+            .where((e) => (e['name'] ?? '').isNotEmpty && (e['code'] ?? '').isNotEmpty)
+            .toList();
+        if (list.isNotEmpty && mounted) {
+          _classroomCodeByName
+            ..clear()
+            ..addEntries(
+              list
+                  .map((c) => MapEntry(c['name'] ?? '', c['code'] ?? ''))
+                  .where((e) => e.key.isNotEmpty && e.value.isNotEmpty),
+            );
+        }
+      }
+    } catch (_) {}
+
     try {
       final classrooms = await _getActiveClassroomsUseCase(
-        schoolCode: _schoolCode!,
+        schoolCode: school,
         onlyTypeClassroom: true,
       );
 
       _classroomCodeByName
         ..clear()
         ..addEntries(classrooms.map((c) => MapEntry(c.name, c.code)));
+      _classroomOptions
+        ..clear()
+        ..addAll(classrooms.map((c) => c.name));
+      if (_classroomOptions.isNotEmpty &&
+          (_selectdClassroom == null || !_classroomOptions.contains(_selectdClassroom))) {
+        _selectdClassroom = _classroomOptions.first;
+      }
+      await _cacheManager.saveCache(classroomCacheKey, {
+        'classrooms': classrooms
+            .map((c) => {'name': c.name, 'code': c.code})
+            .toList(),
+      });
 
-      await _loadRangeFeed(refresh: true);
+      await _loadRangeFeed();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _feedError = ApiErrorHandler.extractErrorMessage(e);
-        activities.clear();
       });
     }
   }
@@ -466,7 +514,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       if (!mounted) return;
       setState(() {
         _feedError = 'Classroom is not mapped to a valid code.';
-        activities.clear();
       });
       return;
     }
@@ -474,24 +521,174 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
     if (start == null || end == null) return;
+    final selectedStudent = _selectedStudent;
+    final studentCodeForRequest = selectedStudent == null
+        ? null
+        : _studentCodeByName[selectedStudent];
+    final typeCode = _activityTypeCodeForApiFilter();
+    final requestKey = [
+      classroomCode,
+      _dateQueryParam(start),
+      _dateQueryParam(end),
+      studentCodeForRequest ?? '',
+      typeCode ?? '',
+    ].join('|');
+
+    if (!refresh && _lastFeedRequestKey == requestKey) {
+      if (_isFeedRequestInFlight) return;
+      if (!_lastFeedCompletedWithError) {
+        return;
+      }
+      final completedAt = _lastFeedCompletedAt;
+      if (completedAt != null &&
+          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+        return;
+      }
+    }
+    _isFeedRequestInFlight = true;
+    _lastFeedRequestKey = requestKey;
 
     try {
-      // Also load settings so we can convert UI label -> activityTypeCode.
-      try {
-        _classroomActivitySettings = await _getClassroomActivitySettingsUseCase(
-          classroomCode: classroomCode,
-          refresh: refresh,
+      final school = _schoolCode;
+      final shouldReloadClassroomDependencies =
+          refresh ||
+          _lastResolvedClassroomCode != classroomCode ||
+          !classroomStudents.containsKey(classroomName) ||
+          _classroomActivitySettings.isEmpty;
+
+      if (shouldReloadClassroomDependencies) {
+        if (school != null && school.isNotEmpty) {
+          final studentsCacheKey = CacheManager.buildCacheKey(
+            feature: 'activity',
+            resource: 'students',
+            identifier: '$school|$classroomCode',
+          );
+          if (!refresh) {
+            try {
+              final cachedStudents = await _cacheManager.loadCache(studentsCacheKey);
+              if (cachedStudents != null && cachedStudents['students'] is List) {
+                final cachedList = (cachedStudents['students'] as List)
+                    .whereType<Map>()
+                    .map((e) => <String, String>{
+                          'name': (e['name'] ?? '').toString(),
+                          'code': (e['code'] ?? '').toString(),
+                        })
+                    .where((e) =>
+                        (e['name'] ?? '').isNotEmpty &&
+                        (e['code'] ?? '').isNotEmpty)
+                    .toList();
+                if (cachedList.isNotEmpty) {
+                  _studentCodeByName
+                    ..clear()
+                    ..addEntries(cachedList.map(
+                        (s) => MapEntry(s['name'] ?? '', s['code'] ?? '')));
+                  classroomStudents[classroomName] =
+                      cachedList.map((s) => s['name'] ?? '').toList();
+                  _updateAvailableStudents();
+                }
+              }
+            } catch (_) {}
+          }
+
+          final students = await _getStudentClassroomListUseCase(
+            schoolCode: school,
+            classroomCode: classroomCode,
+            status: const ['ACTIVE'],
+            refresh: refresh,
+          );
+          _studentCodeByName
+            ..clear()
+            ..addEntries(students.map((s) => MapEntry(s.fullName, s.studentCode)));
+          classroomStudents[classroomName] = students.map((s) => s.fullName).toList();
+          _updateAvailableStudents();
+          await _cacheManager.saveCache(studentsCacheKey, {
+            'students': students
+                .map((s) => {'name': s.fullName, 'code': s.studentCode})
+                .toList(),
+          });
+        }
+
+        final settingsCacheKey = CacheManager.buildCacheKey(
+          feature: 'activity',
+          resource: 'settings',
+          identifier: classroomCode,
         );
-      } catch (_) {
-        _classroomActivitySettings = [];
+        if (!refresh) {
+          try {
+            final cachedSettings = await _cacheManager.loadCache(settingsCacheKey);
+            if (cachedSettings != null && cachedSettings['settings'] is List) {
+              final list = (cachedSettings['settings'] as List)
+                  .whereType<Map>()
+                  .map(
+                    (e) => ActivitySetting(
+                      activityTypeCode: (e['activityTypeCode'] ?? '').toString(),
+                      activityTypeName: (e['activityTypeName'] ?? '').toString(),
+                      description: (e['description'] ?? '').toString(),
+                      category: (e['category'] ?? '').toString(),
+                      icon: (e['icon'] ?? '').toString(),
+                      color: (e['color'] ?? '').toString(),
+                      isSystem: (e['isSystem'] as bool?) ?? false,
+                      isMultiStudent: (e['isMultiStudent'] as bool?) ?? false,
+                      requiresStaff: (e['requiresStaff'] as bool?) ?? false,
+                      requiresPhoto: (e['requiresPhoto'] as bool?) ?? false,
+                      requiresVideo: (e['requiresVideo'] as bool?) ?? false,
+                      allowsAttachments:
+                          (e['allowsAttachments'] as bool?) ?? false,
+                      maxAttachments: (e['maxAttachments'] as int?) ?? 0,
+                      isEnabled: (e['isEnabled'] as bool?) ?? true,
+                      isFavorite: (e['isFavorite'] as bool?) ?? false,
+                      displayOrder: (e['displayOrder'] as int?) ?? 0,
+                    ),
+                  )
+                  .where((e) =>
+                      e.activityTypeCode.isNotEmpty &&
+                      e.activityTypeName.isNotEmpty)
+                  .toList();
+              if (list.isNotEmpty) {
+                _classroomActivitySettings = list;
+              }
+            }
+          } catch (_) {}
+        }
+
+        try {
+          _classroomActivitySettings = await _getClassroomActivitySettingsUseCase(
+            classroomCode: classroomCode,
+            refresh: refresh,
+          );
+          await _cacheManager.saveCache(settingsCacheKey, {
+            'settings': _classroomActivitySettings
+                .map((s) => {
+                      'activityTypeCode': s.activityTypeCode,
+                      'activityTypeName': s.activityTypeName,
+                      'description': s.description,
+                      'category': s.category,
+                      'icon': s.icon,
+                      'color': s.color,
+                      'isSystem': s.isSystem,
+                      'isMultiStudent': s.isMultiStudent,
+                      'requiresStaff': s.requiresStaff,
+                      'requiresPhoto': s.requiresPhoto,
+                      'requiresVideo': s.requiresVideo,
+                      'allowsAttachments': s.allowsAttachments,
+                      'maxAttachments': s.maxAttachments,
+                      'isEnabled': s.isEnabled,
+                      'isFavorite': s.isFavorite,
+                      'displayOrder': s.displayOrder,
+                    })
+                .toList(),
+          });
+        } catch (_) {
+          // Keep existing in-memory/cached settings on fetch failure.
+        }
+        _lastResolvedClassroomCode = classroomCode;
       }
 
-      final typeCode = _activityTypeCodeForApiFilter();
       final page = await _getRangeActivityFeedUseCase(
         classroomCode: classroomCode,
         startDate: _dateQueryParam(start),
         endDate: _dateQueryParam(end),
-        studentCode: null,
+        studentCode: studentCodeForRequest,
         activityTypeCode: typeCode,
         page: 0,
         size: 200,
@@ -501,25 +698,33 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
           .map((row) => activityItemFromFeedRow(row))
           .toList();
 
-      if (_selectedStudent != null && _selectedStudent!.trim().isNotEmpty) {
-        items = items
-            .where((a) => a.studentList.contains(_selectedStudent))
-            .toList();
-      }
+      // Do not apply additional client-side student filtering here.
+      // Server-side `studentCode` filter is already applied in API request.
 
-      if (!mounted) return;
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
       setState(() {
         activities
           ..clear()
           ..addAll(items);
         _feedError = null;
       });
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
       setState(() {
         _feedError = ApiErrorHandler.extractErrorMessage(e);
-        activities.clear();
       });
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = true;
     }
   }
 
@@ -536,9 +741,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor),
+                      border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: AppColors.cardColor,
+                      color: Colors.white,
                     ),
                     child: widget.fromStudentProfile
                         ? Column(
@@ -675,9 +880,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                         ],
                                         onApply: (filters) {
                                           setState(() {
-                                            _filterTags = filters['Tags']!;
+                                            _filterTags = (filters['Tags'] ?? const [])
+                                                .cast<String>();
                                             _filterActivityTypes =
-                                            filters['Activity Type']!;
+                                                (filters['Activity Type'] ??
+                                                        const [])
+                                                    .cast<String>();
                                           });
                                         },
                                       ),
@@ -767,9 +975,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
+                          border: Border.all(color: AppColors.dividerColor),
                           borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
+                          color: Colors.white,
                         ),
                         child: Center(
                           child: AppText.title(
@@ -863,7 +1071,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                           children: [
                                             const SizedBox(height: 15),
                                             InkWell(
-                                              onTap: () {
+                                              onTap: () async {
                                                 final destinationBuilder =
                                                 activityRoutes[activity
                                                     .name];
@@ -873,7 +1081,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                   destinationBuilder(
                                                     activity,
                                                   );
-                                                  Navigator.of(
+                                                  await Navigator.of(
                                                     context,
                                                   ).push(
                                                     MaterialPageRoute(
@@ -881,6 +1089,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                       nextScreen,
                                                     ),
                                                   );
+                                                  if (mounted) {
+                                                    await _loadRangeFeed(refresh: true);
+                                                  }
                                                 }
                                               },
                                               child: Container(
@@ -1008,22 +1219,23 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                   vertical: 6,
                                                                 ),
                                                                 decoration: BoxDecoration(
-                                                                  color: activityColor,
+                                                                  color:
+                                                                      activityColor
+                                                                          .withOpacity(
+                                                                            0.5,
+                                                                          ),
                                                                   borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    20,
+                                                                      BorderRadius.circular(
+                                                                    4,
                                                                   ),
                                                                 ),
                                                                 child: Text(
                                                                   activity.name,
                                                                   style:
                                                                   const TextStyle(
-                                                                    color: Colors
-                                                                        .white,
-                                                                    fontSize: 11,
-                                                                    fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
+                                                                    color: AppColors
+                                                                        .primaryColor,
+                                                                    fontSize: 12,
                                                                   ),
                                                                 ),
                                                               ),
@@ -1045,7 +1257,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                             .themeColor,
                                                                       ),
                                                                     ),
-                                                                    onTap: () {
+                                                                    onTap: () async {
                                                                       final destinationBuilder =
                                                                       activityRoutes[activity
                                                                           .name];
@@ -1055,7 +1267,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                         destinationBuilder(
                                                                           activity,
                                                                         );
-                                                                        Navigator.of(
+                                                                        await Navigator.of(
                                                                           context,
                                                                         ).push(
                                                                           MaterialPageRoute(
@@ -1063,6 +1275,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                             nextScreen,
                                                                           ),
                                                                         );
+                                                                        if (mounted) {
+                                                                          await _loadRangeFeed(refresh: true);
+                                                                        }
                                                                       }
                                                                     },
                                                                   ),
@@ -1076,7 +1291,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                             .themeColor,
                                                                       ),
                                                                     ),
-                                                                    onTap: () {
+                                                                    onTap: () async {
                                                                       final destinationBuilder =
                                                                       editActivityRoutes[activity
                                                                           .name];
@@ -1086,7 +1301,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                         destinationBuilder(
                                                                           activity,
                                                                         );
-                                                                        Navigator.of(
+                                                                        await Navigator.of(
                                                                           context,
                                                                         ).push(
                                                                           MaterialPageRoute(
@@ -1094,6 +1309,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                             nextScreen,
                                                                           ),
                                                                         );
+                                                                        if (mounted) {
+                                                                          await _loadRangeFeed(refresh: true);
+                                                                        }
                                                                       }
                                                                     },
                                                                   ),
@@ -1227,6 +1445,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                 const SliverToBoxAdapter(child: SizedBox(height: 20,),)
               ],
             );
+            // ignore: dead_code
             return SingleChildScrollView(
               child: Column(
                 children: [
@@ -1236,9 +1455,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.cardBorderColor),
+                        border: Border.all(color: AppColors.dividerColor),
                         borderRadius: BorderRadius.circular(12),
-                        color: AppColors.cardColor,
+                        color: Colors.white,
                       ),
                       child: widget.fromStudentProfile
                           ? Column(
@@ -1375,9 +1594,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                           ],
                                           onApply: (filters) {
                                             setState(() {
-                                              _filterTags = filters['Tags']!;
+                                              _filterTags = (filters['Tags'] ?? const [])
+                                                  .cast<String>();
                                               _filterActivityTypes =
-                                              filters['Activity Type']!;
+                                                  (filters['Activity Type'] ??
+                                                          const [])
+                                                      .cast<String>();
                                             });
                                           },
                                         ),
@@ -1468,9 +1690,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
+                          border: Border.all(color: AppColors.dividerColor),
                           borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
+                          color: Colors.white,
                         ),
                         child: Center(
                           child: AppText.title(
@@ -1715,7 +1937,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                         .themeColor,
                                                                   ),
                                                                 ),
-                                                                onTap: () {
+                                                                onTap: () async {
                                                                   final destinationBuilder =
                                                                   activityRoutes[activity
                                                                       .name];
@@ -1725,7 +1947,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                     destinationBuilder(
                                                                       activity,
                                                                     );
-                                                                    Navigator.of(
+                                                                    await Navigator.of(
                                                                       context,
                                                                     ).push(
                                                                       MaterialPageRoute(
@@ -1733,6 +1955,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                         nextScreen,
                                                                       ),
                                                                     );
+                                                                    if (mounted) {
+                                                                      await _loadRangeFeed(refresh: true);
+                                                                    }
                                                                   }
                                                                 },
                                                               ),
@@ -1858,9 +2083,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor),
+                      border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: AppColors.cardColor,
+                      color: Colors.white,
                     ),
                     child: widget.fromStudentProfile
                         ? Column(
@@ -1997,9 +2222,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                         ],
                                         onApply: (filters) {
                                           setState(() {
-                                            _filterTags = filters['Tags']!;
+                                            _filterTags = (filters['Tags'] ?? const [])
+                                                .cast<String>();
                                             _filterActivityTypes =
-                                            filters['Activity Type']!;
+                                                (filters['Activity Type'] ??
+                                                        const [])
+                                                    .cast<String>();
                                           });
                                         },
                                       ),
@@ -2091,9 +2319,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
+                          border: Border.all(color: AppColors.dividerColor),
                           borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
+                          color: Colors.white,
                         ),
                         child: Center(
                           child: Text(
@@ -2189,7 +2417,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                         // Activity Card
                                         Expanded(
                                           child: InkWell(
-                                            onTap: () {
+                                            onTap: () async {
                                               final destinationBuilder =
                                               activityRoutes[activity
                                                   .name];
@@ -2199,7 +2427,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                 destinationBuilder(
                                                   activity,
                                                 );
-                                                Navigator.of(
+                                                await Navigator.of(
                                                   context,
                                                 ).push(
                                                   MaterialPageRoute(
@@ -2207,6 +2435,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                     nextScreen,
                                                   ),
                                                 );
+                                                if (mounted) {
+                                                  await _loadRangeFeed(refresh: true);
+                                                }
                                               }
                                             },
                                             child: Column(
@@ -2330,22 +2561,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                     vertical: 6,
                                                                   ),
                                                                   decoration: BoxDecoration(
-                                                                    color: activityColor,
+                                                                    color:
+                                                                        activityColor
+                                                                            .withOpacity(
+                                                                              0.5,
+                                                                            ),
                                                                     borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      20,
+                                                                        BorderRadius.circular(
+                                                                      4,
                                                                     ),
                                                                   ),
                                                                   child: Text(
                                                                     activity.name,
                                                                     style:
                                                                     const TextStyle(
-                                                                      color: Colors
-                                                                          .white,
-                                                                      fontSize: 11,
-                                                                      fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
+                                                                      color: AppColors
+                                                                          .primaryColor,
+                                                                      fontSize:
+                                                                          12,
                                                                     ),
                                                                   ),
                                                                 ),
@@ -2367,7 +2600,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                               .themeColor,
                                                                         ),
                                                                       ),
-                                                                      onTap: () {
+                                                                      onTap: () async {
                                                                         final destinationBuilder =
                                                                         activityRoutes[activity
                                                                             .name];
@@ -2377,7 +2610,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                           destinationBuilder(
                                                                             activity,
                                                                           );
-                                                                          Navigator.of(
+                                                                          await Navigator.of(
                                                                             context,
                                                                           ).push(
                                                                             MaterialPageRoute(
@@ -2385,6 +2618,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                               nextScreen,
                                                                             ),
                                                                           );
+                                                                          if (mounted) {
+                                                                            await _loadRangeFeed(refresh: true);
+                                                                          }
                                                                         }
                                                                       },
                                                                     ),
@@ -2398,7 +2634,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                               .themeColor,
                                                                         ),
                                                                       ),
-                                                                      onTap: () {
+                                                                      onTap: () async {
                                                                         final destinationBuilder =
                                                                         editActivityRoutes[activity
                                                                             .name];
@@ -2408,7 +2644,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                           destinationBuilder(
                                                                             activity,
                                                                           );
-                                                                          Navigator.of(
+                                                                          await Navigator.of(
                                                                             context,
                                                                           ).push(
                                                                             MaterialPageRoute(
@@ -2416,6 +2652,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                               nextScreen,
                                                                             ),
                                                                           );
+                                                                          if (mounted) {
+                                                                            await _loadRangeFeed(refresh: true);
+                                                                          }
                                                                         }
                                                                       },
                                                                     ),
@@ -3223,7 +3462,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
               Flexible(
                 child: Text(
                   selectedStartDate != null
-                      ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate!)}'
+                      ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate ?? selectedStartDate)}'
                       : 'Select Date',
                   style: TextStyle(
                     color: selectedStartDate == null

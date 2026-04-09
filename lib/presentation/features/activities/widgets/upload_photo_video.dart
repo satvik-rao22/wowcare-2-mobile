@@ -954,6 +954,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 
 enum MediaType { photos, video }
@@ -1013,7 +1014,7 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   late int maxPhotos;
   late int photoMaxSizeMB;
-  static const int videoMaxSizeMB = 100;
+  static const int videoMaxSizeMB = 200;
   static const int videoMaxDurationSec = 60;
 
   static const List<String> _photoExt = ['jpg', 'jpeg', 'png', 'heic', 'heif'];
@@ -1082,6 +1083,8 @@ class _MediaUploaderState extends State<MediaUploader> {
       }
     } catch (e) {
       debugPrint('Failed to load remote video thumbnail: $e');
+      _remoteVideoController?.dispose();
+      _remoteVideoController = null;
       if (mounted) {
         setState(() {
           _remoteThumbnailError = true;
@@ -1123,12 +1126,12 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   void _showWarning(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.orange.shade100,
-        duration: const Duration(seconds: 3),
-      ),
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isWarning: true,
+      duration: const Duration(seconds: 3),
     );
   }
 
@@ -1194,7 +1197,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       source: source,
       maxDuration: const Duration(seconds: videoMaxDurationSec),
     );
-    if (picked == null) return;
+    if (!mounted || picked == null) return;
 
     final ext = picked.path.split('.').last.toLowerCase();
     if (!_videoExt.contains(ext)) {
@@ -1210,7 +1213,21 @@ class _MediaUploaderState extends State<MediaUploader> {
     }
 
     final controller = VideoPlayerController.file(file);
-    await controller.initialize();
+    try {
+      await controller.initialize();
+    } catch (e) {
+      await controller.dispose();
+      if (mounted) {
+        _showWarning(
+          'This video format is not supported on this device. Please use standard MP4 (H.264).',
+        );
+      }
+      return;
+    }
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
     final durationSec = controller.value.duration.inSeconds;
     await controller.dispose();
 
@@ -1219,6 +1236,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _newVideoFile = file;
       _videoThumbnailFile = null;
@@ -1417,7 +1435,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     );
   }
 
-  Widget _previewItem({required Widget child, bool isVideo = false, required VoidCallback onRemove}) {
+  Widget _previewItem({required Widget child, required VoidCallback onRemove}) {
     return Padding(
       padding: const EdgeInsets.only(right: 12),
       child: Stack(
