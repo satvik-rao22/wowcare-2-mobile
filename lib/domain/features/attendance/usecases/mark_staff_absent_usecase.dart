@@ -6,6 +6,10 @@ class MarkStaffAbsentUseCase {
 
   final AttendanceRepository _repository;
 
+  static String _ymd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Backend expects one POST per calendar day; expands [absenceFromDate]–[absenceToDate] inclusive.
   Future<String> call({
     required String staffCode,
     required List<String> staffCodes,
@@ -16,15 +20,33 @@ class MarkStaffAbsentUseCase {
     required Map<String, String> absenceNotes,
   }) async {
     try {
-      return await _repository.markStaffAbsent(
-        staffCode: staffCode,
-        staffCodes: staffCodes,
-        absenceFromDate: absenceFromDate,
-        absenceToDate: absenceToDate,
-        absenceReason: absenceReason,
-        absenceType: absenceType,
-        absenceNotes: absenceNotes,
-      );
+      final parsedFrom = DateTime.parse(absenceFromDate);
+      final parsedTo = DateTime.parse(absenceToDate);
+      var day = DateTime(parsedFrom.year, parsedFrom.month, parsedFrom.day);
+      final endDay = DateTime(parsedTo.year, parsedTo.month, parsedTo.day);
+      if (endDay.isBefore(day)) {
+        throw Exception('End date must be on or after start date');
+      }
+
+      String lastMessage = '';
+      for (; !day.isAfter(endDay); day = day.add(const Duration(days: 1))) {
+        final dayStr = _ymd(day);
+        try {
+          lastMessage = await _repository.markStaffAbsent(
+            staffCode: staffCode,
+            staffCodes: staffCodes,
+            absenceFromDate: dayStr,
+            absenceToDate: dayStr,
+            absenceReason: absenceReason,
+            absenceType: absenceType,
+            absenceNotes: absenceNotes,
+          );
+        } catch (e) {
+          final msg = ApiErrorHandler.extractErrorMessage(e);
+          throw Exception('Could not mark absent for $dayStr: $msg');
+        }
+      }
+      return lastMessage;
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);
     }

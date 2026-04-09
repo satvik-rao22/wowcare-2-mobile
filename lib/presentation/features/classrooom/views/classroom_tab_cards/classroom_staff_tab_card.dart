@@ -6,6 +6,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -244,6 +245,36 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  StaffAttendanceActionAvailability _attendanceAvailabilityForSelection() {
+    final codes = _getSelectedStaffCodes();
+    if (codes.isEmpty) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+
+    final gates = <StaffAttendanceGate>[];
+    for (final code in codes) {
+      Staff? found;
+      for (final s in _allStaff) {
+        if (s.staffCode == code) {
+          found = s;
+          break;
+        }
+      }
+      if (found == null) {
+        return StaffAttendanceActionAvailability.allDisabled;
+      }
+      final isActive = found.profileStatus == 'A';
+      gates.add(
+        StaffAttendanceGate(
+          isActiveProfile: isActive,
+          isSignedInToday: found.isSignedIn,
+          isAbsentToday: found.isAbsent,
+        ),
+      );
+    }
+    return StaffAttendanceActionAvailability.fromGates(gates);
   }
 
   Future<void> _openAttendanceActionFlow(String actionName) async {
@@ -629,6 +660,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                 bottom: 16,
                 child: StaffActionPanel(
                   currentPanel: _currentPanel,
+                  attendanceAvailability: _attendanceAvailabilityForSelection(),
                   onAttendanceTap: () {
                     setState(() {
                       _currentPanel = _currentPanel == StaffPanelType.attendance

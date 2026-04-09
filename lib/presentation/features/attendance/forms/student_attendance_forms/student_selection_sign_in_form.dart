@@ -16,6 +16,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -69,6 +70,10 @@ class _StudentSelectionSignInFormState
   late final GetTagNameCodeMapForSchoolUseCase
       _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
+  late final GetStudentTodaySignInStatusMapUseCase
+      _getStudentTodaySignInStatusMapUseCase;
+
+  Set<String> _absentStudentCodes = <String>{};
 
   @override
   void initState() {
@@ -80,6 +85,8 @@ class _StudentSelectionSignInFormState
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+    _getStudentTodaySignInStatusMapUseCase =
+        serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
 
     _loadClassrooms();
     _loadTags();
@@ -269,11 +276,30 @@ class _StudentSelectionSignInFormState
         isSelectAllChecked = _filteredStudents.isNotEmpty &&
             _filteredStudents.every((s) => selectedStudents.contains(s));
       });
+
+      // Bulk-load "today status" and display red dot for ABSENT only.
+      final studentCodes = students
+          .map((s) => s.studentCode.trim())
+          .where((c) => c.isNotEmpty)
+          .toList(growable: false);
+      final statusMap = await _getStudentTodaySignInStatusMapUseCase(
+        studentCodes: studentCodes,
+      );
+      if (!mounted) return;
+      final absent = statusMap.entries
+          .where((e) => e.value.toString().toUpperCase() == 'ABSENT')
+          .map((e) => e.key.trim())
+          .where((c) => c.isNotEmpty)
+          .toSet();
+      setState(() {
+        _absentStudentCodes = absent;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = ApiErrorHandler.extractErrorMessage(e);
+        _absentStudentCodes = <String>{};
       });
     }
   }
@@ -482,12 +508,15 @@ class _StudentSelectionSignInFormState
                       final student = _filteredStudents[index];
                       final isSelected =
                           selectedStudents.contains(student);
+                      final isAbsentToday = _absentStudentCodes
+                          .contains(student.studentCode.trim());
 
                       return StudentListItem(
                         student: student,
                         isSelected: isSelected,
                         onSelectionChanged: (value) =>
                             _toggleStudentSelection(student, value),
+                        showAbsentDot: isAbsentToday,
                       );
                     },
                   ),
@@ -512,12 +541,14 @@ class StudentListItem extends StatelessWidget {
   final StudentEntity student;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
+  final bool showAbsentDot;
 
   const StudentListItem({
     super.key,
     required this.student,
     required this.isSelected,
     required this.onSelectionChanged,
+    required this.showAbsentDot,
   });
 
   @override
@@ -549,6 +580,7 @@ class StudentListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: student.photoUuid ?? '',
                 name: student.fullName,
+                statusColor: showAbsentDot ? Colors.red : null,
                 size: 32,
                 fontSize: 14,
               ),

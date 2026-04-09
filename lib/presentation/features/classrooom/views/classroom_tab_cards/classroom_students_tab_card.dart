@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -264,6 +265,23 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   }
 
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
+
+  StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
+    List<StudentClassroomItem> selected,
+  ) {
+    if (selected.isEmpty) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+    final gates = selected.map((s) {
+      final isActive = s.status.trim().toUpperCase() == 'ACTIVE';
+      return StudentAttendanceGate(
+        isActiveProfile: isActive,
+        isSignedInToday: s.signedIn,
+        isAbsentToday: s.absent,
+      );
+    });
+    return StudentAttendanceActionAvailability.fromGates(gates);
+  }
 
   void _clearAttendanceEntityCaches() {
     _signInEntitiesByCode = {};
@@ -973,6 +991,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   const SizedBox(width: 10),
                   StudentActionPanel(
                     currentPanel: _currentPanel,
+                    attendanceAvailability:
+                        _attendanceAvailabilityForSelection(selectedStudents),
                     onAttendanceTap: () {
                       setState(() {
                         final open =

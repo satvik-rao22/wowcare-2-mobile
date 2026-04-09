@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 
 enum StudentPanelType { attendance, activities, none }
 
@@ -22,6 +23,7 @@ class StudentActionPanel extends StatefulWidget {
     this.onTransferTap,
     this.onMarkAbsentTap,
     this.isAttendanceActionLoading = false,
+    this.attendanceAvailability = StudentAttendanceActionAvailability.allEnabled,
   });
 
   final StudentPanelType currentPanel;
@@ -38,6 +40,7 @@ class StudentActionPanel extends StatefulWidget {
   final VoidCallback? onTransferTap;
   final VoidCallback? onMarkAbsentTap;
   final bool isAttendanceActionLoading;
+  final StudentAttendanceActionAvailability attendanceAvailability;
 
   @override
   State<StudentActionPanel> createState() => _StudentActionPanelState();
@@ -86,6 +89,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
             onTransferTap: widget.onTransferTap,
             onMarkAbsentTap: widget.onMarkAbsentTap,
             isLoading: widget.isAttendanceActionLoading,
+            availability: widget.attendanceAvailability,
             activityIcons: _activityIcons,
             onAnyActivityTap: widget.onActivitiesTap,
           ),
@@ -203,6 +207,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
     this.onTransferTap,
     this.onMarkAbsentTap,
     this.isLoading = false,
+    this.attendanceAvailability = StudentAttendanceActionAvailability.allEnabled,
   });
 
   final VoidCallback? onSignInTap;
@@ -210,9 +215,11 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
   final VoidCallback? onTransferTap;
   final VoidCallback? onMarkAbsentTap;
   final bool isLoading;
+  final StudentAttendanceActionAvailability attendanceAvailability;
 
   @override
   Widget build(BuildContext context) {
+    final a = attendanceAvailability;
     return Material(
       borderRadius: BorderRadius.circular(10),
       elevation: 3,
@@ -242,19 +249,19 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
               children: [
                 _AttendanceChipButton(
                   label: 'Sign In',
-                  onTap: isLoading ? null : onSignInTap,
+                  onTap: isLoading || !a.signInEnabled ? null : onSignInTap,
                 ),
                 _AttendanceChipButton(
                   label: 'Sign Out',
-                  onTap: isLoading ? null : onSignOutTap,
+                  onTap: isLoading || !a.signOutEnabled ? null : onSignOutTap,
                 ),
                 _AttendanceChipButton(
                   label: 'Transfer',
-                  onTap: isLoading ? null : onTransferTap,
+                  onTap: isLoading || !a.transferEnabled ? null : onTransferTap,
                 ),
                 _AttendanceChipButton(
                   label: 'Mark Absent',
-                  onTap: isLoading ? null : onMarkAbsentTap,
+                  onTap: isLoading || !a.absentEnabled ? null : onMarkAbsentTap,
                 ),
               ],
             ),
@@ -281,6 +288,7 @@ class _StudentSidePanel extends StatelessWidget {
     required this.onTransferTap,
     required this.onMarkAbsentTap,
     required this.isLoading,
+    required this.availability,
     required this.activityIcons,
     this.onAnyActivityTap,
   });
@@ -291,11 +299,43 @@ class _StudentSidePanel extends StatelessWidget {
   final VoidCallback? onTransferTap;
   final VoidCallback? onMarkAbsentTap;
   final bool isLoading;
+  final StudentAttendanceActionAvailability availability;
   final Map<String, String> activityIcons;
   final VoidCallback? onAnyActivityTap;
 
+  static const String _validationTooltip =
+      'This action is not allowed for current attendance state';
+
   @override
   Widget build(BuildContext context) {
+    if (panel == StudentPanelType.attendance) {
+      return Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        elevation: 0,
+        child: Container(
+          width: 50,
+          constraints: const BoxConstraints(maxHeight: 400),
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.classroomStudentTabColor,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: _buildAttendanceColumn(),
+        ),
+      );
+    }
     return Material(
       borderRadius: BorderRadius.circular(10),
       elevation: 3,
@@ -306,61 +346,51 @@ class _StudentSidePanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
         ),
-        child: panel == StudentPanelType.attendance
-            ? _buildAttendanceColumn()
-            : _buildActivitiesColumn(),
+        child: _buildActivitiesColumn(),
       ),
     );
   }
 
   Widget _buildAttendanceColumn() {
+    final a = availability;
+    bool blocked(bool allowed) => isLoading || !allowed;
+    String tooltip(bool allowed) =>
+        isLoading ? '' : (!allowed ? _validationTooltip : '');
+
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Attendance',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: Color(0xff573353),
-          ),
+        _StudentAttendanceMenuItem(
+          svgPath: MediaRes.Sign_in,
+          label: 'Sign-in',
+          onTap: blocked(a.signInEnabled) ? null : onSignInTap,
+          isDisabled: blocked(a.signInEnabled),
+          disabledTooltip: tooltip(a.signInEnabled),
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          direction: Axis.vertical,
-          spacing: 16,
-          children: [
-            _AttendanceIconItem(
-              svgPath: MediaRes.Sign_in,
-              label: 'Sign In',
-              onTap: isLoading ? null : onSignInTap,
-            ),
-            _AttendanceIconItem(
-              svgPath: MediaRes.Sign_out,
-              label: 'Sign Out',
-              onTap: isLoading ? null : onSignOutTap,
-            ),
-            _AttendanceIconItem(
-              svgPath: MediaRes.transfer,
-              label: 'Transfer',
-              onTap: isLoading ? null : onTransferTap,
-            ),
-            _AttendanceIconItem(
-              svgPath: MediaRes.Mark_absent,
-              label: 'Absent',
-              onTap: isLoading ? null : onMarkAbsentTap,
-            ),
-          ],
+        const SizedBox(height: 5),
+        _StudentAttendanceMenuItem(
+          svgPath: MediaRes.Sign_out,
+          label: 'Sign-Out',
+          onTap: blocked(a.signOutEnabled) ? null : onSignOutTap,
+          isDisabled: blocked(a.signOutEnabled),
+          disabledTooltip: tooltip(a.signOutEnabled),
         ),
-        if (isLoading) ...[
-          const SizedBox(height: 8),
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ],
+        const SizedBox(height: 5),
+        _StudentAttendanceMenuItem(
+          svgPath: MediaRes.transfer,
+          label: 'Transfer',
+          onTap: blocked(a.transferEnabled) ? null : onTransferTap,
+          isDisabled: blocked(a.transferEnabled),
+          disabledTooltip: tooltip(a.transferEnabled),
+        ),
+        const SizedBox(height: 5),
+        _StudentAttendanceMenuItem(
+          svgPath: MediaRes.Mark_absent,
+          label: 'Absent',
+          onTap: blocked(a.absentEnabled) ? null : onMarkAbsentTap,
+          isDisabled: blocked(a.absentEnabled),
+          disabledTooltip: tooltip(a.absentEnabled),
+        ),
       ],
     );
   }
@@ -392,29 +422,65 @@ class _StudentSidePanel extends StatelessWidget {
       upper.substring(0, 1) + upper.substring(1).toLowerCase();
 }
 
-class _AttendanceIconItem extends StatelessWidget {
-  const _AttendanceIconItem({
+/// Matches [StudentAttendanceVerticalPopUp] menu row styling.
+class _StudentAttendanceMenuItem extends StatelessWidget {
+  const _StudentAttendanceMenuItem({
     required this.svgPath,
     required this.label,
     this.onTap,
+    this.isDisabled = false,
+    this.disabledTooltip = '',
   });
+
   final String svgPath;
   final String label;
   final VoidCallback? onTap;
+  final bool isDisabled;
+  final String disabledTooltip;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          SvgPicture.asset(svgPath, height: 24, width: 24),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12),
-          ),
-        ],
+    final showTip = isDisabled && disabledTooltip.isNotEmpty;
+    return Tooltip(
+      message: showTip ? disabledTooltip : '',
+      preferBelow: false,
+      triggerMode: TooltipTriggerMode.tap,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      showDuration: const Duration(seconds: 5),
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Opacity(
+              opacity: isDisabled ? 0.45 : 1,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: SvgPicture.asset(svgPath, height: 24, width: 24),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Opacity(
+              opacity: isDisabled ? 0.5 : 1,
+              child: Text(
+                label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Manrope',
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

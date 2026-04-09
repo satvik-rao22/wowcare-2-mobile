@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 
 enum StaffPanelType { attendance, activities, none }
 
@@ -20,6 +21,7 @@ class StaffActionPanel extends StatefulWidget {
     this.onAbsent,
     this.isProfileEnabled = false,
     this.activitiesEnabled = true,
+    this.attendanceAvailability = StaffAttendanceActionAvailability.allEnabled,
   });
 
   final StaffPanelType currentPanel;
@@ -34,6 +36,9 @@ class StaffActionPanel extends StatefulWidget {
   final VoidCallback? onAbsent;
   final bool isProfileEnabled;
   final bool activitiesEnabled;
+  /// Enables/disables attendance sub-actions (Sign-In, Sign-Out, Transfer, Absent)
+  /// from the current selection's attendance state.
+  final StaffAttendanceActionAvailability attendanceAvailability;
 
   @override
   State<StaffActionPanel> createState() => _StaffActionPanelState();
@@ -88,6 +93,7 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                     onSignOut: widget.onSignOut,
                     onTransfer: widget.onTransfer,
                     onAbsent: widget.onAbsent,
+                    availability: widget.attendanceAvailability,
                   )
                 : _ActivitiesOptionsPanel(
                     activityIcons: _activityIcons,
@@ -191,12 +197,17 @@ class _AttendanceOptionsPanel extends StatelessWidget {
     this.onSignOut,
     this.onTransfer,
     this.onAbsent,
+    required this.availability,
   });
 
   final VoidCallback? onSignIn;
   final VoidCallback? onSignOut;
   final VoidCallback? onTransfer;
   final VoidCallback? onAbsent;
+  final StaffAttendanceActionAvailability availability;
+
+  static const String _disabledTooltip =
+      'This action is not allowed for current attendance state';
 
   @override
   Widget build(BuildContext context) {
@@ -222,25 +233,33 @@ class _AttendanceOptionsPanel extends StatelessWidget {
           _AttendanceActionItem(
             svgPath: MediaRes.Sign_in,
             label: 'Sign-In',
-            onTap: onSignIn,
+            onTap: availability.signInEnabled ? onSignIn : null,
+            isEnabled: availability.signInEnabled,
+            disabledTooltip: _disabledTooltip,
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
             svgPath: MediaRes.Sign_out,
             label: 'Sign-Out',
-            onTap: onSignOut,
+            onTap: availability.signOutEnabled ? onSignOut : null,
+            isEnabled: availability.signOutEnabled,
+            disabledTooltip: _disabledTooltip,
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
             svgPath: MediaRes.transfer,
             label: 'Transfer',
-            onTap: onTransfer,
+            onTap: availability.transferEnabled ? onTransfer : null,
+            isEnabled: availability.transferEnabled,
+            disabledTooltip: _disabledTooltip,
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
             svgPath: MediaRes.Mark_absent,
             label: 'Absent',
-            onTap: onAbsent,
+            onTap: availability.absentEnabled ? onAbsent : null,
+            isEnabled: availability.absentEnabled,
+            disabledTooltip: _disabledTooltip,
           ),
         ],
       ),
@@ -304,44 +323,59 @@ class _AttendanceActionItem extends StatelessWidget {
     required this.svgPath,
     required this.label,
     this.onTap,
+    this.isEnabled = true,
+    this.disabledTooltip = '',
   });
 
   final String svgPath;
   final String label;
   final VoidCallback? onTap;
+  final bool isEnabled;
+  final String disabledTooltip;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: SvgPicture.asset(
-              svgPath,
-              height: 24,
-              width: 24,
-            ),
+    final double opacity = isEnabled ? 1.0 : 0.45;
+    return Tooltip(
+      message: !isEnabled ? disabledTooltip : '',
+      preferBelow: false,
+      triggerMode: TooltipTriggerMode.tap,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      showDuration: const Duration(seconds: 5),
+      child: InkWell(
+        onTap: isEnabled ? onTap : null,
+        child: Opacity(
+          opacity: opacity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: SvgPicture.asset(
+                  svgPath,
+                  height: 24,
+                  width: 24,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Manrope',
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

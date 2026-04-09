@@ -24,6 +24,9 @@ class DocumentImageWidget extends StatefulWidget {
   final Widget? errorWidget;
   final double? fontSize;
   final Color? statusColor; // optional small status dot color
+  /// If true, the API-driven attendance dot is shown only when status == ABSENT.
+  /// (E.g. sign-in selection screens want to highlight absences only.)
+  final bool showOnlyAbsentAttendanceDot;
 
   const DocumentImageWidget({
     Key? key,
@@ -40,6 +43,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.errorWidget,
     this.fontSize,
     this.statusColor,
+    this.showOnlyAbsentAttendanceDot = false,
   }) : super(key: key);
 
   @override
@@ -109,8 +113,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       Color? color;
       String? label;
       if (normalized == 'SIGNED_IN') {
-        color = Colors.green;
-        label = 'Signed in';
+        if (widget.showOnlyAbsentAttendanceDot) {
+          color = null;
+          label = null;
+        } else {
+          color = Colors.green;
+          label = 'Signed in';
+        }
       } else if (normalized == 'ABSENT') {
         color = Colors.red;
         label = 'Absent';

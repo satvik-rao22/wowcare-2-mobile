@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -151,8 +150,6 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
-
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {}
 
   Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
@@ -333,10 +330,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final picked = DateTime(date.year, date.month, date.day);
-                            startDate = picked.isAfter(today) ? today : date;
+                            // Use the user's selected calendar date (no clamping).
+                            startDate = DateTime(date.year, date.month, date.day);
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }
@@ -362,10 +357,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final picked = DateTime(date.year, date.month, date.day);
-                            endDate = picked.isAfter(today) ? today : date;
+                            // Use the user's selected calendar date (no clamping).
+                            endDate = DateTime(date.year, date.month, date.day);
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }

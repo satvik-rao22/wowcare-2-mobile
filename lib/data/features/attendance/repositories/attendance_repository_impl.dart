@@ -934,11 +934,30 @@ class AttendanceRepositoryImpl
   }
 
   @override
+  Future<Map<String, String>> getStaffTodaySignInStatusMap(
+    List<String> staffCodes,
+  ) {
+    final codes = staffCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (codes.isEmpty) return Future.value(<String, String>{});
+    return _remoteDataSource.getStaffSignInStatus(staffCodes: codes);
+  }
+
+  @override
   Future<String?> getStudentTodaySignInStatus(String studentCode) async {
     final map = await _remoteDataSource.getStudentSignInStatus(
       studentCodes: <String>[studentCode],
     );
     return map[studentCode];
+  }
+
+  @override
+  Future<Map<String, String>> getStudentTodaySignInStatusMap(
+    List<String> studentCodes,
+  ) {
+    final codes =
+        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (codes.isEmpty) return Future.value(<String, String>{});
+    return _remoteDataSource.getStudentSignInStatus(studentCodes: codes);
   }
 
   @override

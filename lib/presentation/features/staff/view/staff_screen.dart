@@ -27,6 +27,9 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_fo
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
@@ -55,6 +58,9 @@ class _StaffScreenState extends State<StaffScreen> {
   // Tracks if the current refresh was triggered by changing filters/search,
   // so we only show the shimmer loader in that case.
   bool _refreshTriggeredByFilters = false;
+  final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
+  bool _attendanceStatusLoading = false;
+  bool _attendanceStatusError = false;
 
   @override
   void initState() {
@@ -134,6 +140,75 @@ class _StaffScreenState extends State<StaffScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _refreshAttendanceStatusForSelection() async {
+    if (_selectedStaffCodes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
+      final map = await useCase(staffCodes: _selectedStaffCodes.toList());
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  StaffAttendanceActionAvailability _attendanceAvailabilityForSelection(
+    StaffState staffState,
+  ) {
+    if (_selectedStaffCodes.isEmpty) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+    if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+
+    final gates = <StaffAttendanceGate>[];
+    for (final code in _selectedStaffCodes) {
+      StaffMember? member;
+      for (final s in staffState.items) {
+        if (s.code == code) {
+          member = s;
+          break;
+        }
+      }
+      final status = _attendanceStatusByStaffCode[code];
+      gates.add(
+        staffAttendanceGateFromTodayStatus(
+          isActiveProfile: member != null &&
+              member.status.trim().toUpperCase() == 'ACTIVE',
+          todayStatusRaw: status,
+        ),
+      );
+    }
+
+    return StaffAttendanceActionAvailability.fromGates(gates);
   }
 
   Future<void> _openAttendanceActionFlow(String actionName) async {
@@ -336,6 +411,9 @@ class _StaffScreenState extends State<StaffScreen> {
                     .read<ClassroomCubit>()
                     .loadActiveClassrooms(force: true, onlyTypeClassroom: false),
               ]);
+              if (mounted && _selectedStaffCodes.isNotEmpty) {
+                await _refreshAttendanceStatusForSelection();
+              }
             },
             child: SingleChildScrollView(
             controller: _scrollController,
@@ -810,6 +888,7 @@ class _StaffScreenState extends State<StaffScreen> {
                             .addAll(items.map((e) => e.code));
                       }
                     });
+                    _refreshAttendanceStatusForSelection();
                   },
                 ),
               ),
@@ -947,6 +1026,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             state.items.length &&
                                         state.items.isNotEmpty;
                                   });
+                                  _refreshAttendanceStatusForSelection();
                                 },
                       ),
                               if (index != state.items.length - 1)
@@ -975,6 +1055,8 @@ class _StaffScreenState extends State<StaffScreen> {
               bottom: 16,
               child: StaffActionPanel(
                 currentPanel: _currentPanel,
+                attendanceAvailability:
+                    _attendanceAvailabilityForSelection(staffState),
                 onAttendanceTap: () {
                   setState(() {
                     _currentPanel = _currentPanel == StaffPanelType.attendance
@@ -1033,6 +1115,7 @@ class _StaffScreenState extends State<StaffScreen> {
                     _selectedStaffCodes.clear();
                     _currentPanel = StaffPanelType.none;
                   });
+                  _refreshAttendanceStatusForSelection();
                 },
                 isProfileEnabled: selectedCount == 1,
                 activitiesEnabled: selectedCount > 0,

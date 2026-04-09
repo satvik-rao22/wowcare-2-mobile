@@ -95,8 +95,6 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     super.dispose();
   }
 
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {}
-
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
@@ -319,10 +317,8 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final picked = DateTime(date.year, date.month, date.day);
-                            startDate = picked.isAfter(today) ? today : date;
+                            // Use the user's selected calendar date (no clamping).
+                            startDate = DateTime(date.year, date.month, date.day);
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }
@@ -348,10 +344,8 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final picked = DateTime(date.year, date.month, date.day);
-                            endDate = picked.isAfter(today) ? today : date;
+                            // Use the user's selected calendar date (no clamping).
+                            endDate = DateTime(date.year, date.month, date.day);
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }

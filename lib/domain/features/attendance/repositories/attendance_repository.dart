@@ -208,11 +208,27 @@ abstract class AttendanceRepository {
   /// if the backend did not return a status for this code.
   Future<String?> getStaffTodaySignInStatus(String staffCode);
 
+  /// Current-day sign-in status for multiple staff members.
+  ///
+  /// Returns a map of `staffCode -> status` where status is typically
+  /// `SIGNED_IN` or `ABSENT`.
+  Future<Map<String, String>> getStaffTodaySignInStatusMap(
+    List<String> staffCodes,
+  );
+
   /// Current-day sign-in status for a single student.
   ///
   /// Returns a status string such as `SIGNED_IN` or `ABSENT`, or `null`
   /// if the backend did not return a status for this code.
   Future<String?> getStudentTodaySignInStatus(String studentCode);
+
+  /// Current-day sign-in status for multiple students.
+  ///
+  /// Returns a map of `studentCode -> status` where status is typically
+  /// `SIGNED_IN` or `ABSENT`.
+  Future<Map<String, String>> getStudentTodaySignInStatusMap(
+    List<String> studentCodes,
+  );
 
   /// Updates a single student attendance record (sign-in/sign-out entry).
   ///

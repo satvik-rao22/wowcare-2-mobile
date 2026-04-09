@@ -14,6 +14,8 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_f
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -66,6 +68,10 @@ class _StudentScreenState extends State<StudentScreen> {
   int _activeCount = 0;
   int _upcomingCount = 0;
   bool _isAttendanceActionLoading = false;
+  final Map<String, String> _attendanceStatusByStudentCode =
+      <String, String>{};
+  bool _attendanceStatusLoading = false;
+  bool _attendanceStatusError = false;
 
   @override
   void initState(){
@@ -376,6 +382,97 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
+  String? _todayStatusForStudentCode(String code) {
+    final t = code.trim();
+    if (t.isEmpty) return null;
+    if (_attendanceStatusByStudentCode.containsKey(t)) {
+      return _attendanceStatusByStudentCode[t];
+    }
+    final u = _normalizeStudentCode(t);
+    for (final e in _attendanceStatusByStudentCode.entries) {
+      if (_normalizeStudentCode(e.key) == u) return e.value;
+    }
+    return null;
+  }
+
+  Future<void> _refreshAttendanceStatusForSelection(
+    List<Student> students,
+  ) async {
+    final selected = _getSelectedStudents(students);
+    if (selected.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    final codes = selected
+        .map((s) => s.code.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (codes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: codes);
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
+    List<Student> students,
+  ) {
+    if (!_selectedDemo.any((e) => e)) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+    if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+
+    final selected = _getSelectedStudents(students);
+    if (selected.isEmpty) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+
+    final gates = selected.map((s) {
+      return studentAttendanceGateFromTodayStatus(
+        isActiveProfile: s.status.trim().toUpperCase() == 'ACTIVE',
+        todayStatusRaw: _todayStatusForStudentCode(s.code),
+      );
+    });
+    return StudentAttendanceActionAvailability.fromGates(gates);
+  }
+
   Future<void> _openAttendanceActionFlow({
     required List<Student> students,
     required String actionName,
@@ -653,10 +750,12 @@ class _StudentScreenState extends State<StudentScreen> {
         // Update selection list when students list changes
         if (_selectedDemo.length != students.length) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
             setState(() {
               _selectedDemo = List.filled(students.length, false);
               _selectAll = false;
             });
+            _refreshAttendanceStatusForSelection(students);
           });
         }
 
@@ -674,6 +773,8 @@ class _StudentScreenState extends State<StudentScreen> {
                     const SizedBox(width: 10,),
                     StudentActionPanel(
                       currentPanel: _currentPanel,
+                      attendanceAvailability:
+                          _attendanceAvailabilityForSelection(students),
                       onAttendanceTap: (){
                         setState(() {
                           final open = _currentPanel == StudentPanelType.attendance;
@@ -726,6 +827,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           _showActivitiesPanel = false;
                           _currentPanel = StudentPanelType.none;
                         });
+                        _refreshAttendanceStatusForSelection(students);
                       },
                       isProfileEnabled: selectedCount == 1,
                       activitiesEnabled: _canShowActivitiesButton(selectedCount, students),
@@ -765,6 +867,9 @@ class _StudentScreenState extends State<StudentScreen> {
                 _loadGuardianNameCodeMap(),
                 _loadStudentCounts(),
               ]);
+              if (mounted && _selectedDemo.any((e) => e)) {
+                await _refreshAttendanceStatusForSelection(students);
+              }
             },
             child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
@@ -1137,6 +1242,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           _selectAll = newVal;
                           _selectedDemo = List.filled(students.length, newVal);
                         });
+                        _refreshAttendanceStatusForSelection(students);
                       },
                     ),
                   ),
@@ -1211,6 +1317,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   }
                                   _selectAll = _selectedDemo.every((e) => e);
                                 });
+                                _refreshAttendanceStatusForSelection(students);
                               },
                               onEdit: () => _openEditStudentDetails(student.code),
                               onPrimaryAction: () async {
