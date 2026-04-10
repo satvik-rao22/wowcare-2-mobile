@@ -85,7 +85,6 @@ class PublishOptionCard extends StatelessWidget {
             if (showDateField && isUntilDateSelected) ...[
               const SizedBox(height: 24),
               CustomDateTimeField(
-                label: dateLabel ?? 'Until Date',
                 initialDate: DateTime(2024, 12, 31),
                 isRequired: true,
               ),

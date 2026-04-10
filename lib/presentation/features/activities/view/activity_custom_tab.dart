@@ -549,7 +549,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                           child: AbsorbPointer(
                             child: _buildCustomDropdown(
                               'Select Student',
-                              [?widget.studentName],
+                              [if (widget.studentName != null) widget.studentName!],
                               widget.studentName,
                                   (v) => setState(() {
                                 _selectedStudent = v;
@@ -1249,7 +1249,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                             child: AbsorbPointer(
                               child: _buildCustomDropdown(
                                 'Select Student',
-                                [?widget.studentName],
+                                [if (widget.studentName != null) widget.studentName!],
                                 widget.studentName,
                                     (v) => setState(() {
                                   _selectedStudent = v;
@@ -1871,7 +1871,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                           child: AbsorbPointer(
                             child: _buildCustomDropdown(
                               'Select Student',
-                              [?widget.studentName],
+                              [if (widget.studentName != null) widget.studentName!],
                               widget.studentName,
                                   (v) => setState(() {
                                 _selectedStudent = v;

@@ -8,30 +8,20 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 
-// Student entity used for Sign-In UI & API payload
+// Mock student entity for UI-only implementation
 class StudentEntity {
   final int id;
-  final String studentCode;
   final String fullName;
   final int roomId;
   final String roomName;
-  final String classroomCode;
   final String? photoUuid;
 
   StudentEntity({
     required this.id,
-    required this.studentCode,
     required this.fullName,
     required this.roomId,
     required this.roomName,
-    required this.classroomCode,
     this.photoUuid,
   });
 
@@ -40,10 +30,10 @@ class StudentEntity {
       identical(this, other) ||
       other is StudentEntity &&
           runtimeType == other.runtimeType &&
-          studentCode == other.studentCode;
+          id == other.id;
 
   @override
-  int get hashCode => studentCode.hashCode;
+  int get hashCode => id.hashCode;
 }
 
 class StudentSignInForm extends StatefulWidget {
@@ -66,7 +56,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
   List<StudentEntity> currentStudents = [];
-  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -90,150 +79,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         Navigator.pop(context);
       }
     });
-  }
-
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-  }
-
-  Future<void> _submitSignIn() async {
-    if (_isSubmitting) return;
-    if (currentStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No students selected to sign in'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceRecordsSignIn,
-      ApiConstants.attendanceBaseUrl,
-    );
-
-    final attendanceDate =
-        '${selectedDate.year.toString().padLeft(4, '0')}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
-
-    final occurredAt = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    ).toUtc();
-
-    final staffCode = await _resolveStaffCode();
-    if (!mounted) return;
-    if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    final studentCodes = currentStudents
-        .map((s) => s.studentCode.trim())
-        .where((code) => code.isNotEmpty)
-        .toList();
-    if (studentCodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Student code missing for selected students'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    final classroomCodeByStudentCode = <String, String>{
-      for (final s in currentStudents)
-        if (s.studentCode.trim().isNotEmpty && s.classroomCode.trim().isNotEmpty)
-          s.studentCode.trim(): s.classroomCode.trim(),
-    };
-    final defaultClassroomCode = classroomCodeByStudentCode.values.isNotEmpty
-        ? classroomCodeByStudentCode.values.first
-        : '';
-    if (defaultClassroomCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Classroom code missing for selected students'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    final payload = <String, dynamic>{
-      'attendanceDate': attendanceDate,
-      'staffCode': staffCode,
-      'studentCodes': studentCodes,
-      'classroomCode': defaultClassroomCode,
-      'classroomCodeByStudentCode': classroomCodeByStudentCode,
-      'method': 'APP',
-      'latitude': 0,
-      'longitude': 0,
-      'withinGeofence': true,
-      'timeZone': 'Asia/Kolkata',
-      'occurredAt': occurredAt.toIso8601String(),
-    };
-
-    try {
-      final response = await client.post<dynamic>(
-        endpoint,
-        data: payload,
-      );
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Signed-In successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
-        ),
-      );
-
-      if (success) {
-        Navigator.pop(context);
-        widget.refreshCallback();
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to sign in students. Please try again.'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
   }
 
   @override
@@ -296,7 +141,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                 Colors.grey.shade600,
                                 BlendMode.srcIn,
                               ),
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -328,11 +173,20 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-In',
-        onPressedConfirm: _isSubmitting ? null : _submitSignIn,
+        onPressedConfirm: () {
+          // UI-only: Just show success and navigate back
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Signed-In successfully'),
+              backgroundColor: AppColors.successColor,
+            ),
+          );
+          Navigator.pop(context);
+          widget.refreshCallback();
+        },
       ),
     );
   }
-
 }
 
 // Simplified RemoveStudentTile widget for UI-only implementation
@@ -349,14 +203,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -386,7 +235,7 @@ class RemoveStudentTile extends StatelessWidget {
           GestureDetector(
             onTap: onRemove,
             child: SvgPicture.asset(MediaRes.delete_icon),
-          )
+          ),
         ],
       ),
     );

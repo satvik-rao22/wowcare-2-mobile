@@ -26,6 +26,7 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
 
@@ -57,8 +58,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final authCubit = context.read<AuthCubit>();
       final orgCode = await storage.getString(StorageKeys.organizationCode);
       final schoolCode = await storage.getString(StorageKeys.schoolCode);
-      final selectedName =
-          await storage.getString(StorageKeys.selectedSchoolName);
+      final selectedName = await storage.getString(
+        StorageKeys.selectedSchoolName,
+      );
       List<Map<String, String>> schoolsForOrg = const <Map<String, String>>[];
 
       // Primary source: API-backed school list
@@ -84,10 +86,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
       // Keep only entries with valid code; prefer readable schoolName.
       schoolsForOrg = schoolsForOrg
           .where((e) => (e['schoolCode'] ?? '').trim().isNotEmpty)
-          .map((e) => <String, String>{
-                'schoolCode': (e['schoolCode'] ?? '').trim(),
-                'schoolName': (e['schoolName'] ?? '').trim(),
-              })
+          .map(
+            (e) => <String, String>{
+              'schoolCode': (e['schoolCode'] ?? '').trim(),
+              'schoolName': (e['schoolName'] ?? '').trim(),
+            },
+          )
           .toList();
 
       if (!mounted) return;
@@ -287,7 +291,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
   Future<void> _onSchoolSelected(String schoolCode, String schoolName) async {
     if (_currentOrgCode == null || _currentOrgCode!.isEmpty) return;
-    final isSchoolChanged = (_selectedSchoolCode ?? '').trim() != schoolCode.trim();
+    final isSchoolChanged =
+        (_selectedSchoolCode ?? '').trim() != schoolCode.trim();
 
     final authLocal = serviceLocator<AuthLocalDataSource>();
     final authCubit = context.read<AuthCubit>();
@@ -336,9 +341,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       width: MediaQuery.of(context).size.width * 2 / 3,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-        ),
+        decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
         child: Column(
           children: [
             _header(),
@@ -358,12 +361,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         title: 'Dashboard',
                         icon: MediaRes.dashboardIcon,
                         isDashboard: true,
-                        isCurrentRoute: _currentRoute == DashboardScreen.routeName,
+                        isCurrentRoute:
+                            _currentRoute == DashboardScreen.routeName,
                         onTap: () {
                           Navigator.pop(context);
                           if (_currentRoute != DashboardScreen.routeName) {
                             Navigator.pushNamed(
-                                context, DashboardScreen.routeName);
+                              context,
+                              DashboardScreen.routeName,
+                            );
                           }
                         },
                       ),
@@ -379,8 +385,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 builder: (_) => MultiBlocProvider(
                                   providers: [
                                     BlocProvider<StudentCubit>(
-                                      create: (_) => serviceLocator<StudentCubit>()
-                                        ..loadInitial(),
+                                      create: (_) =>
+                                          serviceLocator<StudentCubit>()
+                                            ..loadInitial(),
                                     ),
                                     BlocProvider<ClassroomCubit>(
                                       create: (_) =>
@@ -401,7 +408,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                  builder: (_) => const ComingSoonScreen()),
+                                builder: (_) => const ComingSoonScreen(),
+                              ),
                             );
                           },
                         ),
@@ -412,10 +420,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               _currentRoute == ActivityFeedScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
-                            if (_currentRoute !=
-                                ActivityFeedScreen.routeName) {
+                            if (_currentRoute != ActivityFeedScreen.routeName) {
                               Navigator.pushNamed(
-                                  context, ActivityFeedScreen.routeName);
+                                context,
+                                ActivityFeedScreen.routeName,
+                              );
                             }
                           },
                         ),
@@ -431,7 +440,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.parentMessaging,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -441,7 +452,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       userPersona: UserPersona.parent,
                                     ),
                                     settings: const RouteSettings(
-                                        name: MessagingScreen.routeName),
+                                      name: MessagingScreen.routeName,
+                                    ),
                                   ),
                                 );
                               },
@@ -451,7 +463,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.newsletter,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -461,7 +475,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       userPersona: UserPersona.parent,
                                     ),
                                     settings: const RouteSettings(
-                                        name: MessagingScreen.routeName),
+                                      name: MessagingScreen.routeName,
+                                    ),
                                   ),
                                 );
                               },
@@ -478,7 +493,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             if (_currentRoute !=
                                 ParentBillingScreen.routeName) {
                               Navigator.pushNamed(
-                                  context, ParentBillingScreen.routeName);
+                                context,
+                                ParentBillingScreen.routeName,
+                              );
                             }
                           },
                         ),
@@ -491,7 +508,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                  builder: (_) => const ClassroomScreen()),
+                                builder: (_) => const ClassroomScreen(),
+                              ),
                             );
                           },
                         ),
@@ -505,8 +523,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 builder: (_) => MultiBlocProvider(
                                   providers: [
                                     BlocProvider<StudentCubit>(
-                                      create: (_) => serviceLocator<StudentCubit>()
-                                        ..loadInitial(),
+                                      create: (_) =>
+                                          serviceLocator<StudentCubit>()
+                                            ..loadInitial(),
                                     ),
                                     BlocProvider<ClassroomCubit>(
                                       create: (_) =>
@@ -529,20 +548,25 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             if (_currentRoute != StaffScreen.routeName) {
                               Navigator.pushNamed(
-                                  context, StaffScreen.routeName);
+                                context,
+                                StaffScreen.routeName,
+                              );
                             }
                           },
                         ),
-                           _CustomExpansionTile(
+                        _CustomExpansionTile(
                           title: 'Staff-Schedule',
                           icon: MediaRes.staffs_drawer_icon,
                           isCurrentRoute:
                               _currentRoute == StaffSchedulingScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
-                            if (_currentRoute != StaffSchedulingScreen.routeName) {
+                            if (_currentRoute !=
+                                StaffSchedulingScreen.routeName) {
                               Navigator.pushNamed(
-                                  context, StaffSchedulingScreen.routeName);
+                                context,
+                                StaffSchedulingScreen.routeName,
+                              );
                             }
                           },
                         ),
@@ -556,14 +580,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.studentAttendanceDrawer,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                      builder: (_) =>
-                                          const StudentAttendanceTabbedView()),
+                                    builder: (_) =>
+                                        const StudentAttendanceTabbedView(),
+                                  ),
                                 );
                               },
                             ),
@@ -572,14 +599,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.staffAttendanceDrawer,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                      builder: (_) =>
-                                          const StaffAttendanceTabbedView()),
+                                    builder: (_) =>
+                                        const StaffAttendanceTabbedView(),
+                                  ),
                                 );
                               },
                             ),
@@ -592,10 +622,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               _currentRoute == ActivityFeedScreen.routeName,
                           onTap: () {
                             Navigator.pop(context);
-                            if (_currentRoute !=
-                                ActivityFeedScreen.routeName) {
+                            if (_currentRoute != ActivityFeedScreen.routeName) {
                               Navigator.pushNamed(
-                                  context, ActivityFeedScreen.routeName);
+                                context,
+                                ActivityFeedScreen.routeName,
+                              );
                             }
                           },
                         ),
@@ -609,7 +640,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.staffMessaging,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -619,7 +652,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       userPersona: UserPersona.admin,
                                     ),
                                     settings: const RouteSettings(
-                                        name: MessagingScreen.routeName),
+                                      name: MessagingScreen.routeName,
+                                    ),
                                   ),
                                 );
                               },
@@ -629,7 +663,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.parentMessaging,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -640,7 +676,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       initialTabIndex: 1,
                                     ),
                                     settings: const RouteSettings(
-                                        name: MessagingScreen.routeName),
+                                      name: MessagingScreen.routeName,
+                                    ),
                                   ),
                                 );
                               },
@@ -650,7 +687,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.newsletter,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -660,7 +699,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       userPersona: UserPersona.admin,
                                     ),
                                     settings: const RouteSettings(
-                                        name: MessagingScreen.routeName),
+                                      name: MessagingScreen.routeName,
+                                    ),
                                   ),
                                 );
                               },
@@ -674,7 +714,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             if (_currentRoute != BillingScreen.routeName) {
                               Navigator.pushNamed(
-                                  context, BillingScreen.routeName);
+                                context,
+                                BillingScreen.routeName,
+                              );
                             }
                           },
                         ),
@@ -688,7 +730,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.settings_drawer_Blue,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {},
                             ),
@@ -697,7 +741,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               leading: SvgPicture.asset(
                                 MediaRes.settings_drawer_Blue,
                                 colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor, BlendMode.srcIn),
+                                  AppColors.themeColor,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                               onTap: () {},
                             ),
@@ -828,9 +874,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 title: Text(
                   widget.title,
                   maxLines: 1,
-                  style: TextStyle(
-                    color: _getTextColor(),
-                  ),
+                  style: TextStyle(color: _getTextColor()),
                 ),
                 children: widget.children,
                 trailing: const Icon(Icons.keyboard_arrow_down),
@@ -855,8 +899,8 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 tileColor: (widget.isDashboard && widget.isCurrentRoute)
                     ? Colors.white
                     : (!widget.isDashboard && widget.isCurrentRoute)
-                        ? Colors.white
-                        : Colors.transparent,
+                    ? Colors.white
+                    : Colors.transparent,
                 selected: widget.isCurrentRoute,
                 selectedTileColor: Colors.white,
               ),
@@ -887,11 +931,7 @@ class DrawerListTile extends StatelessWidget {
       onTap: onTap,
       horizontalTitleGap: horizontalTitleGap,
       leading: leading,
-      title: Text(
-        title,
-        maxLines: 1,
-        style: TextStyle(color: textColor),
-      ),
+      title: Text(title, maxLines: 1, style: TextStyle(color: textColor)),
     );
   }
 }

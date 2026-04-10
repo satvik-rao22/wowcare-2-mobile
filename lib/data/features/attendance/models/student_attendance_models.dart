@@ -11,8 +11,6 @@ class StudentAttendanceDailyItemModel extends Equatable {
     this.signedInTime,
     this.signedOutAt,
     this.signedOutTime,
-    this.signedInMethod,
-    this.signedOutMethod,
     required this.classroomCode,
     required this.tagCodes,
     required this.tagNames,
@@ -28,8 +26,6 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final StudentAttendanceTimeModel? signedInTime;
   final String? signedOutAt;
   final StudentAttendanceTimeModel? signedOutTime;
-  final String? signedInMethod;
-  final String? signedOutMethod;
   final String classroomCode;
   final List<String> tagCodes;
   final List<String> tagNames;
@@ -37,10 +33,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
-      // Backend now returns the attendance record identifier as `code`.
-      // Fall back to `attendanceRecordCode` for backward compatibility.
-      attendanceRecordCode:
-          (json['attendanceRecordCode'] ?? json['code']) as String?,
+      attendanceRecordCode: json['attendanceRecordCode'] as String?,
       studentCode: json['studentCode'] as String?,
       studentName: json['studentName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
@@ -53,15 +46,14 @@ class StudentAttendanceDailyItemModel extends Equatable {
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
-      // Backend exposes how the student was signed in/out (GPS, PIN, QR, APP, etc.)
-      signedInMethod: json['signedInMethod'] as String?,
-      signedOutMethod: json['signedOutMethod'] as String?,
       classroomCode: json['classroomCode'] as String? ?? '',
-      tagCodes: (json['tagCodes'] as List<dynamic>?)
+      tagCodes:
+          (json['tagCodes'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      tagNames: (json['tagNames'] as List<dynamic>?)
+      tagNames:
+          (json['tagNames'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
@@ -80,8 +72,6 @@ class StudentAttendanceDailyItemModel extends Equatable {
       'signedInTime': signedInTime?.toJson(),
       'signedOutAt': signedOutAt,
       'signedOutTime': signedOutTime?.toJson(),
-      'signedInMethod': signedInMethod,
-      'signedOutMethod': signedOutMethod,
       'classroomCode': classroomCode,
       'tagCodes': tagCodes,
       'tagNames': tagNames,
@@ -91,22 +81,20 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        attendanceRecordCode,
-        studentCode,
-        studentName,
-        isExpectedToday,
-        classroomName,
-        signedInAt,
-        signedInTime,
-        signedOutAt,
-        signedOutTime,
-        signedInMethod,
-        signedOutMethod,
-        classroomCode,
-        tagCodes,
-        tagNames,
-        duration,
-      ];
+    attendanceRecordCode,
+    studentCode,
+    studentName,
+    isExpectedToday,
+    classroomName,
+    signedInAt,
+    signedInTime,
+    signedOutAt,
+    signedOutTime,
+    classroomCode,
+    tagCodes,
+    tagNames,
+    duration,
+  ];
 }
 
 class StudentAttendanceTimeModel extends Equatable {
@@ -148,8 +136,10 @@ class StudentAttendanceTimeModel extends Equatable {
             if (secPart.contains('.')) {
               final secSplit = secPart.split('.');
               second = int.tryParse(secSplit.first) ?? 0;
-              nano = int.tryParse(
-                        secSplit.last.padRight(9, '0').substring(0, 9)) ??
+              nano =
+                  int.tryParse(
+                    secSplit.last.padRight(9, '0').substring(0, 9),
+                  ) ??
                   0;
             } else {
               second = int.tryParse(secPart) ?? 0;
@@ -172,12 +162,7 @@ class StudentAttendanceTimeModel extends Equatable {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'hour': hour,
-      'minute': minute,
-      'second': second,
-      'nano': nano,
-    };
+    return {'hour': hour, 'minute': minute, 'second': second, 'nano': nano};
   }
 
   /// Formats time as "HH:mm AM/PM"
@@ -210,8 +195,14 @@ class StudentAttendanceDailyPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
   factory StudentAttendanceDailyPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
@@ -222,8 +213,11 @@ class StudentAttendanceDailyPageModel extends Equatable {
     final totalElements = data['totalElements'] as int? ?? content.length;
 
     final items = content
-        .map((e) =>
-            StudentAttendanceDailyItemModel.fromJson(e as Map<String, dynamic>))
+        .map(
+          (e) => StudentAttendanceDailyItemModel.fromJson(
+            e as Map<String, dynamic>,
+          ),
+        )
         .toList();
 
     final hasMore = pageNumber + 1 < totalPages;
@@ -250,12 +244,16 @@ class StudentAttendanceDailyPageModel extends Equatable {
   }
 
   factory StudentAttendanceDailyPageModel.fromCacheJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final itemsJson = json['content'] as List<dynamic>? ?? const [];
     return StudentAttendanceDailyPageModel(
       items: itemsJson
-          .map((e) =>
-              StudentAttendanceDailyItemModel.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) => StudentAttendanceDailyItemModel.fromJson(
+              e as Map<String, dynamic>,
+            ),
+          )
           .toList(),
       page: json['number'] as int? ?? 0,
       size: json['size'] as int? ?? itemsJson.length,
@@ -301,9 +299,7 @@ class StudentAttendanceCustomItemModel extends Equatable {
   final List<String> tagCodes;
   final List<String> tagNames;
 
-  factory StudentAttendanceCustomItemModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory StudentAttendanceCustomItemModel.fromJson(Map<String, dynamic> json) {
     String? _parseTime(dynamic value) {
       if (value == null) return null;
       if (value is String) return value;
@@ -330,11 +326,13 @@ class StudentAttendanceCustomItemModel extends Equatable {
       signedInTime: _parseTime(json['signedInTime']),
       signedOutBy: json['signedOutBy'] as String?,
       signedOutTime: _parseTime(json['signedOutTime']),
-      tagCodes: (json['tagCodes'] as List<dynamic>?)
+      tagCodes:
+          (json['tagCodes'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      tagNames: (json['tagNames'] as List<dynamic>?)
+      tagNames:
+          (json['tagNames'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
@@ -366,22 +364,22 @@ class StudentAttendanceCustomItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        studentCode,
-        studentName,
-        isExpectedToday,
-        classroomName,
-        classroomCode,
-        attendedDays,
-        attendedTime,
-        attendedHours,
-        attendedMinutes,
-        signedInBy,
-        signedInTime,
-        signedOutBy,
-        signedOutTime,
-        tagCodes,
-        tagNames,
-      ];
+    studentCode,
+    studentName,
+    isExpectedToday,
+    classroomName,
+    classroomCode,
+    attendedDays,
+    attendedTime,
+    attendedHours,
+    attendedMinutes,
+    signedInBy,
+    signedInTime,
+    signedOutBy,
+    signedOutTime,
+    tagCodes,
+    tagNames,
+  ];
 }
 
 class StudentAttendanceCustomPageModel extends Equatable {
@@ -402,12 +400,16 @@ class StudentAttendanceCustomPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
-  factory StudentAttendanceCustomPageModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory StudentAttendanceCustomPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
     final content = data['content'] as List<dynamic>? ?? const [];
     final pageNumber = data['number'] as int? ?? 0;
@@ -479,8 +481,6 @@ class StaffAttendanceDailyItemModel extends Equatable {
     this.signedInTime,
     this.signedOutBy,
     this.signedOutTime,
-    this.signedInMethod,
-    this.signedOutMethod,
     required this.designation,
     this.attendedTime,
     this.attendedHours,
@@ -502,12 +502,6 @@ class StaffAttendanceDailyItemModel extends Equatable {
   final int? attendedHours;
   final int? attendedMinutes;
 
-  /// Sign-in method code as returned by the API (e.g. GPS, PIN, QR, APP).
-  final String? signedInMethod;
-
-  /// Sign-out method code as returned by the API (e.g. GPS, PIN, QR, APP).
-  final String? signedOutMethod;
-
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
       staffCode: json['staffCode'] as String? ?? '',
@@ -524,9 +518,8 @@ class StaffAttendanceDailyItemModel extends Equatable {
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
-      signedInMethod: json['signedInMethod'] as String?,
-      signedOutMethod: json['signedOutMethod'] as String?,
-      designation: (json['designation'] as List<dynamic>?)
+      designation:
+          (json['designation'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
@@ -548,8 +541,6 @@ class StaffAttendanceDailyItemModel extends Equatable {
       'signedInTime': signedInTime?.toJson(),
       'signedOutBy': signedOutBy,
       'signedOutTime': signedOutTime?.toJson(),
-      'signedInMethod': signedInMethod,
-      'signedOutMethod': signedOutMethod,
       'designation': designation,
       'attendedTime': attendedTime,
       'attendedHours': attendedHours,
@@ -559,23 +550,21 @@ class StaffAttendanceDailyItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        staffName,
-        isExpectedToday,
-        classroomName,
-        classroomCode,
-        attendedDays,
-        signedInBy,
-        signedInTime,
-        signedOutBy,
-        signedOutTime,
-        signedInMethod,
-        signedOutMethod,
-        designation,
-        attendedTime,
-        attendedHours,
-        attendedMinutes,
-      ];
+    staffCode,
+    staffName,
+    isExpectedToday,
+    classroomName,
+    classroomCode,
+    attendedDays,
+    signedInBy,
+    signedInTime,
+    signedOutBy,
+    signedOutTime,
+    designation,
+    attendedTime,
+    attendedHours,
+    attendedMinutes,
+  ];
 }
 
 class StaffAttendanceDailyPageModel extends Equatable {
@@ -596,8 +585,14 @@ class StaffAttendanceDailyPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
   factory StaffAttendanceDailyPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
@@ -609,9 +604,8 @@ class StaffAttendanceDailyPageModel extends Equatable {
 
     final items = content
         .map(
-          (e) => StaffAttendanceDailyItemModel.fromJson(
-            e as Map<String, dynamic>,
-          ),
+          (e) =>
+              StaffAttendanceDailyItemModel.fromJson(e as Map<String, dynamic>),
         )
         .toList();
 
@@ -714,16 +708,16 @@ class StaffAttendanceAbsentItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        staffName,
-        classroomCode,
-        classroomName,
-        absenceDate,
-        markedAbsentTime,
-        markedAbsentByName,
-        absenceNote,
-        absentDays,
-      ];
+    staffCode,
+    staffName,
+    classroomCode,
+    classroomName,
+    absenceDate,
+    markedAbsentTime,
+    markedAbsentByName,
+    absenceNote,
+    absentDays,
+  ];
 }
 
 class StaffAttendanceAbsentPageModel extends Equatable {
@@ -744,8 +738,14 @@ class StaffAttendanceAbsentPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
   factory StaffAttendanceAbsentPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
@@ -865,16 +865,16 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        studentCode,
-        studentName,
-        classroomCode,
-        classroomName,
-        absenceDate,
-        markedAbsentTime,
-        markedAbsentByName,
-        absenceNote,
-        absentDays,
-      ];
+    studentCode,
+    studentName,
+    classroomCode,
+    classroomName,
+    absenceDate,
+    markedAbsentTime,
+    markedAbsentByName,
+    absenceNote,
+    absentDays,
+  ];
 }
 
 class StudentAttendanceAbsentFormPageModel extends Equatable {
@@ -895,8 +895,14 @@ class StudentAttendanceAbsentFormPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
   factory StudentAttendanceAbsentFormPageModel.fromJson(
     Map<String, dynamic> json,
@@ -939,95 +945,3 @@ class StudentAttendanceAbsentFormPageModel extends Equatable {
     };
   }
 }
-
-/// Expected attendance summary for the daily view "Expected Students" card.
-class StudentAttendanceExpectedSummaryModel extends Equatable {
-  const StudentAttendanceExpectedSummaryModel({
-    required this.expected,
-    required this.present,
-    required this.absent,
-    required this.signOut,
-    required this.notMarked,
-  });
-
-  final int expected;
-  final int present;
-  final int absent;
-  final int signOut;
-  final int notMarked;
-
-  /// Parses the wrapped API response:
-  /// {
-  ///   "success": true,
-  ///   "message": "...",
-  ///   "data": {
-  ///     "expected": 10,
-  ///     "present": 0,
-  ///     "absent": 4,
-  ///     "signout": 0,
-  ///     "notMarked": 6
-  ///   },
-  ///   ...
-  /// }
-  factory StudentAttendanceExpectedSummaryModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
-    return StudentAttendanceExpectedSummaryModel(
-      expected: data['expected'] as int? ?? 0,
-      present: data['present'] as int? ?? 0,
-      absent: data['absent'] as int? ?? 0,
-      signOut: data['signout'] as int? ?? 0,
-      notMarked: data['notMarked'] as int? ?? 0,
-    );
-  }
-
-  @override
-  List<Object?> get props => [
-        expected,
-        present,
-        absent,
-        signOut,
-        notMarked,
-      ];
-}
-
-/// Staff expected attendance summary for the daily view "Expected Staff" card.
-class StaffAttendanceExpectedSummaryModel extends Equatable {
-  const StaffAttendanceExpectedSummaryModel({
-    required this.expected,
-    required this.present,
-    required this.absent,
-    required this.signOut,
-    required this.notMarked,
-  });
-
-  final int expected;
-  final int present;
-  final int absent;
-  final int signOut;
-  final int notMarked;
-
-  factory StaffAttendanceExpectedSummaryModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
-    return StaffAttendanceExpectedSummaryModel(
-      expected: data['expected'] as int? ?? 0,
-      present: data['present'] as int? ?? 0,
-      absent: data['absent'] as int? ?? 0,
-      signOut: data['signout'] as int? ?? 0,
-      notMarked: data['notMarked'] as int? ?? 0,
-    );
-  }
-
-  @override
-  List<Object?> get props => [
-        expected,
-        present,
-        absent,
-        signOut,
-        notMarked,
-      ];
-}
-

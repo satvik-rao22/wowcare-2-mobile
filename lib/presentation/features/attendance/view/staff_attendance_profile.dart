@@ -23,10 +23,7 @@ class _AttendanceField extends StatelessWidget {
   final String label;
   final String text;
 
-  const _AttendanceField({
-    required this.label,
-    required this.text,
-  });
+  const _AttendanceField({required this.label, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +48,7 @@ class _AttendanceField extends StatelessWidget {
           child: AppText.value(
             text,
             textAlign: TextAlign.end,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -183,22 +177,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   _StaffModel? staff;
   _AttendanceReportModel? attendanceReport;
 
-  /// Helper to format API time (either a string or {hour, minute, ...} map)
-  /// into 'hh:mm:ss a' which works with the existing `formatTime` helper.
-  String _formatApiTime(dynamic value) {
-    if (value == null) return '';
-    if (value is String) return value;
-    if (value is Map<String, dynamic>) {
-      final hour = value['hour'] as int? ?? 0;
-      final minute = value['minute'] as int? ?? 0;
-      final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-      final period = hour >= 12 ? 'PM' : 'AM';
-      final mm = minute.toString().padLeft(2, '0');
-      return '$h12:$mm:00 $period';
-    }
-    return value.toString();
-  }
-
   @override
   void initState() {
     super.initState();
@@ -223,32 +201,19 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    if (widget.staffCode.isEmpty) {
-      setState(() {
-        isAttendancesLoading = false;
-        isAbsentDaysLoading = false;
-        isStaffLoading = false;
-      });
-      return;
-    }
-
+  void _loadData() {
     final from = _startDate ?? DateTime.now();
     final to = _endDate ?? from;
 
     setState(() {
       isAttendancesLoading = true;
-      isAbsentDaysLoading = true;
+      isAbsentDaysLoading = false;
       isStaffLoading = true;
     });
 
     final apiClient = serviceLocator<ApiClient>().client;
-    final profileEndpoint = ApiPaths.urlWithBase(
+    final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceProfile,
-      ApiConstants.attendanceBaseUrl,
-    );
-    final absentEndpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceProfileAbsentToggle,
       ApiConstants.attendanceBaseUrl,
     );
 
@@ -265,176 +230,97 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     };
 
     debugPrint(
-      'StaffAttendanceProfile API → GET $profileEndpoint '
+      'StaffAttendanceProfile API → GET $endpoint '
       'query=$queryParameters',
     );
 
-    try {
-      // ---------- Load staff attendance profile (present days / summary) ----------
-      final profileResponse = await apiClient.get<dynamic>(
-        profileEndpoint,
-        queryParameters: queryParameters,
-      );
+    apiClient
+        .get<dynamic>(endpoint, queryParameters: queryParameters)
+        .then((response) {
+          debugPrint(
+            'StaffAttendanceProfile API ← status=${response.statusCode} '
+            'data=${response.data}',
+          );
 
-      debugPrint(
-        'StaffAttendanceProfile API ← status=${profileResponse.statusCode} '
-        'data=${profileResponse.data}',
-      );
+          if (!mounted) return;
 
-      final data = profileResponse.data;
-      if (data is Map<String, dynamic>) {
-        final root = data['data'] as Map<String, dynamic>? ?? {};
-        final aggJson = root['aggregations'] as Map<String, dynamic>? ?? {};
-        final recordsJson = root['records'] as Map<String, dynamic>? ?? {};
-        final content = recordsJson['content'] as List<dynamic>? ?? const [];
-
-        // Aggregations
-        final attendedDays = (aggJson['attendedDays'] as int?) ?? 0;
-        final totalAttendedHours =
-            (aggJson['totalAttendedTime'] as String?) ?? '';
-        final initialAbsentDays = (aggJson['absentDays'] as int?) ?? 0;
-
-        // Records
-        final loadedAttendances = content.map<_AttendanceModel>((e) {
-          final m = e as Map<String, dynamic>;
-
-          String _parseTime(dynamic value) {
-            if (value == null) return '';
-            if (value is String) return value;
-            if (value is Map<String, dynamic>) {
-              final hour = value['hour'] as int? ?? 0;
-              final minute = value['minute'] as int? ?? 0;
-              final second = value['second'] as int? ?? 0;
-              final h = hour.toString().padLeft(2, '0');
-              final mStr = minute.toString().padLeft(2, '0');
-              final sStr = second.toString().padLeft(2, '0');
-              return '$h:$mStr:$sStr';
-            }
-            return value.toString();
+          final data = response.data;
+          if (data is! Map<String, dynamic>) {
+            setState(() {
+              isAttendancesLoading = false;
+              isStaffLoading = false;
+            });
+            return;
           }
 
-          final dateStr = m['attendanceDate'] as String? ?? '';
-          final parsedDate = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+          final root = data['data'] as Map<String, dynamic>? ?? {};
+          final aggJson = root['aggregations'] as Map<String, dynamic>? ?? {};
+          final recordsJson = root['records'] as Map<String, dynamic>? ?? {};
+          final content = recordsJson['content'] as List<dynamic>? ?? const [];
 
-          final signInRaw = _parseTime(m['signedInTime']);
-          final signOutRaw = _parseTime(m['signedOutTime']);
-
-          return _AttendanceModel(
-            date: parsedDate,
-            signInTime: signInRaw,
-            signOutTime: signOutRaw,
-            roomName: (m['classroomName'] as String?) ?? widget.roomName,
-            signInBy: (m['signedInBy'] as String?) ?? '',
-            signOutBy: (m['signedOutBy'] as String?) ?? '',
+          // Aggregations
+          attendanceReport = _AttendanceReportModel(
+            attendedDays: (aggJson['attendedDays'] as int?) ?? 0,
+            totalAttendedHours: (aggJson['totalAttendedTime'] as String?) ?? '',
+            absentDays: (aggJson['absentDays'] as int?) ?? 0,
           );
-        }).toList();
 
-        if (mounted) {
-          setState(() {
-            attendanceReport = _AttendanceReportModel(
-              attendedDays: attendedDays,
-              totalAttendedHours: totalAttendedHours,
-              absentDays: initialAbsentDays,
+          // Records
+          attendances = content.map<_AttendanceModel>((e) {
+            final m = e as Map<String, dynamic>;
+
+            String _parseTime(dynamic value) {
+              if (value == null) return '';
+              if (value is String) return value;
+              if (value is Map<String, dynamic>) {
+                final hour = value['hour'] as int? ?? 0;
+                final minute = value['minute'] as int? ?? 0;
+                final second = value['second'] as int? ?? 0;
+                final h = hour.toString().padLeft(2, '0');
+                final mStr = minute.toString().padLeft(2, '0');
+                final sStr = second.toString().padLeft(2, '0');
+                return '$h:$mStr:$sStr';
+              }
+              return value.toString();
+            }
+
+            final dateStr = m['attendanceDate'] as String? ?? '';
+            final parsedDate = dateStr.isNotEmpty
+                ? DateTime.tryParse(dateStr) ?? DateTime.now()
+                : DateTime.now();
+
+            final signInRaw = _parseTime(m['signedInTime']);
+            final signOutRaw = _parseTime(m['signedOutTime']);
+
+            return _AttendanceModel(
+              date: parsedDate,
+              signInTime: signInRaw,
+              signOutTime: signOutRaw,
+              roomName: (m['classroomName'] as String?) ?? widget.roomName,
+              signInBy: (m['signedInBy'] as String?) ?? '',
+              signOutBy: (m['signedOutBy'] as String?) ?? '',
             );
-            attendances = loadedAttendances;
-            isAttendancesLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
+          }).toList();
+
           setState(() {
             isAttendancesLoading = false;
-          });
-        }
-      }
-
-      // ---------- Load staff absent profile for toggle list ----------
-      final absentQueryParameters = <String, dynamic>{
-        'staffCode': widget.staffCode,
-        'fromAbsenceDate': fromStr,
-        'toAbsenceDate': toStr,
-        'page': 0,
-        'size': 10,
-        'sort': <String>['absenceDate,desc'],
-      };
-
-      debugPrint(
-        'StaffAttendanceProfileAbsentToggle API → GET $absentEndpoint '
-        'query=$absentQueryParameters',
-      );
-
-      final absentResponse = await apiClient.get<dynamic>(
-        absentEndpoint,
-        queryParameters: absentQueryParameters,
-      );
-
-      debugPrint(
-        'StaffAttendanceProfileAbsentToggle API ← status=${absentResponse.statusCode} '
-        'data=${absentResponse.data}',
-      );
-
-      final absentData = absentResponse.data;
-      if (absentData is Map<String, dynamic>) {
-        final root = absentData['data'] as Map<String, dynamic>? ?? {};
-        final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
-        final records = root['records'] as Map<String, dynamic>? ?? {};
-        final content = records['content'] as List<dynamic>? ?? const [];
-
-        final absentDaysCount = agg['absentDays'] as int? ?? 0;
-
-        final loadedAbsentDays = content.map<_AbsentDayModel>((e) {
-          final m = e as Map<String, dynamic>;
-          final dateStr = m['absenceDate'] as String? ?? '';
-          final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
-
-          return _AbsentDayModel(
-            startDate: date,
-            endDate: date,
-            absentTime: _formatApiTime(m['markedAbsentTime']),
-            absentBy: m['markedAbsentBy'] as String? ?? '',
-            note: m['absenceNote'] as String? ?? '',
-          );
-        }).toList();
-
-        if (mounted) {
-          setState(() {
-            attendanceReport = _AttendanceReportModel(
-              attendedDays: attendanceReport?.attendedDays ?? 0,
-              totalAttendedHours:
-                  attendanceReport?.totalAttendedHours ?? '',
-              absentDays: absentDaysCount,
-            );
-            absentDays = loadedAbsentDays;
             isAbsentDaysLoading = false;
             isStaffLoading = false;
           });
-        }
-      } else {
-        if (mounted) {
+        })
+        .catchError((error, stack) {
+          debugPrint('StaffAttendanceProfile API error: $error');
+          if (!mounted) return;
           setState(() {
+            isAttendancesLoading = false;
             isAbsentDaysLoading = false;
             isStaffLoading = false;
           });
-        }
-      }
-    } catch (error, stack) {
-      debugPrint('StaffAttendanceProfile API error: $error');
-      debugPrint('$stack');
-      if (!mounted) return;
-      setState(() {
-        isAttendancesLoading = false;
-        isAbsentDaysLoading = false;
-        isStaffLoading = false;
-      });
-    }
+        });
   }
 
   Future<void> refreshData() async {
-    await _loadData();
+    _loadData();
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
@@ -447,6 +333,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
     return GlobalScaffold(
@@ -458,11 +345,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.symmetric(
             horizontal: contentPadding.left,
-            vertical: ResponsiveHelper(context).verticalSpacing / 2,
+            vertical: responsive.verticalSpacing / 2,
           ),
           child: Column(
             children: [
-              SizedBox(height: ResponsiveHelper(context).verticalSpacing),
+              SizedBox(height: responsive.verticalSpacing),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -484,7 +371,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               const SizedBox(height: 16),
               Builder(
                 builder: (context) {
-                  return isStaffLoading && (isAttendancesLoading || isAbsentDaysLoading)
+                  return isStaffLoading &&
+                          (isAttendancesLoading || isAbsentDaysLoading)
                       ? _buildAttendanceShimmer()
                       : Column(
                           children: [
@@ -495,7 +383,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 AppText.title(
-                                  showAbsentDays ? 'Absent Days' : 'Present Days',
+                                  showAbsentDays
+                                      ? 'Absent Days'
+                                      : 'Present Days',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
@@ -526,10 +416,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   Widget _buildPopupMenu() {
+    final responsive = ResponsiveHelper(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
     final isLargeTablet = screenWidth >= 900;
-    
+
     return GradientAddButton(
       onTap: () {
         _showActionMenu(context);
@@ -549,14 +440,17 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         final double menuWidth = screenSize.width <= 360
             ? screenSize.width * 0.58
             : screenSize.width <= 420
-                ? 200
-                : 220;
+            ? 200
+            : 220;
         final double maxMenuHeight = screenSize.height * 0.55;
 
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 80),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 80,
+          ),
           child: SafeArea(
             child: Align(
               alignment: Alignment.topRight,
@@ -566,7 +460,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                   maxHeight: maxMenuHeight,
                 ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.cardColor,
                     borderRadius: BorderRadius.circular(12),
@@ -590,7 +487,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                           icon: Icons.login,
                           color: Colors.blue,
                           label: "Sign-in",
-                          isDisabled: staff?.isSignedIn ?? false || (staff?.isAbsent ?? false),
+                          isDisabled:
+                              staff?.isSignedIn ??
+                              false || (staff?.isAbsent ?? false),
                           onTap: () {
                             Navigator.pop(context);
                             // TODO: Navigate to sign-in form
@@ -601,7 +500,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                           icon: Icons.logout,
                           color: Colors.blue,
                           label: "Sign-Out",
-                          isDisabled: !(staff?.isSignedIn ?? false) || (staff?.isAbsent ?? false),
+                          isDisabled:
+                              !(staff?.isSignedIn ?? false) ||
+                              (staff?.isAbsent ?? false),
                           onTap: () {
                             Navigator.pop(context);
                             // TODO: Navigate to sign-out form
@@ -612,7 +513,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                           icon: Icons.swap_horiz,
                           color: Colors.blue,
                           label: "Transfer",
-                          isDisabled: !(staff?.isSignedIn ?? false) || (staff?.isAbsent ?? false),
+                          isDisabled:
+                              !(staff?.isSignedIn ?? false) ||
+                              (staff?.isAbsent ?? false),
                           onTap: () {
                             Navigator.pop(context);
                             // TODO: Navigate to transfer form
@@ -668,10 +571,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 5),
           AppText.small(
             label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -681,6 +581,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   Widget _buildStaffCard() {
     if (staff == null) return const SizedBox.shrink();
 
+    final responsive = ResponsiveHelper(context);
     final currentStaff = staff!;
 
     return Card(
@@ -702,13 +603,53 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             Row(
               children: [
                 const SizedBox(width: 5),
-                DocumentImageWidget(
-                  fileUuid: currentStaff.photoUuid ?? '',
-                  size: 80,
-                  name: currentStaff.name,
-                  fontSize: 24,
-                  // Drive status dot purely from attendance API using staffCode.
-                  staffCode: widget.staffCode,
+                Stack(
+                  children: [
+                    DocumentImageWidget(
+                      fileUuid: currentStaff.photoUuid ?? '',
+                      size: 80,
+                      name: currentStaff.name,
+                      fontSize: 24,
+                    ),
+                    // Status dot logic
+                    if (currentStaff.isSignedIn ||
+                        currentStaff.isAbsent ||
+                        currentStaff.profileStatus == 'Upcoming')
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: currentStaff.profileStatus == 'Upcoming'
+                                ? const Color.fromARGB(
+                                    255,
+                                    253,
+                                    205,
+                                    22,
+                                  ) // Yellow for upcoming
+                                : currentStaff.isSignedIn
+                                ? const Color.fromRGBO(
+                                    0,
+                                    177,
+                                    21,
+                                    1,
+                                  ) // Green when signed in
+                                : currentStaff.isAbsent
+                                ? const Color.fromRGBO(
+                                    200,
+                                    32,
+                                    32,
+                                    1,
+                                  ) // Red when absent
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -719,7 +660,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       AppText.title(
                         currentStaff.name,
                         style: TextStyle(
-                          fontSize: ResponsiveHelper(context).isTablet ? 23 : 20,
+                          fontSize: responsive.isTablet ? 23 : 20,
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.6,
                         ),
@@ -728,17 +669,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       if (currentStaff.designationName != null) ...[
                         AppText.body(
                           currentStaff.designationName!,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(height: 4),
                       ],
                       AppText.body(
                         currentStaff.roomName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -830,14 +767,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       ),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 22, colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn)),
+          SvgPicture.asset(
+            icon,
+            height: 22,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          ),
           const SizedBox(width: 8),
           AppText.body(
             label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
           Container(
@@ -845,10 +783,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: valueColor,
-                width: 1.5,
-              ),
+              border: Border.all(color: valueColor, width: 1.5),
             ),
             child: Center(
               child: AppText.body(
@@ -880,9 +815,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         shrinkWrap: true,
         itemCount: 5,
         itemBuilder: (context, index) {
-          return const ShimmerLoaderCard(
-            child: SizedBox(height: 50),
-          );
+          return const ShimmerLoaderCard(child: SizedBox(height: 50));
         },
       );
     }
@@ -893,9 +826,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
         ),
         child: Center(
           child: AppText.body(
@@ -908,12 +839,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     }
 
     return Column(
-      children: List.generate(
-        attendances.length,
-        (index) {
-          return _buildAttendanceItem(index);
-        },
-      ),
+      children: List.generate(attendances.length, (index) {
+        return _buildAttendanceItem(index);
+      }),
     );
   }
 
@@ -923,9 +851,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         shrinkWrap: true,
         itemCount: 5,
         itemBuilder: (context, index) {
-          return const ShimmerLoaderCard(
-            child: SizedBox(height: 50),
-          );
+          return const ShimmerLoaderCard(child: SizedBox(height: 50));
         },
       );
     }
@@ -936,9 +862,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
         ),
         child: Center(
           child: AppText.body(
@@ -951,12 +875,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     }
 
     return Column(
-      children: List.generate(
-        absentDays.length,
-        (index) {
-          return _buildAbsentDayItem(index);
-        },
-      ),
+      children: List.generate(absentDays.length, (index) {
+        return _buildAbsentDayItem(index);
+      }),
     );
   }
 
@@ -1009,29 +930,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(attendance.date),
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         trailing: AppText.body(
           calculateAttendedTime(attendance.signInTime, attendance.signOutTime),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1041,14 +953,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           });
         },
         children: [
-          Divider(
-            color: AppColors.primaryColor.withOpacity(0.1),
-          ),
+          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(
-            label: 'Classroom',
-            text: attendance.roomName,
-          ),
+          _AttendanceField(label: 'Classroom', text: attendance.roomName),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign In',
@@ -1082,22 +989,16 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(absentDay.startDate),
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1107,18 +1008,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           });
         },
         children: [
-          Divider(
-            color: AppColors.primaryColor.withOpacity(0.1),
-          ),
+          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(
-            label: 'Classroom',
-            text: staff?.roomName ?? '',
-          ),
+          _AttendanceField(label: 'Classroom', text: staff?.roomName ?? ''),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',
-            text: '${DateFormat('MMM dd, yyyy').format(absentDay.startDate)} - ${DateFormat('MMM dd, yyyy').format(absentDay.endDate)}',
+            text:
+                '${DateFormat('MMM dd, yyyy').format(absentDay.startDate)} - ${DateFormat('MMM dd, yyyy').format(absentDay.endDate)}',
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1128,7 +1025,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Marked Absent Time',
-            text: formatTime(absentDay.absentTime),
+            text: absentDay.absentTime,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1144,18 +1041,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     return Column(
       children: [
         ShimmerLoaderCard(
-          child: Container(
-            height: 300,
-            width: double.infinity,
-          ),
+          child: Container(height: 300, width: double.infinity),
         ),
         ListView.builder(
           shrinkWrap: true,
           itemCount: 3,
           itemBuilder: (context, index) {
-            return const ShimmerLoaderCard(
-              child: SizedBox(height: 50),
-            );
+            return const ShimmerLoaderCard(child: SizedBox(height: 50));
           },
         ),
       ],

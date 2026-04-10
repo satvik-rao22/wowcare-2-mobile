@@ -3,19 +3,25 @@ import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:thumbnailer/thumbnailer.dart';
-import 'package:uuid/uuid.dart';
-import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-
+import '../../../../../../app/di/di.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../domain/features/communication/entities/message.dart'
+    as entity;
+import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/custom_text_widget.dart';
+import '../../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import '../../../cubit/communication_cubit.dart';
+import '../../../cubit/communication_state.dart';
 import '../widgets/attachment_widget.dart';
 import '../widgets/message_bubble_widget.dart';
+import '../widgets/messaging_input_area.dart';
 import '../widgets/show_full_screen_media_view.dart';
 
 class ParentViewScreen extends StatefulWidget {
@@ -25,70 +31,32 @@ class ParentViewScreen extends StatefulWidget {
   State<ParentViewScreen> createState() => _ParentViewScreenState();
 }
 
-class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerProviderStateMixin{
-
+class _ParentViewScreenState extends State<ParentViewScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final AutoScrollController _groupController = AutoScrollController();
   final AutoScrollController _parent1Controller = AutoScrollController();
   TabController? _tabController;
 
+  List<Message> get _groupMessages {
+    final state = context.watch<CommunicationCubit>().state;
+    if (state is CommunicationLoaded) {
+      return state
+          .messages; // For now mapping to all, but later can filter by conversationId
+    }
+    return [];
+  }
 
-  List<Message> _groupMessages = [
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Eddie Barnes",
-      text: "Good morning everyone! Ajay attended school today.",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 8, 30),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Radha Sundaram",
-      text: "Thank you for the update!",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 13, 8, 45),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Nitin Sundaram",
-      text: "Yes, thanks Eddie. How was his math class?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 9, 00),
-    ),
-  ];
-  List<Message> _parent1Messages = [
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Radha Sundaram",
-      text: "How is Ajay Doing Today?",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 13, 14, 45),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Eddie Barnes",
-      text: "He is doing Great! Here's a photo from today's activity.",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 16, 45),
-      attachments: [
-        ChatAttachment(
-          name: 'Ajay Photo.jpg',
-          type: 'image',
-          sizeBytes: 3200000,
-          mimeType: 'image/jpeg',
-          remoteUrl: 'https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=800',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Radha Sundaram",
-      text: "Thanks! He looks happy 😊",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 13, 16, 50),
-    ),
-  ];
-  Map<String,dynamic> parentInfo = { // hardcoded for now
+  List<Message> get _parent1Messages {
+    final state = context.watch<CommunicationCubit>().state;
+    if (state is CommunicationLoaded) {
+      return state.messages; // For now mapping to all
+    }
+    return [];
+  }
+
+  Map<String, dynamic> parentInfo = {
+    // hardcoded for now
     'name': 'Ajay Sundaram',
     'avatar': 'https://randomuser.me/api/portraits/boys/45.jpg',
     'dateTime': DateTime(2026, 2, 4, 13, 30),
@@ -109,7 +77,8 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
   List<ChatAttachment> _pendingAttachments = [];
 
   bool isPrivateModeEnabled(Map<String, dynamic> parentInfo) {
-    final privateParents = parentInfo['privateModeParents'] as List<dynamic>? ?? [];
+    final privateParents =
+        parentInfo['privateModeParents'] as List<dynamic>? ?? [];
     return privateParents.isNotEmpty;
   }
 
@@ -137,10 +106,12 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
       vsync: this,
     );
 
-
     _tabController?.addListener(() {
       if (mounted) setState(() {});
     });
+
+    // Load initial messages
+    context.read<CommunicationCubit>().loadMessages('parent_group_default');
   }
 
   @override
@@ -153,63 +124,44 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
     super.dispose();
   }
 
-  AutoScrollController _getActiveScrollController(){
-    if(!_privateModeEnabled) return _groupController;
+  AutoScrollController _getActiveScrollController() {
+    if (!_privateModeEnabled) return _groupController;
     return _parent1Controller;
   }
 
-  String? _getOtherParent(){
-    if(_privateModeEnabled) return null;
+  String? _getOtherParent() {
+    if (_privateModeEnabled) return null;
     return currentSender == parent2Name ? parent1Name : parent2Name;
   }
 
   List<Message> get _activeMessages {
-    if(!_privateModeEnabled){
+    if (!_privateModeEnabled) {
       return _groupMessages;
     }
     return _parent1Messages;
   }
 
-  void _sendMessage() {
+  List<Message> get _messages => _activeMessages;
 
+  void _sendMessage() {
     final text = _controller.text.trim();
     final hasText = text.isNotEmpty;
     final hasAttachments = _pendingAttachments.isNotEmpty;
 
-    if(!hasText && !hasAttachments) return;
+    if (!hasText && !hasAttachments) return;
 
-    List<String> receivers = [];
-    receivers.addAll((parentInfo['staffList'] as List<dynamic>).cast<String>() );
+    final conversationId = _privateModeEnabled
+        ? 'parent_private_default'
+        : 'parent_group_default';
 
-    if(!_privateModeEnabled){
-      final targetParent = _getOtherParent();
-      if(targetParent != null){
-        receivers.add(targetParent);
-      }
-    }
-
-    final now = DateTime.now();
-    final newMessage = Message(
-        id: const Uuid().v4(),
-        text: _controller.text.trim(),
-        senderName: currentSender,
-        isSentByMe: true,
-        time: now,
-        deliveredAt: null,
-        readAt: null,
-        attachments: List.from(_pendingAttachments),
-        quotedMessageId: _quotedMessageId,
-        receivers: receivers
-      // For group simulation
-      // deliveredTo: {},
-      // readBy: {},
+    context.read<CommunicationCubit>().sendMessage(
+      conversationId,
+      text,
+      attachments: List<entity.ChatAttachment>.from(_pendingAttachments),
+      quotedMessageId: _quotedMessageId,
     );
+
     setState(() {
-      if(!_privateModeEnabled){
-        _groupMessages.add(newMessage);
-      } else {
-        _parent1Messages.add(newMessage);
-      }
       _controller.clear();
       _pendingAttachments.clear();
       _quotedMessage = null;
@@ -224,7 +176,6 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
         duration: const Duration(milliseconds: 300),
       );
     });
-
   }
 
   int? _getReversedIndex(String messageId) {
@@ -247,8 +198,13 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
     );
   }
 
-  void _showMessageOptions(BuildContext context, Message message, LongPressStartDetails details,) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+  void _showMessageOptions(
+    BuildContext context,
+    Message message,
+    LongPressStartDetails details,
+  ) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
 
     showMenu<String>(
       context: context,
@@ -507,25 +463,14 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
               emojiTextStyle: null,
               customBackspaceIcon: null,
               customSearchIcon: null,
-              viewOrderConfig:
-              ViewOrderConfig(),
-              emojiViewConfig:
-              EmojiViewConfig(),
-              skinToneConfig: SkinToneConfig(
-                enabled: true,
+              viewOrderConfig: ViewOrderConfig(),
+              emojiViewConfig: EmojiViewConfig(),
+              skinToneConfig: SkinToneConfig(enabled: true),
+              categoryViewConfig: CategoryViewConfig(
+                recentTabBehavior: RecentTabBehavior.RECENT,
               ),
-              categoryViewConfig:
-              CategoryViewConfig(
-                recentTabBehavior:
-                RecentTabBehavior
-                    .RECENT,
-              ),
-              bottomActionBarConfig:
-              BottomActionBarConfig(
-                enabled: false,
-              ),
-              searchViewConfig:
-              SearchViewConfig(),
+              bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+              searchViewConfig: SearchViewConfig(),
             ),
           ),
         );
@@ -534,31 +479,23 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
   }
 
   void _onReactionAdded(Message message, String emoji) {
-    final currentUserId =
-        'me'; // dummy for now
+    final currentUserId = 'me'; // dummy for now
     setState(() {
       final _messages = _activeMessages;
-      final index = _messages.indexWhere(
-            (m) => m.id == message.id,
-      );
+      final index = _messages.indexWhere((m) => m.id == message.id);
       if (index != -1) {
-        final currentReactions =
-        Map<String, String>.from(
+        final currentReactions = Map<String, String>.from(
           _activeMessages[index].reactions,
         );
-        currentReactions[currentUserId] =
-            emoji;
+        currentReactions[currentUserId] = emoji;
         _messages[index] = Message(
           id: _messages[index].id,
           text: _messages[index].text,
-          isSentByMe:
-          _messages[index].isSentByMe,
+          isSentByMe: _messages[index].isSentByMe,
           time: _messages[index].time,
-          deliveredAt:
-          _messages[index].deliveredAt,
+          deliveredAt: _messages[index].deliveredAt,
           readAt: _messages[index].readAt,
-          deliveredTo:
-          _messages[index].deliveredTo,
+          deliveredTo: _messages[index].deliveredTo,
           readBy: _messages[index].readBy,
           attachments: _messages[index].attachments,
           senderName: currentSender,
@@ -669,22 +606,20 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
                 if (newText.isNotEmpty && newText != message.text) {
                   setState(() {
                     final _messages = _activeMessages;
-                    final idx = _messages.indexWhere(
-                          (m) => m.id == message.id,
-                    );
+                    final idx = _messages.indexWhere((m) => m.id == message.id);
                     if (idx != -1) {
                       _messages[idx] = Message(
-                          id: message.id,
-                          text: newText,
-                          senderName: currentSender,
-                          isSentByMe: message.isSentByMe,
-                          time: message.time,
-                          deliveredAt: message.deliveredAt,
-                          readAt: message.readAt,
-                          deliveredTo: message.deliveredTo,
-                          readBy: message.readBy,
-                          attachments: message.attachments,
-                          reactions: message.reactions
+                        id: message.id,
+                        text: newText,
+                        senderName: currentSender,
+                        isSentByMe: message.isSentByMe,
+                        time: message.time,
+                        deliveredAt: message.deliveredAt,
+                        readAt: message.readAt,
+                        deliveredTo: message.deliveredTo,
+                        readBy: message.readBy,
+                        attachments: message.attachments,
+                        reactions: message.reactions,
                       );
                       CoreUtils.showTopSnackBar(
                         context: context,
@@ -841,724 +776,824 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
 
   Future<bool> _showPrivateModeConfirmationDialog(BuildContext context) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
-        title: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
-              ],
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const CustomTextWidget(text: 'Attention!', fontSize: 18, fontWeight: FontWeight.w600),
-              IconButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                icon: const Icon(Icons.clear, color: AppColors.primaryColor),
+            titlePadding: EdgeInsets.zero,
+            backgroundColor: Colors.white,
+            title: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color.fromRGBO(89, 120, 247, 0.1),
+                    Color.fromRGBO(156, 132, 255, 0.1),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-        content: const Padding(
-          padding: EdgeInsets.all(8.0),
-          child: CustomTextWidget(
-            text:
-            'Both the parents have different private conversations with the staff members.\n\nDo you really want to turn Private Mode on?',
-            fontSize: 16,
-            maxLines: 10,
-          ),
-        ),
-        actions: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Expanded(
-                child: Container(
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const CustomTextWidget(
+                    text: 'Attention!',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
-                  child: Padding(
-                    padding: EdgeInsets.all(1),
+                  IconButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    icon: const Icon(
+                      Icons.clear,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            content: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: CustomTextWidget(
+                text:
+                    'Both the parents have different private conversations with the staff members.\n\nDo you really want to turn Private Mode on?',
+                fontSize: 16,
+                maxLines: 10,
+              ),
+            ),
+            actions: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
                     child: Container(
+                      height: 60,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        gradient: AppColors.buildPrimaryGradient(),
                         borderRadius: BorderRadius.circular(16.0),
                       ),
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(dialogContext, false),
-                        style: TextButton.styleFrom(
-                          overlayColor: Colors.transparent,
-                        ),
-                        child: ShaderMask(
-                          shaderCallback: (bounds) {
-                            return AppColors.buildPrimaryGradient().createShader(
-                              bounds,
-                            );
-                          },
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                      child: Padding(
+                        padding: EdgeInsets.all(1),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16.0),
+                          ),
+                          child: TextButton(
+                            onPressed: () =>
+                                Navigator.pop(dialogContext, false),
+                            style: TextButton.styleFrom(
+                              overlayColor: Colors.transparent,
+                            ),
+                            child: ShaderMask(
+                              shaderCallback: (bounds) {
+                                return AppColors.buildPrimaryGradient()
+                                    .createShader(bounds);
+                              },
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(16.0),
-                  ),
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    style: TextButton.styleFrom(overlayColor: Colors.transparent),
-                    child: Text(
-                      'Yes',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      height: 60,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildPrimaryGradient(),
+                        borderRadius: BorderRadius.circular(16.0),
+                      ),
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        style: TextButton.styleFrom(
+                          overlayColor: Colors.transparent,
+                        ),
+                        child: Text(
+                          'Yes',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
-
             ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
-
 
   @override
   Widget build(BuildContext context) {
-    final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    final tabNames =  _privateModeEnabled ? [currentSender] : ['${parent1Name}, ${parent2Name} and Staff'];
+    final bool isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final tabNames = _privateModeEnabled
+        ? [currentSender]
+        : ['${parent1Name}, ${parent2Name} and Staff'];
     final _messages = _activeMessages;
 
     return Padding(
       padding: const EdgeInsets.all(10.0),
       child: isLandscape
           ? Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Flexible(
-            child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: const Color(0xFFF4F7FD),
-                ),
-                child: NestedScrollView(
-                  headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                    SliverToBoxAdapter(
-                      child: Column(
-                        children: [
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-
-                              TabBar(
-                                controller: _tabController,
-                                isScrollable: true,
-                                tabAlignment: TabAlignment.start,
-                                padding: EdgeInsets.all(0),
-                                labelColor: AppColors.primaryColor,
-                                unselectedLabelColor: Colors.grey,
-                                indicatorColor: AppColors.themeColor,
-                                dividerColor: Colors.transparent,
-                                //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
-                                tabs: tabNames.map((name) => _buildTab(name)).toList(),
-                              ),
-                              CustomToggle(
-                                  label: 'Private Mode',
-                                  labelOnLeftSide: true,
-                                  isToggled: _privateModeEnabled,
-                                  onToggle: (v) async{
-                                    if(v == _privateModeEnabled) {
-                                      setState(() {
-                                        (parentInfo['privateModeParents'] as List<dynamic>).add(currentSender);
-                                        _privateModeEnabled = (parentInfo['privateModeParents'] as List<dynamic>? ?? []).isNotEmpty;
-                                      });
-                                      print(parentInfo['privateModeParents'] );
-                                      return;
-                                    }
-
-                                    if(v){
-                                      setState(() {
-                                        _privateModeEnabled = true;
-                                      });
-                                      final confirmed = await _showPrivateModeConfirmationDialog(context);
-
-                                      if(!confirmed){
-                                        setState(() {
-                                          _privateModeEnabled = (parentInfo['privateModeParents'] as List<dynamic>? ?? []).isNotEmpty;
-                                        });
-                                      } else {
-                                        setState(() {
-                                          (parentInfo['privateModeParents'] as List<dynamic>).add(currentSender);
-                                        });
-                                      }
-
-                                    } else {
-                                      setState(() {
-                                        parentInfo['privateModeParents'].remove(currentSender);
-                                        _privateModeEnabled = (parentInfo['privateModeParents'] as List<dynamic>? ?? []).isNotEmpty;
-                                      });
-                                      print(parentInfo['privateModeParents'] );
-                                    }
-                                  }
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    )
-                  ],
-                  body: TabBarView(
-                    controller: _tabController,
-                    children: _privateModeEnabled ?
-                    [
-                      ListView.builder(
-                        controller: _getActiveScrollController(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        reverse: true,
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message =
-                          _messages[_messages.length - 1 - index];
-                          final messageId = message.id;
-                          Message? quotedMessage;
-                          if (message.quotedMessageId != null) {
-                            quotedMessage = _messages.firstWhere(
-                                  (m) => m.id == message.quotedMessageId,
-                            );
-                          }
-                          bool showDateHeader = false;
-                          final prevListIndex =
-                              _messages.length - 2 - index;
-
-                          if (prevListIndex >= 0) {
-                            final prevMessage = _messages[prevListIndex];
-
-                            showDateHeader =
-                                message.time.year !=
-                                    prevMessage.time.year ||
-                                    message.time.month !=
-                                        prevMessage.time.month ||
-                                    message.time.day != prevMessage.time.day;
-                          } else {
-                            showDateHeader = true;
-                          }
-
-                          return AutoScrollTag(
-                            key: ValueKey(messageId),
-                            controller: _getActiveScrollController(),
-                            index: index,
-                            highlightColor: Colors.green.withValues(
-                              alpha: 0.7,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (showDateHeader)
-                                  Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 8.0,
-                                      ),
-                                      child: _buildDateChip(message.time),
-                                    ),
-                                  ),
-                                if (showDateHeader)
-                                  const SizedBox(height: 10),
-                                MessageBubble(
-                                  message: message,
-                                  isParentMessaging: true,
-                                  quotedMessage: quotedMessage,
-                                  onLongPress:
-                                      (LongPressStartDetails details) {
-                                    _showMessageOptions(
-                                      context,
-                                      message,
-                                      details,
-                                    );
-                                  },
-                                  onScrollToQuoted: (quoteId) {
-                                    _scrollToMessage(quoteId);
-                                  },
-
-                                ),
-
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ] :
-                    [
-                      ListView.builder(
-                        controller: _getActiveScrollController(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        reverse: true,
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message =
-                          _messages[_messages.length - 1 - index];
-                          final messageId = message.id;
-                          Message? quotedMessage;
-                          if (message.quotedMessageId != null) {
-                            quotedMessage = _messages.firstWhere(
-                                  (m) => m.id == message.quotedMessageId,
-                            );
-                          }
-                          bool showDateHeader = false;
-                          final prevListIndex =
-                              _messages.length - 2 - index;
-
-                          if (prevListIndex >= 0) {
-                            final prevMessage = _messages[prevListIndex];
-
-                            showDateHeader =
-                                message.time.year !=
-                                    prevMessage.time.year ||
-                                    message.time.month !=
-                                        prevMessage.time.month ||
-                                    message.time.day != prevMessage.time.day;
-                          } else {
-                            showDateHeader = true;
-                          }
-
-                          return AutoScrollTag(
-                            key: ValueKey(messageId),
-                            controller: _getActiveScrollController(),
-                            index: index,
-                            highlightColor: Colors.green.withValues(
-                              alpha: 0.7,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (showDateHeader)
-                                  Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 8.0,
-                                      ),
-                                      child: _buildDateChip(message.time),
-                                    ),
-                                  ),
-                                if (showDateHeader)
-                                  const SizedBox(height: 10),
-                                MessageBubble(
-                                  message: message,
-                                  isParentMessaging: true,
-                                  quotedMessage: quotedMessage,
-                                  onLongPress:
-                                      (LongPressStartDetails details) {
-                                    _showMessageOptions(
-                                      context,
-                                      message,
-                                      details,
-                                    );
-                                  },
-                                  onScrollToQuoted: (quoteId) {
-                                    _scrollToMessage(quoteId);
-                                  },
-                                ),
-
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                )
-
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: MediaQuery.of(context).size.width * 0.35,
-            child: SingleChildScrollView(
-              reverse: true,
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.white,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 16,
-                  ),
-                  child: _buildMessageInput(),
-                ),
-              ),
-            ),
-          ),
-
-        ],
-      )
-          : Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: const Color(0xFFF4F7FD),
-              ),
-              child: Column(
-                children: [
-                  Container(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      border: const Border(
-                        bottom: BorderSide(
-                          color: Color(0xFFE9ECEF),
-                          width: 1,
-                        ),
-                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFF4F7FD),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24.0,
-                        vertical: 10,
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                    child: NestedScrollView(
+                      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                        SliverToBoxAdapter(
+                          child: Column(
                             children: [
-                              CustomToggle(
-                                  label: 'Private Mode',
-                                  labelOnLeftSide: true,
-                                  isToggled: _privateModeEnabled,
-                                  onToggle: (v) async{
-                                    if(v == _privateModeEnabled) {
-                                      setState(() {
-                                        (parentInfo['privateModeParents'] as List<dynamic>).add(currentSender);
-                                        _privateModeEnabled = (parentInfo['privateModeParents'] as List<dynamic>? ?? []).isNotEmpty;
-                                      });
-                                      print(parentInfo['privateModeParents'] );
-                                      return;
-                                    }
-
-                                    if(v){
-                                      setState(() {
-                                        _privateModeEnabled = true;
-                                      });
-                                      final confirmed = await _showPrivateModeConfirmationDialog(context);
-
-                                      if(!confirmed){
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  TabBar(
+                                    controller: _tabController,
+                                    isScrollable: true,
+                                    tabAlignment: TabAlignment.start,
+                                    padding: EdgeInsets.all(0),
+                                    labelColor: AppColors.primaryColor,
+                                    unselectedLabelColor: Colors.grey,
+                                    indicatorColor: AppColors.themeColor,
+                                    dividerColor: Colors.transparent,
+                                    //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                                    tabs: tabNames
+                                        .map((name) => _buildTab(name))
+                                        .toList(),
+                                  ),
+                                  CustomToggle(
+                                    label: 'Private Mode',
+                                    labelOnLeftSide: true,
+                                    isToggled: _privateModeEnabled,
+                                    onToggle: (v) async {
+                                      if (v == _privateModeEnabled) {
                                         setState(() {
-                                          _privateModeEnabled = (parentInfo['privateModeParents'] as List<dynamic>? ?? []).isNotEmpty;
+                                          (parentInfo['privateModeParents']
+                                                  as List<dynamic>)
+                                              .add(currentSender);
+                                          _privateModeEnabled =
+                                              (parentInfo['privateModeParents']
+                                                          as List<dynamic>? ??
+                                                      [])
+                                                  .isNotEmpty;
                                         });
-                                      } else {
-                                        setState(() {
-                                          (parentInfo['privateModeParents'] as List<dynamic>).add(currentSender);
-                                        });
+                                        print(parentInfo['privateModeParents']);
+                                        return;
                                       }
 
-                                    } else {
-                                      setState(() {
-                                        parentInfo['privateModeParents'].remove(currentSender);
-                                        _privateModeEnabled = (parentInfo['privateModeParents'] as List<dynamic>? ?? []).isNotEmpty;
-                                      });
-                                      print(parentInfo['privateModeParents'] );
-                                    }
-                                  }
-                              ),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Stack(
-                                children: [
-                                  DocumentImageWidget(
-                                    fileUuid: parentInfo['avatar'],
-                                    name: parentInfo['name'],
-                                    size: 45,
-                                  ),
-                                  Positioned(
-                                    right: 0,
-                                    top: 0,
-                                    child: Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        color: parentInfo['isSigned']
-                                            ? const Color.fromRGBO(
-                                          0,
-                                          177,
-                                          21,
-                                          1,
-                                        )
-                                            : Colors.transparent,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color:
-                                          parentInfo['isSigned']
-                                              ? Colors.white
-                                              : Colors.transparent,
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
+                                      if (v) {
+                                        setState(() {
+                                          _privateModeEnabled = true;
+                                        });
+                                        final confirmed =
+                                            await _showPrivateModeConfirmationDialog(
+                                              context,
+                                            );
+
+                                        if (!confirmed) {
+                                          setState(() {
+                                            _privateModeEnabled =
+                                                (parentInfo['privateModeParents']
+                                                            as List<dynamic>? ??
+                                                        [])
+                                                    .isNotEmpty;
+                                          });
+                                        } else {
+                                          setState(() {
+                                            (parentInfo['privateModeParents']
+                                                    as List<dynamic>)
+                                                .add(currentSender);
+                                          });
+                                        }
+                                      } else {
+                                        setState(() {
+                                          parentInfo['privateModeParents']
+                                              .remove(currentSender);
+                                          _privateModeEnabled =
+                                              (parentInfo['privateModeParents']
+                                                          as List<dynamic>? ??
+                                                      [])
+                                                  .isNotEmpty;
+                                        });
+                                        print(parentInfo['privateModeParents']);
+                                      }
+                                    },
                                   ),
                                 ],
                               ),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: CustomTextWidget(
-                                  text: parentInfo['name'],
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 20,
-                                ),
-                              ),
                             ],
                           ),
-                        ],
+                        ),
+                      ],
+                      body: TabBarView(
+                        controller: _tabController,
+                        children: _privateModeEnabled
+                            ? [
+                                ListView.builder(
+                                  controller: _getActiveScrollController(),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 12,
+                                  ),
+                                  reverse: true,
+                                  itemCount: _messages.length,
+                                  itemBuilder: (context, index) {
+                                    final message =
+                                        _messages[_messages.length - 1 - index];
+                                    final messageId = message.id;
+                                    Message? quotedMessage;
+                                    if (message.quotedMessageId != null) {
+                                      quotedMessage = _messages.firstWhere(
+                                        (m) => m.id == message.quotedMessageId,
+                                      );
+                                    }
+                                    bool showDateHeader = false;
+                                    final prevListIndex =
+                                        _messages.length - 2 - index;
+
+                                    if (prevListIndex >= 0) {
+                                      final prevMessage =
+                                          _messages[prevListIndex];
+
+                                      showDateHeader =
+                                          message.time.year !=
+                                              prevMessage.time.year ||
+                                          message.time.month !=
+                                              prevMessage.time.month ||
+                                          message.time.day !=
+                                              prevMessage.time.day;
+                                    } else {
+                                      showDateHeader = true;
+                                    }
+
+                                    return AutoScrollTag(
+                                      key: ValueKey(messageId),
+                                      controller: _getActiveScrollController(),
+                                      index: index,
+                                      highlightColor: Colors.green.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (showDateHeader)
+                                            Center(
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 8.0,
+                                                ),
+                                                child: _buildDateChip(
+                                                  message.time,
+                                                ),
+                                              ),
+                                            ),
+                                          if (showDateHeader)
+                                            const SizedBox(height: 10),
+                                          MessageBubble(
+                                            message: message,
+                                            isParentMessaging: true,
+                                            quotedMessage: quotedMessage,
+                                            onLongPress:
+                                                (
+                                                  LongPressStartDetails details,
+                                                ) {
+                                                  _showMessageOptions(
+                                                    context,
+                                                    message,
+                                                    details,
+                                                  );
+                                                },
+                                            onScrollToQuoted: (quoteId) {
+                                              _scrollToMessage(quoteId);
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ]
+                            : [
+                                ListView.builder(
+                                  controller: _getActiveScrollController(),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 12,
+                                  ),
+                                  reverse: true,
+                                  itemCount: _messages.length,
+                                  itemBuilder: (context, index) {
+                                    final message =
+                                        _messages[_messages.length - 1 - index];
+                                    final messageId = message.id;
+                                    Message? quotedMessage;
+                                    if (message.quotedMessageId != null) {
+                                      quotedMessage = _messages.firstWhere(
+                                        (m) => m.id == message.quotedMessageId,
+                                      );
+                                    }
+                                    bool showDateHeader = false;
+                                    final prevListIndex =
+                                        _messages.length - 2 - index;
+
+                                    if (prevListIndex >= 0) {
+                                      final prevMessage =
+                                          _messages[prevListIndex];
+
+                                      showDateHeader =
+                                          message.time.year !=
+                                              prevMessage.time.year ||
+                                          message.time.month !=
+                                              prevMessage.time.month ||
+                                          message.time.day !=
+                                              prevMessage.time.day;
+                                    } else {
+                                      showDateHeader = true;
+                                    }
+
+                                    return AutoScrollTag(
+                                      key: ValueKey(messageId),
+                                      controller: _getActiveScrollController(),
+                                      index: index,
+                                      highlightColor: Colors.green.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (showDateHeader)
+                                            Center(
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 8.0,
+                                                ),
+                                                child: _buildDateChip(
+                                                  message.time,
+                                                ),
+                                              ),
+                                            ),
+                                          if (showDateHeader)
+                                            const SizedBox(height: 10),
+                                          MessageBubble(
+                                            message: message,
+                                            isParentMessaging: true,
+                                            quotedMessage: quotedMessage,
+                                            onLongPress:
+                                                (
+                                                  LongPressStartDetails details,
+                                                ) {
+                                                  _showMessageOptions(
+                                                    context,
+                                                    message,
+                                                    details,
+                                                  );
+                                                },
+                                            onScrollToQuoted: (quoteId) {
+                                              _scrollToMessage(quoteId);
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                       ),
                     ),
                   ),
-                  //const SizedBox(height: 10,),
-                  TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    padding: EdgeInsets.all(0),
-                    labelColor: AppColors.primaryColor,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: AppColors.themeColor,
-                    dividerColor: Colors.transparent,
-                    //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
-                    tabs: tabNames.map((name) => _buildTab(name)).toList(),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: _privateModeEnabled ?
-                      [
-                        ListView.builder(
-                          controller: _getActiveScrollController(),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                          reverse: true,
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final message =
-                            _messages[_messages.length - 1 - index];
-                            final messageId = message.id;
-                            Message? quotedMessage;
-                            if (message.quotedMessageId != null) {
-                              quotedMessage = _messages.firstWhere(
-                                    (m) => m.id == message.quotedMessageId,
-                              );
-                            }
-                            bool showDateHeader = false;
-                            final prevListIndex =
-                                _messages.length - 2 - index;
-
-                            if (prevListIndex >= 0) {
-                              final prevMessage = _messages[prevListIndex];
-
-                              showDateHeader =
-                                  message.time.year !=
-                                      prevMessage.time.year ||
-                                      message.time.month !=
-                                          prevMessage.time.month ||
-                                      message.time.day != prevMessage.time.day;
-                            } else {
-                              showDateHeader = true;
-                            }
-
-                            return AutoScrollTag(
-                              key: ValueKey(messageId),
-                              controller: _getActiveScrollController(),
-                              index: index,
-                              highlightColor: Colors.green.withValues(
-                                alpha: 0.7,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (showDateHeader)
-                                    Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 8.0,
-                                        ),
-                                        child: _buildDateChip(message.time),
-                                      ),
-                                    ),
-                                  if (showDateHeader)
-                                    const SizedBox(height: 10),
-                                  MessageBubble(
-                                    message: message,
-                                    isParentMessaging: true,
-                                    quotedMessage: quotedMessage,
-                                    onLongPress:
-                                        (LongPressStartDetails details) {
-                                      _showMessageOptions(
-                                        context,
-                                        message,
-                                        details,
-                                      );
-                                    },
-                                    onScrollToQuoted: (quoteId) {
-                                      _scrollToMessage(quoteId);
-                                    },
-                                  ),
-
-                                ],
-                              ),
-                            );
-                          },
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.35,
+                  child: SingleChildScrollView(
+                    reverse: true,
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 16,
                         ),
-                      ] :
-                      [
-                        ListView.builder(
-                          controller: _getActiveScrollController(),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
+                        child: MessagingInputArea(
+                          controller: _controller,
+                          onSend: _sendMessage,
+                          quotedMessage: _quotedMessage,
+                          onCancelQuote: () =>
+                              setState(() => _quotedMessage = null),
+                          pendingAttachments: _pendingAttachments,
+                          onRemoveAttachment: (index) => setState(
+                            () => _pendingAttachments.removeAt(index),
                           ),
-                          reverse: true,
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final message =
-                            _messages[_messages.length - 1 - index];
-                            final messageId = message.id;
-                            Message? quotedMessage;
-                            if (message.quotedMessageId != null) {
-                              quotedMessage = _messages.firstWhere(
-                                    (m) => m.id == message.quotedMessageId,
-                              );
-                            }
-                            bool showDateHeader = false;
-                            final prevListIndex =
-                                _messages.length - 2 - index;
-
-                            if (prevListIndex >= 0) {
-                              final prevMessage = _messages[prevListIndex];
-
-                              showDateHeader =
-                                  message.time.year !=
-                                      prevMessage.time.year ||
-                                      message.time.month !=
-                                          prevMessage.time.month ||
-                                      message.time.day != prevMessage.time.day;
-                            } else {
-                              showDateHeader = true;
-                            }
-
-                            return AutoScrollTag(
-                              key: ValueKey(messageId),
-                              controller: _getActiveScrollController(),
-                              index: index,
-                              highlightColor: Colors.green.withValues(
-                                alpha: 0.7,
+                          onAttachmentsSelected: (List<ChatAttachment> p1) {},
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFF4F7FD),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            border: const Border(
+                              bottom: BorderSide(
+                                color: Color(0xFFE9ECEF),
+                                width: 1,
                               ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (showDateHeader)
-                                    Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 8.0,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                              vertical: 10,
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    CustomToggle(
+                                      label: 'Private Mode',
+                                      labelOnLeftSide: true,
+                                      isToggled: _privateModeEnabled,
+                                      onToggle: (v) async {
+                                        if (v == _privateModeEnabled) {
+                                          setState(() {
+                                            (parentInfo['privateModeParents']
+                                                    as List<dynamic>)
+                                                .add(currentSender);
+                                            _privateModeEnabled =
+                                                (parentInfo['privateModeParents']
+                                                            as List<dynamic>? ??
+                                                        [])
+                                                    .isNotEmpty;
+                                          });
+                                          print(
+                                            parentInfo['privateModeParents'],
+                                          );
+                                          return;
+                                        }
+
+                                        if (v) {
+                                          setState(() {
+                                            _privateModeEnabled = true;
+                                          });
+                                          final confirmed =
+                                              await _showPrivateModeConfirmationDialog(
+                                                context,
+                                              );
+
+                                          if (!confirmed) {
+                                            setState(() {
+                                              _privateModeEnabled =
+                                                  (parentInfo['privateModeParents']
+                                                              as List<
+                                                                dynamic
+                                                              >? ??
+                                                          [])
+                                                      .isNotEmpty;
+                                            });
+                                          } else {
+                                            setState(() {
+                                              (parentInfo['privateModeParents']
+                                                      as List<dynamic>)
+                                                  .add(currentSender);
+                                            });
+                                          }
+                                        } else {
+                                          setState(() {
+                                            parentInfo['privateModeParents']
+                                                .remove(currentSender);
+                                            _privateModeEnabled =
+                                                (parentInfo['privateModeParents']
+                                                            as List<dynamic>? ??
+                                                        [])
+                                                    .isNotEmpty;
+                                          });
+                                          print(
+                                            parentInfo['privateModeParents'],
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    Stack(
+                                      children: [
+                                        DocumentImageWidget(
+                                          fileUuid: parentInfo['avatar'],
+                                          name: parentInfo['name'],
+                                          size: 45,
                                         ),
-                                        child: _buildDateChip(message.time),
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          child: Container(
+                                            width: 12,
+                                            height: 12,
+                                            decoration: BoxDecoration(
+                                              color: parentInfo['isSigned']
+                                                  ? const Color.fromRGBO(
+                                                      0,
+                                                      177,
+                                                      21,
+                                                      1,
+                                                    )
+                                                  : Colors.transparent,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: parentInfo['isSigned']
+                                                    ? Colors.white
+                                                    : Colors.transparent,
+                                                width: 2,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: CustomTextWidget(
+                                        text: parentInfo['name'],
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 20,
                                       ),
                                     ),
-                                  if (showDateHeader)
-                                    const SizedBox(height: 10),
-                                  MessageBubble(
-                                    message: message,
-                                    isParentMessaging: true,
-                                    quotedMessage: quotedMessage,
-                                    onLongPress:
-                                        (LongPressStartDetails details) {
-                                      _showMessageOptions(
-                                        context,
-                                        message,
-                                        details,
-                                      );
-                                    },
-                                    onScrollToQuoted: (quoteId) {
-                                      _scrollToMessage(quoteId);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        //const SizedBox(height: 10,),
+                        TabBar(
+                          controller: _tabController,
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          padding: EdgeInsets.all(0),
+                          labelColor: AppColors.primaryColor,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: AppColors.themeColor,
+                          dividerColor: Colors.transparent,
+                          //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                          tabs: tabNames
+                              .map((name) => _buildTab(name))
+                              .toList(),
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: _privateModeEnabled
+                                ? [
+                                    ListView.builder(
+                                      controller: _getActiveScrollController(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      reverse: true,
+                                      itemCount: _messages.length,
+                                      itemBuilder: (context, index) {
+                                        final message =
+                                            _messages[_messages.length -
+                                                1 -
+                                                index];
+                                        final messageId = message.id;
+                                        Message? quotedMessage;
+                                        if (message.quotedMessageId != null) {
+                                          quotedMessage = _messages.firstWhere(
+                                            (m) =>
+                                                m.id == message.quotedMessageId,
+                                          );
+                                        }
+                                        bool showDateHeader = false;
+                                        final prevListIndex =
+                                            _messages.length - 2 - index;
+
+                                        if (prevListIndex >= 0) {
+                                          final prevMessage =
+                                              _messages[prevListIndex];
+
+                                          showDateHeader =
+                                              message.time.year !=
+                                                  prevMessage.time.year ||
+                                              message.time.month !=
+                                                  prevMessage.time.month ||
+                                              message.time.day !=
+                                                  prevMessage.time.day;
+                                        } else {
+                                          showDateHeader = true;
+                                        }
+
+                                        return AutoScrollTag(
+                                          key: ValueKey(messageId),
+                                          controller:
+                                              _getActiveScrollController(),
+                                          index: index,
+                                          highlightColor: Colors.green
+                                              .withValues(alpha: 0.7),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (showDateHeader)
+                                                Center(
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 8.0,
+                                                        ),
+                                                    child: _buildDateChip(
+                                                      message.time,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (showDateHeader)
+                                                const SizedBox(height: 10),
+                                              MessageBubble(
+                                                message: message,
+                                                isParentMessaging: true,
+                                                quotedMessage: quotedMessage,
+                                                onLongPress:
+                                                    (
+                                                      LongPressStartDetails
+                                                      details,
+                                                    ) {
+                                                      _showMessageOptions(
+                                                        context,
+                                                        message,
+                                                        details,
+                                                      );
+                                                    },
+                                                onScrollToQuoted: (quoteId) {
+                                                  _scrollToMessage(quoteId);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ]
+                                : [
+                                    ListView.builder(
+                                      controller: _getActiveScrollController(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      reverse: true,
+                                      itemCount: _messages.length,
+                                      itemBuilder: (context, index) {
+                                        final message =
+                                            _messages[_messages.length -
+                                                1 -
+                                                index];
+                                        final messageId = message.id;
+                                        Message? quotedMessage;
+                                        if (message.quotedMessageId != null) {
+                                          quotedMessage = _messages.firstWhere(
+                                            (m) =>
+                                                m.id == message.quotedMessageId,
+                                          );
+                                        }
+                                        bool showDateHeader = false;
+                                        final prevListIndex =
+                                            _messages.length - 2 - index;
+
+                                        if (prevListIndex >= 0) {
+                                          final prevMessage =
+                                              _messages[prevListIndex];
+
+                                          showDateHeader =
+                                              message.time.year !=
+                                                  prevMessage.time.year ||
+                                              message.time.month !=
+                                                  prevMessage.time.month ||
+                                              message.time.day !=
+                                                  prevMessage.time.day;
+                                        } else {
+                                          showDateHeader = true;
+                                        }
+
+                                        return AutoScrollTag(
+                                          key: ValueKey(messageId),
+                                          controller:
+                                              _getActiveScrollController(),
+                                          index: index,
+                                          highlightColor: Colors.green
+                                              .withValues(alpha: 0.7),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (showDateHeader)
+                                                Center(
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 8.0,
+                                                        ),
+                                                    child: _buildDateChip(
+                                                      message.time,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (showDateHeader)
+                                                const SizedBox(height: 10),
+                                              MessageBubble(
+                                                message: message,
+                                                isParentMessaging: true,
+                                                quotedMessage: quotedMessage,
+                                                onLongPress:
+                                                    (
+                                                      LongPressStartDetails
+                                                      details,
+                                                    ) {
+                                                      _showMessageOptions(
+                                                        context,
+                                                        message,
+                                                        details,
+                                                      );
+                                                    },
+                                                onScrollToQuoted: (quoteId) {
+                                                  _scrollToMessage(quoteId);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 16,
+                    ),
+                    child: _buildMessageInput(),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 16,
-              ),
-              child: _buildMessageInput(),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1617,7 +1652,8 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _pendingAttachments.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 8),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final att = _pendingAttachments[index];
 
@@ -1642,9 +1678,12 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
                               clipBehavior: Clip.none,
                               borderRadius: BorderRadius.circular(12),
                               child: Thumbnail(
-                                mimeType: att.mimeType ?? 'application/octet-stream',
+                                mimeType:
+                                    att.mimeType ?? 'application/octet-stream',
                                 dataResolver: () async {
-                                  return await File(att.localPath!).readAsBytes();
+                                  return await File(
+                                    att.localPath!,
+                                  ).readAsBytes();
                                 },
                                 widgetSize: 80,
                                 decoration: WidgetDecoration(
@@ -1658,7 +1697,9 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
                                   color: Colors.grey[200],
                                   child: Center(
                                     child: Icon(
-                                      att.isImage ? Icons.image : Icons.picture_as_pdf,
+                                      att.isImage
+                                          ? Icons.image
+                                          : Icons.picture_as_pdf,
                                       size: 40,
                                       color: AppColors.primaryColor,
                                     ),
@@ -1685,11 +1726,14 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
                                       BorderSide(color: Colors.white, width: 2),
                                     ),
                                   ),
-                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
-
 
                             if (!att.isImage)
                               Positioned(
@@ -1697,7 +1741,10 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
                                 left: 4,
                                 right: 4,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withOpacity(0.6),
                                     borderRadius: BorderRadius.circular(4),
@@ -1760,18 +1807,26 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
                                 borderSide: BorderSide.none,
                               ),
                             ),
-                            buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  '$currentLength / $maxLength',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: currentLength >= maxLength! ? Colors.red : Colors.grey,
-                                  ),
-                                ),
-                              );
-                            },
+                            buildCounter:
+                                (
+                                  context, {
+                                  required currentLength,
+                                  required isFocused,
+                                  maxLength,
+                                }) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      '$currentLength / $maxLength',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: currentLength >= maxLength!
+                                            ? Colors.red
+                                            : Colors.grey,
+                                      ),
+                                    ),
+                                  );
+                                },
                           ),
                         ),
                         Padding(
@@ -1858,7 +1913,7 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
         'December',
       ];
       label =
-      "Yesterday, ${date.day} ${monthNames[date.month - 1]} ${date.year}";
+          "Yesterday, ${date.day} ${monthNames[date.month - 1]} ${date.year}";
     } else {
       final monthNames = [
         'January',
@@ -1892,7 +1947,8 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text( // did not use CustomTextWidget here cause it was overriding the label color property of the tab bar
+          Text(
+            // did not use CustomTextWidget here cause it was overriding the label color property of the tab bar
             name,
             style: TextStyle(
               fontFamily: 'Manrope',
@@ -1996,27 +2052,27 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
               children: recipients
                   .map(
                     (r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: CustomTextWidget(text: r.name, fontSize: 13),
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: CustomTextWidget(text: r.name, fontSize: 13),
+                          ),
+                          if (r.timestamp != null) ...[
+                            const SizedBox(width: 10),
+                            CustomTextWidget(
+                              text: _formatTimeShort(r.timestamp!),
+                              fontSize: 12,
+                              fontColor: Colors.grey.shade600,
+                            ),
+                          ],
+                        ],
                       ),
-                      if (r.timestamp != null) ...[
-                        const SizedBox(width: 10),
-                        CustomTextWidget(
-                          text: _formatTimeShort(r.timestamp!),
-                          fontSize: 12,
-                          fontColor: Colors.grey.shade600,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              )
+                    ),
+                  )
                   .toList(),
             ),
           )
@@ -2060,10 +2116,10 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
   }
 
   String _formatTimeShort(
-      DateTime dt, {
-        bool use24Hour = false,
-        String separator = ':',
-      }) {
+    DateTime dt, {
+    bool use24Hour = false,
+    String separator = ':',
+  }) {
     if (use24Hour) {
       return "${dt.hour.toString().padLeft(2, '0')}${separator}${dt.minute.toString().padLeft(2, '0')}";
     }
@@ -2079,11 +2135,11 @@ class _ParentViewScreenState extends State<ParentViewScreen> with SingleTickerPr
   String _formatFullTime(DateTime dt) {
     final now = DateTime.now();
     String dayPart =
-    (dt.day == now.day && dt.month == now.month && dt.year == now.year)
+        (dt.day == now.day && dt.month == now.month && dt.year == now.year)
         ? 'Today'
         : (dt.day == now.day - 1
-        ? 'Yesterday'
-        : '${dt.day} ${_monthName(dt.month)} ${dt.year}');
+              ? 'Yesterday'
+              : '${dt.day} ${_monthName(dt.month)} ${dt.year}');
 
     return '$dayPart, ${dt.hour}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour < 12 ? 'AM' : 'PM'}';
   }

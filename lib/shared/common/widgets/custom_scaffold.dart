@@ -259,7 +259,7 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
                 height: _showBars ? navHeight : 0,
                 child: const CustomNavigationBar(),
               )
-            : null,
+            : widget.customButtonLayout,
       ),
     );
   }

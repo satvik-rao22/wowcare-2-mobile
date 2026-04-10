@@ -6,19 +6,10 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'staff_entity.dart';
 
 class StaffTransferForm extends StatefulWidget {
-  const StaffTransferForm({
-    super.key,
-    this.staff,
-  });
+  const StaffTransferForm({super.key, this.staff});
 
   final StaffEntity? staff;
 
@@ -31,18 +22,19 @@ class StaffTransferForm extends StatefulWidget {
 class _StaffTransferFormState extends State<StaffTransferForm> {
   String? selectedClassroom;
   String currentClassroom = 'Classroom A';
-  List<String> availableClassrooms = ['Classroom B', 'Classroom C', 'Classroom D'];
+  List<String> availableClassrooms = [
+    'Classroom B',
+    'Classroom C',
+    'Classroom D',
+  ];
   StaffEntity? currentStaff;
-  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    currentStaff = widget.staff ?? StaffEntity(
-      id: 1,
-      name: 'Staff Member',
-      primaryRoomId: 1,
-    );
+    currentStaff =
+        widget.staff ??
+        StaffEntity(id: 1, name: 'Staff Member', primaryRoomId: 1);
   }
 
   void _handleSubmit() {
@@ -56,124 +48,14 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       return;
     }
 
-    _submitTransfer();
-  }
-
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-  }
-
-  Future<void> _submitTransfer() async {
-    if (_isSubmitting) return;
-    if (currentStaff == null || selectedClassroom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No staff/classroom selected to transfer'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceRecordsTransfer,
-      ApiConstants.attendanceBaseUrl,
+    // UI-only: Just show success and navigate back
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Transferred successfully'),
+        backgroundColor: AppColors.successColor,
+      ),
     );
-
-    final staffCode = await _resolveStaffCode();
-    if (!mounted) return;
-    if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    final targetStaffCode = (currentStaff!.staffCode ?? '').trim();
-    if (targetStaffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Target staff code is missing. Please refresh list.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-    final staffCodes = <String>[targetStaffCode];
-
-    // TODO: Map selectedClassroom display label to a real classroom code.
-    const toClassroomCode = '';
-
-    final toClassroomCodeByStaffCode = <String, String>{
-      for (final code in staffCodes) code: toClassroomCode,
-    };
-
-    final transferredAt = DateTime.now().toUtc();
-
-    final payload = <String, dynamic>{
-      'staffCode': staffCode,
-      'staffCodes': staffCodes,
-      'toClassroomCode': toClassroomCode,
-      'toClassroomCodeByStaffCode': toClassroomCodeByStaffCode,
-      'transferReason': 'Transferred via mobile app',
-      'timeZone': 'Asia/Kolkata',
-      'transferredAt': transferredAt.toIso8601String(),
-    };
-
-    try {
-      final response = await client.post<dynamic>(
-        endpoint,
-        data: payload,
-      );
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Transferred successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
-        ),
-      );
-
-      if (success) {
-        Navigator.pop(context);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to transfer staff. Please try again.'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
+    Navigator.pop(context);
   }
 
   @override
@@ -217,17 +99,16 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                 vertical: 14,
                               ),
                               decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: Colors.grey.shade300),
+                                border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(8),
-                                color: const Color.fromRGBO(
-                                    177, 175, 233, 0.1),
+                                color: const Color.fromRGBO(177, 175, 233, 0.1),
                               ),
                               child: AppText.value(
                                 currentClassroom,
                                 style: TextStyle(
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.5),
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                               ),
                             ),
@@ -258,8 +139,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                           value: selectedClassroom,
                           hint: const Text('Select classroom'),
                           style: TextStyle(
-                            color: AppColors.primaryColor
-                                .withValues(alpha: 0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 15,
                           ),
                           isExpanded: true,
@@ -270,8 +152,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                               selectedClassroom = newValue!;
                             });
                           },
-                          items:
-                              availableClassrooms.map((String classroom) {
+                          items: availableClassrooms.map((String classroom) {
                             return DropdownMenuItem<String>(
                               value: classroom,
                               child: Text(classroom),
@@ -290,33 +171,24 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Submit',
-        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
+        onPressedConfirm: _handleSubmit,
         showCancelButton: false,
       ),
     );
   }
-
 }
 
 class RemoveStaffTile extends StatelessWidget {
   final StaffEntity staff;
 
-  const RemoveStaffTile({
-    super.key,
-    required this.staff,
-  });
+  const RemoveStaffTile({super.key, required this.staff});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -354,4 +226,3 @@ class RemoveStaffTile extends StatelessWidget {
     );
   }
 }
-

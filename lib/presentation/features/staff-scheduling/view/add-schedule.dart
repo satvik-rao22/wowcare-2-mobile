@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -12,6 +13,7 @@ import '../../../../shared/common/widgets/custom_repeat_on_days_selector.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../cubit/schedule_form_cubit.dart';
 import '../cubit/schedule_form_state.dart';
+import 'publish-shift-schedule.dart';
 
 class AddShiftScreen extends StatelessWidget {
   const AddShiftScreen({super.key});
@@ -35,9 +37,20 @@ class AddShiftForm extends StatefulWidget {
 }
 
 class _AddShiftFormState extends State<AddShiftForm> {
+  bool _isSubmitting = false;
+
+  void _onNext() {
+    setState(() {
+      Navigator.pushNamed(context, PublishShiftScheduleScreen.routeName);
+      _isSubmitting = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return BlocListener<ScheduleFormCubit, ScheduleFormState>(
       listener: (context, state) {
@@ -47,16 +60,44 @@ class _AddShiftFormState extends State<AddShiftForm> {
           );
           Navigator.pop(context);
         } else if (state is ScheduleFormError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${state.message}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${state.message}')));
         }
       },
       child: BlocBuilder<ScheduleFormCubit, ScheduleFormState>(
         builder: (context, state) {
           return GlobalScaffold(
             hasBackButton: true,
-            customButtonLayout: _buildBottomButton(context, state, responsive),
+            customButtonLayout: Container(
+              padding: EdgeInsets.only(
+                bottom: safeAreaBottom,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                ),
+              ),
+              child: CustomButtonLayout(
+                confirmButtonLabel: 'Confirm',
+                onPressedConfirm: _isSubmitting ? null : _onNext,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: _isSubmitting,
+              ),
+            ),
             showCustomNavigationBar: false,
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),

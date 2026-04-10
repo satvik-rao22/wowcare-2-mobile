@@ -1,3 +1,5 @@
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_expected_summary.dart';
+
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
@@ -691,5 +693,88 @@ class AttendanceRepositoryImpl
         );
 
     return _mapStudentAbsentFormPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<staff_absent.StaffAttendanceAbsentPage> getStaffAbsentFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) {
+    // TODO: implement getStaffAbsentFormList
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<staff_absent.StaffAttendanceAbsentPage>
+  getStaffAttendanceAbsentToggleView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) {
+    // TODO: implement getStaffAttendanceAbsentToggleView
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary() {
+    // TODO: implement getStaffAttendanceExpectedSummary
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String?> getStaffTodaySignInStatus(String staffCode) {
+    // TODO: implement getStaffTodaySignInStatus
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<StudentAttendanceExpectedSummary>
+  getStudentAttendanceExpectedSummary() {
+    // TODO: implement getStudentAttendanceExpectedSummary
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String?> getStudentTodaySignInStatus(String studentCode) {
+    // TODO: implement getStudentTodaySignInStatus
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> markStaffAbsent({
+    required String staffCode,
+    required List<String> staffCodes,
+    required String absenceFromDate,
+    required String absenceToDate,
+    required String absenceReason,
+    required String absenceType,
+    required Map<String, String> absenceNotes,
+  }) {
+    // TODO: implement markStaffAbsent
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+    DateTime? signedInAt,
+    DateTime? signedOutAt,
+    String? originalClassroomCode,
+    String? currentClassroomCode,
+    String? notes,
+    String? timeZone,
+  }) {
+    // TODO: implement updateStudentAttendanceRecord
+    throw UnimplementedError();
   }
 }

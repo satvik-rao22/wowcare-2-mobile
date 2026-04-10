@@ -21,9 +21,7 @@ import 'student_sign_in_form.dart';
 class StudentSelectionSignInForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-in-form';
 
-  const StudentSelectionSignInForm({
-    super.key,
-  });
+  const StudentSelectionSignInForm({super.key});
 
   @override
   State<StudentSelectionSignInForm> createState() =>
@@ -54,12 +52,11 @@ class _StudentSelectionSignInFormState
   bool _isClassroomDataReady = false;
   bool _isTagMapLoading = false;
 
-  late final GetStudentSignInFormListUseCase
-      _getStudentSignInFormListUseCase;
+  late final GetStudentSignInFormListUseCase _getStudentSignInFormListUseCase;
   late final ClassroomCubit _classroomCubit;
   late final StorageService _storageService;
   late final GetTagNameCodeMapForSchoolUseCase
-      _getTagNameCodeMapForSchoolUseCase;
+  _getTagNameCodeMapForSchoolUseCase;
 
   @override
   void initState() {
@@ -192,8 +189,9 @@ class _StudentSelectionSignInFormState
         }
       }
 
-      final searchText =
-          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+      final searchText = _searchController.text.trim().isNotEmpty
+          ? _searchController.text.trim()
+          : null;
 
       final page = await _getStudentSignInFormListUseCase(
         fromAttendanceDate: dateString,
@@ -212,11 +210,11 @@ class _StudentSelectionSignInFormState
         final item = entry.value;
         return StudentEntity(
           id: index + 1,
-          studentCode: item.studentCode,
+          // studentCode: item.studentCode,
           fullName: item.studentName,
           roomId: 0,
           roomName: item.classroomName,
-          classroomCode: item.classroomCode,
+          // classroomCode: item.classroomCode,
           photoUuid: null,
         );
       }).toList();
@@ -225,7 +223,8 @@ class _StudentSelectionSignInFormState
         _allStudents = students;
         _filteredStudents = List.from(students);
         _isLoading = false;
-        isSelectAllChecked = _filteredStudents.isNotEmpty &&
+        isSelectAllChecked =
+            _filteredStudents.isNotEmpty &&
             _filteredStudents.every((s) => selectedStudents.contains(s));
       });
     } catch (e) {
@@ -323,9 +322,7 @@ class _StudentSelectionSignInFormState
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search Students',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
-                ),
+                hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
@@ -342,8 +339,8 @@ class _StudentSelectionSignInFormState
                     final items = _classroomList.isNotEmpty
                         ? _classroomList
                         : classroomState.classrooms
-                            .map((c) => c.name)
-                            .toList(growable: false);
+                              .map((c) => c.name)
+                              .toList(growable: false);
                     final isLoading =
                         classroomState.isLoading || !_isClassroomDataReady;
 
@@ -401,30 +398,29 @@ class _StudentSelectionSignInFormState
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              _errorMessage ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _loadStudents,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppText.body(
+                          _errorMessage ?? 'Failed to load students',
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : _filteredStudents.isEmpty
-                        ? const Center(child: AppText.body("No students found"))
-                        : GridView.builder(
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _loadStudents,
+                          child: const AppText.body('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _filteredStudents.isEmpty
+                ? const Center(child: AppText.body("No students found"))
+                : GridView.builder(
                     shrinkWrap: false,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: isTablet ? 16 : 12,
                       mainAxisSpacing: isTablet ? 16 : 12,
@@ -433,8 +429,7 @@ class _StudentSelectionSignInFormState
                     itemCount: _filteredStudents.length,
                     itemBuilder: (context, index) {
                       final student = _filteredStudents[index];
-                      final isSelected =
-                          selectedStudents.contains(student);
+                      final isSelected = selectedStudents.contains(student);
 
                       return StudentListItem(
                         student: student,
@@ -448,9 +443,7 @@ class _StudentSelectionSignInFormState
         ],
       ),
       bottomBar: Padding(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-        ),
+        padding: EdgeInsets.only(bottom: safeAreaBottom),
         child: CustomButtonLayout(
           confirmButtonLabel: 'Next',
           onPressedConfirm: _handleNext,
@@ -479,9 +472,7 @@ class StudentListItem extends StatelessWidget {
       onTap: () => onSelectionChanged(!isSelected),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)

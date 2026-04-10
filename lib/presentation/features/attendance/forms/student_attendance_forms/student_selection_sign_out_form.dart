@@ -49,12 +49,11 @@ class _StudentSelectionSignOutFormState
   bool _isClassroomDataReady = false;
   bool _isTagMapLoading = false;
 
-  late final GetStudentSignOutFormListUseCase
-      _getStudentSignOutFormListUseCase;
+  late final GetStudentSignOutFormListUseCase _getStudentSignOutFormListUseCase;
   late final ClassroomCubit _classroomCubit;
   late final StorageService _storageService;
   late final GetTagNameCodeMapForSchoolUseCase
-      _getTagNameCodeMapForSchoolUseCase;
+  _getTagNameCodeMapForSchoolUseCase;
 
   @override
   void initState() {
@@ -185,8 +184,9 @@ class _StudentSelectionSignOutFormState
         }
       }
 
-      final searchText =
-          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+      final searchText = _searchController.text.trim().isNotEmpty
+          ? _searchController.text.trim()
+          : null;
 
       final page = await _getStudentSignOutFormListUseCase(
         fromAttendanceDate: dateString,
@@ -203,19 +203,20 @@ class _StudentSelectionSignOutFormState
         final item = entry.value;
         return StudentEntity(
           id: index + 1,
-          studentCode: item.studentCode,
+          // studentCode: item.studentCode,
           fullName: item.studentName,
           roomId: 0,
           roomName: item.classroomName,
           photoUuid: '', // API does not supply image here
-          classroomCode: item.classroomCode,
+          // classroomCode: item.classroomCode,
         );
       }).toList();
 
       setState(() {
         _filteredStudents = List.from(students);
         _isLoading = false;
-        isSelectAllChecked = _filteredStudents.isNotEmpty &&
+        isSelectAllChecked =
+            _filteredStudents.isNotEmpty &&
             _filteredStudents.every((s) => selectedStudents.contains(s));
       });
     } catch (e) {
@@ -269,9 +270,8 @@ class _StudentSelectionSignOutFormState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StudentSignOutForm(
-          students: selectedStudents.toList(),
-        ),
+        builder: (context) =>
+            StudentSignOutForm(students: selectedStudents.toList()),
       ),
     );
   }
@@ -300,9 +300,7 @@ class _StudentSelectionSignOutFormState
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search Students',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
-                ),
+                hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
@@ -319,8 +317,8 @@ class _StudentSelectionSignOutFormState
                     final items = _classroomList.isNotEmpty
                         ? _classroomList
                         : classroomState.classrooms
-                            .map((c) => c.name)
-                            .toList(growable: false);
+                              .map((c) => c.name)
+                              .toList(growable: false);
                     final isLoading =
                         classroomState.isLoading || !_isClassroomDataReady;
 
@@ -378,48 +376,47 @@ class _StudentSelectionSignOutFormState
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              _errorMessage ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _loadStudents,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppText.body(
+                          _errorMessage ?? 'Failed to load students',
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : _filteredStudents.isEmpty
-                        ? const Center(child: AppText.body('No students found'))
-                        : GridView.builder(
-                            shrinkWrap: false,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: isTablet ? 16 : 12,
-                              mainAxisSpacing: isTablet ? 16 : 12,
-                              mainAxisExtent: 52,
-                            ),
-                            itemCount: _filteredStudents.length,
-                            itemBuilder: (context, index) {
-                              final student = _filteredStudents[index];
-                              final isSelected =
-                                  selectedStudents.contains(student);
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _loadStudents,
+                          child: const AppText.body('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _filteredStudents.isEmpty
+                ? const Center(child: AppText.body('No students found'))
+                : GridView.builder(
+                    shrinkWrap: false,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: isTablet ? 16 : 12,
+                      mainAxisSpacing: isTablet ? 16 : 12,
+                      mainAxisExtent: 52,
+                    ),
+                    itemCount: _filteredStudents.length,
+                    itemBuilder: (context, index) {
+                      final student = _filteredStudents[index];
+                      final isSelected = selectedStudents.contains(student);
 
-                              return StudentListItem(
-                                student: student,
-                                isSelected: isSelected,
-                                onSelectionChanged: (value) =>
-                                    _toggleStudentSelection(student, value),
-                              );
-                            },
-                          ),
+                      return StudentListItem(
+                        student: student,
+                        isSelected: isSelected,
+                        onSelectionChanged: (value) =>
+                            _toggleStudentSelection(student, value),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -453,9 +450,7 @@ class StudentListItem extends StatelessWidget {
       onTap: () => onSelectionChanged(!isSelected),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)

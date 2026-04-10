@@ -8,6 +8,8 @@ import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/util/api_constants.dart';
+import '../../core/cache/cache_service.dart';
+import '../../core/cache/isar_cache_service.dart';
 import '../../data/features/auth/datasources/auth_local_datasource.dart';
 import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
@@ -121,6 +123,13 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_tog
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
+import '../../domain/features/communication/entities/message.dart';
+import '../../domain/features/communication/repositories/communication_repository.dart';
+import '../../domain/features/communication/usecases/get_messages_usecase.dart';
+import '../../domain/features/communication/usecases/send_message_usecase.dart';
+import '../../data/features/communication/datasources/communication_remote_data_source.dart';
+import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import '../../presentation/features/communication/cubit/communication_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -141,6 +150,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
+  );
+
+  // Cache
+  final isarCacheService = IsarCacheService();
+  await isarCacheService.init();
+  serviceLocator.registerLazySingleton<CacheService>(
+    () => isarCacheService,
   );
 
   serviceLocator.registerLazySingleton<ApiClient>(
@@ -203,6 +219,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => OnboardingRemoteDataSourceMock(),
   );
 
+  // Communication Data Sources
+  serviceLocator.registerLazySingleton<CommunicationRemoteDataSource>(
+    () => CommunicationRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
+
   // Repositories
   serviceLocator.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
@@ -237,6 +258,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StaffSchedulingRepository>(
     () => StaffSchedulingRepositoryImpl(),
+  );
+
+  serviceLocator.registerLazySingleton<CommunicationRepository>(
+    () => CommunicationRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      cacheService: serviceLocator(),
+    ),
   );
 
   // Use cases
@@ -421,6 +449,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => SaveScheduleUseCase(serviceLocator()),
   );
 
+  serviceLocator.registerFactory<GetMessagesUseCase>(
+    () => GetMessagesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SendMessageUseCase>(
+    () => SendMessageUseCase(serviceLocator()),
+  );
+
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
     () => AuthCubit(
@@ -552,5 +587,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ScheduleFormCubit>(
     () => ScheduleFormCubit(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<CommunicationCubit>(
+    () => CommunicationCubit(
+      getMessagesUseCase: serviceLocator(),
+      sendMessageUseCase: serviceLocator(),
+    ),
   );
 }

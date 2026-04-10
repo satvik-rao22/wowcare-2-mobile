@@ -3,7 +3,6 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/widgets/student_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../app/theme/media_res.dart';
 import '../../../../../../shared/common/widgets/custom_checkbox.dart';
@@ -278,8 +277,9 @@ class _StaffOrStudentSelectionBulkMessagingState
 
   List<MapEntry<String, Map<String, dynamic>>> get _filteredList {
     final query = _searchController.text.trim().toLowerCase();
-    var filtered = widget.isStaffSelection ? List<Map<String, dynamic>>.from(staffList) : List<Map<String, dynamic>>.from(parentList);
-
+    var filtered = widget.isStaffSelection
+        ? List<Map<String, dynamic>>.from(staffList)
+        : List<Map<String, dynamic>>.from(parentList);
 
     if (_selectedStatus != null) {
       filtered = filtered.where((person) {
@@ -300,7 +300,7 @@ class _StaffOrStudentSelectionBulkMessagingState
             _selectedDesignations.contains(designation);
       }).toList();
     }
-    if(_selectedTags.isNotEmpty && !widget.isStaffSelection){
+    if (_selectedTags.isNotEmpty && !widget.isStaffSelection) {
       filtered = filtered.where((person) {
         final tags = List<String>.from(person['tags']);
         return tags.any((tag) => _selectedTags.contains(tag));
@@ -324,14 +324,15 @@ class _StaffOrStudentSelectionBulkMessagingState
     if (_filteredList.isEmpty) {
       _selectAll = false;
     } else {
-      if(widget.isStaffSelection){
+      if (widget.isStaffSelection) {
         _selectAll = _filteredList.every(
-              (entry) => _selectedStaff.contains(entry.value),
+          (entry) => _selectedStaff.contains(entry.value),
         );
       } else {
-        _selectAll = _filteredList.every((entry) => _selectedStudents.contains(entry.value));
+        _selectAll = _filteredList.every(
+          (entry) => _selectedStudents.contains(entry.value),
+        );
       }
-
     }
   }
 
@@ -458,7 +459,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 10),
                                 child: Text(
-                                  widget.isStaffSelection ?'Select Staff' : 'Select Students',
+                                  widget.isStaffSelection
+                                      ? 'Select Staff'
+                                      : 'Select Students',
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -474,7 +477,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                                 Expanded(
                                   child: CustomSearchBar(
                                     controller: _searchController,
-                                    hintText: widget.isStaffSelection ? 'Search Staff':'Search Students',
+                                    hintText: widget.isStaffSelection
+                                        ? 'Search Staff'
+                                        : 'Search Students',
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -515,7 +520,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                if(widget.isStaffSelection)
+                                if (widget.isStaffSelection)
                                   Expanded(
                                     child: CustomMultiSelectDropdown(
                                       hintText: 'Select Designation',
@@ -573,20 +578,21 @@ class _StaffOrStudentSelectionBulkMessagingState
                                   setState(() {
                                     _selectAll = newVal;
                                     if (newVal) {
-                                      if(widget.isStaffSelection){
+                                      if (widget.isStaffSelection) {
                                         _selectedStaff.addAll(
                                           _filteredList.map((e) => e.value),
                                         );
                                       } else {
-                                        _selectedStudents.addAll(_filteredList.map((e) => e.value));
+                                        _selectedStudents.addAll(
+                                          _filteredList.map((e) => e.value),
+                                        );
                                       }
                                     } else {
-                                      if(widget.isStaffSelection){
+                                      if (widget.isStaffSelection) {
                                         _selectedStaff.clear();
                                       } else {
                                         _selectedStudents.clear();
                                       }
-
                                     }
                                   });
                                 },
@@ -596,7 +602,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                             _filteredList.isEmpty
                                 ? Center(
                                     child: Text(
-                                      widget.isStaffSelection ? 'No staff match the selected filters' : 'No student match the selected filters',
+                                      widget.isStaffSelection
+                                          ? 'No staff match the selected filters'
+                                          : 'No student match the selected filters',
                                       style: TextStyle(
                                         color: Colors.grey[600],
                                         fontSize: 16,
@@ -630,8 +638,10 @@ class _StaffOrStudentSelectionBulkMessagingState
                                           .split(' ')
                                           .first;
 
-                                      final bool isSelected = widget.isStaffSelection ? _selectedStaff
-                                          .contains(person) : _selectedStudents.contains(person);
+                                      final bool isSelected =
+                                          widget.isStaffSelection
+                                          ? _selectedStaff.contains(person)
+                                          : _selectedStudents.contains(person);
 
                                       return StudentTile(
                                         name: firstName,
@@ -642,9 +652,15 @@ class _StaffOrStudentSelectionBulkMessagingState
                                           ).removeCurrentSnackBar();
                                           setState(() {
                                             if (selected == true) {
-                                              (widget.isStaffSelection ? _selectedStaff : _selectedStudents).add(person);
+                                              (widget.isStaffSelection
+                                                      ? _selectedStaff
+                                                      : _selectedStudents)
+                                                  .add(person);
                                             } else {
-                                              (widget.isStaffSelection ? _selectedStaff : _selectedStudents).remove(person);
+                                              (widget.isStaffSelection
+                                                      ? _selectedStaff
+                                                      : _selectedStudents)
+                                                  .remove(person);
                                             }
                                             _updateSelectAllState();
                                           });
@@ -796,7 +812,7 @@ class _StaffOrStudentSelectionBulkMessagingState
               ),
               child: TextButton(
                 onPressed: () {
-                  if(widget.isStaffSelection){
+                  if (widget.isStaffSelection) {
                     if (_selectedStaff.isNotEmpty) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
