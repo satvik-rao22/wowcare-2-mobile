@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
 
-enum MovementStatus { overdue, upcoming, confirmed, rejected }
+/// PRD: Pending | Approved (confirmed) | Rejected.
+enum MovementWorkflowStatus { pending, confirmed, rejected }
+
+/// Movement kinds (UI currently implements [moveToNextClassroom] only).
+enum MovementType {
+  startSchool,
+  moveToNextClassroom,
+  leaveSchool,
+}
+
+/// Column buckets on the overview (not stored on the row — derived).
+enum MovementBucket { overdue, upcoming, confirmed, rejected }
 
 class MovementItem {
   const MovementItem({
@@ -10,7 +21,8 @@ class MovementItem {
     required this.toClassroom,
     required this.movementDate,
     this.comment = '',
-    required this.status,
+    required this.workflowStatus,
+    this.movementType = MovementType.moveToNextClassroom,
   });
 
   final int id;
@@ -19,7 +31,34 @@ class MovementItem {
   final String toClassroom;
   final DateTime movementDate;
   final String comment;
-  final MovementStatus status;
+  final MovementWorkflowStatus workflowStatus;
+  final MovementType movementType;
+
+  /// PRD buckets: Overdue/Upcoming = pending + date vs today; Confirmed/Rejected = workflow.
+  MovementBucket bucketFor(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(movementDate.year, movementDate.month, movementDate.day);
+    switch (workflowStatus) {
+      case MovementWorkflowStatus.confirmed:
+        return MovementBucket.confirmed;
+      case MovementWorkflowStatus.rejected:
+        return MovementBucket.rejected;
+      case MovementWorkflowStatus.pending:
+        if (d.isBefore(today)) return MovementBucket.overdue;
+        return MovementBucket.upcoming;
+    }
+  }
+
+  String get movementTypeLabel {
+    switch (movementType) {
+      case MovementType.startSchool:
+        return 'Start School';
+      case MovementType.moveToNextClassroom:
+        return 'Move to Next Classroom';
+      case MovementType.leaveSchool:
+        return 'Leave the School';
+    }
+  }
 
   MovementItem copyWith({
     String? name,
@@ -27,7 +66,8 @@ class MovementItem {
     String? toClassroom,
     DateTime? movementDate,
     String? comment,
-    MovementStatus? status,
+    MovementWorkflowStatus? workflowStatus,
+    MovementType? movementType,
   }) {
     return MovementItem(
       id: id,
@@ -36,7 +76,8 @@ class MovementItem {
       toClassroom: toClassroom ?? this.toClassroom,
       movementDate: movementDate ?? this.movementDate,
       comment: comment ?? this.comment,
-      status: status ?? this.status,
+      workflowStatus: workflowStatus ?? this.workflowStatus,
+      movementType: movementType ?? this.movementType,
     );
   }
 }
@@ -45,13 +86,13 @@ class MovementSection {
   const MovementSection({
     required this.title,
     required this.backgroundColor,
-    required this.status,
+    required this.bucket,
     required this.items,
   });
 
   final String title;
   final Color backgroundColor;
-  final MovementStatus status;
+  final MovementBucket bucket;
   final List<MovementItem> items;
 }
 

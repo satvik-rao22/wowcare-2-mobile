@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -13,14 +14,19 @@ class AddEditIndividualMovementScreen extends StatefulWidget {
     super.key,
     required this.students,
     required this.classrooms,
+    required this.existingMovements,
     this.initialData,
     this.isEditing = false,
+    this.editingMovementId,
   });
 
   final List<String> students;
   final List<String> classrooms;
+  /// Full list used for duplicate detection (same student, date, from, to).
+  final List<MovementItem> existingMovements;
   final MovementFormResult? initialData;
   final bool isEditing;
+  final int? editingMovementId;
 
   @override
   State<AddEditIndividualMovementScreen> createState() =>
@@ -153,11 +159,17 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
           CustomConfirmButton(
             label: 'Save',
             onPressed: () {
-              if (_selectedStudent == null ||
-                  _currentClassroom == null ||
-                  _nextClassroom == null) {
+              final String? error = IndividualMovementValidators.validateMoveToNextClassroomForm(
+                student: _selectedStudent,
+                fromClassroom: _currentClassroom,
+                toClassroom: _nextClassroom,
+                movementDate: _movementDate,
+                existing: widget.existingMovements,
+                excludeId: widget.editingMovementId,
+              );
+              if (error != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill all required fields')),
+                  SnackBar(content: Text(error)),
                 );
                 return;
               }

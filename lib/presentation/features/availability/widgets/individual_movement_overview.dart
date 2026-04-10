@@ -20,6 +20,9 @@ class IndividualMovementFilterCard extends StatelessWidget {
     required this.onToClassroomChanged,
     required this.onFromClassroomChanged,
     required this.onClearAll,
+    this.filterRangeStart,
+    this.filterRangeEnd,
+    required this.onDateRangeChanged,
   });
 
   final List<String> students;
@@ -31,6 +34,9 @@ class IndividualMovementFilterCard extends StatelessWidget {
   final ValueChanged<String?> onToClassroomChanged;
   final ValueChanged<String?> onFromClassroomChanged;
   final VoidCallback onClearAll;
+  final DateTime? filterRangeStart;
+  final DateTime? filterRangeEnd;
+  final void Function(DateTime? start, DateTime? end) onDateRangeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +102,13 @@ class IndividualMovementFilterCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: <Widget>[
-              const Expanded(child: AccountingDateRangeSelector()),
+              Expanded(
+                child: AccountingDateRangeSelector(
+                  initialStartDate: filterRangeStart,
+                  initialEndDate: filterRangeEnd,
+                  onRangeChanged: onDateRangeChanged,
+                ),
+              ),
               const SizedBox(width: 8),
               SizedBox(
                 height: 36,
