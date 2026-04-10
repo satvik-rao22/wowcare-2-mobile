@@ -6,9 +6,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
@@ -19,7 +19,6 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,10 +30,12 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
 
@@ -332,47 +333,20 @@ class _CustomDrawerState extends State<CustomDrawer> {
     Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
   }
 
-  Future<void> _openParentAttendanceProfile() async {
+  Future<void> _openParentAttendanceProfile(ParentChildRef? selectedChild) async {
     try {
-      final storage = serviceLocator<StorageService>();
+      if (selectedChild == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No child selected. Please select a child first.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+
       final signOutFormList = serviceLocator<GetStudentSignOutFormListUseCase>();
-      final studentPage = serviceLocator<GetStudentPageUseCase>();
-
-      final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-
-      if (guardianCode.isEmpty || schoolCode.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to resolve parent access for attendance.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
-
-      final myChildren = await studentPage(
-        schoolCode: schoolCode,
-        guardianCodes: <String>[guardianCode],
-        page: 0,
-        size: 500,
-      );
-      final allowedCodes = myChildren.items
-          .map((s) => s.code.trim())
-          .where((code) => code.isNotEmpty)
-          .toSet();
-
-      if (allowedCodes.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No child linked to this parent account.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
 
       final now = DateTime.now();
       final date =
@@ -385,34 +359,27 @@ class _CustomDrawerState extends State<CustomDrawer> {
       );
 
       final selected = signedInPage.items.where(
-        (i) => allowedCodes.contains(i.studentCode.trim()),
+        (i) => i.studentCode.trim() == selectedChild.code.trim(),
       );
 
-      String studentCode = '';
-      String studentName = '';
-      String roomName = '';
+      String roomName = selectedChild.classroom;
       bool isSignedIn = false;
 
       if (selected.isNotEmpty) {
         final child = selected.first;
-        studentCode = child.studentCode;
-        studentName = child.studentName;
-        roomName = child.classroomName;
+        roomName = child.classroomName.trim().isNotEmpty
+            ? child.classroomName
+            : selectedChild.classroom;
         isSignedIn = child.hasSignIn && !child.hasSignOut;
-      } else {
-        final fallback = myChildren.items.first;
-        studentCode = fallback.code;
-        studentName = fallback.fullName;
-        roomName = fallback.classroom;
       }
 
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => StudentAttendanceProfile(
-            studentCode: studentCode,
+            studentCode: selectedChild.code,
             studentId: 0,
-            studentName: studentName,
+            studentName: selectedChild.name,
             studentPhotoUuid: null,
             roomName: roomName,
             isSignedIn: isSignedIn,
@@ -428,6 +395,33 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ),
       );
     }
+  }
+
+  Future<void> _openParentStudentProfile(ParentChildRef? selectedChild) async {
+    if (selectedChild == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No child selected. Please select a child first.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentProfileScreen(
+          name: selectedChild.name,
+          classroom: selectedChild.classroom,
+          tags: selectedChild.tags,
+          schedule: selectedChild.schedule,
+          sibling: const <String, dynamic>{'name': [], 'relation': [], 'status': []},
+          studentCode: selectedChild.code,
+        ),
+      ),
+    );
   }
 
   Future<void> _openLoggedInStaffProfile(NavigatorState navigator) async {
@@ -573,6 +567,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
       const ['communication', 'messaging', 'message'],
     );
     final canViewBilling = roleProvider.canAccessAny(const ['billing']);
+    final parentChildProvider = context.watch<ParentChildProvider>();
+    if (isParent &&
+        !parentChildProvider.isLoaded &&
+        !parentChildProvider.isLoading) {
+      Future.microtask(parentChildProvider.ensureLoaded);
+    }
 
     return Drawer(
       width: MediaQuery.of(context).size.width * 2 / 3,
@@ -617,24 +617,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           icon: MediaRes.students_drawer_icon,
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => MultiBlocProvider(
-                                  providers: [
-                                    BlocProvider<StudentCubit>(
-                                      create: (_) => serviceLocator<StudentCubit>()
-                                        ..loadInitial(),
-                                    ),
-                                    BlocProvider<ClassroomCubit>(
-                                      create: (_) =>
-                                          serviceLocator<ClassroomCubit>()
-                                            ..loadActiveClassrooms(),
-                                    ),
-                                  ],
-                                  child: const StudentScreen(),
-                                ),
-                              ),
-                            );
+                            _openParentStudentProfile(parentChildProvider.selectedChild);
                           },
                         ),
                         if (canViewAttendance)
@@ -643,7 +626,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           icon: MediaRes.attendanceIcon,
                           onTap: () {
                             Navigator.pop(context);
-                            _openParentAttendanceProfile();
+                            _openParentAttendanceProfile(parentChildProvider.selectedChild);
                           },
                         ),
                         if (canViewActivities)
@@ -829,6 +812,48 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             ),
                           ],
                         ),
+                        if (canViewAttendance)
+                          _CustomExpansionTile(
+                            title: 'Availability',
+                            icon: MediaRes.attendanceIcon,
+                            isExpansionEnabled: true,
+                            children: [
+                              DrawerListTile(
+                                title: 'Individual Movement',
+                                leading: const Icon(
+                                  Icons.directions_walk,
+                                  color: AppColors.themeColor,
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  if (_currentRoute !=
+                                      IndividualMovementScreen.routeName) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      IndividualMovementScreen.routeName,
+                                    );
+                                  }
+                                },
+                              ),
+                              DrawerListTile(
+                                title: 'Future Availability',
+                                leading: const Icon(
+                                  Icons.calendar_month,
+                                  color: AppColors.themeColor,
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  if (_currentRoute !=
+                                      FutureAvailabilityScreen.routeName) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      FutureAvailabilityScreen.routeName,
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         if (canViewActivities)
                           _CustomExpansionTile(
                           title: 'Activities',
