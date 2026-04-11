@@ -37,6 +37,7 @@ import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
+import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
@@ -576,6 +577,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     }
   }
 
+  /// Same card styling as the empty state; shows [PrimaryCircularLoader] on white.
+  Widget _dailyFeedLoadingSheet(
+    BuildContext context, {
+    bool expandToParentHeight = false,
+  }) {
+    final sheet = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.dividerColor),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+      ),
+      alignment: Alignment.center,
+      child: const PrimaryCircularLoader(size: 40, strokeWidth: 3.5),
+    );
+
+    return Padding(
+      padding: ResponsiveSizing.contentPadding(context),
+      child: expandToParentHeight ? SizedBox.expand(child: sheet) : sheet,
+    );
+  }
+
   // @override
   // void dispose() {
   //  // _searchController.dispose();
@@ -836,12 +860,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                 ),),
                 SliverToBoxAdapter(child: SizedBox(height: 12,),),
                 if (_loadingFeed && _activities.isEmpty)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  ),
+                  SliverToBoxAdapter(child: _dailyFeedLoadingSheet(context)),
                 if (!_loadingFeed && _activities.isEmpty)
                   SliverToBoxAdapter(child: Padding(
                     padding: ResponsiveSizing.contentPadding(context),
@@ -2276,8 +2295,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                 const SizedBox(height: 12),
 
                 if (_loadingFeed && _activities.isEmpty)
-                  const Expanded(
-                    child: Center(child: CircularProgressIndicator()),
+                  Expanded(
+                    child: _dailyFeedLoadingSheet(
+                      context,
+                      expandToParentHeight: true,
+                    ),
                   ),
 
                 if (!_loadingFeed && _activities.length == 0)
@@ -2926,6 +2948,8 @@ class ActivityItem {
   final String? additionalNotes; // for incident activity
   final String? bathroomType; // for bathroom activity
   final String? bathroomSubType; // also for bathroom activity
+  /// From feed row; used to load activity-type parameter definitions in edit flows.
+  final String? activityTypeCode;
 
   const ActivityItem({
     required this.time,
@@ -2951,6 +2975,7 @@ class ActivityItem {
     this.additionalNotes,
     this.bathroomType,
     this.bathroomSubType,
+    this.activityTypeCode,
   });
 }
 
@@ -3091,5 +3116,8 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     staffPresent: by,
     bathroomType: name == 'Bathroom' ? bathroomType : null,
     bathroomSubType: name == 'Bathroom' ? bathroomSubType : null,
+    activityTypeCode: row.activityTypeCode.trim().isEmpty
+        ? null
+        : row.activityTypeCode.trim(),
   );
 }

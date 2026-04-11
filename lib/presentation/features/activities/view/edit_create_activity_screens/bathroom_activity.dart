@@ -11,7 +11,6 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
@@ -19,6 +18,7 @@ import '../../../../../domain/features/activity/entities/activity_type_details.d
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -47,12 +47,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   bool _selectAll = false;
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> _bathroomType = ['Diaper', 'Potty', 'Pee'];
-  final Map<String, List<String>> _subTypes = {
-    'Diaper': ['Wet', 'Soiled', 'Mixed'],
-    'Potty': ['Assisted', 'Independent'],
-    'Pee': ['Accident', 'Successful'],
-  };
+  List<ActivityTypeParameterOption> _bathroomTypeOptions = [];
+  List<ActivityTypeParameterOption> _allSubTypeOptions = [];
+  List<String> _bathroomTypeLabels = [];
   List<String> _availableSubTypes = [];
   String? _selectedBathroomType;
   String? _selectedSubType;
@@ -65,6 +62,12 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _loadingBathroomOptions = false;
+
+  /// Parameters from activity type except bathroom/sub-type and core form fields.
+  List<ActivityTypeParameter> _extraParameters = [];
+  final Map<String, String?> _extraDropdownByParamCode = {};
+  final Map<String, bool> _extraBoolByParamCode = {};
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
@@ -91,17 +94,270 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _descriptionController.text = activity.description ?? '';
       _selectedBathroomType = activity.bathroomType;
       _selectedSubType = activity.bathroomSubType;
-      _updateAvailableSubTypes();
+      _activityTypeCode = activity.activityTypeCode;
+      final code = _activityTypeCode?.trim();
+      if (code != null && code.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _loadBathroomParameterOptions();
+        });
+      }
     }
     _loadStaffContext();
   }
 
   void _updateAvailableSubTypes() {
-    if (_selectedBathroomType != null) {
-      _availableSubTypes = _subTypes[_selectedBathroomType] ?? [];
-    } else {
+    if (_selectedBathroomType == null) {
       _availableSubTypes = [];
       _selectedSubType = null;
+      return;
+    }
+    final parent = _optionCodeForBathroomTypeLabel(_selectedBathroomType!);
+    if (parent == null || parent.isEmpty) {
+      _availableSubTypes = [];
+      _selectedSubType = null;
+      return;
+    }
+    final matching = _allSubTypeOptions
+        .where((o) => (o.parentOptionCode ?? '').trim() == parent)
+        .toList()
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    _availableSubTypes = matching
+        .map((o) => (o.optionLabel ?? '').trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    final st = _selectedSubType;
+    if (st != null && st.trim().isNotEmpty) {
+      final idx = _availableSubTypes.indexWhere(
+        (s) => s.toLowerCase() == st.trim().toLowerCase(),
+      );
+      if (idx >= 0) {
+        _selectedSubType = _availableSubTypes[idx];
+      } else {
+        _selectedSubType = null;
+      }
+    }
+  }
+
+  String? _optionCodeForBathroomTypeLabel(String label) {
+    for (final o in _bathroomTypeOptions) {
+      final l = (o.optionLabel ?? '').trim();
+      if (l.isEmpty) continue;
+      if (l.toLowerCase() == label.trim().toLowerCase()) {
+        final oc = (o.optionCode ?? o.code).trim();
+        if (oc.isNotEmpty) return oc;
+      }
+    }
+    return null;
+  }
+
+  ActivityTypeParameter? _findBathroomTypeParameter(
+    List<ActivityTypeParameter> parameters,
+  ) {
+    for (final p in parameters) {
+      final n = p.parameterName.toLowerCase();
+      if (n.contains('sub')) continue;
+      if ((n.contains('bathroom') || n.contains('potty') || n.contains('diaper')) &&
+          (n.contains('type') || n.contains('kind'))) {
+        return p;
+      }
+    }
+    for (final p in parameters) {
+      final n = p.parameterName.toLowerCase();
+      if (n.contains('sub')) continue;
+      if (n.contains('bathroom') ||
+          n.contains('potty') ||
+          n.contains('diaper')) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  ActivityTypeParameter? _findSubTypeParameter(
+    List<ActivityTypeParameter> parameters,
+  ) {
+    for (final p in parameters) {
+      final n = p.parameterName.toLowerCase();
+      if (n.contains('sub') && n.contains('type')) return p;
+      if (n.contains('subtype')) return p;
+    }
+    return null;
+  }
+
+  bool _isBuiltInFormParameter(ActivityTypeParameter p) {
+    final n = p.parameterName.toLowerCase();
+    final dt = (p.dataType ?? '').toUpperCase();
+    if (dt == 'DATE') return true;
+    if (dt == 'TIME') return true;
+    if (n.contains('staff')) return true;
+    if (n.contains('description')) return true;
+    return false;
+  }
+
+  bool _isDiaperBathroomTypeSelected() {
+    final t = _selectedBathroomType?.toLowerCase().trim() ?? '';
+    return t == 'diaper' || t.contains('diaper');
+  }
+
+  bool _extraParameterVisible(ActivityTypeParameter p) {
+    if (_selectedBathroomType == null) return false;
+    final bathroomOc = _optionCodeForBathroomTypeLabel(_selectedBathroomType!);
+    if (bathroomOc == null || bathroomOc.isEmpty) return false;
+
+    final dt = (p.dataType ?? '').toUpperCase();
+    if (dt == 'BOOLEAN') {
+      final n = p.parameterName.toLowerCase();
+      if (n.contains('diaper') || n.contains('cream')) {
+        return _isDiaperBathroomTypeSelected();
+      }
+      return true;
+    }
+
+    if (p.options.isEmpty) {
+      final n = p.parameterName.toLowerCase();
+      if (n.contains('diaper') || n.contains('cream')) {
+        return _isDiaperBathroomTypeSelected();
+      }
+      return true;
+    }
+
+    final withParent = p.options
+        .where((o) => (o.parentOptionCode ?? '').trim().isNotEmpty)
+        .toList();
+    if (withParent.isEmpty) {
+      return true;
+    }
+    return p.options.any((o) => (o.parentOptionCode ?? '').trim() == bathroomOc);
+  }
+
+  List<String> _labelsForExtraParameterOptions(ActivityTypeParameter p) {
+    final bathroomOc = _optionCodeForBathroomTypeLabel(_selectedBathroomType ?? '');
+    if (bathroomOc == null || bathroomOc.isEmpty) return [];
+    final opts = p.options.where((o) {
+      final po = (o.parentOptionCode ?? '').trim();
+      if (po.isEmpty) return true;
+      return po == bathroomOc;
+    }).toList()
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    return opts
+        .map((o) => (o.optionLabel ?? '').trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  bool _parseBoolDefault(String? raw) {
+    if (raw == null) return false;
+    final s = raw.toLowerCase().trim();
+    return s == 'true' || s == '1' || s == 'yes';
+  }
+
+  bool _boolValueForParameter(ActivityTypeParameter p) {
+    if (_extraBoolByParamCode.containsKey(p.code)) {
+      return _extraBoolByParamCode[p.code]!;
+    }
+    return _parseBoolDefault(p.defaultValue);
+  }
+
+  void _clearExtraFieldValues() {
+    _extraDropdownByParamCode.clear();
+    _extraBoolByParamCode.clear();
+  }
+
+  String? _validateVisibleExtraParameters() {
+    for (final p in _extraParameters) {
+      if (!_extraParameterVisible(p) || !p.isRequired) continue;
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
+        final v = _extraDropdownByParamCode[p.code];
+        if (v == null || v.trim().isEmpty) {
+          return 'Please select ${p.parameterName}';
+        }
+      }
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> _buildExtraParameterValueEntries() {
+    final out = <Map<String, dynamic>>[];
+    final bathroomOc =
+        _optionCodeForBathroomTypeLabel(_selectedBathroomType ?? '');
+    for (final p in _extraParameters) {
+      if (!_extraParameterVisible(p)) continue;
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt == 'BOOLEAN') {
+        final b = _boolValueForParameter(p);
+        out.add({'parameterCode': p.code, 'value': b ? 'true' : 'false'});
+        continue;
+      }
+      if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
+        final label = _extraDropdownByParamCode[p.code];
+        if (label == null || label.trim().isEmpty) continue;
+        final entry = _paramForOptionOrValue(
+          p,
+          label,
+          restrictParentOptionCode: bathroomOc,
+        );
+        if (entry != null) out.add(entry);
+      }
+    }
+    return out;
+  }
+
+  Future<void> _loadBathroomParameterOptions() async {
+    final code = _activityTypeCode?.trim();
+    if (code == null || code.isEmpty) return;
+    if (!mounted) return;
+    setState(() => _loadingBathroomOptions = true);
+    try {
+      final details = await _getActivityTypeDetailsUseCase(code: code);
+      if (!mounted) return;
+      final bathroom = _findBathroomTypeParameter(details.parameters);
+      final sub = _findSubTypeParameter(details.parameters);
+      if (bathroom == null || sub == null) {
+        setState(() {
+          _bathroomTypeOptions = [];
+          _bathroomTypeLabels = [];
+          _allSubTypeOptions = [];
+          _availableSubTypes = [];
+          _extraParameters = [];
+          _clearExtraFieldValues();
+          _loadingBathroomOptions = false;
+        });
+        return;
+      }
+      final types = List<ActivityTypeParameterOption>.from(bathroom.options)
+        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final subs = List<ActivityTypeParameterOption>.from(sub.options)
+        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final extras = details.parameters
+          .where(
+            (p) =>
+                p.code != bathroom.code &&
+                p.code != sub.code &&
+                !_isBuiltInFormParameter(p),
+          )
+          .toList()
+        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      setState(() {
+        _extraParameters = extras;
+        _clearExtraFieldValues();
+        _bathroomTypeOptions = types;
+        _bathroomTypeLabels = types
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _allSubTypeOptions = subs;
+        _loadingBathroomOptions = false;
+        _updateAvailableSubTypes();
+      });
+    } catch (e) {
+      CoreUtils.logApiError('Failed to load Bathroom type options: $e');
+      if (mounted) {
+        setState(() {
+          _loadingBathroomOptions = false;
+        });
+      }
     }
   }
 
@@ -166,6 +422,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         setState(() {
           _activityTypeCode = bathroomSetting!.activityTypeCode;
         });
+        await _loadBathroomParameterOptions();
       }
     } catch (e) {
       CoreUtils.logApiError(
@@ -173,40 +430,19 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     }
   }
 
-  /// Picks the parameter whose name contains every [keywords] substring.
-  ActivityTypeParameter? _findParameter(
-    List<ActivityTypeParameter> parameters,
-    List<String> keywords,
-  ) {
-    ActivityTypeParameter? best;
-    var bestScore = -1;
-    for (final p in parameters) {
-      final n = p.parameterName.toLowerCase();
-      var ok = true;
-      var score = 0;
-      for (final k in keywords) {
-        final kl = k.toLowerCase();
-        if (!n.contains(kl)) {
-          ok = false;
-          break;
-        }
-        score += kl.length;
-      }
-      if (ok && score > bestScore) {
-        bestScore = score;
-        best = p;
-      }
-    }
-    return best;
-  }
-
   Map<String, dynamic>? _paramForOptionOrValue(
     ActivityTypeParameter? param,
-    String uiLabel,
-  ) {
+    String uiLabel, {
+    String? restrictParentOptionCode,
+  }) {
     if (param == null || uiLabel.trim().isEmpty) return null;
     final v = uiLabel.trim();
+    final parentFilter = restrictParentOptionCode?.trim();
     for (final o in param.options) {
+      if (parentFilter != null && parentFilter.isNotEmpty) {
+        final po = (o.parentOptionCode ?? '').trim();
+        if (po.isNotEmpty && po != parentFilter) continue;
+      }
       final label = (o.optionLabel ?? '').trim();
       if (label.isEmpty) continue;
       if (label.toLowerCase() == v.toLowerCase()) {
@@ -241,23 +477,6 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       return;
     }
 
-    if (_selectedBathroomType == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select Bathroom Type',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_selectedSubType == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select Sub Type',
-        isWarning: true,
-      );
-      return;
-    }
-
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -280,6 +499,33 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select date and time',
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (_selectedBathroomType == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select Bathroom Type',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_selectedSubType == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select Sub Type',
+        isWarning: true,
+      );
+      return;
+    }
+
+    final extraErr = _validateVisibleExtraParameters();
+    if (extraErr != null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: extraErr,
         isWarning: true,
       );
       return;
@@ -358,6 +604,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     });
 
     try {
+      // POST /api/v1/activities — same payload as MedicationActivityScreen (multi-student fan-out via studentCodes).
       final details =
           await _getActivityTypeDetailsUseCase(code: activityTypeCode);
 
@@ -370,12 +617,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         return null;
       }
 
-      final typeParam = _findParameter(details.parameters, ['bathroom', 'type']) ??
-          _findParameter(details.parameters, ['bathroom']) ??
-          _findParameter(details.parameters, ['type']);
-      final subParam = _findParameter(details.parameters, ['sub', 'type']) ??
-          _findParameter(details.parameters, ['subtype']) ??
-          _findParameter(details.parameters, ['sub']);
+      final typeParam = _findBathroomTypeParameter(details.parameters);
+      final subParam = _findSubTypeParameter(details.parameters);
 
       final dateParamCode = findParamCode('date');
       final timeParamCode = findParamCode('time');
@@ -392,6 +635,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           _paramForOptionOrValue(typeParam, _selectedBathroomType!);
       final subEntry = _paramForOptionOrValue(subParam, _selectedSubType!);
 
+      // Build parameterValues in backend-required shape (supports multi-student fan-out via studentCodes).
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
           {'parameterCode': dateParamCode, 'value': localDate},
@@ -405,6 +649,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
         if (typeEntry != null) typeEntry,
         if (subEntry != null) subEntry,
+        ..._buildExtraParameterValueEntries(),
       ];
 
       final message = await _createActivityUseCase(
@@ -430,12 +675,11 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       Navigator.of(context).popUntil((route) {
         return route.settings.name == ActivityFeedScreen.routeName;
       });
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
-      final message = ApiErrorHandler.extractErrorMessage(error);
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: e.toString(),
         isError: true,
       );
     } finally {
@@ -447,7 +691,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     }
   }
 
-  void _onSaveOrAddPressed() {
+  Future<void> _onSaveOrAddPressed() async {
     if (widget.isEdit) {
       if (_studentsToEdit.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -488,7 +732,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       return;
     }
 
-    _submitCreateActivity();
+    await _submitCreateActivity();
   }
 
   @override
@@ -576,14 +820,17 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
               children: [
                 Flexible(
                   child: ActivityDropdownWidget(
-                    options: _bathroomType,
+                    options: _bathroomTypeLabels,
                     dropDownName: 'Bathroom Type',
                     selectedValue: _selectedBathroomType,
                     isRequired: true,
+                    isEnabled:
+                        !_loadingBathroomOptions && _bathroomTypeLabels.isNotEmpty,
                     onSelect: (value) {
                       setState(() {
                         _selectedBathroomType = value;
                         _selectedSubType = null;
+                        _clearExtraFieldValues();
                         _updateAvailableSubTypes();
                       });
                     },
@@ -595,7 +842,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                     options: _availableSubTypes,
                     dropDownName: 'Sub Type',
                     selectedValue: _selectedSubType,
-                    isEnabled: _selectedBathroomType != null,
+                    isEnabled: _selectedBathroomType != null &&
+                        !_loadingBathroomOptions,
                     isRequired: true,
                     onSelect: (value) {
                       setState(() {
@@ -606,6 +854,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                 ),
               ],
             ),
+            ..._buildDynamicExtraFields(responsive),
             SizedBox(height: responsive.verticalSpacing),
             Row(
               children: [
@@ -658,56 +907,70 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           ],
         ),
       ),
-      bottomBar: _buildBottomBar(context, responsive),
+      bottomBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: CustomButtonLayout(
+            confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+            onPressedConfirm: _onSaveOrAddPressed,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting || _loadingBathroomOptions,
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+  List<Widget> _buildDynamicExtraFields(ResponsiveHelper responsive) {
+    if (_extraParameters.isEmpty) return <Widget>[];
+    final visible =
+        _extraParameters.where(_extraParameterVisible).toList(growable: false);
+    if (visible.isEmpty) return <Widget>[];
+
+    final rows = <Widget>[];
+    for (var i = 0; i < visible.length; i++) {
+      rows.add(SizedBox(height: responsive.verticalSpacing));
+      rows.add(_buildOneExtraParameter(visible[i], responsive));
+    }
+    return rows;
+  }
+
+  Widget _buildOneExtraParameter(
+    ActivityTypeParameter p,
+    ResponsiveHelper responsive,
+  ) {
+    final dt = (p.dataType ?? '').toUpperCase();
+    if (dt == 'BOOLEAN') {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: CustomCheckbox(
+          label: p.parameterName,
+          value: _boolValueForParameter(p),
+          borderColor: AppColors.themeColor,
+          onChanged: (nv) {
+            setState(() {
+              _extraBoolByParamCode[p.code] = nv ?? false;
+            });
+          },
         ),
-      ),
-      child: Container(
-        height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(
-            responsive.isTablet ? 16.0 : 8.0,
-          ),
-        ),
-        child: TextButton(
-          onPressed: _isSubmitting ? null : _onSaveOrAddPressed,
-          style: TextButton.styleFrom(overlayColor: Colors.transparent),
-          child: Text(
-            widget.isEdit ? 'Save' : 'Add',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.buttonFontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
+      );
+    }
+    if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
+      final options = _labelsForExtraParameterOptions(p);
+      return ActivityDropdownWidget(
+        options: options,
+        dropDownName: p.parameterName,
+        selectedValue: _extraDropdownByParamCode[p.code],
+        isRequired: p.isRequired,
+        isEnabled: options.isNotEmpty && !_loadingBathroomOptions,
+        onSelect: (val) {
+          setState(() {
+            _extraDropdownByParamCode[p.code] = val;
+          });
+        },
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
