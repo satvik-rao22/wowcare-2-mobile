@@ -187,7 +187,7 @@ class ApiConstants {
   static String get documentMsBaseUrl =>
       isUat
           ? ApiConstantsUat.documentMsBaseUrl
-          : 'https://fitten-vallie-forthrightly.ngrok-free.dev/document-ms';
+          : 'https://fitten-vallie-forthrightly.ngrok-free.dev/';
 
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {
