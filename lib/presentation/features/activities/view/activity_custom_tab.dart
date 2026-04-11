@@ -1095,7 +1095,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                 }
                                               },
                                               child: Container(
-                                                height: 180,
+                                                constraints: const BoxConstraints(
+                                                  minHeight: 180,
+                                                ),
                                                 margin: const EdgeInsets.only(
                                                   bottom: 24,
                                                 ),
@@ -1114,8 +1116,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                   ),
                                                 ),
                                                 child: Row(
-                                                  // crossAxisAlignment:
-                                                  //     CrossAxisAlignment.center,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     ClipRRect(
                                                       borderRadius:
@@ -1204,8 +1206,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                         crossAxisAlignment:
                                                         CrossAxisAlignment.start,
                                                         mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceEvenly,
+                                                            MainAxisAlignment.start,
                                                         children: [
                                                           Row(
                                                             mainAxisAlignment:
@@ -1418,7 +1419,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                               color: AppColors.primaryColor,
                                                               fontWeight: FontWeight.w600,
                                                             ),
-                                                            maxLines: 1,
+                                                            maxLines: activityFeedCardBodyMaxLines(activity),
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
                                                           const SizedBox(height: 10),
@@ -1792,7 +1793,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                         children: [
                                           const SizedBox(height: 15),
                                           Container(
-                                            height: 180,
+                                            constraints: const BoxConstraints(
+                                              minHeight: 180,
+                                            ),
                                             margin: const EdgeInsets.only(
                                               bottom: 24,
                                             ),
@@ -1811,8 +1814,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                               ),
                                             ),
                                             child: Row(
-                                              // crossAxisAlignment:
-                                              //     CrossAxisAlignment.center,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 ClipRRect(
                                                   borderRadius:
@@ -1894,8 +1897,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                     crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                     mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceEvenly,
+                                                        MainAxisAlignment.start,
                                                     children: [
                                                       Row(
                                                         mainAxisAlignment:
@@ -2059,7 +2061,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           color: AppColors.primaryColor,
                                                           fontWeight: FontWeight.w600,
                                                         ),
-                                                        maxLines: 1,
+                                                        maxLines: activityFeedCardBodyMaxLines(activity),
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
                                                       const SizedBox(height: 10),
@@ -2462,7 +2464,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                               children: [
                                                 const SizedBox(height: 15),
                                                 Container(
-                                                  height: 180,
+                                                  constraints: const BoxConstraints(
+                                                    minHeight: 180,
+                                                  ),
                                                   margin: const EdgeInsets.only(
                                                     bottom: 24,
                                                   ),
@@ -2481,8 +2485,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                     ),
                                                   ),
                                                   child: Row(
-                                                    // crossAxisAlignment:
-                                                    //     CrossAxisAlignment.center,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
                                                     children: [
                                                       ClipRRect(
                                                         borderRadius:
@@ -2564,8 +2568,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           crossAxisAlignment:
                                                           CrossAxisAlignment.start,
                                                           mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceEvenly,
+                                                              MainAxisAlignment.start,
                                                           children: [
                                                             Row(
                                                               mainAxisAlignment:

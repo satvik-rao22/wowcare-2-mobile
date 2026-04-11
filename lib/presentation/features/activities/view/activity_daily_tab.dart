@@ -1002,7 +1002,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                 }
                                               },
                                               child: Container(
-                                                height: 180,
+                                                constraints: const BoxConstraints(
+                                                  minHeight: 180,
+                                                ),
                                                 margin: const EdgeInsets.only(
                                                   bottom: 24,
                                                 ),
@@ -1021,8 +1023,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                   ),
                                                 ),
                                                 child: Row(
-                                                  // crossAxisAlignment:
-                                                  //     CrossAxisAlignment.center,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     ClipRRect(
                                                       borderRadius:
@@ -1111,8 +1113,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                         crossAxisAlignment:
                                                         CrossAxisAlignment.start,
                                                         mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceEvenly,
+                                                            MainAxisAlignment.start,
                                                         children: [
                                                           Row(
                                                             mainAxisAlignment:
@@ -1325,7 +1326,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                               color: AppColors.primaryColor,
                                                               fontWeight: FontWeight.w600,
                                                             ),
-                                                            maxLines: 1,
+                                                            maxLines: activityFeedCardBodyMaxLines(activity),
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
                                                           const SizedBox(height: 10),
@@ -2443,7 +2444,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                   }
                                                 },
                                                 child: Container(
-                                                  height: 180,
+                                                  constraints: const BoxConstraints(
+                                                    minHeight: 180,
+                                                  ),
                                                   margin: const EdgeInsets.only(
                                                     bottom: 24,
                                                   ),
@@ -2462,8 +2465,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                     ),
                                                   ),
                                                   child: Row(
-                                                    // crossAxisAlignment:
-                                                    //     CrossAxisAlignment.center,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
                                                     children: [
                                                       ClipRRect(
                                                         borderRadius:
@@ -2552,8 +2555,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                           crossAxisAlignment:
                                                           CrossAxisAlignment.start,
                                                           mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceEvenly,
+                                                              MainAxisAlignment.start,
                                                           children: [
                                                             Row(
                                                               mainAxisAlignment:
@@ -2767,7 +2769,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                 color: AppColors.primaryColor,
                                                                 fontWeight: FontWeight.w600,
                                                               ),
-                                                              maxLines: 1,
+                                                              maxLines: activityFeedCardBodyMaxLines(activity),
                                                               overflow: TextOverflow.ellipsis,
                                                             ),
                                                             const SizedBox(height: 10),
@@ -2942,21 +2944,40 @@ class PopupItem extends StatelessWidget {
   }
 }
 
-/// Feed card line under student avatars (Bottle shows OZ from parameters, not raw description).
+/// Feed card line under student avatars (Bottle: amount/status + description).
 String activityFeedCardBodyLine(ActivityItem activity) {
   if (activity.name == 'Bottle') {
+    final desc = activity.description?.trim();
     final oz = _formatBottleOzCompact(activity.amountConsumed);
     final st = activity.bottleConsumptionStatus?.trim();
     final stClean = (st == null || st.isEmpty)
         ? null
         : st.replaceAll(RegExp(r'[\s,;]+$'), '').trim();
+
+    String? primary;
     if (stClean != null && stClean.isNotEmpty && oz != null) {
-      return '$stClean: $oz';
+      primary = '$stClean: $oz';
+    } else if (oz != null && oz.isNotEmpty) {
+      primary = oz;
+    } else if (stClean != null && stClean.isNotEmpty) {
+      primary = stClean;
     }
-    if (oz != null && oz.isNotEmpty) return oz;
+
+    if (primary != null && primary.isNotEmpty) {
+      if (desc != null && desc.isNotEmpty) {
+        return '$primary · $desc';
+      }
+      return primary;
+    }
+    if (desc != null && desc.isNotEmpty) return desc;
+    return 'No description';
   }
   final d = activity.description?.trim();
   return (d != null && d.isNotEmpty) ? d : 'No description';
+}
+
+int activityFeedCardBodyMaxLines(ActivityItem activity) {
+  return activity.name == 'Bottle' ? 2 : 1;
 }
 
 String? _formatBottleOzCompact(String? raw) {
@@ -2975,7 +2996,7 @@ String? _formatBottleOzCompact(String? raw) {
   final n = double.tryParse(t.replaceAll(',', ''));
   if (n != null) {
     final s = n == n.roundToDouble() ? n.toInt().toString() : n.toString();
-    return '${s}OZ';
+    return '${s} OZ';
   }
   return t;
 }
