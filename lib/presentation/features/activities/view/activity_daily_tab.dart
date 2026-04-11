@@ -1119,30 +1119,39 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                             MainAxisAlignment
                                                                 .spaceBetween,
                                                             children: [
-                                                              Container(
-                                                                padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal: 12,
-                                                                  vertical: 6,
-                                                                ),
-                                                                decoration: BoxDecoration(
-                                                                  color:
-                                                                      activityColor
-                                                                          .withOpacity(
-                                                                            0.5,
-                                                                          ),
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                    4,
-                                                                  ),
-                                                                ),
-                                                                child: Text(
-                                                                  activity.name,
-                                                                  style:
-                                                                  const TextStyle(
-                                                                    color: AppColors
-                                                                        .primaryColor,
-                                                                    fontSize: 12,
+                                                              Expanded(
+                                                                child: Align(
+                                                                  alignment:
+                                                                      Alignment.centerLeft,
+                                                                  child: Container(
+                                                                    padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal: 12,
+                                                                      vertical: 6,
+                                                                    ),
+                                                                    decoration: BoxDecoration(
+                                                                      color:
+                                                                          activityColor
+                                                                              .withOpacity(
+                                                                                0.5,
+                                                                              ),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                        4,
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      activity.name,
+                                                                      maxLines: 1,
+                                                                      overflow:
+                                                                          TextOverflow.ellipsis,
+                                                                      style:
+                                                                      const TextStyle(
+                                                                        color: AppColors
+                                                                            .primaryColor,
+                                                                        fontSize: 12,
+                                                                      ),
+                                                                    ),
                                                                   ),
                                                                 ),
                                                               ),
@@ -1311,7 +1320,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                           const SizedBox(height: 10),
 
                                                           AppText.body(
-                                                            activity.description ?? 'No description',
+                                                            activityFeedCardBodyLine(activity),
                                                             style: AppTextStyles.body.copyWith(
                                                               color: AppColors.primaryColor,
                                                               fontWeight: FontWeight.w600,
@@ -2551,31 +2560,40 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                               MainAxisAlignment
                                                                   .spaceBetween,
                                                               children: [
-                                                                Container(
-                                                                  padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    horizontal: 12,
-                                                                    vertical: 6,
-                                                                  ),
-                                                                  decoration: BoxDecoration(
-                                                                    color:
-                                                                        activityColor
-                                                                            .withOpacity(
-                                                                              0.5,
-                                                                            ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                      4,
-                                                                    ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    activity.name,
-                                                                    style:
-                                                                    const TextStyle(
-                                                                      color: AppColors
-                                                                          .primaryColor,
-                                                                      fontSize:
-                                                                          12,
+                                                                Expanded(
+                                                                  child: Align(
+                                                                    alignment:
+                                                                        Alignment.centerLeft,
+                                                                    child: Container(
+                                                                      padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal: 12,
+                                                                        vertical: 6,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        color:
+                                                                            activityColor
+                                                                                .withOpacity(
+                                                                                  0.5,
+                                                                                ),
+                                                                        borderRadius:
+                                                                            BorderRadius.circular(
+                                                                          4,
+                                                                        ),
+                                                                      ),
+                                                                      child: Text(
+                                                                        activity.name,
+                                                                        maxLines: 1,
+                                                                        overflow:
+                                                                            TextOverflow.ellipsis,
+                                                                        style:
+                                                                        const TextStyle(
+                                                                          color: AppColors
+                                                                              .primaryColor,
+                                                                          fontSize:
+                                                                              12,
+                                                                        ),
+                                                                      ),
                                                                     ),
                                                                   ),
                                                                 ),
@@ -2744,7 +2762,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                             const SizedBox(height: 10),
 
                                                             AppText.body(
-                                                              activity.description ?? 'No description',
+                                                              activityFeedCardBodyLine(activity),
                                                               style: AppTextStyles.body.copyWith(
                                                                 color: AppColors.primaryColor,
                                                                 fontWeight: FontWeight.w600,
@@ -2924,6 +2942,47 @@ class PopupItem extends StatelessWidget {
   }
 }
 
+/// Feed card line under student avatars (Bottle shows OZ from parameters, not raw description).
+String activityFeedCardBodyLine(ActivityItem activity) {
+  if (activity.name == 'Bottle') {
+    final oz = _formatBottleOzCompact(activity.amountConsumed);
+    final st = activity.bottleConsumptionStatus?.trim();
+    final stClean = (st == null || st.isEmpty)
+        ? null
+        : st.replaceAll(RegExp(r'[\s,;]+$'), '').trim();
+    if (stClean != null && stClean.isNotEmpty && oz != null) {
+      return '$stClean: $oz';
+    }
+    if (oz != null && oz.isNotEmpty) return oz;
+  }
+  final d = activity.description?.trim();
+  return (d != null && d.isNotEmpty) ? d : 'No description';
+}
+
+String? _formatBottleOzCompact(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  var t = raw.trim();
+  final upper = t.toUpperCase();
+  if (upper.contains('OZ')) {
+    final numPart = t.replaceAll(RegExp(r'[^0-9.]'), '');
+    final n = double.tryParse(numPart);
+    if (n != null) {
+      final s = n == n.roundToDouble() ? n.toInt().toString() : n.toString();
+      return '${s}OZ';
+    }
+    return t.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+  }
+  final n = double.tryParse(t.replaceAll(',', ''));
+  if (n != null) {
+    final s = n == n.roundToDouble() ? n.toInt().toString() : n.toString();
+    return '${s}OZ';
+  }
+  return t;
+}
+
+/// Public for bottle detail view; same rules as the daily feed card (`6OZ`).
+String? formatBottleAmountForDisplay(String? raw) => _formatBottleOzCompact(raw);
+
 class ActivityItem {
   final String time;
   final String date;
@@ -2938,7 +2997,9 @@ class ActivityItem {
   final List<String>? categoryType; // for learning activity
   final String? mealType; // for meal activity
   final String? mealQuantity; // also for meal activity
-  final String? amountConsumed; // for bottle activity
+  final String? amountConsumed; // for bottle activity (volume, e.g. 6 OZ)
+  /// Consumption / intake status from feed (e.g. "Consumed"), not the free-text description.
+  final String? bottleConsumptionStatus;
   final String? napStartTime; // for nap activity
   final bool? remainderOn; // for nap start activity
   final String? napEndTime; // for nap end activity
@@ -2966,6 +3027,7 @@ class ActivityItem {
     this.mealType,
     this.mealQuantity,
     this.amountConsumed,
+    this.bottleConsumptionStatus,
     this.napStartTime,
     this.remainderOn,
     this.napEndTime,
@@ -3053,6 +3115,7 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
       for (final key in <String>[
         'valueText',
         'selectedOptionLabel',
+        'valueNumber',
         'valueTime',
         'valueDatetime',
       ]) {
@@ -3063,13 +3126,72 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     return null;
   }
 
-  final amountConsumed = pickParam(
-    (n) =>
-        n.contains('amount') ||
-        n.contains('ounce') ||
-        n.contains('oz') ||
-        n.contains('consumed'),
-  );
+  String? paramDisplay(Map<String, dynamic> p) {
+    for (final key in <String>[
+      'selectedOptionLabel',
+      'valueText',
+      'valueNumber',
+      'valueTime',
+      'valueDatetime',
+    ]) {
+      final v = (p[key] ?? '').toString().trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  String? bottleVolumeFromParams;
+  String? bottleStatusFromParams;
+  if (name == 'Bottle') {
+    for (final p in row.parameterValues) {
+      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
+      final dt = (p['dataType'] ?? '').toString().toUpperCase();
+      if (pn.contains('staff')) continue;
+      if (dt == 'DATE' || dt == 'TIME') continue;
+      if (pn == 'description' ||
+          (pn.contains('description') && dt == 'TEXT')) continue;
+      final val = paramDisplay(p);
+      if (val == null || val.isEmpty) continue;
+      final isConsumptionDropdown = dt == 'DROPDOWN' &&
+          (pn.contains('consum') ||
+              pn.contains('intake') ||
+              pn.contains('status') ||
+              pn.contains('left'));
+      final isConsumptionText = !pn.contains('amount') &&
+          !pn.contains('ounce') &&
+          !pn.contains('volume') &&
+          (pn.contains('consum') || pn.contains('intake'));
+      if (isConsumptionDropdown || isConsumptionText) {
+        bottleStatusFromParams ??= val;
+        continue;
+      }
+      final isVolume = pn.contains('amount') ||
+          pn.contains('ounce') ||
+          pn.contains('volume') ||
+          pn.contains(' ml') ||
+          RegExp(r'\boz\b').hasMatch(pn);
+      if (isVolume) {
+        bottleVolumeFromParams ??= val;
+      }
+    }
+  }
+
+  final amountConsumed = name == 'Bottle'
+      ? (bottleVolumeFromParams ??
+          pickParam(
+            (n) =>
+                (n.contains('amount') ||
+                    n.contains('ounce') ||
+                    n.contains('oz')) &&
+                !n.contains('consumption'),
+          ))
+      : pickParam(
+          (n) =>
+              n.contains('amount') ||
+              n.contains('ounce') ||
+              n.contains('oz') ||
+              n.contains('consumed'),
+        );
   final mealType = pickParam((n) => n.contains('meal') && n.contains('type')) ??
       pickParam((n) => n.contains('meal') && !n.contains('quantity'));
   final mealQuantity = pickParam(
@@ -3105,6 +3227,8 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     mealType: name == 'Meal' ? mealType : null,
     mealQuantity: name == 'Meal' ? mealQuantity : null,
     amountConsumed: name == 'Bottle' ? amountConsumed : null,
+    bottleConsumptionStatus:
+        name == 'Bottle' ? bottleStatusFromParams : null,
     napStartTime: (name == 'Nap Start' || name == 'Nap End')
         ? napStartTime
         : null,

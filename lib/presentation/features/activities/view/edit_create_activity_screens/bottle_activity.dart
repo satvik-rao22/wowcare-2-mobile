@@ -11,13 +11,13 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -357,12 +357,11 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       Navigator.of(context).popUntil((route) {
         return route.settings.name == ActivityFeedScreen.routeName;
       });
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
-      final message = ApiErrorHandler.extractErrorMessage(error);
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: e.toString(),
         isError: true,
       );
     } finally {
@@ -372,6 +371,52 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         });
       }
     }
+  }
+
+  Future<void> _onSaveOrAddPressed() async {
+    if (widget.isEdit) {
+      if (_studentsToEdit.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final ounceState = _ounceFiledKey.currentState;
+      final amountOz = ounceState?.validValue;
+      if (amountOz == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter a valid amount (0.5 – 20.0 oz)',
+          isWarning: true,
+        );
+        return;
+      }
+      final description = _descriptionController.text.trim();
+      if (description.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter description',
+          isWarning: true,
+        );
+        return;
+      }
+      if (description.length < 5) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Description must be at least 5 characters long',
+          isWarning: true,
+        );
+        return;
+      }
+      Navigator.of(context).popUntil((route) {
+        return route.settings.name == ActivityFeedScreen.routeName;
+      });
+      return;
+    }
+
+    await _submitCreateActivity();
   }
 
   @override
@@ -511,53 +556,15 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
           ],
         ),
       ),
-      bottomBar: _buildBottomBar(context, responsive),
-    );
-  }
-
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
-      child: Container(
-        height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(
-            responsive.isTablet ? 16.0 : 8.0,
-          ),
-        ),
-        child: TextButton(
-          onPressed: _isSubmitting ? null : _submitCreateActivity,
-          style: TextButton.styleFrom(overlayColor: Colors.transparent),
-          child: Text(
-            widget.isEdit ? 'Save':'Add',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.buttonFontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+      bottomBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: CustomButtonLayout(
+            confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+            onPressedConfirm: _onSaveOrAddPressed,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting,
           ),
         ),
       ),

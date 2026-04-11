@@ -1212,30 +1212,39 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                             MainAxisAlignment
                                                                 .spaceBetween,
                                                             children: [
-                                                              Container(
-                                                                padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal: 12,
-                                                                  vertical: 6,
-                                                                ),
-                                                                decoration: BoxDecoration(
-                                                                  color:
-                                                                      activityColor
-                                                                          .withOpacity(
-                                                                            0.5,
-                                                                          ),
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                    4,
-                                                                  ),
-                                                                ),
-                                                                child: Text(
-                                                                  activity.name,
-                                                                  style:
-                                                                  const TextStyle(
-                                                                    color: AppColors
-                                                                        .primaryColor,
-                                                                    fontSize: 12,
+                                                              Expanded(
+                                                                child: Align(
+                                                                  alignment:
+                                                                      Alignment.centerLeft,
+                                                                  child: Container(
+                                                                    padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal: 12,
+                                                                      vertical: 6,
+                                                                    ),
+                                                                    decoration: BoxDecoration(
+                                                                      color:
+                                                                          activityColor
+                                                                              .withOpacity(
+                                                                                0.5,
+                                                                              ),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                        4,
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      activity.name,
+                                                                      maxLines: 1,
+                                                                      overflow:
+                                                                          TextOverflow.ellipsis,
+                                                                      style:
+                                                                      const TextStyle(
+                                                                        color: AppColors
+                                                                            .primaryColor,
+                                                                        fontSize: 12,
+                                                                      ),
+                                                                    ),
                                                                   ),
                                                                 ),
                                                               ),
@@ -1404,7 +1413,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           const SizedBox(height: 10),
 
                                                           AppText.body(
-                                                            activity.description ?? 'No description',
+                                                            activityFeedCardBodyLine(activity),
                                                             style: AppTextStyles.body.copyWith(
                                                               color: AppColors.primaryColor,
                                                               fontWeight: FontWeight.w600,
@@ -1893,29 +1902,38 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                         MainAxisAlignment
                                                             .spaceBetween,
                                                         children: [
-                                                          Container(
-                                                            padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 6,
-                                                            ),
-                                                            decoration: BoxDecoration(
-                                                              color: activityColor,
-                                                              borderRadius:
-                                                              BorderRadius.circular(
-                                                                20,
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              activity.name,
-                                                              style:
-                                                              const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 11,
-                                                                fontWeight:
-                                                                FontWeight
-                                                                    .bold,
+                                                          Expanded(
+                                                            child: Align(
+                                                              alignment:
+                                                                  Alignment.centerLeft,
+                                                              child: Container(
+                                                                padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 12,
+                                                                  vertical: 6,
+                                                                ),
+                                                                decoration: BoxDecoration(
+                                                                  color: activityColor,
+                                                                  borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    20,
+                                                                  ),
+                                                                ),
+                                                                child: Text(
+                                                                  activity.name,
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow.ellipsis,
+                                                                  style:
+                                                                  const TextStyle(
+                                                                    color: Colors
+                                                                        .white,
+                                                                    fontSize: 11,
+                                                                    fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                  ),
+                                                                ),
                                                               ),
                                                             ),
                                                           ),
@@ -2036,7 +2054,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                       const SizedBox(height: 10),
 
                                                       AppText.body(
-                                                        activity.description ?? 'No description',
+                                                        activityFeedCardBodyLine(activity),
                                                         style: AppTextStyles.body.copyWith(
                                                           color: AppColors.primaryColor,
                                                           fontWeight: FontWeight.w600,
