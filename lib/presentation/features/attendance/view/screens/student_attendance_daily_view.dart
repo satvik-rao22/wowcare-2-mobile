@@ -20,20 +20,24 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
-import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
+    hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -83,10 +87,10 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   bool _isClassroomDataReady = false;
   String? _loggedInUserName;
 
-  // Summary data (dummy data for now - will be replaced with API later)
-  int enrolled = 120;
-  int active = 100;
-  int upcoming = 20;
+  // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
+  int enrolled = 0;
+  int active = 0;
+  int upcoming = 0;
   int expected = 0;
   int present = 0;
   int absent = 0;
@@ -160,7 +164,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     
     // Handle incoming filter
     if (widget.incomingFilter != null) {
-      _statusLegendFilter = widget.incomingFilter;
+      _statusLegendFilter = widget.incomingFilter == 'Present'
+          ? 'Signed-In'
+          : widget.incomingFilter;
       if (widget.incomingFilter == 'Absent') {
         _showAbsentOnly = true;
       }
@@ -175,6 +181,33 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
     // Load initial data using cache-aware cubit methods.
     _loadAttendanceData();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadStudentCounts();
+    });
+  }
+
+  Future<void> _loadStudentCounts() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase = serviceLocator<GetStudentCountsUseCase>();
+      final counts = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      final activeC = counts['activeCount'] ?? 0;
+      final upcomingC = counts['upcomingCount'] ?? 0;
+      setState(() {
+        active = activeC;
+        upcoming = upcomingC;
+        enrolled = activeC + upcomingC;
+      });
+    } catch (_) {
+      // Non-critical; keep existing values (same tolerance as StudentScreen).
+    }
   }
 
   Future<void> _loadClassroomData() async {
@@ -416,6 +449,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     // Compute effective sign-in / sign-out times based on transfer rules
     String? effectiveSignIn;
     String? effectiveSignOut;
+    StudentAttendanceTime? effectiveSignInClock;
+    StudentAttendanceTime? effectiveSignOutClock;
     bool transferSignIn = false;
     bool transferSignOut = false;
 
@@ -426,6 +461,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     if (totalSeq <= 1) {
       effectiveSignIn = item.formattedSignInTime;
       effectiveSignOut = item.formattedSignOutTime;
+      effectiveSignInClock = item.signedInTime;
+      effectiveSignOutClock = item.signedOutTime;
     } else {
       final isFirst = seq == 1;
       final isLast = seq == totalSeq;
@@ -434,11 +471,15 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         // First entry with a subsequent transfer
         effectiveSignIn = item.formattedSignInTime;
         effectiveSignOut = item.nextActionTime?.formattedTime;
+        effectiveSignInClock = item.signedInTime;
+        effectiveSignOutClock = item.nextActionTime;
         transferSignOut = effectiveSignOut != null;
       } else if (!isFirst && !isLast) {
         // Intermediate transfer
         effectiveSignIn = item.transferTime?.formattedTime;
         effectiveSignOut = item.nextActionTime?.formattedTime;
+        effectiveSignInClock = item.transferTime;
+        effectiveSignOutClock = item.nextActionTime;
         transferSignIn = effectiveSignIn != null;
         transferSignOut = effectiveSignOut != null;
       } else if (isLast) {
@@ -448,10 +489,24 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
             : item.transferTime?.formattedTime;
         // Actual sign-out time of the entry
         effectiveSignOut = item.formattedSignOutTime;
+        effectiveSignInClock =
+            isFirst ? item.signedInTime : item.transferTime;
+        effectiveSignOutClock = item.signedOutTime;
         transferSignIn = !isFirst && effectiveSignIn != null;
         // signOut on last is not transfer-derived
       }
     }
+
+    final day = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
+    final startMoment =
+        dateAtAttendanceClock(day, effectiveSignInClock);
+    final endMoment = dateAtAttendanceClock(day, effectiveSignOutClock);
+    final attendedTimeDisplay =
+        attendedLabelFromMoments(startMoment, endMoment);
 
     return StudentAttendanceCardData(
       id: '${item.studentName}_${item.classroomCode}_$index',
@@ -479,6 +534,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       totalSequenceCount: item.totalSequenceCount,
       isTransferSignIn: transferSignIn,
       isTransferSignOut: transferSignOut,
+      attendedTimeDisplay: attendedTimeDisplay,
     );
   }
 
@@ -582,6 +638,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
         return CustomRefreshIndicator(
           onRefresh: () async {
+            await _loadStudentCounts();
             _loadAttendanceData(reset: true);
           },
           child: NotificationListener<ScrollNotification>(
@@ -625,12 +682,17 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                         state.isRefreshing ||
                         state.isSummaryLoading,
                     onLegendTap: (status) {
+                      final normalized =
+                          status == 'Present' ? 'Signed-In' : status;
+                      final currentLegend = _statusLegendFilter == 'Present'
+                          ? 'Signed-In'
+                          : _statusLegendFilter;
                       setState(() {
-                        if (_statusLegendFilter == status) {
+                        if (currentLegend == normalized) {
                           _statusLegendFilter = null;
                         } else {
-                          _statusLegendFilter = status;
-                          if (status == 'Absent') {
+                          _statusLegendFilter = normalized;
+                          if (normalized == 'Absent') {
                             _showAbsentOnly = true;
                           } else {
                             _showAbsentOnly = false;
@@ -864,11 +926,18 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                         ApiConstants.attendanceBaseUrl,
                                       );
 
+                                      final allowedClassroomCodes =
+                                          await resolveAttendanceAllowedClassroomCodes(
+                                        storage: storageService,
+                                      );
                                       await apiClient.delete<dynamic>(
                                         endpoint,
-                                        queryParameters: {
+                                        queryParameters: <String, dynamic>{
                                           'staffCode': staffCode,
+                                          'allowedClassroomCodes':
+                                              allowedClassroomCodes,
                                         },
+                                        options: attendanceListQueryOptions,
                                       );
 
                                       CoreUtils.showTopSnackBarFromSnackBar(
@@ -955,7 +1024,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
     // Apply legend filter
     if (_statusLegendFilter != null) {
-      if (_statusLegendFilter == 'Present') {
+      if (_statusLegendFilter == 'Signed-In' ||
+          _statusLegendFilter == 'Present') {
         filtered = filtered
             .where((student) =>
                 student.expectedToday && student.hasSignIn)

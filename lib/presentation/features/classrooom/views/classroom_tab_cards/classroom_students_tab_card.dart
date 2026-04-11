@@ -1038,6 +1038,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                       'status': []
                                     },
                                     studentCode: student.studentCode,
+                                    initialEnrollmentStatus: student.status,
                                   ),
                                 ),
                               );

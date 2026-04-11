@@ -161,8 +161,10 @@ class _StaffCardState extends State<StaffCard> {
                           ),
                           */
                           DocumentImageWidget(
-                            fileUuid: '',
+                            fileUuid: widget.staffCode,
                             name: widget.name,
+                            staffCode: widget.staffCode,
+                            staffEmploymentStatus: widget.status,
                             size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),

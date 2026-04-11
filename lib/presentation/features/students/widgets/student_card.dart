@@ -143,7 +143,7 @@ class _StudentCardState extends State<StudentCard> {
                                 name: widget.name,
                                 size: 45,
                                 studentCode: widget.studentCode,
-                                statusTooltip: widget.status,
+                                studentEnrollmentStatus: widget.status,
                               ),
                             ],
                           ),

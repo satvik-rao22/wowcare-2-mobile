@@ -36,6 +36,8 @@ class StaffAttendanceCardData {
   final int? totalSequenceCount;
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+  /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
+  final String? attendedTimeDisplay;
 
   StaffAttendanceCardData({
     this.attendanceRecordCode,
@@ -59,6 +61,7 @@ class StaffAttendanceCardData {
     this.totalSequenceCount,
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
+    this.attendedTimeDisplay,
   });
 }
 
@@ -98,16 +101,29 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         ? '${staff.signOutTime} By ${staff.signOutBy ?? 'Unknown'}'
         : 'Not Yet Signed Out';
 
-    // Calculate duration
-    String duration = '';
-    if (staff.signInTime != null && staff.signOutTime != null) {
+    String duration = (staff.attendedTimeDisplay ?? '').trim();
+    if (duration.isEmpty &&
+        staff.signInTime != null &&
+        staff.signOutTime != null) {
       try {
         final signInTime = _parseTimeString(staff.signInTime!);
         final signOutTime = _parseTimeString(staff.signOutTime!);
-        final difference = signOutTime.difference(signInTime);
-        final hours = difference.inHours;
-        final minutes = difference.inMinutes % 60;
-        duration = '$hours hours $minutes minutes';
+        var end = signOutTime;
+        if (!end.isAfter(signInTime)) {
+          end = end.add(const Duration(days: 1));
+        }
+        final difference = end.difference(signInTime);
+        if (difference.inSeconds > 0) {
+          final hours = difference.inHours;
+          final minutes = difference.inMinutes % 60;
+          if (hours < 1) {
+            duration = minutes == 0 && difference.inSeconds > 0
+                ? '${difference.inSeconds} seconds'
+                : '$minutes minutes';
+          } else {
+            duration = '$hours hours $minutes minutes';
+          }
+        }
       } catch (e) {
         duration = '';
       }

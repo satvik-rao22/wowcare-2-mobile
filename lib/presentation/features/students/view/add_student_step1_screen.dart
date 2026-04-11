@@ -426,6 +426,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                     schedule: match.schedule,
                     sibling: const {},
                     studentCode: match.code,
+                    initialEnrollmentStatus: match.status,
                   ),
                 ),
               );

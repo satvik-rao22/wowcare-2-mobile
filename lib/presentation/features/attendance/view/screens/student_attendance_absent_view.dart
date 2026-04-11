@@ -26,6 +26,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -362,6 +363,13 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       queryParameters['search'] = trimmedSearch;
     }
 
+    final allowedClassroomCodes =
+        await resolveAttendanceAllowedClassroomCodes(
+      storage: serviceLocator<StorageService>(),
+    );
+    queryParameters['allowedClassroomCodes'] =
+        List<String>.from(allowedClassroomCodes);
+
     debugPrint(
       'StudentAbsent API → GET $endpoint query=$queryParameters',
     );
@@ -370,6 +378,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       final response = await apiClient.get<dynamic>(
         endpoint,
         queryParameters: queryParameters,
+        options: attendanceListQueryOptions,
       );
 
       debugPrint(

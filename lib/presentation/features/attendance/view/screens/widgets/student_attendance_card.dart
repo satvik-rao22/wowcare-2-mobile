@@ -40,6 +40,8 @@ class StudentAttendanceCardData {
   // Flags to indicate the displayed times are transfer-derived
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+  /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
+  final String? attendedTimeDisplay;
 
   StudentAttendanceCardData({
     required this.id,
@@ -65,6 +67,7 @@ class StudentAttendanceCardData {
     this.totalSequenceCount,
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
+    this.attendedTimeDisplay,
   });
 }
 
@@ -104,16 +107,30 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         ? '${student.signOutTime} By ${student.signOutBy ?? 'Unknown'}'
         : 'Not Yet Signed Out';
 
-    // Calculate duration
-    String duration = '';
-    if (student.signInTime != null && student.signOutTime != null) {
+    // Attended time: prefer client-computed label from parent; else derive locally.
+    String duration = (student.attendedTimeDisplay ?? '').trim();
+    if (duration.isEmpty &&
+        student.signInTime != null &&
+        student.signOutTime != null) {
       try {
         final signInTime = _parseTimeString(student.signInTime!);
         final signOutTime = _parseTimeString(student.signOutTime!);
-        final difference = signOutTime.difference(signInTime);
-        final hours = difference.inHours;
-        final minutes = difference.inMinutes % 60;
-        duration = '$hours hours $minutes minutes';
+        var end = signOutTime;
+        if (!end.isAfter(signInTime)) {
+          end = end.add(const Duration(days: 1));
+        }
+        final difference = end.difference(signInTime);
+        if (difference.inSeconds > 0) {
+          final hours = difference.inHours;
+          final minutes = difference.inMinutes % 60;
+          if (hours < 1) {
+            duration = minutes == 0 && difference.inSeconds > 0
+                ? '${difference.inSeconds} seconds'
+                : '$minutes minutes';
+          } else {
+            duration = '$hours hours $minutes minutes';
+          }
+        }
       } catch (e) {
         duration = '';
       }

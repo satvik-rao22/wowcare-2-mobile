@@ -864,6 +864,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                       .toList() ??
                                       [],
                                   studentCode: studentMap['code'] as String?,
+                                  initialEnrollmentStatus:
+                                      studentMap['Status'] as String?,
                                 ),
                               ),
                             )

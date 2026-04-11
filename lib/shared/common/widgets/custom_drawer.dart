@@ -419,6 +419,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             studentPhotoUuid: null,
             roomName: roomName,
             isSignedIn: isSignedIn,
+            syncWithParentChildSelection: true,
           ),
         ),
       );
@@ -451,6 +452,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           schedule: selectedChild.schedule,
           sibling: const <String, dynamic>{'name': [], 'relation': [], 'status': []},
           studentCode: selectedChild.code,
+          syncWithParentChildSelection: true,
         ),
       ),
     );
@@ -489,6 +491,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             classroom: classroom,
             designation: profile.designation,
             phoneNumber: profile.phoneNumber,
+            employmentStatus: profile.status,
           ),
         ),
       );

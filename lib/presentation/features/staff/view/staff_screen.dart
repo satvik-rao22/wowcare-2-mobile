@@ -1116,6 +1116,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 classroom: classroomName,
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
+                                employmentStatus: staff.status,
                                 classroomNames: classroomNames,
                                 classroomNameByCode: classroomNameByCode,
                               ),

@@ -26,6 +26,9 @@ class StorageKeys {
   static const String staffCode = 'staffCode';
   /// Cached staffType from staff profile API (e.g. ORGANIZATION_ADMIN → shown as role).
   static const String staffType = 'staffType';
+  /// JSON array string of classroom codes from staff profile (`allowedClassroomCodes`).
+  /// Used to scope attendance APIs for teacher/staff personas.
+  static const String staffAllowedClassroomCodes = 'staffAllowedClassroomCodes';
   /// UserCode that owns the cached staffCode; used to invalidate
   /// staffCode when a different user logs in.
   static const String staffCodeUser = 'staffCodeUser';

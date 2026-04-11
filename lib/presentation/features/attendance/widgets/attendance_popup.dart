@@ -14,9 +14,8 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -1094,36 +1093,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
   Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
     try {
-      final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-      final studentPageUseCase = serviceLocator<GetStudentPageUseCase>();
-      final storage = serviceLocator<StorageService>();
-      final now = DateTime.now();
-      final date =
-          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (guardianCode.isEmpty || schoolCode.isEmpty) {
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('Unable to resolve parent access for attendance profile.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
+      final parentChild = context.read<ParentChildProvider>();
+      await parentChild.ensureLoaded();
 
-      final parentStudents = await studentPageUseCase(
-        schoolCode: schoolCode,
-        guardianCodes: <String>[guardianCode],
-        page: 0,
-        size: 500,
-      );
-      final allowedStudentCodes = parentStudents.items
-          .map((s) => s.code.trim())
-          .where((code) => code.isNotEmpty)
-          .toSet();
-      if (allowedStudentCodes.isEmpty) {
+      final selectedChild = parentChild.selectedChild;
+      if (selectedChild == null || selectedChild.code.trim().isEmpty) {
+        if (!context.mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
           snackBar: const SnackBar(
@@ -1134,51 +1109,54 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         return;
       }
 
-      final page = await useCase(
-        fromAttendanceDate: date,
-        toAttendanceDate: date,
-        page: 0,
-        size: 100,
-      );
-      if (!mounted) return;
-      final child = page.items.firstWhere(
-        (item) => allowedStudentCodes.contains(item.studentCode.trim()),
-        orElse: () => throw StateError('no-parent-child-signed-in'),
-      );
-      if (child.studentCode.trim().isEmpty) {
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('No signed-in child found right now.'),
-            backgroundColor: AppColors.warningColor,
-          ),
+      String roomName = selectedChild.classroom.trim().isNotEmpty
+          ? selectedChild.classroom
+          : '—';
+      var isSignedIn = false;
+
+      try {
+        final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
+        final now = DateTime.now();
+        final date =
+            '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 100,
         );
-        return;
+        final match = page.items.where(
+          (i) => i.studentCode.trim() == selectedChild.code.trim(),
+        );
+        if (match.isNotEmpty) {
+          final row = match.first;
+          roomName = row.classroomName.trim().isNotEmpty
+              ? row.classroomName
+              : roomName;
+          isSignedIn = row.hasSignIn && !row.hasSignOut;
+        }
+      } catch (_) {
+        // Parents may not have sign-out form list access.
       }
+
+      if (!context.mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
           builder: (_) => StudentAttendanceProfile(
-            studentCode: child.studentCode,
+            studentCode: selectedChild.code.trim(),
             studentId: 0,
-            studentName: child.studentName,
+            studentName: selectedChild.name,
             studentPhotoUuid: null,
-            roomName: child.classroomName,
-            isSignedIn: child.hasSignIn && !child.hasSignOut,
+            roomName: roomName,
+            isSignedIn: isSignedIn,
+            syncWithParentChildSelection: true,
           ),
-        ),
-      );
-    } on StateError {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('No signed-in child found right now.'),
-          backgroundColor: AppColors.warningColor,
         ),
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
