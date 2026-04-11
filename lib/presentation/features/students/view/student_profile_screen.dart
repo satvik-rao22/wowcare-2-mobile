@@ -243,7 +243,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Future<void> _pickProfileImage() async {
     final role = context.read<RoleProvider>();
-    if (!ModuleAccess.mayWrite(role, StudentAccessModules.student)) {
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -294,7 +294,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Widget _buildScreen(BuildContext context) {
     final role = context.watch<RoleProvider>();
     final canChangePhoto =
-        ModuleAccess.mayWrite(role, StudentAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -576,12 +576,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             context,
             role,
             MediaRes.attendanceIcon,
-            enabled: role.canOpenModule(StudentAccessModules.studentAttendance),
+            enabled: role.canOpenModule(AppAccessModules.studentAttendance),
             onTap: () {
               ModuleAccess.runIfFeatureAllowed(
                 context,
                 role,
-                StudentAccessModules.studentAttendance,
+                AppAccessModules.studentAttendance,
                 () {
                   final code = widget.studentCode?.trim() ?? '';
                   if (code.isEmpty) {
@@ -615,12 +615,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             context,
             role,
             MediaRes.activitesIcon,
-            enabled: role.canOpenModule(StudentAccessModules.dailyActivity),
+            enabled: role.canOpenModule(AppAccessModules.dailyActivity),
             onTap: () {
               ModuleAccess.runIfFeatureAllowed(
                 context,
                 role,
-                StudentAccessModules.dailyActivity,
+                AppAccessModules.dailyActivity,
                 () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -646,40 +646,52 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             context,
             role,
             MediaRes.message_panel_icon,
-            enabled: role.canOpenModule(StudentAccessModules.parentMessaging),
+            enabled: role.canAccessAny([
+              AppAccessModules.parentMessaging,
+              AppAccessModules.staffMessaging,
+            ]),
             onTap: () {
-              ModuleAccess.runIfFeatureAllowed(
-                context,
-                role,
-                StudentAccessModules.parentMessaging,
-                () {
-                  CoreUtils.showTopSnackBar(
-                    context: context,
-                    message: 'Messaging is available from the Messages section.',
-                    isError: false,
-                  );
-                },
-              );
+              final messagingOk = role.canAccessAny([
+                AppAccessModules.parentMessaging,
+                AppAccessModules.staffMessaging,
+              ]);
+              if (messagingOk) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Messaging is available from the Messages section.',
+                  isError: false,
+                );
+              } else {
+                ModuleAccess.showFeatureRestricted(context);
+              }
             },
           ),
           _buildActionIcon(
             context,
             role,
             MediaRes.billing_drawer_icon,
-            enabled: role.canOpenModule(StudentAccessModules.transaction),
+            enabled: role.canAccessAny([
+              AppAccessModules.transaction,
+              AppAccessModules.invoices,
+              AppAccessModules.recurringPlans,
+              AppAccessModules.billingSettings,
+            ]),
             onTap: () {
-              ModuleAccess.runIfFeatureAllowed(
-                context,
-                role,
-                StudentAccessModules.transaction,
-                () {
-                  CoreUtils.showTopSnackBar(
-                    context: context,
-                    message: 'Billing is available from the Transactions section.',
-                    isError: false,
-                  );
-                },
-              );
+              final billingOk = role.canAccessAny([
+                AppAccessModules.transaction,
+                AppAccessModules.invoices,
+                AppAccessModules.recurringPlans,
+                AppAccessModules.billingSettings,
+              ]);
+              if (billingOk) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Billing is available from the Transactions section.',
+                  isError: false,
+                );
+              } else {
+                ModuleAccess.showFeatureRestricted(context);
+              }
             },
           ),
         ],

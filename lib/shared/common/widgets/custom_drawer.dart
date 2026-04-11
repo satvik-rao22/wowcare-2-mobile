@@ -37,6 +37,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
 
@@ -582,21 +584,45 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final roleProvider = context.watch<RoleProvider>();
     final isParent = roleProvider.isParent;
     final isStaff = roleProvider.isStaff;
-    final canViewStudents = roleProvider.canAccessAny(const ['student', 'students']);
-    final canViewStaff = roleProvider.canAccessAny(const ['staff']);
-    final canViewClassrooms = roleProvider.canAccessAny(
-      const ['classroom', 'classrooms'],
-    );
-    final canViewAttendance = roleProvider.canAccessAny(
-      const ['attendance', 'student-attendance', 'staff-attendance'],
-    );
-    final canViewActivities = roleProvider.canAccessAny(
-      const ['activity', 'activities'],
-    );
-    final canViewCommunication = roleProvider.canAccessAny(
-      const ['communication', 'messaging', 'message'],
-    );
-    final canViewBilling = roleProvider.canAccessAny(const ['billing']);
+    final canViewStudents = roleProvider.canAccessAny([
+      AppAccessModules.student,
+    ]);
+    final canViewStaff = roleProvider.canAccessAny([
+      AppAccessModules.staff,
+    ]);
+    final canViewClassrooms = roleProvider.canAccessAny([
+      AppAccessModules.classroom,
+    ]);
+    final showStudentAttendance =
+        roleProvider.canOpenModule(AppAccessModules.studentAttendance);
+    final showStaffAttendance =
+        roleProvider.canOpenModule(AppAccessModules.staffAttendance);
+    final showAdminAttendanceMenu =
+        showStudentAttendance || showStaffAttendance;
+    final canViewActivities =
+        roleProvider.canReadModule(AppAccessModules.dailyActivity);
+    final showParentMessagingDrawer =
+        roleProvider.canReadModule(AppAccessModules.parentMessaging);
+    final showParentNewsletterDrawer =
+        roleProvider.canReadModule(AppAccessModules.newsletter);
+    final showStaffMessagingDrawer =
+        roleProvider.canReadModule(AppAccessModules.staffMessaging);
+    final canViewBilling = roleProvider.canAccessAny([
+      AppAccessModules.transaction,
+      AppAccessModules.invoices,
+      AppAccessModules.recurringPlans,
+      AppAccessModules.billingSettings,
+    ]);
+    final showIndividualMovement =
+        roleProvider.canOpenModule(AppAccessModules.individualMovements);
+    final showFutureAvailability =
+        roleProvider.canOpenModule(AppAccessModules.futureAvailability);
+    final showAvailabilityMenu =
+        showIndividualMovement || showFutureAvailability;
+    final showDashboardDrawer = !roleProvider.usesGranularModuleAccess ||
+        roleProvider.canOpenModule(AppAccessModules.dashboard);
+    final showSettingsMenu = !roleProvider.usesGranularModuleAccess ||
+        roleProvider.canOpenModule(AppAccessModules.settings);
     final parentChildProvider = context.watch<ParentChildProvider>();
     if (isParent &&
         !parentChildProvider.isLoaded &&
@@ -626,19 +652,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Column(
                     children: [
-                      _CustomExpansionTile(
-                        title: 'Dashboard',
-                        icon: MediaRes.dashboardIcon,
-                        isDashboard: true,
-                        isCurrentRoute: _currentRoute == DashboardScreen.routeName,
-                        onTap: () {
-                          Navigator.pop(context);
-                          if (_currentRoute != DashboardScreen.routeName) {
-                            Navigator.pushNamed(
-                                context, DashboardScreen.routeName);
-                          }
-                        },
-                      ),
+                      if (showDashboardDrawer)
+                        _CustomExpansionTile(
+                          title: 'Dashboard',
+                          icon: MediaRes.dashboardIcon,
+                          isDashboard: true,
+                          isCurrentRoute:
+                              _currentRoute == DashboardScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != DashboardScreen.routeName) {
+                              Navigator.pushNamed(
+                                  context, DashboardScreen.routeName);
+                            }
+                          },
+                        ),
                       if (isParent) ...[
                         // Parent-specific menu items
                         if (canViewStudents)
@@ -650,7 +678,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             _openParentStudentProfile(parentChildProvider.selectedChild);
                           },
                         ),
-                        if (canViewAttendance)
+                        if (showStudentAttendance)
                           _CustomExpansionTile(
                           title: 'Attendance',
                           icon: MediaRes.attendanceIcon,
@@ -677,7 +705,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        if (canViewCommunication)
+                        if (showParentMessagingDrawer ||
+                            showParentNewsletterDrawer)
                           _CustomExpansionTile(
                           title: 'Communication',
                           icon: MediaRes.communicationIcon,
@@ -685,7 +714,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               _currentRoute == MessagingScreen.routeName,
                           isExpansionEnabled: true,
                           children: [
-                            DrawerListTile(
+                            if (showParentMessagingDrawer)
+                              DrawerListTile(
                               title: 'Messaging',
                               leading: SvgPicture.asset(
                                 MediaRes.parentMessaging,
@@ -705,7 +735,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 );
                               },
                             ),
-                            DrawerListTile(
+                            if (showParentNewsletterDrawer)
+                              DrawerListTile(
                               title: 'Newsletter',
                               leading: SvgPicture.asset(
                                 MediaRes.newsletter,
@@ -718,6 +749,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   MaterialPageRoute(
                                     builder: (_) => const MessagingScreen(
                                       userPersona: UserPersona.parent,
+                                      initialTabIndex: 1,
                                     ),
                                     settings: const RouteSettings(
                                         name: MessagingScreen.routeName),
@@ -800,13 +832,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        if (canViewAttendance)
+                        if (showAdminAttendanceMenu)
                           _CustomExpansionTile(
                           title: 'Attendance',
                           icon: MediaRes.attendanceIcon,
                           isExpansionEnabled: true,
                           children: [
-                            DrawerListTile(
+                            if (showStudentAttendance)
+                              DrawerListTile(
                               title: 'Student Attendance',
                               leading: SvgPicture.asset(
                                 MediaRes.studentAttendanceDrawer,
@@ -822,7 +855,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 );
                               },
                             ),
-                            DrawerListTile(
+                            if (showStaffAttendance)
+                              DrawerListTile(
                               title: isStaff ? 'My Attendance' : 'Staff Attendance',
                               leading: SvgPicture.asset(
                                 MediaRes.staffAttendanceDrawer,
@@ -845,13 +879,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             ),
                           ],
                         ),
-                        if (canViewAttendance)
+                        if (showAvailabilityMenu)
                           _CustomExpansionTile(
                             title: 'Availability',
                             icon: MediaRes.attendanceIcon,
                             isExpansionEnabled: true,
                             children: [
-                              DrawerListTile(
+                              if (showIndividualMovement)
+                                DrawerListTile(
                                 title: 'Individual Movement',
                                 leading: const Icon(
                                   Icons.directions_walk,
@@ -868,7 +903,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   }
                                 },
                               ),
-                              DrawerListTile(
+                              if (showFutureAvailability)
+                                DrawerListTile(
                                 title: 'Future Availability',
                                 leading: const Icon(
                                   Icons.calendar_month,
@@ -902,13 +938,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        if (canViewCommunication)
+                        if (showStaffMessagingDrawer ||
+                            showParentMessagingDrawer ||
+                            showParentNewsletterDrawer)
                           _CustomExpansionTile(
                           title: 'Communication',
                           icon: MediaRes.communicationIcon,
                           isExpansionEnabled: true,
                           children: [
-                            DrawerListTile(
+                            if (showStaffMessagingDrawer)
+                              DrawerListTile(
                               title: 'Staff Messaging',
                               leading: SvgPicture.asset(
                                 MediaRes.staffMessaging,
@@ -928,7 +967,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 );
                               },
                             ),
-                            DrawerListTile(
+                            if (showParentMessagingDrawer)
+                              DrawerListTile(
                               title: 'Parent Messaging',
                               leading: SvgPicture.asset(
                                 MediaRes.parentMessaging,
@@ -941,7 +981,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   MaterialPageRoute(
                                     builder: (_) => const MessagingScreen(
                                       userPersona: UserPersona.admin,
-                                      initialTabIndex: 1,
+                                      initialTabIndex: 0,
                                     ),
                                     settings: const RouteSettings(
                                         name: MessagingScreen.routeName),
@@ -949,7 +989,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 );
                               },
                             ),
-                            DrawerListTile(
+                            if (showParentNewsletterDrawer)
+                              DrawerListTile(
                               title: 'Newsletter',
                               leading: SvgPicture.asset(
                                 MediaRes.newsletter,
@@ -962,6 +1003,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   MaterialPageRoute(
                                     builder: (_) => const MessagingScreen(
                                       userPersona: UserPersona.admin,
+                                      initialTabIndex: 1,
                                     ),
                                     settings: const RouteSettings(
                                         name: MessagingScreen.routeName),
@@ -983,7 +1025,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (showSettingsMenu)
+                          _CustomExpansionTile(
                           title: 'Settings',
                           icon: MediaRes.settings_drawer_Blue,
                           isExpansionEnabled: true,

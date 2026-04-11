@@ -10,6 +10,9 @@ import 'package:wowcare/presentation/features/activities/view/activity_feed_scre
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
+import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
 
 
 class CustomNavigationBar extends StatefulWidget {
@@ -60,6 +63,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         _index = 0;
       } else if (_currentRoute == ActivityFeedScreen.routeName) {
         _index = 2;
+      } else if (_currentRoute == MessagingScreen.routeName) {
+        _index = 3;
       } else if (_currentRoute == ParentBillingScreen.routeName) {
         _index = 4;
       }
@@ -68,6 +73,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         _index = 0;
       } else if (_currentRoute == ActivityFeedScreen.routeName) {
         _index = 3;
+      } else if (_currentRoute == MessagingScreen.routeName) {
+        _index = 4;
       }
     }
   }
@@ -102,9 +109,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           Navigator.pushReplacementNamed(context, ActivityFeedScreen.routeName);
           break;
         case 3:
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: MessagingScreen.routeName),
+              builder: (_) => const MessagingScreen(
+                userPersona: UserPersona.parent,
+              ),
+            ),
           );
           break;
         case 4:
@@ -131,9 +143,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           Navigator.pushReplacementNamed(context, ActivityFeedScreen.routeName);
           break;
         case 4:
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: MessagingScreen.routeName),
+              builder: (_) => const MessagingScreen(
+                userPersona: UserPersona.admin,
+              ),
+            ),
           );
           break;
       }
@@ -204,19 +221,34 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleProvider>();
     final isParent = roleProvider.isParent;
-    final showAttendance = roleProvider.canAccessAny(
-      const ['attendance', 'student-attendance', 'staff-attendance'],
+    final showParentAttendance = roleProvider.canOpenModule(
+      AppAccessModules.studentAttendance,
     );
-    final showClassrooms = roleProvider.canAccessAny(
-      const ['classroom', 'classrooms'],
-    );
-    final showActivities = roleProvider.canAccessAny(
-      const ['activity', 'activities'],
-    );
-    final showCommunication = roleProvider.canAccessAny(
-      const ['communication', 'messaging', 'message'],
-    );
-    final showBilling = roleProvider.canAccessAny(const ['billing']);
+    final showStaffAdminAttendance = roleProvider.canAccessAny([
+      AppAccessModules.studentAttendance,
+      AppAccessModules.staffAttendance,
+    ]);
+    final showClassrooms = roleProvider.canAccessAny([
+      AppAccessModules.classroom,
+    ]);
+    final showActivities =
+        roleProvider.canReadModule(AppAccessModules.dailyActivity);
+    final showCommunication = isParent
+        ? roleProvider.canAccessAny([
+            AppAccessModules.parentMessaging,
+            AppAccessModules.newsletter,
+          ])
+        : roleProvider.canAccessAny([
+            AppAccessModules.staffMessaging,
+            AppAccessModules.parentMessaging,
+            AppAccessModules.newsletter,
+          ]);
+    final showBilling = roleProvider.canAccessAny([
+      AppAccessModules.transaction,
+      AppAccessModules.invoices,
+      AppAccessModules.recurringPlans,
+      AppAccessModules.billingSettings,
+    ]);
 
     return SafeArea(
       top: false,
@@ -247,7 +279,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                       context: context,
                       isParent: isParent,
                     ),
-                    showAttendance
+                    showParentAttendance
                         ? _buildNavItem(
                       icon: MediaRes.attendanceIcon,
                       label: 'Attendance',
@@ -293,7 +325,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                       context: context,
                       isParent: isParent,
                     ),
-                    showAttendance
+                    showStaffAdminAttendance
                         ? _buildNavItem(
                       icon: MediaRes.attendanceIcon,
                       label: 'Attendance',

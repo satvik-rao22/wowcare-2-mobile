@@ -103,7 +103,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
     final canEditStudentData =
-        ModuleAccess.mayWrite(role, StudentAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bool isImmunizationTab = _tabController.index == 3;
     return Stack(
       children: [

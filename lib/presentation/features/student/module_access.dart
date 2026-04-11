@@ -2,25 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
-/// Backend `module` values from `/api/v1/users/details` `permissions[]`.
+/// Canonical `module` strings from `/api/v1/users/details` `permissions[]`.
 ///
-/// Used by student-profile flows; add more IDs here as other features adopt the
-/// same [RoleProvider] module checks app-wide.
-abstract final class StudentAccessModules {
+/// Use these with [RoleProvider.canReadModule], [canWriteModule], [canOpenModule],
+/// and [ModuleAccess] helpers so UI matches backend ACLs.
+abstract final class AppAccessModules {
+  static const String classroom = 'CLASSROOM';
+  static const String staff = 'STAFF';
   static const String student = 'STUDENT';
-  static const String studentAttendance = 'STUDENT_ATTENDANCE';
   static const String dailyActivity = 'DAILY_ACTIVITY';
-  static const String parentMessaging = 'PARENT_MESSAGING';
+  static const String studentAttendance = 'STUDENT_ATTENDANCE';
+  static const String staffAttendance = 'STAFF_ATTENDANCE';
   static const String transaction = 'TRANSACTION';
-  static const String newsletter = 'NEWSLETTER';
+  static const String recurringPlans = 'RECURRINGPLANS';
+  static const String invoices = 'INVOICES';
+  static const String billingSettings = 'BILLING_SETTINGS';
+  static const String parentMessaging = 'PARENT_MESSAGING';
+  static const String staffMessaging = 'STAFF_MESSAGING';
+  static const String settings = 'SETTINGS';
+  static const String staffScheduling = 'STAFF_SCHEDULING';
+  static const String studentTags = 'STUDENT_TAGS';
+  static const String movementRules = 'MOVEMENT_RULES';
+  static const String reports = 'REPORTS';
+  static const String futureAvailability = 'FUTURE_AVAILABILITY';
   static const String dashboard = 'DASHBOARD';
+  static const String newsletter = 'NEWSLETTER';
+  static const String classroomSchedule = 'CLASSROOM_SCHEDULE';
+  /// Backend spelling per API contract (not "INDIVIDUAL").
+  static const String individualMovements = 'INDIVISUAL_MOVEMENTS';
 }
 
 /// Read/write UI gates backed by [RoleProvider] for **every** persona.
-///
-/// When the school context has no granular `permissions` list yet, staff/admin
-/// keep full access; guardians stay restricted until details load. When the API
-/// sends a `permissions` list (even empty), the same rules apply to all roles.
 final class ModuleAccess {
   ModuleAccess._();
 
