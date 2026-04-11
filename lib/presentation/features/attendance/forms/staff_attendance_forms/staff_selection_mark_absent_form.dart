@@ -414,6 +414,7 @@ class StaffListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: staff.photoUuid ?? '',
                 name: staff.name,
+                staffCode: staff.staffCode,
                 size: 32,
                 fontSize: 14,
               ),

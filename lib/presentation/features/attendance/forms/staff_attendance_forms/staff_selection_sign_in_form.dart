@@ -13,7 +13,6 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
@@ -62,19 +61,13 @@ class _StaffSelectionSignInFormState
   String? _errorMessage;
 
   late final GetStaffSignInFormListUseCase _getStaffSignInFormListUseCase;
-  late final GetStaffTodaySignInStatusMapUseCase
-      _getStaffTodaySignInStatusMapUseCase;
   late final ClassroomCubit _classroomCubit;
-
-  Set<String> _absentStaffCodes = <String>{};
 
   @override
   void initState() {
     super.initState();
     _getStaffSignInFormListUseCase =
         serviceLocator<GetStaffSignInFormListUseCase>();
-    _getStaffTodaySignInStatusMapUseCase =
-        serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
     _classroomCubit = serviceLocator<ClassroomCubit>()
       ..loadActiveClassrooms(onlyTypeClassroom: false);
     _loadStaff();
@@ -170,28 +163,10 @@ class _StaffSelectionSignInFormState
             _filteredStaff.every((s) => selectedStaff.contains(s));
       });
 
-      // Bulk-load "today status" and display red dot for ABSENT only.
-      final staffCodes = locallyFiltered
-          .map((s) => (s.staffCode ?? '').trim())
-          .where((c) => c.isNotEmpty)
-          .toList(growable: false);
-      final statusMap = await _getStaffTodaySignInStatusMapUseCase(
-        staffCodes: staffCodes,
-      );
-      if (!mounted) return;
-      final absent = statusMap.entries
-          .where((e) => e.value.toString().toUpperCase() == 'ABSENT')
-          .map((e) => e.key.trim())
-          .where((c) => c.isNotEmpty)
-          .toSet();
-      setState(() {
-        _absentStaffCodes = absent;
-      });
     } catch (e) {
       setState(() {
         _isLoading = false;
         _errorMessage = ApiErrorHandler.extractErrorMessage(e);
-        _absentStaffCodes = <String>{};
       });
     }
   }
@@ -387,15 +362,12 @@ class _StaffSelectionSignInFormState
                               final staff = _filteredStaff[index];
                               final isSelected =
                                   selectedStaff.contains(staff);
-                              final isAbsentToday =
-                                  _absentStaffCodes.contains((staff.staffCode ?? '').trim());
 
                               return StaffListItem(
                                 staff: staff,
                                 isSelected: isSelected,
                                 onSelectionChanged: (value) =>
                                     _toggleStaffSelection(staff, value),
-                                showAbsentDot: isAbsentToday,
                               );
                             },
                           ),
@@ -419,14 +391,12 @@ class StaffListItem extends StatelessWidget {
   final StaffEntity staff;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
-  final bool showAbsentDot;
 
   const StaffListItem({
     super.key,
     required this.staff,
     required this.isSelected,
     required this.onSelectionChanged,
-    required this.showAbsentDot,
   });
 
   @override
@@ -458,7 +428,8 @@ class StaffListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: staff.photoUuid ?? '',
                 name: staff.name,
-                statusColor: showAbsentDot ? Colors.red : null,
+                staffCode: staff.staffCode,
+                showOnlyAbsentAttendanceDot: true,
                 size: 32,
                 fontSize: 14,
               ),

@@ -75,6 +75,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   late final StaffAttendanceDailyCubit _cubit;
   late final StaffAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
+  String? _loggedInUserName;
 
   @override
   void initState() {
@@ -97,9 +98,47 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     _cubit = serviceLocator<StaffAttendanceDailyCubit>();
     _absentToggleCubit = serviceLocator<StaffAttendanceAbsentToggleCubit>();
     _classroomCubit = serviceLocator<ClassroomCubit>();
+    _loadClassroomData();
+    _loadLoggedInUserName();
 
     // Load initial data from API
     _loadAttendanceData(context, reset: true);
+  }
+
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms();
+
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _loadLoggedInUserName() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final displayName =
+          (await storage.getString(StorageKeys.displayName) ?? '').trim();
+      final username =
+          (await storage.getString(StorageKeys.username) ?? '').trim();
+      final fallback = displayName.isNotEmpty
+          ? displayName
+          : (username.isNotEmpty ? username : '');
+      if (!mounted || fallback.isEmpty) return;
+      setState(() {
+        _loggedInUserName = fallback;
+      });
+    } catch (_) {}
   }
 
   @override
@@ -217,6 +256,18 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         .map((w) => w[0].toUpperCase() + (w.length > 1 ? w.substring(1) : ''))
         .join(' ');
     return formatted;
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null || code.isEmpty) return null;
+    final classrooms = _classroomCubit.state.classrooms;
+    if (classrooms.isEmpty) return null;
+    for (final c in classrooms) {
+      if (c.code == code) {
+        return c.name;
+      }
+    }
+    return null;
   }
 
   void _clearAllFiltersAndSearch() {
@@ -565,13 +616,15 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           staffName: item.staffName,
           staffPhotoUuid: null,
           designationName: formattedDesignation,
-          roomName: item.classroomName,
+          roomName:
+              _resolveClassroomNameByCode(item.classroomCode) ?? item.classroomCode,
           expectedToday: item.isExpectedToday,
           hasSignIn: item.hasSignIn,
           signInTime: effectiveSignIn ?? item.formattedSignInTime,
           signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
           signInBy: _normalizeByName(item.signedInBy),
-          signOutBy: _normalizeByName(item.signedOutBy),
+          signOutBy: _normalizeByName(item.signedOutBy) ??
+              (transferSignOut ? _loggedInUserName : null),
           // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
           signInMethod: _mapMethodStringToEnum(item.signedInMethod),
           signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
@@ -835,7 +888,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         final index = entry.key;
         final it = entry.value;
         final roomName =
-            it.classroomName.isNotEmpty ? it.classroomName : it.classroomCode;
+            _resolveClassroomNameByCode(it.classroomCode) ?? it.classroomCode;
         final absenceDate = it.absenceDate;
         final absentTime = it.markedAbsentTime?.formattedHms ?? '';
         final staff = StaffAbsentCardData(

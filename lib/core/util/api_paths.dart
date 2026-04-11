@@ -96,6 +96,7 @@ class ApiPaths {
   // Guardian / Parent users
   static const String guardianUser = '/api/v1/guardian-user';
   static const String guardian = '/api/v1/guardian';
+  static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianExisting = '/api/v1/guardian/existing';
 
   // Tags

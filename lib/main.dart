@@ -17,6 +17,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
@@ -106,6 +107,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         // Needed by GlobalScaffold/Drawer/NavBar to determine role-based UI
         ChangeNotifierProvider(create: (_) => RoleProvider()),
+        ChangeNotifierProvider(create: (_) => ParentChildProvider()),
         // ChangeNotifierProvider(create: (_) => AuthProvider()),
         // ChangeNotifierProvider(create: (_) => NavBarHeightProvider()),
         // ChangeNotifierProvider(create: (_) => ProfilePhotoProvider()),

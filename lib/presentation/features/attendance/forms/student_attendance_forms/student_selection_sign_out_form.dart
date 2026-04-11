@@ -522,6 +522,7 @@ class StudentListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: student.photoUuid,
                 name: student.fullName,
+                studentCode: student.studentCode,
                 size: 32,
                 fontSize: 14,
               ),

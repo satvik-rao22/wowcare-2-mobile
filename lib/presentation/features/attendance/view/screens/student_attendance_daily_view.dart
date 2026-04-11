@@ -81,6 +81,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   Map<String, String> _tagNameToCode = <String, String>{};
   bool _isLoadingTagMap = false;
   bool _isClassroomDataReady = false;
+  String? _loggedInUserName;
 
   // Summary data (dummy data for now - will be replaced with API later)
   int enrolled = 120;
@@ -154,6 +155,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     // Load classroom data and tag mapping
     _loadClassroomData();
     _loadTagNameCodeMap();
+    _loadLoggedInUserName();
     _searchController.addListener(_onSearchChanged);
     
     // Handle incoming filter
@@ -234,6 +236,23 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         _isLoadingTagMap = false;
       });
     }
+  }
+
+  Future<void> _loadLoggedInUserName() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final displayName =
+          (await storage.getString(StorageKeys.displayName) ?? '').trim();
+      final username =
+          (await storage.getString(StorageKeys.username) ?? '').trim();
+      final fallback = displayName.isNotEmpty
+          ? displayName
+          : (username.isNotEmpty ? username : '');
+      if (!mounted || fallback.isEmpty) return;
+      setState(() {
+        _loggedInUserName = fallback;
+      });
+    } catch (_) {}
   }
 
   @override
@@ -363,9 +382,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     StudentAttendanceAbsentFormItem item,
     int index,
   ) {
-    final roomName = item.classroomName.isNotEmpty
-        ? item.classroomName
-        : item.classroomCode;
+    final roomName =
+        _resolveClassroomNameByCode(item.classroomCode) ?? item.classroomCode;
 
     final absenceDate = item.absenceDate.isNotEmpty
         ? item.absenceDate
@@ -448,7 +466,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       signInTime: effectiveSignIn ?? item.formattedSignInTime,
       signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
       signInBy: _normalizeByName(item.signedInBy),
-      signOutBy: _normalizeByName(item.signedOutBy),
+      signOutBy: _normalizeByName(item.signedOutBy) ??
+          (transferSignOut ? _loggedInUserName : null),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
       signInMethod: _mapMethodStringToEnum(item.signedInMethod),
       signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),

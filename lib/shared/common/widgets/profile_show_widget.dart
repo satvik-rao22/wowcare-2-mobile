@@ -203,12 +203,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               fontWeight: FontWeight.w600,
             ),
             child: Container(
-              width: widget.size * 0.22,
-              height: widget.size * 0.22,
+              width: widget.size * 0.3,
+              height: widget.size * 0.3,
               decoration: BoxDecoration(
                 color: dotColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: Colors.white, width: 1),
               ),
             ),
           ),
