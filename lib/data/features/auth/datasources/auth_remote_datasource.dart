@@ -13,12 +13,6 @@ import 'package:wowcare/data/features/auth/models/school_names_response_model.da
 abstract class AuthRemoteDataSource {
   Future<LoginResponseModel> login(LoginRequestModel request);
   Future<void> logout(LogoutRequestModel request);
-  /// Updates a school's status via `PATCH /api/v1/schools/{schoolCode}`.
-  Future<void> patchSchoolStatus({
-    required String accessToken,
-    required String schoolCode,
-    required String status,
-  });
   Future<Map<String, dynamic>> getLoginContext({
     required String accessToken,
   });
@@ -65,7 +59,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiPaths.authLogin,
+        loginUrl,
         data: requestBody,
         options: Options(
           headers: ApiHeaders.json,
@@ -173,7 +167,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post(
-        ApiPaths.authLogout,
+        url,
         data: requestBody,
         options: Options(
           headers: ApiHeaders.json,
@@ -214,62 +208,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       throw DioException(
         requestOptions: RequestOptions(path: ApiPaths.authLogout),
-        type: DioExceptionType.unknown,
-        error: 'Unexpected error: $e',
-      );
-    }
-  }
-
-  @override
-  Future<void> patchSchoolStatus({
-    required String accessToken,
-    required String schoolCode,
-    required String status,
-  }) async {
-    final url = ApiPaths.url(ApiPaths.schoolByCode(schoolCode));
-    final headers = ApiHeaders.authorizedJson(accessToken);
-    final requestBody = jsonEncode(<String, dynamic>{
-      'status': status,
-    });
-    try {
-      ApiLogger.logRequest(
-        url: url,
-        method: 'PATCH',
-        headers: headers,
-        body: requestBody,
-      );
-
-      final response = await _dio.patch<dynamic>(
-        url,
-        data: requestBody,
-        options: Options(headers: headers),
-      );
-
-      ApiLogger.logResponse(
-        url: url,
-        method: 'PATCH',
-        statusCode: response.statusCode,
-        data: response.data,
-      );
-    } on DioException catch (e) {
-      ApiLogger.logError(
-        url: url,
-        method: 'PATCH',
-        type: e.type.toString(),
-        message: e.message,
-        statusCode: e.response?.statusCode,
-        errorData: e.response?.data,
-      );
-      rethrow;
-    } catch (e, stackTrace) {
-      ApiLogger.logUnexpectedError(
-        url: url,
-        method: 'PATCH',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      throw DioException(
-        requestOptions: RequestOptions(path: url),
         type: DioExceptionType.unknown,
         error: 'Unexpected error: $e',
       );
@@ -571,7 +509,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String accessToken,
   }) async {
     try {
-      // Use Sairam base URL for organization names (same as school-ms)
       final url = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
         ApiConstants.baseUrl,
@@ -769,7 +706,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiPaths.authForgotPassword,
+        url,
         queryParameters: queryParams,
         data: null,
         options: Options(

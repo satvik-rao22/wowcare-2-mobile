@@ -116,8 +116,13 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       }
     }).toList();
   }
-
-  static const List<String> _sortByOptions = ['Descending', 'Ascending'];
+  final List<String> _labelList = [
+    'Primary Classroom',
+    'Allowed Classroom',
+    'Status',
+    'Designation',
+    'Attendance Status',
+  ];
 
   // Filter lists
   List<int> _primaryClassroomIdList = [];
@@ -135,7 +140,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   List<String> _selectedAllowedClassroomList = [];
   List<String> _selectedStatusList = [];
   List<String> _selectedDesignationList = [];
-  List<String> _selectedSortByList = [];
   List<String> _selectedAttendanceStatusList = [];
 
   void _syncPrimaryClassroomIds() {
@@ -171,14 +175,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         widget.initialFilters!.allowedClassrooms ?? const [],
       );
       _selectedStatusList = List.from(widget.initialFilters!.statuses);
+      // Status is single-select in this screen.
+      if (_selectedStatusList.length > 1) {
+        _selectedStatusList = <String>[_selectedStatusList.first];
+      }
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
-      final sortBy = (widget.initialFilters!.sortBy ?? 'desc').trim().toLowerCase();
-      _selectedSortByList = sortBy == 'asc' ? ['Ascending'] : ['Descending'];
       _selectedAttendanceStatusList = List.from(widget.initialFilters!.attendanceStatuses);
-    }
-    if (widget.sections.contains(StaffFilterSection.sortBy) &&
-        _selectedSortByList.isEmpty) {
-      _selectedSortByList.add('Descending');
     }
     _fetchFilterData();
   }
@@ -270,6 +272,11 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
           ? allowedCodes
           : const <String>[],
       'sortBy': sortBy,
+    Navigator.pop(context, {
+      'status': status,
+      'designation': designation,
+      'primaryClassroomCodes': primaryCodes,
+      'classCodes': allowedCodes,
     });
   }
 
@@ -376,6 +383,24 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
                 return _selectedAttendanceStatusList;
             }
           }
+        if (_primaryClassroomList.isNotEmpty &&
+            _statusList.isNotEmpty &&
+            _designationList.isNotEmpty &&
+            _attendanceStatusList.isNotEmpty) {
+          final _dropdownLists = [
+            _primaryClassroomList,
+            _allowedClassroomList,
+            _statusList,
+            _designationList,
+            _attendanceStatusList,
+          ];
+          final _selectedDropdownLists = [
+            _selectedPrimaryClassroomList,
+            _selectedAllowedClassroomList,
+            _selectedStatusList,
+            _selectedDesignationList,
+            _selectedAttendanceStatusList,
+          ];
           
           return GridView.builder(
             padding: EdgeInsets.zero,
@@ -400,6 +425,20 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
                 onChanged: (selectedItems) {
                   setState(() {
                     selected
+            itemBuilder: (context, index) => CustomMultiSelectDropdown(
+              label: _labelList[index],
+              hintText: 'Select',
+              items: _dropdownLists[index],
+              selectedItems: _selectedDropdownLists[index],
+              onChanged: (selectedItems) {
+                setState(() {
+                  _selectedDropdownLists[index].clear();
+                  _selectedDropdownLists[index].addAll(selectedItems);
+                  if (index == 0) _syncPrimaryClassroomIds();
+                  if (index == 1) _syncAllowedClassroomIds();
+                  // Status: single selection only (last selected).
+                  if (index == 2 && selectedItems.isNotEmpty) {
+                    _selectedStatusList
                       ..clear()
                       ..addAll(selectedItems);
 

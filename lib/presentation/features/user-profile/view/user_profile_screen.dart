@@ -106,13 +106,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  /// Attempts to resolve staffCode for the logged-in user.
-  /// Uses `/api/v1/staff/code` with stored `userCode`, `organizationCode` and `schoolCode`
-  /// to resolve the staffCode for the currently logged-in user.
+  /// Attempts to resolve staffCode for the logged-in user from local cache.
+  /// Falls back to any cached staffCode to keep my-profile fetch non-blocking.
   Future<String> _resolveLoggedInStaffCode() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final repo = serviceLocator<StaffRepository>();
 
       // Ensure cached staffCode, if any, belongs to the currently logged-in user.
       final currentUserCode =
@@ -128,46 +126,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           cachedStaffUser == currentUserCode) {
         // Cache is valid for this user.
         return cachedStaffCode;
-      } else {
-        // Cached value belongs to another user or is invalid – clear it.
-        await storage.remove(StorageKeys.staffCode);
-        await storage.remove(StorageKeys.staffCodeUser);
-        await storage.remove(StorageKeys.staffCodeOrganization);
-        await storage.remove(StorageKeys.staffCodeSchool);
       }
-
-      final organizationCode =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (currentUserCode.isEmpty ||
-          organizationCode.isEmpty ||
-          schoolCode.isEmpty) {
-        return '';
+      if (cachedStaffCode.isNotEmpty) {
+        // Fallback: still use cached staffCode so my-profile API can run.
+        return cachedStaffCode;
       }
-
-      // Ask backend directly for staffCode for this user.
-      final resolvedCode = await repo.getStaffCodeForUser(
-        userCode: currentUserCode,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
-
-      final code = (resolvedCode ?? '').trim();
-      if (code.isNotEmpty) {
-        await storage.saveString(StorageKeys.staffCode, code);
-        await storage.saveString(StorageKeys.staffCodeUser, currentUserCode);
-        await storage.saveString(
-          StorageKeys.staffCodeOrganization,
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim(),
-        );
-        await storage.saveString(
-          StorageKeys.staffCodeSchool,
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim(),
-        );
-      }
-
-      return code;
+      return '';
     } catch (_) {
       return '';
     }

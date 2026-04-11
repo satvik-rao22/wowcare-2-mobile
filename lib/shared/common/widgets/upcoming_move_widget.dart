@@ -21,13 +21,12 @@ class UpcomingMoveWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Upcoming move",
+          'Upcoming move',
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
             color: Color(0xff573353),
-            letterSpacing: -0.03 * 15,
           ),
         ),
         const SizedBox(height: 6),

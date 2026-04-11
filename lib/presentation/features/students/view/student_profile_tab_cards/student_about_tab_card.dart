@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -13,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/shared/constants/location_constants.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -68,6 +67,23 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     return value;
   }
 
+  String? _prettyGender(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    switch (raw.trim().toUpperCase()) {
+      case 'MALE':
+        return 'Male';
+      case 'FEMALE':
+        return 'Female';
+      case 'OTHER':
+      case 'NON_BINARY':
+      case 'NONBINARY':
+      case 'PREFER_NOT_TO_SAY':
+        return 'Other';
+      default:
+        return raw;
+    }
+  }
+
   String _formatAddress(Map<String, dynamic> address) {
     final parts = <String>[];
     if (address['street'] != null && address['street'].toString().isNotEmpty) {
@@ -77,10 +93,28 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       parts.add(address['city'].toString());
     }
     if (address['state'] != null && address['state'].toString().isNotEmpty) {
-      parts.add(address['state'].toString());
+      final rawState = address['state'].toString().trim();
+      String stateLabel = rawState;
+      for (final state in US_STATES) {
+        if (state.name.toLowerCase() == rawState.toLowerCase() ||
+            state.abbreviation.toLowerCase() == rawState.toLowerCase()) {
+          stateLabel = state.name;
+          break;
+        }
+      }
+      parts.add(stateLabel);
     }
     if (address['country'] != null && address['country'].toString().isNotEmpty) {
-      parts.add(address['country'].toString());
+      final rawCountry = address['country'].toString().trim();
+      String countryLabel = rawCountry;
+      for (final country in COUNTRY_LIST) {
+        if (country.name.toLowerCase() == rawCountry.toLowerCase() ||
+            country.code.toLowerCase() == rawCountry.toLowerCase()) {
+          countryLabel = country.name;
+          break;
+        }
+      }
+      parts.add(countryLabel);
     }
     // API sometimes returns postalCode; older UI used zipCode.
     final zipRaw = (address['zipCode'] ?? address['postalCode'])?.toString() ?? '';
@@ -112,7 +146,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       return ProfileField(
         label: 'Upcoming move',
         value: '-',
-        isStudentStyle: true,
       );
     }
 
@@ -136,7 +169,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       return ProfileField(
         label: 'Upcoming move',
         value: '-',
-        isStudentStyle: true,
       );
     }
   }
@@ -148,10 +180,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         await widget.onRefresh?.call();
       },
       child: ProfileInfoCard(
-        cardType: 'student',
         title: 'Profile Information',
         scrollController: widget.scrollController,
-        studentFirstField: _StudentNameField(name: widget.name),
         onEdit: () {
         if (widget.studentProfile == null) return;
         
@@ -252,6 +282,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 initialFirstName: profile.firstName,
                 initialLastName: profile.lastName,
                 initialStatus: statusDisplay,
+                initialGender: profile.gender,
                 initialClassroom: profile.classroom ?? '',
                 initialBirthDate: birthDate,
                 initialNotes: profile.notes ?? '',
@@ -285,13 +316,16 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         });
       },
       children: [
+        ProfileField(
+          label: 'Name',
+          value: _getValueOrDash(widget.name),
+        ),
 
         ProfileField(
           label: 'Status',
           valueWidget: _buildStatusChip(
             widget.studentProfile?.status ?? 'A',
           ),
-          isStudentStyle: true,
         ),
 
         ProfileField(
@@ -299,40 +333,36 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           value: _getValueOrDash(
             widget.studentProfile?.classroom ?? widget.classroom,
           ),
-          isStudentStyle: true,
         ),
 
         ProfileField(
           label: 'Tags',
           valueWidget: _hasTags()
               ? _tags(tags: _getTagsList())
-              : Text(
+              : const Text(
                   '-',
-                  style: AppTextStyles.value.copyWith(
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.03 * 15,
+                    color: Color(0xff573353),
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-          isStudentStyle: true,
         ),
 
         ProfileField(
           label: 'Gender',
-        value: _getValueOrDash(widget.studentProfile?.gender),
-          isStudentStyle: true,
+          value: _getValueOrDash(_prettyGender(widget.studentProfile?.gender)),
         ),
 
         ProfileField(
           label: 'Birth Date',
           value: _formatDate(widget.studentProfile?.dob),
-          isStudentStyle: true,
         ),
 
         ProfileField(
           label: 'Notes',
           value: _getValueOrDash(widget.studentProfile?.notes),
-          isStudentStyle: true,
         ),
 
         ProfileField(
@@ -358,7 +388,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           if (names.isEmpty) return 'Child custody not selected';
           return names.join(', ');
         })(),
-          isStudentStyle: true,
         ),
 
         ProfileField(
@@ -366,7 +395,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           value: widget.studentProfile != null
               ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
               : '-',
-          isStudentStyle: true,
         ),
 
         Builder(
@@ -379,7 +407,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               return ProfileField(
                 label: 'Sibling',
                 value: 'No siblings',
-                isStudentStyle: true,
               );
             }
 
@@ -417,9 +444,11 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                         const SizedBox(width: 12),
                         Text(
                           '$name ($relation)',
-                          style: AppTextStyles.value.copyWith(
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
+                            color: Color(0xff573353),
                             letterSpacing: -0.03 * 16,
                           ),
                         ),
@@ -428,7 +457,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                   );
                 }),
               ),
-              isStudentStyle: true,
             );
           },
         ),
@@ -438,7 +466,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           value: widget.studentProfile?.address != null
               ? _formatAddress(widget.studentProfile!.address!)
               : '-',
-          isStudentStyle: true,
         ),
 
         GestureDetector(
@@ -592,21 +619,42 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               );
             }
           },
-          child: ProfileField(
-            label: 'Schedule',
-            valueWidget: Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      'Monday',
-                      'Tuesday',
-                      'Wednesday',
-                      'Thursday',
-                      'Friday',
-                    ].map((fullDay) {
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Schedule',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.edit,
+                    size: 16,
+                    color: Color(0x99573353),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'Monday',
+                        'Tuesday',
+                        'Wednesday',
+                        'Thursday',
+                        'Friday',
+                      ].map((fullDay) {
                       // Build a lookup of time ranges from regularSchedules.
                       String? _findTimeRangeForDay(String dayLabel) {
                         final profile = widget.studentProfile;
@@ -710,20 +758,12 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                         ],
                       );
                     }).toList(),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            isStudentStyle: true,
+                ],
+              ),
+            ],
           ),
-        ),
-
-        ProfileField(
-          label: 'School leaving Date',
-          value: _formatDate(
-            widget.studentProfile?.importantDates?.schoolLeavingDate,
-          ),
-          isStudentStyle: true,
         ),
 
         _buildUpcomingMove(),
@@ -996,117 +1036,58 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 }
 
-class _StudentNameField extends StatelessWidget {
-  const _StudentNameField({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Name',
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 15,
-            letterSpacing: -0.03 * 15,
-            fontWeight: FontWeight.w400,
-            color: Color(0xFF6C6377),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          name,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 16,
-            color: Color(0xff573353),
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.03 * 16,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// Legacy `_Field` widget is no longer used; kept removed to avoid dead code.
-
 class _tags extends StatelessWidget {
   const _tags({required this.tags});
   final List<String> tags;
 
+  static const List<Color> _chipColors = [
+    Color.fromRGBO(177, 175, 233, 0.3),
+    Color.fromRGBO(203, 246, 255, 0.4),
+    Color.fromRGBO(217, 255, 203, 0.4),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    // Use actual tags, don't show placeholder if empty
     final tagList = tags;
     return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: [
-        if (tagList.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0x4DB1AFE9),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              tagList[0],
-              style: AppTextStyles.sectionHeader.copyWith(
-                color: AppColors.secondaryColor.withOpacity(0.7),
-              ),
-            ),
-          ),
-        if (tagList.length > 1)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0x66CBF6FF),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              tagList[1],
-              style: AppTextStyles.sectionHeader.copyWith(
-                color: AppColors.secondaryColor.withOpacity(0.7),
-              ),
-            ),
-          ),
-        if (tagList.length > 2)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0x66D9FFCB),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              tagList[1],
-              style: AppTextStyles.sectionHeader.copyWith(
-                color: AppColors.secondaryColor,
-              ),
-            ),
-          ),
-        // Tooltip(
-        //   message: 'Edit tags',
-        //   child: Container(
-        //     padding: const EdgeInsets.symmetric(
-        //       horizontal: 10,
-        //       vertical: 4,
-        //     ),
-        //     decoration: BoxDecoration(
-        //       color: Colors.transparent,
-        //       borderRadius:
-        //       BorderRadius.circular(8),
-        //     ),
-        //     child: Icon(
-        //       Icons.mode_edit_outline_outlined,
-        //       color: const Color(0xFFCECECE),
-        //     ),
-        //   ),
-        // ),
-      ],
+      spacing: 6,
+      runSpacing: 6,
+      children: List.generate(tagList.length, (index) {
+        return _ProfileTagChip(
+          label: tagList[index],
+          color: _chipColors[index % _chipColors.length],
+        );
+      }),
+    );
+  }
+}
+
+class _ProfileTagChip extends StatelessWidget {
+  const _ProfileTagChip({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          color: Color.fromRGBO(27, 35, 126, 1),
+        ),
+      ),
     );
   }
 }
@@ -1130,7 +1111,7 @@ class _ScheduleChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(8),
@@ -1139,26 +1120,17 @@ class _ScheduleChip extends StatelessWidget {
             : null,
       ),
       alignment: Alignment.center,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            //child: FittedBox(
-            //fit: isTimeChip ? BoxFit.contain : BoxFit.scaleDown, // scales down if too big, never overflows
-            child: Text(
-              label,
-              style: AppTextStyles.value.copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-                color: labelColor,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: isTimeChip ? 2 : 1,
-              overflow: TextOverflow.visible,
-            ),
-          ),
-          //),
-        ],
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: isTimeChip ? 2 : 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: isTimeChip ? const Color(0xFF4B5B7A) : labelColor,
+        ),
       ),
     );
   }
@@ -1190,7 +1162,8 @@ class _Chip extends StatelessWidget {
           if (icon != null) ...[icon!, const SizedBox(width: 6)],
           Text(
             label,
-            style: AppTextStyles.value.copyWith(
+            style: TextStyle(
+              fontFamily: 'Manrope',
               fontWeight: FontWeight.w600,
               fontSize: 15,
               color: labelColor,

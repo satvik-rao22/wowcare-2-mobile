@@ -22,7 +22,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -44,6 +44,7 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialSiblings = const [],
     this.initialLegalCustodians = const [],
     this.initialSubsidy = false,
+    this.initialGender,
   });
   static const String routeName = '/edit-student-profile-details-screen';
 
@@ -64,6 +65,8 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final List<String> initialSiblings;
   final List<String> initialLegalCustodians;
   final bool initialSubsidy;
+  /// Raw API value e.g. MALE, FEMALE, or null.
+  final String? initialGender;
 
   @override
   _EditStudentProfileDetailsScreenState createState() => _EditStudentProfileDetailsScreenState();
@@ -90,7 +93,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
-  String? _selectedAddressType;
 
   // API-backed options and mappings
   List<String> _availableTagNames = [];
@@ -102,19 +104,55 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   List<String> _availableGuardianNames = [];
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
-  final List<String> _addressTypeOptions = ['Current address', 'Permanent address', 'Other'];
+  final List<String> _genderOptions = const [
+    'Male',
+    'Female',
+    'Other',
+  ];
+  String? _selectedGender;
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
-  final List<String> _countryOptions =
-      COUNTRY_LIST.map((c) => c.name).toList(growable: false);
+  // Country is fixed to United States for this form.
 
   // Simple validators (align with Add Staff)
-  // Allow letters, digits, spaces, basic punctuation; first char must be non-space.
-  static final RegExp _nameRegex = RegExp(r"^[A-Za-z0-9][A-Za-z0-9\-'\s]{0,49}$");
+  // First character A-Z, then up to 49 letters/space/hyphen/apostrophe.
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
   static final RegExp _zipDigitsRegex = RegExp(r'^\d{5}(\d{4})?$'); // 5 or 9 digits (ZIP / ZIP+4)
 
   static String _digitsOnly(String input) => input.replaceAll(RegExp(r'\D'), '');
+
+  static String? _genderDisplayFromApi(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    switch (raw.trim().toUpperCase()) {
+      case 'MALE':
+        return 'Male';
+      case 'FEMALE':
+        return 'Female';
+      case 'OTHER':
+      case 'NON_BINARY':
+      case 'NONBINARY':
+      case 'PREFER_NOT_TO_SAY':
+        return 'Other';
+      default:
+        return null;
+    }
+  }
+
+  /// API expects uppercase: MALE, FEMALE, OTHER.
+  static String? _genderApiFromDisplay(String? display) {
+    if (display == null || display.trim().isEmpty) return null;
+    switch (display) {
+      case 'Male':
+        return 'MALE';
+      case 'Female':
+        return 'FEMALE';
+      case 'Other':
+        return 'OTHER';
+      default:
+        return null;
+    }
+  }
 
   @override
   void initState() {
@@ -147,23 +185,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       _selectedState = match.name;
     }
 
-    // Map initial country (name or code) to display name from COUNTRY_LIST.
-    if (widget.initialCountry != null && widget.initialCountry!.isNotEmpty) {
-      final raw = widget.initialCountry!;
-      final match = COUNTRY_LIST.firstWhere(
-        (c) =>
-            c.name.toLowerCase() == raw.toLowerCase() ||
-            c.code.toLowerCase() == raw.toLowerCase(),
-        orElse: () => COUNTRY_LIST.first,
-      );
-      _selectedCountry = match.name;
-    }
+    // Country is fixed to United States on this screen.
+    _selectedCountry = 'United States';
 
     // Accept legacy stored formats: "12345", "123456789", or "12345-6789"
     final initialZipRaw = widget.initialZipCode ?? '';
-    _zipCodeController.text = _digitsOnly(initialZipRaw);
-    // Default address type to CURRENT; can be changed via dropdown.
-    _selectedAddressType = _addressTypeOptions.first;
+    _zipCodeController.text = _formatUsZipForDisplay(initialZipRaw);
+
+    final g = _genderDisplayFromApi(widget.initialGender);
+    _selectedGender = g != null && _genderOptions.contains(g) ? g : null;
 
     // Load dynamic dropdown data
     _loadTags();
@@ -207,18 +237,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
       final repo = serviceLocator<StudentRepository>();
 
-      // Try cache first if repository exposes it.
-      dynamic maybeWithCache = repo;
-      dynamic cachedPage;
-      if (maybeWithCache is StudentRepositoryWithCache) {
-        cachedPage = await maybeWithCache.loadCachedStudentPage(
-          schoolCode,
-          status: 'ACTIVE',
-        );
-      }
-
-      // Fallback to API with pageSize = 150.
-      cachedPage ??= await repo.getStudentPage(
+      // Always fetch from API (no cached student list for this dropdown).
+      final page = await repo.getStudentPage(
         schoolCode: schoolCode,
         status: 'ACTIVE',
         page: 0,
@@ -227,13 +247,39 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
       if (!mounted) return;
 
-      final nameToCode = <String, String>{};
-      final names = <String>[];
-      for (final s in cachedPage.items) {
+      final currentStudentCode = widget.studentCode.trim();
+      final currentStudentName =
+          '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
+              .trim()
+              .toLowerCase();
+
+      final rawRows = <Map<String, String>>[];
+      for (final s in page.items) {
+        if (s.code.toString().trim() == currentStudentCode) {
+          continue;
+        }
         final display = '${s.firstName} ${s.lastName}'.trim();
         if (display.isEmpty) continue;
-        names.add(display);
-        nameToCode[display] = s.code;
+        if (currentStudentName.isNotEmpty &&
+            display.trim().toLowerCase() == currentStudentName) {
+          continue;
+        }
+        rawRows.add(<String, String>{
+          'name': display,
+          'code': s.code.toString().trim(),
+        });
+      }
+
+      final nameToCode = <String, String>{};
+      final codeToDisplay = <String, String>{};
+      final names = <String>[];
+      for (final row in rawRows) {
+        final base = row['name']!;
+        final code = row['code']!;
+        final displayLabel = base;
+        names.add(displayLabel);
+        nameToCode[displayLabel] = code;
+        codeToDisplay[code] = displayLabel;
       }
 
       setState(() {
@@ -242,11 +288,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
         // If initial siblings are codes, map them to names for display.
         if (widget.initialSiblings.isNotEmpty) {
-          final codeToName = {
-            for (final e in nameToCode.entries) e.value: e.key,
-          };
           _selectedSiblings = widget.initialSiblings
-              .map((code) => codeToName[code] ?? code)
+              .map((code) => codeToDisplay[code] ?? code)
               .where((n) => n.trim().isNotEmpty)
               .toList();
         } else {
@@ -262,14 +305,49 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
   Future<void> _loadGuardiansForCustody() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) return;
+      if (widget.studentCode.trim().isEmpty) return;
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final guardians =
+          await dataSource.getStudentGuardians(studentCode: widget.studentCode);
 
-      final useCase =
-          serviceLocator<GetGuardianNamesForSchoolUseCase>();
-      final names = await useCase(schoolCode: schoolCode);
+      String _guardianDisplayName(Map<String, dynamic> g) {
+        final first = (g['firstName'] ?? g['first_name'] ?? '').toString().trim();
+        final last = (g['lastName'] ?? g['last_name'] ?? '').toString().trim();
+        final full = '$first $last'.trim();
+        if (full.isNotEmpty) return full;
+        final direct =
+            (g['fullName'] ?? g['name'] ?? '').toString().trim();
+        if (direct.isNotEmpty) return direct;
+        final user = g['user'];
+        if (user is Map<String, dynamic>) {
+          final uf = (user['firstName'] ?? user['first_name'] ?? '').toString().trim();
+          final ul = (user['lastName'] ?? user['last_name'] ?? '').toString().trim();
+          final ufull = '$uf $ul'.trim();
+          if (ufull.isNotEmpty) return ufull;
+          final uname =
+              (user['fullName'] ?? user['name'] ?? '').toString().trim();
+          if (uname.isNotEmpty) return uname;
+        }
+        return '';
+      }
+
+      final rawRows = <Map<String, String>>[];
+      for (final g in guardians) {
+        final base = _guardianDisplayName(g);
+        final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
+        if (base.isEmpty) continue;
+        rawRows.add(<String, String>{
+          'name': base,
+          'code': code,
+        });
+      }
+
+      final names = <String>[];
+      for (final row in rawRows) {
+        final base = row['name']!;
+        final displayLabel = base;
+        names.add(displayLabel);
+      }
       if (!mounted) return;
 
       setState(() {
@@ -300,18 +378,34 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     final last = _lastNameController.text.trim();
     final fte = _FTEController.text.trim();
 
-    if (first.isEmpty || !_nameRegex.hasMatch(first) || first.length > 50) {
+    if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required and must be max 50 characters',
+        message: 'First Name is required',
         isError: true,
       );
       return;
     }
-    if (last.isEmpty || !_nameRegex.hasMatch(last) || last.length > 50) {
+    if (first.length > 50 || !_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required and must be max 50 characters',
+        message: 'First Name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (last.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name is required',
+        isError: true,
+      );
+      return;
+    }
+    if (last.length > 50 || !_nameRegex.hasMatch(last)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -417,7 +511,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     if (!_zipDigitsRegex.hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code must be 5 digits or 9 digits (ZIP+4)',
+        message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
         isError: true,
       );
       return;
@@ -438,15 +532,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (_selectedAddressType == null || _selectedAddressType!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Address type is required',
-        isError: true,
-      );
-      return;
-    }
-
     setState(() {
       _isSubmitting = true;
     });
@@ -519,6 +604,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       final repository = serviceLocator<StudentRepository>();
 
       // 1) Core profile PATCH /api/v1/student/{code}/profile
+      final genderApi = _genderApiFromDisplay(_selectedGender);
+
       final profilePayload = <String, dynamic>{
         'firstName': first,
         'lastName': last,
@@ -527,7 +614,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         'notes': _notesController.text.trim(),
         if (fteNumber != null) 'fte': fteNumber,
         'subsidy': subsidy,
-        // gender and profilePhotoUrl omitted for now (not in this form)
+        if (genderApi != null) 'gender': genderApi.toUpperCase(),
         'classroom': <String, dynamic>{
           'code': classroomCode,
           'name': selectedClassroomName,
@@ -540,19 +627,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
 
       // 2) Address PATCH /api/v1/student/{studentCode}/address
-      String _mapAddressTypeToApiValue(String uiLabel) {
-        switch (uiLabel.toLowerCase()) {
-          case 'current address':
-            return 'CURRENT';
-          case 'permanent address':
-            // Keep backend's enum spelling.
-            return 'PERMENENT';
-          case 'other':
-          default:
-            return 'OTHER';
-        }
-      }
-
       final addressPayload = <String, dynamic>{
         'line1': street,
         'line2': _street2Controller.text.trim(),
@@ -562,7 +636,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         'country': countryCode,
         // Backend uses postalCode; UI display layer will format as needed.
         'postalCode': zipDigits,
-        'addressType': _mapAddressTypeToApiValue(_selectedAddressType!),
+        'addressType': 'CURRENT',
       };
 
       await repository.updateStudentAddress(
@@ -791,6 +865,14 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
+                          "Gender",
+                          "Select",
+                          _genderOptions,
+                          _selectedGender,
+                          (v) => setState(() => _selectedGender = v),
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildCustomDropdown(
                           "Classroom",
                           (classroomState.isLoading && classroomOptions.isEmpty)
                               ? "Loading..."
@@ -812,7 +894,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildDateField("Birthdate", _selectedBirthDate),
+                        _buildDateField("Date of birth", _selectedBirthDate),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Notes",
@@ -828,6 +910,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           onChanged: (siblings) {
                             setState(() => _selectedSiblings = siblings);
                           },
+                          maxDropdownHeight: 200,
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -843,15 +926,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State Subsidy", "Select", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
-                        SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown(
-                          "Address Type",
-                          "Select",
-                          _addressTypeOptions,
-                          _selectedAddressType,
-                          (v) => setState(() => _selectedAddressType = v),
-                          isRequired: true,
-                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Street",
@@ -879,7 +953,41 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
+                        Opacity(
+                          opacity: 0.8,
+                          child: CustomDropdown(
+                            label: "Country",
+                            hintText: 'United States',
+                            items: const <String>['United States'],
+                            selectedItem: 'United States',
+                            isEnabled: false,
+                            showAsterisk: true,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            selectedTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                              height: 19 / 14,
+                            ),
+                            popupItemTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: responsive.isTablet ? 16.0 : 12.0,
+                              vertical: responsive.isTablet ? 16.0 : 12.0,
+                            ),
+                            onSelect: null,
+                          ),
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Zip Code",
@@ -890,6 +998,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                             LengthLimitingTextInputFormatter(9),
+                            _ZipCodeFormatter(),
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -1104,4 +1213,38 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       ],
     );
   }
+}
+
+class _ZipCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    final buffer = StringBuffer();
+    for (var i = 0; i < digitsOnly.length && i < 9; i++) {
+      if (i == 5) buffer.write('-');
+      buffer.write(digitsOnly[i]);
+    }
+    final formatted = buffer.toString();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+String _formatUsZipForDisplay(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+  if (digits.length <= 5) return digits.substring(0, digits.length);
+  final first5 = digits.substring(0, 5);
+  final last4 = digits.substring(5, digits.length.clamp(5, 9));
+  return last4.isEmpty ? first5 : '$first5-$last4';
 }

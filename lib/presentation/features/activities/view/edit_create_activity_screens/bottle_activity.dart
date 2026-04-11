@@ -20,6 +20,7 @@ import '../../../../../domain/features/activity/usecases/get_activity_type_detai
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
+import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 
@@ -114,17 +115,16 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName =
         (await storage.getString(StorageKeys.displayName) ?? '').trim();
-    final staffCode =
-        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final staffCode = await resolveLoggedInStaffCode();
 
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
-      _staffCode = staffCode.isNotEmpty ? staffCode : null;
+      _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
           organizationCode.isNotEmpty ? organizationCode : null;
@@ -246,7 +246,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       return;
     }
 
-    final staffCode = _staffCode;
+    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
     final schoolCode = _schoolCode;
     final organizationCode = _organizationCode;
 

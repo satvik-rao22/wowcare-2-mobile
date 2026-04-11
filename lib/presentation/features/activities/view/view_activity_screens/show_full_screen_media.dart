@@ -2,6 +2,7 @@ import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 
 class ShowFullScreenMedia extends StatefulWidget {
   final ActivityItem activity;
@@ -14,13 +15,30 @@ class ShowFullScreenMedia extends StatefulWidget {
 class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
+  bool _videoInitFailed = false;
 
   void _initializeVideo() async {
     final videoUrl = widget.activity.videoUrl;
     if (videoUrl == null || videoUrl.isEmpty) return;
     _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-
-    await _videoPlayerController?.initialize();
+    try {
+      await _videoPlayerController?.initialize();
+    } catch (e) {
+      debugPrint('Failed to initialize full-screen video: $e');
+      _videoPlayerController?.dispose();
+      _videoPlayerController = null;
+      if (!mounted) return;
+      setState(() {
+        _videoInitFailed = true;
+      });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Unable to play this video on this device. Please use standard MP4 (H.264).',
+        isWarning: true,
+      );
+      return;
+    }
 
     if (!mounted) return;
 
@@ -98,9 +116,15 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       ),
       body: Center(
         child: hasVideo
-            ? (_chewieController != null
-            ? Chewie(controller: _chewieController!)
-            : const CircularProgressIndicator(color: Colors.white))
+            ? (_videoInitFailed
+                ? const Icon(
+                    Icons.videocam_off_outlined,
+                    color: Colors.white70,
+                    size: 84,
+                  )
+                : (_chewieController != null
+                    ? Chewie(controller: _chewieController!)
+                    : const CircularProgressIndicator(color: Colors.white)))
             : (hasPhoto
             ? InteractiveViewer(
           boundaryMargin: const EdgeInsets.all(20),

@@ -11,6 +11,7 @@ class Student extends Equatable {
     this.movementDate = '',
     this.tags = const <String>[],
     this.schedule = const <String>[],
+    this.scheduleByDay = const <String, String>{},
   });
 
   final String code;
@@ -23,6 +24,8 @@ class Student extends Equatable {
   final List<String> tags;
   /// Abbreviated weekdays for regular schedule, e.g. ["Mon", "Tue"].
   final List<String> schedule;
+  /// Day-of-week (MONDAY, TUESDAY, ...) -> "start - end".
+  final Map<String, String> scheduleByDay;
 
   String get fullName => '$firstName $lastName'.trim();
 
@@ -37,6 +40,7 @@ class Student extends Equatable {
         movementDate,
         tags,
         schedule,
+        scheduleByDay,
       ];
 }
 

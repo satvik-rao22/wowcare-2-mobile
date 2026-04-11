@@ -21,6 +21,14 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   final StudentRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
 
+  /// Raw guardians list for a school (includes email/mobile/code).
+  /// Not part of the domain interface; used by UI flows that need full guardian details.
+  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+    required String schoolCode,
+  }) {
+    return _remoteDataSource.getGuardiansBySchool(schoolCode: schoolCode);
+  }
+
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
   static String _studentListCacheKey(
     String schoolCode, {
@@ -242,6 +250,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
         expiryDate: m.expiryDate,
         expired: false,
         createdAt: m.createdAt,
+        uploadedBy: m.uploadedBy,
       );
     }).toList();
 
@@ -264,6 +273,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String storagePath,
     required String mimeType,
     required int size,
+    String? uploadedBy,
     String? notes,
   }) async {
     final request = StudentDocumentRequestModel(
@@ -275,6 +285,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       size: size,
       ownerType: 'STUDENT',
       ownerId: studentCode,
+      uploadedBy: uploadedBy,
       notes: notes,
     );
 
@@ -295,6 +306,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String storagePath,
     required String mimeType,
     required int size,
+    String? uploadedBy,
     String? notes,
   }) async {
     final request = StudentDocumentRequestModel(
@@ -306,6 +318,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       size: size,
       ownerType: 'STUDENT',
       ownerId: studentCode,
+      uploadedBy: uploadedBy,
       notes: notes,
     );
 
@@ -335,16 +348,26 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
 
   Future<List<StudentPickupModel>> getStudentPickups({
     required String studentCode,
+    bool forceRefresh = false,
   }) async {
-    // Try cache first
-    final cached =
-        await _cacheManager.loadCache(_studentPickupsCacheKey(studentCode));
-    if (cached != null) {
-      final list = (cached['items'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
-          .map(StudentPickupModel.fromJson)
-          .toList(growable: false);
-      if (list.isNotEmpty) return list;
+    // Try cache first unless caller explicitly requests a fresh network fetch.
+    if (!forceRefresh) {
+      final cached =
+          await _cacheManager.loadCache(_studentPickupsCacheKey(studentCode));
+      if (cached != null) {
+        final list = (cached['items'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(StudentPickupModel.fromJson)
+            .toList(growable: false);
+        if (list.isNotEmpty) {
+          // Older cached payloads may not include pickup code. If so, bypass cache
+          // so edit flow can always call PATCH /pickup/{code}.
+          final hasMissingCode = list.any(
+            (p) => (p.code ?? '').trim().isEmpty,
+          );
+          if (!hasMissingCode) return list;
+        }
+      }
     }
 
     // Fallback to API
@@ -357,12 +380,17 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       {
         'items': models
             .map((e) => {
+                  'code': e.code,
                   'studentCode': e.studentCode,
                   'firstName': e.firstName,
                   'lastName': e.lastName,
                   'email': e.email,
                   'phoneNumber': e.phoneNumber,
                   'relation': e.relation,
+                  'clockPin': e.clockPin,
+                'relationshipDescription': e.relationshipDescription,
+                'pickupType': e.pickupType,
+                'carpoolId': e.carpoolId,
                 })
             .toList(),
       },
@@ -378,6 +406,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
     required String email,
     required String phoneNumber,
     required String relation,
+    String? relationshipDescription,
+    required String pickupType,
+    String? carpoolId,
   }) async {
     final message = await _remoteDataSource.addPickup(
       studentCode: studentCode,
@@ -386,7 +417,62 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       email: email,
       phoneNumber: phoneNumber,
       relation: relation,
+      relationshipDescription: relationshipDescription,
+      pickupType: pickupType,
+      carpoolId: carpoolId,
     );
+
+    await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
+
+    return message;
+  }
+
+  Future<String> updatePickup({
+    required String code,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String relation,
+    String? clockPin,
+    String? relationshipDescription,
+    String? pickupType,
+    String? carpoolId,
+  }) async {
+    final body = <String, dynamic>{
+      'studentCode': studentCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'phoneNumber': phoneNumber,
+      'relation': relation,
+      'code': code,
+      if (clockPin != null && clockPin.trim().isNotEmpty) 'clockPin': clockPin,
+      if (relationshipDescription != null &&
+          relationshipDescription.trim().isNotEmpty)
+        'relationshipDescription': relationshipDescription.trim(),
+      if (pickupType != null && pickupType.trim().isNotEmpty)
+        'pickupType': pickupType.trim(),
+      if (carpoolId != null && carpoolId.trim().isNotEmpty)
+        'carpoolId': carpoolId.trim(),
+    };
+
+    final message = await _remoteDataSource.updatePickup(
+      code: code,
+      body: body,
+    );
+
+    await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
+
+    return message;
+  }
+
+  Future<String> deletePickup({
+    required String code,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.deletePickup(code: code);
 
     await _cacheManager.invalidateCache(_studentPickupsCacheKey(studentCode));
 
@@ -795,7 +881,9 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
       final first = (item['firstName'] ?? '').toString().trim();
       final last = (item['lastName'] ?? '').toString().trim();
       final email = (item['email'] ?? '').toString().trim();
-      final code = (item['code'] ?? '').toString().trim();
+      final code = (item['guardianCode'] ?? item['code'] ?? '')
+          .toString()
+          .trim();
 
       String display;
       if (first.isEmpty && last.isEmpty) {
@@ -816,13 +904,48 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
+    String? relation,
+    String? relationDescription,
   }) async {
     final message = await _remoteDataSource.linkExistingGuardian(
       guardianCode: guardianCode,
       studentCode: studentCode,
+      relation: relation,
+      relationDescription: relationDescription,
     );
 
     // Existing guardian linked – invalidate guardians cache so next load is fresh.
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
+  Future<String> updateGuardian({
+    required String code,
+    required String studentCode,
+    required Map<String, dynamic> fields,
+  }) async {
+    final message = await _remoteDataSource.updateGuardian(
+      code: code,
+      body: fields,
+    );
+
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return message;
+  }
+
+  @override
+  Future<String> deleteGuardian({
+    required String code,
+    required String studentCode,
+  }) async {
+    final message = await _remoteDataSource.deleteGuardian(
+      code: code,
+      studentCode: studentCode,
+    );
+
     await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
 
     return message;
@@ -889,16 +1012,19 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
 
   Future<List<StudentGuardianModel>> getStudentGuardians({
     required String studentCode,
+    bool forceRefresh = false,
   }) async {
-    // Try cache first
-    final cached =
-        await _cacheManager.loadCache(_studentGuardiansCacheKey(studentCode));
-    if (cached != null) {
-      final list = (cached['items'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
-          .map(StudentGuardianModel.fromJson)
-          .toList(growable: false);
-      if (list.isNotEmpty) return list;
+    // Try cache first unless caller explicitly requests a fresh network fetch.
+    if (!forceRefresh) {
+      final cached =
+          await _cacheManager.loadCache(_studentGuardiansCacheKey(studentCode));
+      if (cached != null) {
+        final list = (cached['items'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(StudentGuardianModel.fromJson)
+            .toList(growable: false);
+        if (list.isNotEmpty) return list;
+      }
     }
 
     // Fallback to API
@@ -993,6 +1119,7 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
               movementDate: m.movementDate,
               tags: m.tags,
               schedule: m.schedule,
+              scheduleByDay: m.scheduleByDay,
             ),
           )
           .toList(),
@@ -1022,6 +1149,16 @@ class StudentRepositoryImpl implements StudentRepository, StudentRepositoryWithC
   }) async {
     final message = await _remoteDataSource.reactivateStudent(code);
     // Invalidate student list cache since status change affects listing.
+    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
+    return message;
+  }
+
+  @override
+  Future<String> deleteStudent({
+    required String code,
+    required String schoolCode,
+  }) async {
+    final message = await _remoteDataSource.deleteStudent(code);
     await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
     return message;
   }

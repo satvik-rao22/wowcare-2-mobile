@@ -1,5 +1,8 @@
+import '../entities/activity_asset_presign.dart';
+import '../entities/activity_feed_row.dart';
 import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
+import '../entities/activity_upload_session.dart';
 
 abstract class ActivityRepository {
   /// Returns enabled activity settings for a classroom via
@@ -14,6 +17,27 @@ abstract class ActivityRepository {
     required String code,
   });
 
+  /// `GET /api/v1/activities/feed/daily`
+  Future<ActivityFeedPage> getDailyActivityFeed({
+    required String classroomCode,
+    required String date,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  });
+
+  /// `GET /api/v1/activities/feed/range`
+  Future<ActivityFeedPage> getRangeActivityFeed({
+    required String classroomCode,
+    required String startDate,
+    required String endDate,
+    String? studentCode,
+    String? activityTypeCode,
+    int page = 0,
+    int size = 100,
+  });
+
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
     required String activityTypeCode,
@@ -26,6 +50,28 @@ abstract class ActivityRepository {
     required String description,
     List<Map<String, dynamic>> parameterValues,
     List<Map<String, dynamic>> attachments,
+  });
+
+  /// Creates upload sessions via `POST /api/v1/activities/upload-sessions`.
+  Future<ActivityUploadSession> createActivityUploadSessions({
+    required String organizationCode,
+    required String schoolCode,
+    required String classroomCode,
+    required String activityTypeCode,
+    required String bindingMode,
+    required List<String> studentCodes,
+  });
+
+  /// Creates a presigned asset slot for an upload session.
+  Future<ActivityAssetPresign> createActivityAssetPresign({
+    required String sessionCode,
+    required String documentApiBasePath,
+    required String fileName,
+    required String contentType,
+    required int contentLengthBytes,
+    required String mediaType,
+    required String ownerType,
+    required String ownerCode,
   });
 }
 

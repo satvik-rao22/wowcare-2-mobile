@@ -34,6 +34,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
   void initState() {
     super.initState();
     _tabController = TabController(length: 2 , vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -56,39 +59,39 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TabBar(
-                isScrollable: true,
-                controller: _tabController,
-                dividerColor: Colors.transparent,
-                indicator: const UnderlineTabIndicator(
-                  borderSide: BorderSide(color: AppColors.themeColor),
+              Container(
+                constraints: const BoxConstraints(maxWidth: 220),
+                height: 50,
+                child: Row(
+                  children: [
+                    _buildTabToggleButton(
+                      isSelected: _tabController.index == 0,
+                      onPressed: () => _tabController.animateTo(0),
+                      text: 'Daily',
+                    ),
+                    _buildTabToggleButton(
+                      isSelected: _tabController.index == 1,
+                      onPressed: () => _tabController.animateTo(1),
+                      text: 'Custom',
+                    ),
+                  ],
                 ),
-                indicatorPadding: const EdgeInsets.only(bottom: 8),
-                labelStyle: const TextStyle(
-                  color: Colors.black,
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-                unselectedLabelStyle: TextStyle(
-                  color: AppColors.primaryColor.withOpacity(0.5),
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                ),
-                labelColor: Colors.black,
-                unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
-                tabAlignment: TabAlignment.start,
-                tabs: const [
-                  Tab(text: 'Daily'),
-                  Tab(text: 'Custom',)
-                ],
               ),
               Row(
                 children: [
                   GradientAddButton(
                     onTap: () {
                       if(widget.fromStudentProfile){
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => ChooseActivity(selectedStudents: [?widget.studentName],)));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChooseActivity(
+                              selectedStudents: widget.studentName != null
+                                  ? [Map<String, dynamic>.from(widget.studentName!)]
+                                  : <Map<String, dynamic>>[],
+                            ),
+                          ),
+                        );
                       } else {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => ActivityStudentSelection()));
                       }
@@ -108,8 +111,17 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
             child: TabBarView(
               controller: _tabController,
               children: [
-                ActivityDailyTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName?['name'],),
-                ActivityCustomTab(fromStudentProfile: widget.fromStudentProfile, studentName: widget.studentName?['name'],)
+                ActivityDailyTab(
+                  fromStudentProfile: widget.fromStudentProfile,
+                  studentName: widget.studentName?['name']?.toString(),
+                  studentProfile: widget.fromStudentProfile
+                      ? widget.studentName
+                      : null,
+                ),
+                ActivityCustomTab(
+                  fromStudentProfile: widget.fromStudentProfile,
+                  studentName: widget.studentName?['name']?.toString(),
+                )
 
               ],
             ),
@@ -120,32 +132,22 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
       )
       : Column(
         children: [
-          TabBar(
-            isScrollable: true,
-            controller: _tabController,
-            dividerColor: Colors.transparent,
-            indicator: const UnderlineTabIndicator(
-              borderSide: BorderSide(color: AppColors.themeColor),
+          SizedBox(
+            width: double.infinity,
+            child: Row(
+              children: [
+                _buildTabToggleButton(
+                  isSelected: _tabController.index == 0,
+                  onPressed: () => _tabController.animateTo(0),
+                  text: 'Daily',
+                ),
+                _buildTabToggleButton(
+                  isSelected: _tabController.index == 1,
+                  onPressed: () => _tabController.animateTo(1),
+                  text: 'Custom',
+                ),
+              ],
             ),
-            indicatorPadding: const EdgeInsets.only(bottom: 8),
-            labelStyle: const TextStyle(
-              color: AppColors.primaryColor,
-              fontFamily: 'Manrope',
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-            unselectedLabelStyle: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              fontFamily: 'Manrope',
-              fontSize: 16,
-            ),
-            labelColor: Colors.black,
-            unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
-            tabAlignment: TabAlignment.start,
-            tabs: const [
-              Tab(text: 'Daily'),
-              Tab(text: 'Custom',)
-            ],
           ),
 
           Flexible(
@@ -161,6 +163,40 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
 
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabToggleButton({
+    required bool isSelected,
+    required VoidCallback onPressed,
+    required String text,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            border: isSelected
+                ? const Border(
+                    bottom: BorderSide(
+                      color: AppColors.themeColor,
+                      width: 2,
+                    ),
+                  )
+                : null,
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: isSelected ? AppColors.themeColor : Colors.grey,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
     );
   }

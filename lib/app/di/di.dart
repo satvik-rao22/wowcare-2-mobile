@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
+import '../../core/network/session_expired_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/util/api_constants.dart';
@@ -92,6 +93,10 @@ import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
+import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
+import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
+import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
@@ -115,6 +120,7 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_tog
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
+import '../../shared/services/image_upload/image_upload_service.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -137,8 +143,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
         baseUrl: apiBaseUrl,
         interceptors: <Interceptor>[
           AuthInterceptor(serviceLocator<StorageService>()),
+          SessionExpiredInterceptor(serviceLocator<StorageService>()),
         ],
       ));
+  serviceLocator.registerLazySingleton<ImageUploadService>(
+    () => ImageUploadService(serviceLocator<ApiClient>()),
+  );
 
   // Auth Data Sources
   serviceLocator.registerLazySingleton<AuthRemoteDataSource>(
@@ -410,6 +420,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateActivityUseCase>(
     () => CreateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
+    () => CreateActivityUploadSessionsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateActivityAssetPresignUseCase>(
+    () => CreateActivityAssetPresignUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetDailyActivityFeedUseCase>(
+    () => GetDailyActivityFeedUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetRangeActivityFeedUseCase>(
+    () => GetRangeActivityFeedUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentClassroomListUseCase>(
     () => GetStudentClassroomListUseCase(serviceLocator()),

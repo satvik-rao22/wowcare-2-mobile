@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_all_models.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_details_models.dart';
@@ -29,26 +28,20 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     required String schoolCode,
     bool onlyTypeClassroom = true,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.classroomAll,
-      ApiConstants.classroomBaseUrl,
-    );
-
-    final queryParameters = <String, dynamic>{
+    // Full [Uri] so Dio does not merge this with [BaseOptions.baseUrl]
+    // (which would incorrectly produce …/classroom/classroom/all).
+    final qp = <String, String>{
       'school': schoolCode,
       'status': 'ACTIVE',
     };
-
-    // When onlyTypeClassroom is true, pass type=CLASSROOM in the URL
-    // to match the backend enum.
     if (onlyTypeClassroom) {
-      queryParameters['type'] = 'CLASSROOM';
+      qp['type'] = 'CLASSROOM';
     }
-
-    final response = await _client.get<dynamic>(
-      endpoint,
-      queryParameters: queryParameters,
+    final uri = Uri.parse(ApiPaths.url(ApiPaths.classroomAll)).replace(
+      queryParameters: qp,
     );
+
+    final response = await _client.getUri<dynamic>(uri);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected classroom(all) API response format');

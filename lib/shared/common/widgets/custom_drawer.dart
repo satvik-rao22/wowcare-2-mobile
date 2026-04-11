@@ -56,7 +56,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _currentRoute = ModalRoute.of(context)?.settings.name ?? '';
-    // Load school context once we have a BuildContext and DI is ready.
+    // Load school context silently in background.
     _loadSchoolContext();
   }
 
@@ -64,14 +64,40 @@ class _CustomDrawerState extends State<CustomDrawer> {
     try {
       final storage = serviceLocator<StorageService>();
       final authLocal = serviceLocator<AuthLocalDataSource>();
+      final authCubit = context.read<AuthCubit>();
       final orgCode = await storage.getString(StorageKeys.organizationCode);
       final schoolCode = await storage.getString(StorageKeys.schoolCode);
       final selectedName =
           await storage.getString(StorageKeys.selectedSchoolName);
-      final orgSchools = await authLocal.getOrganizationsAndSchools();
+      List<Map<String, String>> schoolsForOrg = const <Map<String, String>>[];
 
-      final schoolsForOrg = orgSchools
-          .where((e) => e['organizationCode'] == (orgCode ?? ''))
+      // Primary source: API-backed school list
+      // GET /api/v1/organization/schools/names-by-org/{orgCode}?isAdmin=true
+      if (orgCode != null && orgCode.isNotEmpty) {
+        await authCubit.loadSchoolsForOrg(orgCode);
+        final state = authCubit.state;
+        if (state is AuthLoaded) {
+          schoolsForOrg = List<Map<String, String>>.from(
+            state.schoolsByOrg[orgCode] ?? const <Map<String, String>>[],
+          );
+        }
+      }
+
+      // Fallback to local cache if API-backed state is empty.
+      if (schoolsForOrg.isEmpty) {
+        final orgSchools = await authLocal.getOrganizationsAndSchools();
+        schoolsForOrg = orgSchools
+            .where((e) => e['organizationCode'] == (orgCode ?? ''))
+            .toList();
+      }
+
+      // Keep only entries with valid code; prefer readable schoolName.
+      schoolsForOrg = schoolsForOrg
+          .where((e) => (e['schoolCode'] ?? '').trim().isNotEmpty)
+          .map((e) => <String, String>{
+                'schoolCode': (e['schoolCode'] ?? '').trim(),
+                'schoolName': (e['schoolName'] ?? '').trim(),
+              })
           .toList();
 
       if (!mounted) return;
@@ -134,40 +160,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
   Widget _buildSchoolSwitcher() {
     if (_isLoadingSchools) {
-      return const SizedBox(
-        height: 20,
-        width: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     if (_currentOrgCode == null || _currentOrgCode!.isEmpty) {
-      return const Text(
-        'No organization selected',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     if (_schoolsForOrg.isEmpty) {
-      return const Text(
-        'No schools found',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     // Resolve a human-friendly school name. Prefer the name from the
@@ -244,7 +245,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
               itemBuilder: (context, index) {
                 final school = _schoolsForOrg[index];
                 final code = school['schoolCode'] ?? '';
-                final name = school['schoolName'] ?? code;
+                final schoolName = (school['schoolName'] ?? '').trim();
+                final name = schoolName.isNotEmpty ? schoolName : code;
                 final isSelected = code == _selectedSchoolCode;
                 return InkWell(
                   onTap: () => _onSchoolSelected(code, name),
@@ -295,6 +297,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
   Future<void> _onSchoolSelected(String schoolCode, String schoolName) async {
     if (_currentOrgCode == null || _currentOrgCode!.isEmpty) return;
+    final isSchoolChanged = (_selectedSchoolCode ?? '').trim() != schoolCode.trim();
 
     final authLocal = serviceLocator<AuthLocalDataSource>();
     final authCubit = context.read<AuthCubit>();
@@ -306,11 +309,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
       schoolName: schoolName,
     );
 
-    // Best-effort: update backend login-context with new school.
-    await authCubit.updateLoginContext(
-      lastLoginOrganizationCode: _currentOrgCode!,
-      lastLoginSchoolCode: schoolCode,
-    );
+    // Keep flow same: update backend login-context when school selection changes.
+    if (isSchoolChanged) {
+      await authCubit.updateLoginContext(
+        lastLoginOrganizationCode: _currentOrgCode!,
+        lastLoginSchoolCode: schoolCode,
+      );
+    }
 
     // Prefetch staff profile for the newly selected organisation/school
     // so that My Profile and related screens load instantly after switch.

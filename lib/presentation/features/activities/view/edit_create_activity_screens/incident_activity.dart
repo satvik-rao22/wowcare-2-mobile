@@ -247,7 +247,19 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             InputWidget(controller: _addNotesController, hint: 'Enter note', label: 'Additional Notes',),
             SizedBox(height: responsive.verticalSpacing,),
             if(widget.isEdit)
-              MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, photoSizeLimit: 20, initialPhotoUrls: [?widget.activityData?.photoUrl], label: 'Upload Photo',)
+              MediaUploader(
+                isRequired: false,
+                allowVideo: false,
+                allowPhoto: true,
+                isPictureBox: false,
+                photoSizeLimit: 20,
+                initialPhotoUrls:
+                    widget.activityData?.photoUrl != null &&
+                            widget.activityData!.photoUrl!.trim().isNotEmpty
+                        ? [widget.activityData!.photoUrl!.trim()]
+                        : const [],
+                label: 'Upload Photo',
+              )
             else
               MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, photoSizeLimit: 20,label: 'Upload Photo'),
             SizedBox(height: responsive.verticalSpacing,),

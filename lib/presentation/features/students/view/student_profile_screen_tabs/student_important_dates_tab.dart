@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
@@ -118,23 +119,39 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   Widget build(BuildContext context) {
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
-      return MediaQuery.removePadding(
-        context: context,
-        removeLeft: true,
-        removeRight: true,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Student code is required to load important dates',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.primaryColor.withOpacity(0.7),
-                fontSize: 16,
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildScaffoldGradient(),
+              ),
+              child: Image.asset(
+                MediaRes.wowcareMobileBg,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
               ),
             ),
           ),
-        ),
+          MediaQuery.removePadding(
+            context: context,
+            removeLeft: true,
+            removeRight: true,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Student code is required to load important dates',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.primaryColor.withOpacity(0.7),
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -146,86 +163,102 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
       MapEntry('School Leaving Date', _format(_dates?.schoolLeavingDate)),
     ];
 
-    return MediaQuery.removePadding(
-      context: context,
-      removeLeft: true,
-      removeRight: true,
-      child: CustomRefreshIndicator(
-        onRefresh: _loadDates,
-        child: SingleChildScrollView(
-          controller: widget.scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
+    return Stack(
+      children: [
+        Positioned.fill(
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
-              borderRadius: BorderRadius.circular(12),
+              gradient: AppColors.buildScaffoldGradient(),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: () => _openEdit(context),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Important Dates',
-                        style: AppTextStyles.title,
-                      ),
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.buildPrimaryGradient(),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.edit,
-                          size: 22,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_isLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: PrimaryCircularLoader(size: 32),
-                    ),
-                  )
-                else if (_errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 14,
-                      ),
-                    ),
-                  )
-                else
-                  ...List.generate(entries.length * 2 - 1, (i) {
-                    if (i.isOdd) return const SizedBox(height: 16);
-                    final idx = i ~/ 2;
-                    final e = entries[idx];
-                    return _DateRow(
-                      label: e.key,
-                      text: e.value,
-                    );
-                  }),
-              ],
+            child: Image.asset(
+              MediaRes.wowcareMobileBg,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
             ),
           ),
         ),
-      ),
+        MediaQuery.removePadding(
+          context: context,
+          removeLeft: true,
+          removeRight: true,
+          child: CustomRefreshIndicator(
+            onRefresh: _loadDates,
+            child: SingleChildScrollView(
+              controller: widget.scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: AppColors.cardBorderColor, width: 1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _openEdit(context),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Important Dates',
+                            style: AppTextStyles.title,
+                          ),
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.buildPrimaryGradient(),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.edit,
+                              size: 22,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: PrimaryCircularLoader(size: 32),
+                        ),
+                      )
+                    else if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 14,
+                          ),
+                        ),
+                      )
+                    else
+                      ...List.generate(entries.length * 2 - 1, (i) {
+                        if (i.isOdd) return const SizedBox(height: 16);
+                        final idx = i ~/ 2;
+                        final e = entries[idx];
+                        return _DateRow(
+                          label: e.key,
+                          text: e.value,
+                        );
+                      }),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -567,11 +567,17 @@ class _StaffScreenState extends State<StaffScreen> {
                   // Demo values for present/absent
                   final double present = 18.0;
                   final double absent = 3.0;
-                  final int expectedTotal = (present + absent).toInt();
+                  // These are currently demo values; replace with real attendance
+                  // counts when wiring up the backend.
+                  final double signedOut = 0.0;
+                  final double notMarked = 0.0;
+
+                  final int expectedTotal =
+                      (present + absent + signedOut + notMarked).toInt();
                   final String total = '$expectedTotal';
                   final items = [
                     ProgressItemHelper(
-                      label: 'Present (${present.toInt()})',
+                      label: 'Signed In (${present.toInt()})',
                       value: present,
                       color: AppColors.lightGreenProgressBar,
                     ),
@@ -580,11 +586,21 @@ class _StaffScreenState extends State<StaffScreen> {
                       value: absent,
                       color: AppColors.redProgressBar,
                     ),
+                    ProgressItemHelper(
+                      label: 'Signed Out (${signedOut.toInt()})',
+                      value: signedOut,
+                      color: AppColors.lightBlueProgressBar,
+                    ),
+                    ProgressItemHelper(
+                      label: 'Not Marked (${notMarked.toInt()})',
+                      value: notMarked,
+                      color: AppColors.mustardProgressBar,
+                    ),
                   ];
                   return Container(
                     margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
                     child: CustomStatBarCard(
-                      title: 'Expected\nStudents',
+                      title: 'Expected\nStaff',
                       number: total,
                       items: items,
                       fullWidthBar: false,

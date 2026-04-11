@@ -58,9 +58,21 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     _firstNameController.text = widget.initialFirstName ?? '';
     _lastNameController.text = widget.initialLastName ?? '';
     _emailController.text = widget.initialEmail ?? '';
-    _phoneController.text = widget.initialPhoneNumber ?? '';
+    _phoneController.text = _formatPhoneNumber(widget.initialPhoneNumber ?? '');
     _addressController.text = widget.initialAddress ?? '';
     _notesController.text = widget.initialNotes ?? '';
+  }
+
+  String _formatPhoneNumber(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    if (digits.length <= 3) return '($digits';
+    if (digits.length <= 6) {
+      return '(${digits.substring(0, 3)}) ${digits.substring(3)}';
+    }
+    final take = digits.length >= 10 ? 10 : digits.length;
+    final d = digits.substring(0, take);
+    return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
   }
 
   @override
@@ -278,6 +290,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                             LengthLimitingTextInputFormatter(10),
+                            PhoneNumberFormatter(),
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -451,6 +464,34 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    String formattedText;
+    if (digits.length <= 3) {
+      formattedText = '($digits';
+    } else if (digits.length <= 6) {
+      formattedText = '(${digits.substring(0, 3)}) ${digits.substring(3)}';
+    } else {
+      final d = digits.substring(0, 10);
+      formattedText = '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
     );
   }
 }

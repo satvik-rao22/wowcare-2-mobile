@@ -210,7 +210,19 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
             InputWidget(controller: _descriptionController, height: 100, hint: 'Enter Description'),
             SizedBox(height: responsive.verticalSpacing,),
             if(widget.isEdit)
-              MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, limit: 10, initialPhotoUrls: [?widget.activityData?.photoUrl], label: 'Upload Photos',)
+              MediaUploader(
+                isRequired: false,
+                allowVideo: false,
+                allowPhoto: true,
+                isPictureBox: false,
+                limit: 10,
+                initialPhotoUrls:
+                    widget.activityData?.photoUrl != null &&
+                            widget.activityData!.photoUrl!.trim().isNotEmpty
+                        ? [widget.activityData!.photoUrl!.trim()]
+                        : const [],
+                label: 'Upload Photos',
+              )
             else
               MediaUploader(isRequired: false,allowVideo: false, allowPhoto: true, isPictureBox: false, limit: 10, label: 'Upload Photos', ),
             SizedBox(height: responsive.verticalSpacing,),

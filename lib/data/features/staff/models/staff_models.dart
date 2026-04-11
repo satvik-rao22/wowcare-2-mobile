@@ -452,7 +452,19 @@ class StaffProfileModel extends Equatable {
 
   factory StaffProfileModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
-    final addressJson = data['address'] as Map<String, dynamic>?;
+    // Backend variants:
+    // - Newer: address is nested under `address`
+    // - Legacy/current UAT: address fields are top-level: addressStreet, addressCity, ...
+    final nestedAddress = data['address'] as Map<String, dynamic>?;
+    final addressJson = nestedAddress ??
+        <String, dynamic>{
+          'addressStreet': data['addressStreet'],
+          'addressLine2': data['addressLine2'],
+          'addressCity': data['addressCity'],
+          'addressState': data['addressState'],
+          'addressZipCode': data['addressZipCode'],
+          'addressCountry': data['addressCountry'],
+        };
     final workSchedulesJson = data['workSchedules'] as List<dynamic>? ?? const [];
     final breakSchedulesJson = data['breakSchedules'] as List<dynamic>? ?? const [];
 
@@ -485,13 +497,15 @@ class StaffProfileModel extends Equatable {
         const <String>[];
 
     return StaffProfileModel(
-      staffCode: data['staffCode'] as String? ?? '',
+      staffCode: (data['staffCode'] ?? data['code'] ?? '').toString(),
       userCode: data['userCode'] as String? ?? '',
       organizationCode: data['organizationCode'] as String? ?? '',
       schoolCode: data['schoolCode'] as String? ?? '',
       firstName: data['firstName'] as String? ?? '',
       lastName: data['lastName'] as String? ?? '',
-      fullName: data['fullName'] as String? ?? '',
+      fullName: (data['fullName'] as String?) ??
+          '${(data['firstName'] ?? '').toString()} ${(data['lastName'] ?? '').toString()}'
+              .trim(),
       email: data['email'] as String? ?? '',
       phoneNumber: data['phoneNumber'] as String? ?? '',
       profilePhotoUrl: data['profilePhotoUrl'] as String? ?? '',
@@ -516,18 +530,32 @@ class StaffProfileModel extends Equatable {
   }
 
   factory StaffProfileModel.fromCacheJson(Map<String, dynamic> json) {
-    final addressJson = json['address'] as Map<String, dynamic>?;
+    // Cache variants:
+    // - Current: nested `address`
+    // - Legacy: address fields at top-level
+    final nestedAddress = json['address'] as Map<String, dynamic>?;
+    final addressJson = nestedAddress ??
+        <String, dynamic>{
+          'addressStreet': json['addressStreet'],
+          'addressLine2': json['addressLine2'],
+          'addressCity': json['addressCity'],
+          'addressState': json['addressState'],
+          'addressZipCode': json['addressZipCode'],
+          'addressCountry': json['addressCountry'],
+        };
     final workSchedulesJson = json['workSchedules'] as List<dynamic>? ?? const [];
     final breakSchedulesJson = json['breakSchedules'] as List<dynamic>? ?? const [];
 
     return StaffProfileModel(
-      staffCode: json['staffCode'] as String? ?? '',
+      staffCode: (json['staffCode'] ?? json['code'] ?? '').toString(),
       userCode: json['userCode'] as String? ?? '',
       organizationCode: json['organizationCode'] as String? ?? '',
       schoolCode: json['schoolCode'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
-      fullName: json['fullName'] as String? ?? '',
+      fullName: (json['fullName'] as String?) ??
+          '${(json['firstName'] ?? '').toString()} ${(json['lastName'] ?? '').toString()}'
+              .trim(),
       email: json['email'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
       profilePhotoUrl: json['profilePhotoUrl'] as String? ?? '',

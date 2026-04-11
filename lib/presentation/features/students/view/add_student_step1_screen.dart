@@ -26,6 +26,7 @@ import 'package:wowcare/presentation/features/students/view/add_student_step3_sc
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -59,8 +60,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   final ImagePicker _picker = ImagePicker();
 
   static const int _nameMaxLength = 50;
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static const int _duplicateQueryPageSize = 25;
   static const int _duplicateQueryMaxPages = 10; // safety cap (25 * 10 = 250 scanned)
+  static const int _maxParentsPerStudent = 4;
 
   String? _selectedStatus;
   String? _selectedClassroom;
@@ -183,18 +186,38 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _selectSchoolStartDate() async {
     try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final initial = _selectedSchoolStartDate;
+      final DateTime? initialForPicker = _isUpcoming
+          ? (initial == null || initial.isBefore(today) ? today : initial)
+          : initial;
+
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
-          initialDate: _selectedSchoolStartDate,
+          initialDate: initialForPicker,
+          firstDate: _isUpcoming ? today : null,
+          lastDate: DateTime(today.year + 5),
         ),
       );
 
       if (result != null && result['date'] != null) {
+        final selectedDate = result['date'] as DateTime;
+        final selDay =
+            DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+        if (_isUpcoming && selDay.isBefore(today)) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'School start date cannot be in the past',
+            isError: true,
+          );
+          return;
+        }
         setState(() {
-          _selectedSchoolStartDate = result['date'] as DateTime;
+          _selectedSchoolStartDate = selectedDate;
         });
       }
     } catch (e) {
@@ -227,6 +250,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       );
       return;
     }
+    if (!_nameRegex.hasMatch(_firstNameController.text)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
     
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -241,6 +272,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last name must be at most $_nameMaxLength characters',
+        isError: true,
+      );
+      return;
+    }
+    if (!_nameRegex.hasMatch(_lastNameController.text)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -279,6 +318,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     );
     if (!proceed) return;
 
+    final siblingCodesToLink = await _pickSameLastNameSiblings(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+    );
+
     final step1Data = {
       'status': _selectedStatus,
       'firstName': _firstNameController.text.trim(),
@@ -288,6 +332,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       'schoolStartDate': _selectedSchoolStartDate,
       'profilePhoto': _profilePhoto,
       'age': _calculatedAge,
+      'siblingCodesToLink': siblingCodesToLink,
     };
 
     // Navigate to step 2
@@ -397,100 +442,140 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     }
   }
 
-  void _handleStep2Result(Map<String, dynamic> step1Data, List<dynamic> parents) async {
-    // Ask if user wants to add another parent
-    final addAnother = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add another parent?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
-        icon: Icons.family_restroom,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
-      ),
-    );
+  Future<List<Student>> _fetchSameLastNameStudents({
+    required String firstName,
+    required String lastName,
+  }) async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+    if (schoolCode.isEmpty) return <Student>[];
 
-    if (addAnother == true) {
-      // Navigate to step 2 again to add another parent
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep2Screen(
-            initialSelectFromExisting: false,
-            initialSelectedExistingParents: const [],
-          ),
-        ),
-      ).then((nextParentResult) {
-        if (nextParentResult != null) {
-          final updatedParents = List<dynamic>.from(parents)..add(nextParentResult);
-          _handleStep2Result(step1Data, updatedParents);
+    final repo = serviceLocator<StudentRepository>();
+    String norm(String s) => s.trim().toLowerCase();
+    final firstNorm = norm(firstName);
+    final lastNorm = norm(lastName);
+
+    final matches = <Student>[];
+    int pageIndex = 0;
+    bool hasMore = true;
+    while (hasMore && pageIndex < _duplicateQueryMaxPages) {
+      final page = await repo.getStudentPage(
+        schoolCode: schoolCode,
+        lastName: lastName,
+        page: pageIndex,
+        size: _duplicateQueryPageSize,
+      );
+
+      for (final s in page.items) {
+        if (norm(s.lastName) != lastNorm) continue;
+        if (norm(s.firstName) == firstNorm && norm(s.lastName) == lastNorm) {
+          continue;
         }
-      });
-      return;
+        matches.add(s);
+      }
+
+      hasMore = page.hasMore;
+      pageIndex++;
+      if (!page.hasMore) break;
     }
 
-    // Ask if user wants to add schedule
+    return matches;
+  }
+
+  Future<List<String>> _pickSameLastNameSiblings({
+    required String firstName,
+    required String lastName,
+  }) async {
+    try {
+      final candidates = await _fetchSameLastNameStudents(
+        firstName: firstName,
+        lastName: lastName,
+      );
+      if (candidates.isEmpty) return <String>[];
+      if (!mounted) return <String>[];
+      final result = await showSameLastNameSiblingsDialog(
+        context: context,
+        candidates: candidates,
+      );
+      if (result == null) return <String>[];
+      return result;
+    } catch (e) {
+      CoreUtils.logApiError('Same-last-name siblings lookup failed: $e');
+      return <String>[];
+    }
+  }
+
+  void _handleStep2Result(Map<String, dynamic> step1Data, List<dynamic> parents) async {
+    if (parents.length < _maxParentsPerStudent) {
+      final addAnother = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => ConfirmationBottomSheet(
+          title: 'Do you want to add another parent?',
+          confirmText: 'Yes',
+          cancelText: 'Skip',
+          icon: Icons.family_restroom,
+          onConfirm: () => Navigator.of(context).pop(true),
+          onCancel: () => Navigator.of(context).pop(false),
+        ),
+      );
+
+      if (addAnother == true) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddStudentStep2Screen(
+              initialSelectFromExisting: false,
+              initialSelectedExistingParents: const [],
+            ),
+          ),
+        ).then((nextParentResult) {
+          if (nextParentResult != null) {
+            final updatedParents = List<dynamic>.from(parents)..add(nextParentResult);
+            _handleStep2Result(step1Data, updatedParents);
+          }
+        });
+        return;
+      }
+    }
+
+    // After parent completion (or max parents), ask for schedule.
     final addSchedule = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add schedule for this child now?',
+        title: 'Do you want to add schedule?',
         confirmText: 'Yes',
         cancelText: 'Skip',
-        icon: Icons.calendar_today,
+        icon: Icons.schedule,
         onConfirm: () => Navigator.of(context).pop(true),
         onCancel: () => Navigator.of(context).pop(false),
       ),
     );
 
+    dynamic scheduleData;
     if (addSchedule == true) {
-      // Navigate to step 3
-      Navigator.push(
+      final step3Result = await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep3Screen(),
-        ),
-      ).then((step3Result) {
-        _handleStep3Result(step1Data, parents, step3Result);
-      });
-    } else {
-      // Complete without schedule
-      _completeWizard(step1Data, parents, null);
+        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
+      );
+      if (step3Result is Map<String, Map<String, TimeOfDay>>) {
+        scheduleData = step3Result;
+      } else if (step3Result is Map) {
+        scheduleData = Map<String, Map<String, TimeOfDay>>.from(
+          step3Result.map(
+            (k, v) => MapEntry(
+              k.toString(),
+              Map<String, TimeOfDay>.from(v as Map),
+            ),
+          ),
+        );
+      }
     }
-  }
 
-  void _handleStep3Result(
-    Map<String, dynamic> step1Data,
-    List<dynamic> parents,
-    dynamic step3Result,
-  ) async {
-    // Ask if user wants to create recurring invoices
-    final addInvoices = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to create recurring invoices for this child now?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
-        icon: Icons.receipt_long,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
-      ),
-    );
-
-    if (addInvoices == true) {
-      // TODO: Navigate to recurring invoices screen
-      // For now, just complete the wizard
-      _completeWizard(step1Data, parents, step3Result);
-    } else {
-      // Complete the wizard
-      _completeWizard(step1Data, parents, step3Result);
-    }
+    _completeWizard(step1Data, parents, scheduleData);
   }
 
   Future<void> _completeWizard(
@@ -510,6 +595,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final classroom = (step1Data['classroom'] as String?) ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
       final DateTime? schoolStartDate = step1Data['schoolStartDate'] as DateTime?;
+      final siblingCodesToLink = (step1Data['siblingCodesToLink'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          <String>[];
 
       final storage = serviceLocator<StorageService>();
       final schoolCode =
@@ -538,13 +628,66 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       // Create guardian-user records for each newly entered parent (step 2).
       // Existing parents selected from the list are skipped here.
-      for (final parent in parents) {
+      if (organizationCode.trim().isEmpty) {
+        if (mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Organization is missing; cannot add guardians. Re-select your school and try again.',
+            isError: true,
+          );
+        }
+      } else {
+        for (final parent in parents) {
         if (parent is! Map) continue;
         final map = Map<String, dynamic>.from(parent);
         final bool selectFromExisting =
             map['selectFromExisting'] as bool? ?? false;
         if (selectFromExisting) {
-          // Existing parents linking flow is not implemented yet.
+          final selectedExistingParents =
+              (map['selectedExistingParents'] as List<dynamic>? ?? const <dynamic>[])
+                  .map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+          if (selectedExistingParents.isEmpty) {
+            continue;
+          }
+          try {
+            final nameCodeMap =
+                await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
+
+            final relationLabel =
+                (map['relation'] as String?)?.trim() ?? '';
+            final relationOther =
+                (map['relationOther'] as String?)?.trim() ?? '';
+            final relationEnum = relationLabel.isEmpty
+                ? null
+                : relationLabel.toUpperCase().replaceAll(' ', '_');
+            final relationDescription =
+                relationLabel == 'Other' && relationOther.isNotEmpty
+                    ? relationOther
+                    : null;
+
+            for (final selectedName in selectedExistingParents) {
+              final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
+              if (guardianCode.isEmpty) continue;
+              await repo.linkExistingGuardian(
+                guardianCode: guardianCode,
+                studentCode: student.code,
+                relation: relationEnum,
+                relationDescription: relationDescription,
+              );
+            }
+          } catch (e) {
+            final message = ApiErrorHandler.extractErrorMessage(e);
+            if (mounted) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Failed to link existing parent: $message',
+                isError: true,
+              );
+            }
+          }
           continue;
         }
 
@@ -593,8 +736,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             legalCustody: legalCustody,
             profilePhotoUrl: null,
             userCode: userCode.isEmpty ? null : userCode,
-            organizationCode:
-                organizationCode.isEmpty ? null : organizationCode,
+            organizationCode: organizationCode.trim(),
           );
         } catch (e) {
           final message = ApiErrorHandler.extractErrorMessage(e);
@@ -602,6 +744,26 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             CoreUtils.showTopSnackBar(
               context: context,
               message: 'Failed to add guardian: $message',
+              isError: true,
+            );
+          }
+        }
+        }
+      }
+
+      // Link siblings after guardians (PUT /api/v1/student/student/{code}/siblings).
+      if (siblingCodesToLink.isNotEmpty) {
+        try {
+          await repo.updateStudentSiblings(
+            studentCode: student.code,
+            siblingCodes: siblingCodesToLink,
+          );
+        } catch (e) {
+          final message = ApiErrorHandler.extractErrorMessage(e);
+          if (mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Student created, but linking siblings failed: $message',
               isError: true,
             );
           }
