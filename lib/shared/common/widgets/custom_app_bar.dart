@@ -20,6 +20,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:provider/provider.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -101,16 +103,28 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       scrolledUnderElevation: 0,
       foregroundColor: Colors.black,
       titleSpacing: 0,
-      title: isParent && studentList != null
-          ? Padding(
-              padding: const EdgeInsets.only(left: 20),
-              child: SizedBox(
-                width: 180,
-                child: CustomDropdown(
-                  hintText: 'Select child',
-                  items: studentList!,
-                ),
-              ),
+      title: isParent
+          ? Consumer<ParentChildProvider>(
+              builder: (context, parentChildProvider, _) {
+                if (!parentChildProvider.isLoaded &&
+                    !parentChildProvider.isLoading) {
+                  Future.microtask(parentChildProvider.ensureLoaded);
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(left: 20),
+                  child: SizedBox(
+                    width: 220,
+                    child: CustomDropdown(
+                      hintText: parentChildProvider.isLoading
+                          ? 'Loading children...'
+                          : 'Select child',
+                      items: parentChildProvider.childNames,
+                      selectedItem: parentChildProvider.selectedChild?.name,
+                      onSelect: parentChildProvider.selectByName,
+                    ),
+                  ),
+                );
+              },
             )
           : null,
       leading: hasBackButton

@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
+import '../../../../core/util/debug_defaults.dart';
+import '../../../../core/util/storage_keys.dart';
 import '../models/student_classroom_models.dart';
 
 abstract class StudentClassroomRemoteDataSource {
@@ -29,9 +32,41 @@ abstract class StudentClassroomRemoteDataSource {
 
 class StudentClassroomRemoteDataSourceImpl
     implements StudentClassroomRemoteDataSource {
-  StudentClassroomRemoteDataSourceImpl(this._client);
+  StudentClassroomRemoteDataSourceImpl(this._client, this._storage);
 
   final Dio _client;
+  final StorageService _storage;
+
+  Future<Map<String, dynamic>> _buildScopeHeaders({
+    required String fallbackSchoolCode,
+  }) async {
+    final storedOrganizationCode =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final storedSchoolCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    final resolvedOrganizationCode = storedOrganizationCode.isNotEmpty
+        ? storedOrganizationCode
+        : DebugDefaults.organizationCode;
+    final resolvedSchoolCode = storedSchoolCode.isNotEmpty
+        ? storedSchoolCode
+        : fallbackSchoolCode.trim();
+
+    final headers = <String, dynamic>{
+      'accept': 'application/json',
+    };
+    if (resolvedSchoolCode.isNotEmpty) {
+      headers['X-School-Code'] = resolvedSchoolCode;
+      headers['x-school-code'] = resolvedSchoolCode;
+      headers['schoolCode'] = resolvedSchoolCode;
+    }
+    if (resolvedOrganizationCode.isNotEmpty) {
+      headers['X-Organization-Code'] = resolvedOrganizationCode;
+      headers['x-organization-code'] = resolvedOrganizationCode;
+      headers['organizationCode'] = resolvedOrganizationCode;
+    }
+    return headers;
+  }
 
   @override
   Future<List<StudentClassroomItemModel>> getStudentClassroomList({
@@ -67,9 +102,7 @@ class StudentClassroomRemoteDataSourceImpl
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
     }
-    if (attendanceStatus != null && attendanceStatus.isNotEmpty) {
-      queryParameters['attendanceStatus'] = attendanceStatus;
-    }
+    // Keep payload strictly aligned with backend request DTO for this API.
     if (tagCodes != null && tagCodes.isNotEmpty) {
       queryParameters['tagCodes'] = tagCodes;
     }
@@ -77,9 +110,12 @@ class StudentClassroomRemoteDataSourceImpl
       queryParameters['guardianCodes'] = guardianCodes;
     }
 
+    final headers = await _buildScopeHeaders(fallbackSchoolCode: schoolCode);
+
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: Options(headers: headers),
     );
 
     final body = response.data;
@@ -115,9 +151,12 @@ class StudentClassroomRemoteDataSourceImpl
       'studentCode': normStudentCodes,
     };
 
+    final headers = await _buildScopeHeaders(fallbackSchoolCode: '');
+
     final response = await _client.post<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: Options(headers: headers),
     );
 
     final body = response.data;

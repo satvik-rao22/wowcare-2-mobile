@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 
 class StudentAbsentCardData {
   final String id;
@@ -106,48 +106,6 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                       size: avatarSize,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
-                    // Status dot for absent list
-                    if (student.hasSignIn &&
-                        (student.signOutTime == null ||
-                            student.signOutTime!.isEmpty))
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.successColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (student.expectedToday &&
-                        !student.hasSignIn &&
-                        (student.signOutTime == null ||
-                            student.signOutTime!.isEmpty) &&
-                        (student.signInTime == null ||
-                            student.signInTime!.isEmpty))
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.errorColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 SizedBox(width: spacing),
@@ -164,16 +122,19 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                   ),
                 ),
                 SizedBox(width: spacing / 2),
-                Flexible(
-                  child: AppText.body(
-                    student.roomName,
-                    style: TextStyle(
-                      fontSize: responsive.isTablet ? 16 : 15,
-                      color: AppColors.themeColor,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: AppText.body(
+                      student.roomName,
+                      style: TextStyle(
+                        fontSize: responsive.isTablet ? 16 : 15,
+                        color: AppColors.themeColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
                   ),
                 ),
               ],
@@ -243,23 +204,9 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                 SizedBox(
                   width: double.infinity,
                   height: responsive.buttonHeight * 0.8,
-                  child: OutlinedButton(
-                    onPressed: widget.onView,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: AppText.body(
-                      "View",
-                      style: TextStyle(
-                        fontSize: responsive.isTablet ? 16 : 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                      ),
-                    ),
+                  child: CustomCancelButton(
+                    cancelButtonLabel: 'View',
+                    onPressedCancel: widget.onView,
                   ),
                 ),
             ],

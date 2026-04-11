@@ -1,4 +1,5 @@
 import '../entities/classroom.dart';
+import '../entities/classroom_details.dart';
 import '../../student_classroom/entities/student_classroom_item.dart';
 
 abstract class ClassroomRepository {
@@ -7,6 +8,10 @@ abstract class ClassroomRepository {
     /// When true, restricts results to type=CLASSROOM.
     /// When false, omits the type filter.
     bool onlyTypeClassroom,
+  });
+
+  Future<ClassroomDetails> getClassroomByCode({
+    required String code,
   });
 
   /// Returns students for a classroom via `GET /api/v1/student-classroom`.

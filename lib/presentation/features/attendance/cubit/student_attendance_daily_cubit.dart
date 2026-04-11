@@ -1,8 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 
 part 'student_attendance_daily_state.dart';
 
@@ -10,12 +12,18 @@ class StudentAttendanceDailyCubit
     extends Cubit<StudentAttendanceDailyState> {
   StudentAttendanceDailyCubit({
     required GetStudentAttendanceDailyUseCase getStudentAttendanceDailyUseCase,
+    required GetStudentAttendanceExpectedSummaryUseCase
+        getStudentAttendanceExpectedSummaryUseCase,
     required AttendanceRepository repository,
   })  : _getStudentAttendanceDailyUseCase = getStudentAttendanceDailyUseCase,
+        _getStudentAttendanceExpectedSummaryUseCase =
+            getStudentAttendanceExpectedSummaryUseCase,
         _repository = repository,
         super(const StudentAttendanceDailyState.initial());
 
   final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
+  final GetStudentAttendanceExpectedSummaryUseCase
+      _getStudentAttendanceExpectedSummaryUseCase;
   final AttendanceRepository _repository;
 
   static const int _pageSize = 10;
@@ -41,16 +49,38 @@ class StudentAttendanceDailyCubit
         : Future.value(null));
 
     if (cached != null && !isClosed) {
-      emit(StudentAttendanceDailyState.loaded(
-        items: cached.items,
-        currentPage: 0,
-        hasMore: cached.hasMore,
-        isFromCache: true,
-        attendanceDate: attendanceDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: search,
-      ));
+      try {
+        final summary =
+            await _getStudentAttendanceExpectedSummaryUseCase();
+        if (isClosed) return;
+        emit(StudentAttendanceDailyState.loaded(
+          items: cached.items,
+          currentPage: 0,
+          hasMore: cached.hasMore,
+          isFromCache: true,
+          attendanceDate: attendanceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+          expectedCount: summary.expected,
+          presentCount: summary.present,
+          absentCount: summary.absent,
+          signedOutCount: summary.signOut,
+          notMarkedCount: summary.notMarked,
+        ));
+      } catch (_) {
+        if (isClosed) return;
+        emit(StudentAttendanceDailyState.loaded(
+          items: cached.items,
+          currentPage: 0,
+          hasMore: cached.hasMore,
+          isFromCache: true,
+          attendanceDate: attendanceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        ));
+      }
       return; // Don't hit API if cache is valid
     }
 
@@ -82,6 +112,7 @@ class StudentAttendanceDailyCubit
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       search: search,
+      isSummaryLoading: true,
     ));
 
     try {
@@ -93,6 +124,8 @@ class StudentAttendanceDailyCubit
         page: 0,
         size: _pageSize,
       );
+      final summary =
+          await _getStudentAttendanceExpectedSummaryUseCase();
 
       if (isClosed) return;
 
@@ -105,13 +138,20 @@ class StudentAttendanceDailyCubit
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         search: search,
+        expectedCount: summary.expected,
+        presentCount: summary.present,
+        absentCount: summary.absent,
+        signedOutCount: summary.signOut,
+        notMarkedCount: summary.notMarked,
+        isSummaryLoading: false,
       ));
     } catch (e) {
       if (isClosed) return;
       emit(state.copyWith(
         isLoading: false,
         isRefreshing: false,
-        errorMessage: e.toString(),
+        isSummaryLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -149,7 +189,7 @@ class StudentAttendanceDailyCubit
       if (isClosed) return;
       emit(state.copyWith(
         isLoadingMore: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

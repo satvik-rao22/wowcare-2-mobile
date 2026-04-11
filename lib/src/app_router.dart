@@ -10,6 +10,8 @@ import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
 import '../presentation/features/students/view/student_screen.dart';
@@ -149,6 +151,16 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case RoleSelectionScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const RoleSelectionScreen(),
+        settings: settings,
+      );
+    case FutureAvailabilityScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const FutureAvailabilityScreen(),
+        settings: settings,
+      );
+    case IndividualMovementScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const IndividualMovementScreen(),
         settings: settings,
       );
     default:

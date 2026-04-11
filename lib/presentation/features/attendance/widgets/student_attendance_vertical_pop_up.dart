@@ -8,9 +8,13 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 
+typedef StudentAttendanceActionTap = void Function(String actionLabel);
+
 class StudentAttendanceVerticalPopUp extends StatelessWidget {
   final List<dynamic> students;
   final VoidCallback refreshCallback;
+  final StudentAttendanceActionTap? onActionTap;
+  final Set<String> disabledActions;
   final double? topPosition;
   final double? leftPosition;
   final double? rightPosition;
@@ -20,6 +24,8 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     super.key,
     required this.students,
     required this.refreshCallback,
+    this.onActionTap,
+    this.disabledActions = const <String>{},
     this.topPosition,
     this.leftPosition,
     this.rightPosition,
@@ -87,25 +93,38 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
   }
 
   Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
+    final isDisabled = disabledActions.contains(label);
     return InkWell(
-      onTap: () {
+      onTap: isDisabled
+          ? null
+          : () {
         Navigator.pop(context);
+        if (onActionTap != null) {
+          onActionTap!(label);
+          return;
+        }
         _navigateToForm(context, label);
       },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+          Opacity(
+            opacity: isDisabled ? 0.45 : 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+              child: SvgPicture.asset(svgPath, height: 24, width: 24),
+            ),
           ),
           const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, fontFamily: 'Manrope', color: AppColors.primaryColor),
+          Opacity(
+            opacity: isDisabled ? 0.5 : 1,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, fontFamily: 'Manrope', color: AppColors.primaryColor),
+            ),
           ),
         ],
       ),

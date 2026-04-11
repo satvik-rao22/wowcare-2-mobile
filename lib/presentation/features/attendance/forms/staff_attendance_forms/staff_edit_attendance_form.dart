@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -9,6 +14,8 @@ import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 
 class StaffEditAttendanceForm extends StatefulWidget {
   const StaffEditAttendanceForm({
@@ -25,45 +32,207 @@ class StaffEditAttendanceForm extends StatefulWidget {
 }
 
 class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
-  late TimeOfDay _signInTime;
-  late TimeOfDay _signOutTime;
+  TimeOfDay? _signInTime;
+  TimeOfDay? _signOutTime;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _signInTime = _parseTimeOrNow(widget.staffAttendance.signInTime);
-    _signOutTime = _parseTimeOrNow(widget.staffAttendance.signOutTime);
+    _signInTime = _parseTimeOrNull(widget.staffAttendance.signInTime);
+    _signOutTime = _parseTimeOrNull(widget.staffAttendance.signOutTime);
   }
 
-  TimeOfDay _parseTimeOrNow(String? timeString) {
-    if (timeString == null || timeString.isEmpty) {
-      return TimeOfDay.now();
+  TimeOfDay? _parseTimeOrNull(String? timeString) {
+    if (timeString == null) {
+      return null;
+    }
+    final raw = timeString.trim();
+    if (raw.isEmpty) return null;
+    if (raw.toLowerCase() == 'not yet signed out' ||
+        raw.toLowerCase() == 'not yet signed in') {
+      return null;
     }
 
     try {
-      // Expect formats like "10:18 AM" or "10:18 AM By John"
-      final parts = timeString.split(' ');
-      final candidate = parts.length >= 2 ? '${parts[0]} ${parts[1]}' : timeString;
-      final parsed = DateFormat.jm().parse(candidate);
-      return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
-    } catch (_) {
-      return TimeOfDay.now();
+      final iso = DateTime.tryParse(raw);
+      if (iso != null) {
+        final local = iso.toLocal();
+        return TimeOfDay(hour: local.hour, minute: local.minute);
+      }
+    } catch (_) {}
+
+    final lower = raw.toLowerCase();
+    final byIndex = lower.indexOf(' by ');
+    final withoutBy = byIndex > 0 ? raw.substring(0, byIndex).trim() : raw;
+    final normalized = withoutBy.replaceAll('.', '').trim();
+
+    final ampmMatch = RegExp(
+      r'(\d{1,2}:\d{2}(?::\d{2})?\s*[AaPp][Mm])',
+    ).firstMatch(normalized);
+    if (ampmMatch != null) {
+      final candidate = ampmMatch.group(1)!.replaceAll(RegExp(r'\s+'), ' ');
+      try {
+        final hasSeconds = RegExp(r':\d{2}\s*[AaPp][Mm]$').hasMatch(candidate);
+        final parsed = hasSeconds
+            ? DateFormat('h:mm:ss a').parse(candidate)
+            : DateFormat.jm().parse(candidate);
+        return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
+      } catch (_) {}
     }
+
+    final hmsMatch = RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?').firstMatch(normalized);
+    if (hmsMatch != null) {
+      final hour = int.tryParse(hmsMatch.group(1)!);
+      final minute = int.tryParse(hmsMatch.group(2)!);
+      if (hour != null && minute != null && hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+    }
+
+    return null;
   }
 
   void _handleSubmit() {
-    // UI-only behaviour for now: just show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Attendance updated successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
-    );
-    Navigator.pop(context);
+    if (_isSubmitting) return;
+    _submitAsync();
   }
 
   void _handleCancel() {
     Navigator.pop(context);
+  }
+
+  Future<void> _submitAsync() async {
+    final attendanceCode = _normalizeAttendanceRecordCodeForMutation(
+      widget.staffAttendance.attendanceRecordCode,
+    );
+    if (attendanceCode == null || attendanceCode.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('Unable to update: missing attendance record code.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+      return;
+    }
+
+    if (_signInTime == null) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('Sign-In time is required.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final staffCode = await resolveStaffCodeForLoggedInUser();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
+
+    final date = widget.attendanceDate;
+    final signedInAt = DateTime.utc(
+      date.year,
+      date.month,
+      date.day,
+      _signInTime!.hour,
+      _signInTime!.minute,
+    );
+    final signedOutAt = _signOutTime == null
+        ? null
+        : DateTime.utc(
+            date.year,
+            date.month,
+            date.day,
+            _signOutTime!.hour,
+            _signOutTime!.minute,
+          );
+
+    final payload = <String, dynamic>{
+      'staffCode': staffCode,
+      'signedInAt': signedInAt.toIso8601String(),
+      'signedOutAt': signedOutAt?.toIso8601String(),
+      'signedInMethod': 'APP',
+      'signedOutMethod': 'APP',
+      'signedInLocationLat': 0,
+      'signedInLocationLong': 0,
+      'signedInWithinGeofence': true,
+      'signedOutLocationLat': 0,
+      'signedOutLocationLong': 0,
+      'signedOutWithinGeofence': true,
+      'notes': null,
+      'timeZone': DateTime.now().timeZoneName,
+    };
+
+    try {
+      final client = serviceLocator<ApiClient>().client;
+      final endpoint = ApiPaths.urlWithBase(
+        '/api/v1/staff-attendance-records/$attendanceCode',
+        ApiConstants.attendanceBaseUrl,
+      );
+
+      final response = await client.patch<Map<String, dynamic>>(
+        endpoint,
+        data: payload,
+      );
+
+      final message =
+          (response.data?['message'] ?? 'Attendance updated successfully')
+              .toString();
+      if (!mounted) return;
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.successColor,
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: SnackBar(
+          content: Text(ApiErrorHandler.extractErrorMessage(e)),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  String? _normalizeAttendanceRecordCodeForMutation(String? rawCode) {
+    if (rawCode == null) return null;
+    final trimmed = rawCode.trim();
+    if (trimmed.isEmpty) return null;
+    final tildeIndex = trimmed.indexOf('~');
+    if (tildeIndex <= 0) return trimmed;
+    return trimmed.substring(0, tildeIndex);
   }
 
   @override
@@ -113,7 +282,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       ),
       bottomBar: CustomButtonLayout(
         onPressedCancel: _handleCancel,
-        onPressedConfirm: _handleSubmit,
+        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         confirmButtonLabel: 'Submit',
       ),
     );
@@ -162,7 +331,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   Widget _buildTimeSection({
     required BuildContext context,
     required String label,
-    required TimeOfDay time,
+    required TimeOfDay? time,
     required ValueChanged<TimeOfDay> onTimeChanged,
   }) {
     return Column(
@@ -172,6 +341,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
         const SizedBox(height: 8),
         SimpleTimePickerField(
           time: time,
+          placeholder: 'Select time',
           onTimeSelected: onTimeChanged,
         ),
       ],

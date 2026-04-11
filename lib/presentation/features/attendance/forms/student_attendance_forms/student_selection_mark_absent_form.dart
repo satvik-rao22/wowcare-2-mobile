@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -9,6 +10,9 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'student_mark_absent_form.dart';
 
@@ -25,7 +29,8 @@ class StudentSelectionMarkAbsentForm extends StatefulWidget {
 class _StudentSelectionMarkAbsentFormState
     extends State<StudentSelectionMarkAbsentForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroom = null;
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   List<StudentEntity> _filteredStudents = [];
   Set<StudentEntity> selectedStudents = {};
@@ -39,20 +44,22 @@ class _StudentSelectionMarkAbsentFormState
   // Backing list populated from the Absent form API.
   List<StudentEntity> _allStudents = [];
 
-  final List<String> _classrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C',
-    'Classroom D'
-  ];
+  // Classroom filter options loaded from Classroom API.
+  List<String> _classroomList = [];
+  Map<String, String> _classroomNameToCode = {};
   List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
+
+  late final ClassroomCubit _classroomCubit;
+  bool _isClassroomDataReady = false;
 
   @override
   void initState() {
     super.initState();
     _getStudentAbsentFormListUseCase =
         serviceLocator<GetStudentAbsentFormListUseCase>();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
     _searchController.addListener(_onSearchChanged);
+    _loadClassrooms();
     _loadStudents();
   }
 
@@ -60,6 +67,7 @@ class _StudentSelectionMarkAbsentFormState
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -69,6 +77,48 @@ class _StudentSelectionMarkAbsentFormState
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadClassrooms() async {
+    _classroomCubit.loadActiveClassrooms();
+
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      setState(() {
+        _classroomNameToCode = {
+          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+        };
+        _classroomList = _classroomNameToCode.keys.toList(growable: false);
+        if (_selectedClassroomCode != null &&
+            !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+          _selectedClassroom = '';
+          _selectedClassroomCode = null;
+        }
+        _isClassroomDataReady = true;
+      });
+      return;
+    }
+
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _classroomNameToCode = {
+        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+      };
+      _classroomList = _classroomNameToCode.keys.toList(growable: false);
+      if (_selectedClassroomCode != null &&
+          !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
+        _selectedClassroom = null;
+        _selectedClassroom = null;
+        _selectedClassroomCode = null;
+      }
+      _isClassroomDataReady = _classroomList.isNotEmpty;
+    });
   }
 
   Future<void> _loadStudents() async {
@@ -81,10 +131,11 @@ class _StudentSelectionMarkAbsentFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
-      final classroomCodes =
-          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
-              ? <String>[_selectedClassroom!]
-              : null;
+      final selectedClassroomCode = _selectedClassroomCode?.trim();
+      final classroomCodes = (selectedClassroomCode != null &&
+              selectedClassroomCode.isNotEmpty)
+          ? <String>[selectedClassroomCode]
+          : null;
 
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
@@ -124,7 +175,7 @@ class _StudentSelectionMarkAbsentFormState
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString();
+        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
       });
     }
   }
@@ -208,7 +259,7 @@ class _StudentSelectionMarkAbsentFormState
   List<StudentEntity> _getVisibleStudents() {
     return _filteredStudents.isEmpty &&
             _searchController.text.isEmpty &&
-            _selectedClassroom!.isEmpty &&
+            (_selectedClassroom == null || _selectedClassroom!.isEmpty) &&
             _selectedTag.isEmpty
         ? _allStudents
         : _filteredStudents;
@@ -231,7 +282,9 @@ class _StudentSelectionMarkAbsentFormState
 
   void _handleNext() {
     if (selectedStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Please select at least one student'),
           backgroundColor: AppColors.warningColor,
@@ -287,18 +340,39 @@ class _StudentSelectionMarkAbsentFormState
             children: [
               Expanded(
                 flex: 4,
-                child: CustomDropdown(
-                  onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                      _filterStudents();
-                    });
-                    _loadStudents();
+                child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                  bloc: _classroomCubit,
+                  builder: (context, classroomState) {
+                    final items = _classroomList.isNotEmpty
+                        ? _classroomList
+                        : classroomState.classrooms
+                            .map((c) => c.name)
+                            .toList(growable: false);
+                    final isLoading =
+                        classroomState.isLoading || !_isClassroomDataReady;
+
+                    if (isLoading && items.isEmpty) {
+                      return const ShimmerLoaderCard(child: SizedBox());
+                    }
+
+                    return CustomDropdown(
+                      onSelect: (value) {
+                        if (isLoading) return;
+                        setState(() {
+                          _selectedClassroom = value;
+                          _selectedClassroomCode = value == null
+                              ? null
+                              : _classroomNameToCode[value];
+                          _filterStudents();
+                        });
+                        _loadStudents();
+                      },
+                      hintText: 'Classroom',
+                      items: items,
+                      isField: true,
+                      isEnabled: true,
+                    );
                   },
-                  hintText: 'Classroom',
-                  items: _classrooms,
-                  isField: true,
-                  isEnabled: true,
                 ),
               ),
               const SizedBox(width: 12),
@@ -440,6 +514,7 @@ class StudentListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: student.photoUuid,
                 name: student.fullName,
+                studentCode: student.studentCode,
                 size: 32,
                 fontSize: 14,
               ),

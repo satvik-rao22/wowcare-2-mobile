@@ -148,7 +148,11 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.remove(StorageKeys.loginContext);
     await _storage.remove(StorageKeys.staffCode);
     await _storage.remove(StorageKeys.staffCodeUser);
+    await _storage.remove(StorageKeys.staffCodeOrganization);
+    await _storage.remove(StorageKeys.staffCodeSchool);
     await _storage.remove(StorageKeys.staffType);
+    await _storage.remove(StorageKeys.userAccessDetails);
+    await _storage.remove('selected_role');
   }
 
   @override
@@ -274,8 +278,21 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String userCode,
     required String staffCode,
   }) async {
+    final organizationCode =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
     await _storage.saveString(StorageKeys.staffCode, staffCode);
     await _storage.saveString(StorageKeys.staffCodeUser, userCode);
+    await _storage.saveString(
+      StorageKeys.staffCodeOrganization,
+      organizationCode,
+    );
+    await _storage.saveString(
+      StorageKeys.staffCodeSchool,
+      schoolCode,
+    );
   }
 
   @override

@@ -710,7 +710,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                             time.hour,
                             time.minute,
                           );
-                          return DateFormat('hh:mma').format(dt);
+                          return DateFormat('h:mm a').format(dt);
                         }
 
                         final targetEnum = _fullToEnum(dayLabel);

@@ -220,6 +220,17 @@ abstract class StudentRemoteDataSource {
     required String schoolCode,
   });
 
+  /// Fetches children linked to a guardian via
+  /// `GET /api/v1/guardian/children`.
+  ///
+  /// Query params: guardianCode, schoolCode, userCode
+  /// Returns raw response `data` list.
+  Future<List<Map<String, dynamic>>> getGuardianChildren({
+    required String guardianCode,
+    required String schoolCode,
+    required String userCode,
+  });
+
   /// Links an existing guardian to a student via `POST /api/v1/guardian/existing`.
   ///
   /// Query params: guardianCode, studentCode
@@ -1088,8 +1099,10 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? userCode,
     String? organizationCode,
   }) async {
-    // User MS (8086); [urlWithBase] second arg is ignored — do not use studentBaseUrl here.
-    final endpoint = ApiPaths.url(ApiPaths.guardianUser);
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianUser,
+      ApiConstants.baseUrl,
+    );
 
     final body = <String, dynamic>{
       'schoolCode': schoolCode,
@@ -1176,6 +1189,41 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected guardian list API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getGuardianChildren({
+    required String guardianCode,
+    required String schoolCode,
+    required String userCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianChildren,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'guardianCode': guardianCode,
+        'schoolCode': schoolCode,
+        'userCode': userCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian children API response format');
     }
 
     final root = response.data! as Map<String, dynamic>;

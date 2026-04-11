@@ -256,7 +256,8 @@ class AuthCubit extends Cubit<AuthState> {
               if (trimmed.isNotEmpty) {
                 await _localDataSource.saveStaffCode(
                   userCode: response.userCode,
-                  staffCode: trimmed,
+                  organizationCode: orgCode,
+                  schoolCode: effectiveSchoolCode,
                 );
 
                 try {

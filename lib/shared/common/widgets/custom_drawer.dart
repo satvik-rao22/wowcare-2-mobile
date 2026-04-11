@@ -6,15 +6,20 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -25,7 +30,12 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
 
@@ -313,6 +323,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       organizationCode: _currentOrgCode!,
       schoolCode: schoolCode,
     );
+    await context.read<RoleProvider>().refreshAccessFromServer(force: true);
 
     if (!mounted) return;
     setState(() {
@@ -327,10 +338,246 @@ class _CustomDrawerState extends State<CustomDrawer> {
     Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
   }
 
+  Future<void> _openParentAttendanceProfile(ParentChildRef? selectedChild) async {
+    try {
+      if (selectedChild == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No child selected. Please select a child first.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+
+      final signOutFormList = serviceLocator<GetStudentSignOutFormListUseCase>();
+
+      final now = DateTime.now();
+      final date =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final signedInPage = await signOutFormList(
+        fromAttendanceDate: date,
+        toAttendanceDate: date,
+        page: 0,
+        size: 100,
+      );
+
+      final selected = signedInPage.items.where(
+        (i) => i.studentCode.trim() == selectedChild.code.trim(),
+      );
+
+      String roomName = selectedChild.classroom;
+      bool isSignedIn = false;
+
+      if (selected.isNotEmpty) {
+        final child = selected.first;
+        roomName = child.classroomName.trim().isNotEmpty
+            ? child.classroomName
+            : selectedChild.classroom;
+        isSignedIn = child.hasSignIn && !child.hasSignOut;
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => StudentAttendanceProfile(
+            studentCode: selectedChild.code,
+            studentId: 0,
+            studentName: selectedChild.name,
+            studentPhotoUuid: null,
+            roomName: roomName,
+            isSignedIn: isSignedIn,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open attendance right now.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openParentStudentProfile(ParentChildRef? selectedChild) async {
+    if (selectedChild == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No child selected. Please select a child first.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentProfileScreen(
+          name: selectedChild.name,
+          classroom: selectedChild.classroom,
+          tags: selectedChild.tags,
+          schedule: selectedChild.schedule,
+          sibling: const <String, dynamic>{'name': [], 'relation': [], 'status': []},
+          studentCode: selectedChild.code,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLoggedInStaffProfile(NavigatorState navigator) async {
+    try {
+      final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+      if (staffCode.isEmpty) {
+        ScaffoldMessenger.of(navigator.context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to resolve your staff profile. Please re-login.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+
+      final repo = serviceLocator<StaffRepository>();
+      final profile = await repo.getStaffProfile(staffCode: staffCode);
+
+      final classroomCode = profile.primaryClassroomCode.trim().isNotEmpty
+          ? profile.primaryClassroomCode.trim()
+          : (profile.allowedClassroomCodes.isNotEmpty
+              ? profile.allowedClassroomCodes.first.trim()
+              : '-');
+      final classroom = await _resolveClassroomName(classroomCode);
+
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => StaffProfileScreen(
+            staffCode: profile.staffCode,
+            name: profile.fullName.trim().isNotEmpty
+                ? profile.fullName.trim()
+                : '-',
+            classroom: classroom,
+            designation: profile.designation,
+            phoneNumber: profile.phoneNumber,
+          ),
+        ),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(navigator.context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open your profile right now.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openLoggedInStaffAttendanceProfile(
+    NavigatorState navigator,
+  ) async {
+    try {
+      final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+      if (staffCode.isEmpty) {
+        ScaffoldMessenger.of(navigator.context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Unable to resolve your attendance profile. Please re-login.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+
+      final repo = serviceLocator<StaffRepository>();
+      final profile = await repo.getStaffProfile(staffCode: staffCode);
+      final roomCode = profile.primaryClassroomCode.trim().isNotEmpty
+          ? profile.primaryClassroomCode.trim()
+          : (profile.allowedClassroomCodes.isNotEmpty
+              ? profile.allowedClassroomCodes.first.trim()
+              : '-');
+      final roomName = await _resolveClassroomName(roomCode);
+
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => StaffAttendanceProfile(
+            staffCode: profile.staffCode,
+            staffId: 0,
+            staffName:
+                profile.fullName.trim().isNotEmpty ? profile.fullName.trim() : '-',
+            staffPhotoUuid:
+                profile.profilePhotoUrl.trim().isNotEmpty ? profile.profilePhotoUrl : null,
+            designationName: profile.designation,
+            roomName: roomName,
+          ),
+        ),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(navigator.context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open your attendance right now.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<String> _resolveClassroomName(String classroomCode) async {
+    final trimmedCode = classroomCode.trim();
+    if (trimmedCode.isEmpty || trimmedCode == '-') return '-';
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return trimmedCode;
+
+      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getActiveClassrooms(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+
+      for (final classroom in classrooms) {
+        if (classroom.code.trim() == trimmedCode) {
+          final name = classroom.name.trim();
+          return name.isNotEmpty ? name : trimmedCode;
+        }
+      }
+    } catch (_) {
+      // Fall back to code on resolution errors.
+    }
+
+    return trimmedCode;
+  }
+
   @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleProvider>();
     final isParent = roleProvider.isParent;
+    final isStaff = roleProvider.isStaff;
+    final canViewStudents = roleProvider.canAccessAny(const ['student', 'students']);
+    final canViewStaff = roleProvider.canAccessAny(const ['staff']);
+    final canViewClassrooms = roleProvider.canAccessAny(
+      const ['classroom', 'classrooms'],
+    );
+    final canViewAttendance = roleProvider.canAccessAny(
+      const ['attendance', 'student-attendance', 'staff-attendance'],
+    );
+    final canViewActivities = roleProvider.canAccessAny(
+      const ['activity', 'activities'],
+    );
+    final canViewCommunication = roleProvider.canAccessAny(
+      const ['communication', 'messaging', 'message'],
+    );
+    final canViewBilling = roleProvider.canAccessAny(const ['billing']);
+    final parentChildProvider = context.watch<ParentChildProvider>();
+    if (isParent &&
+        !parentChildProvider.isLoaded &&
+        !parentChildProvider.isLoading) {
+      Future.microtask(parentChildProvider.ensureLoaded);
+    }
 
     return Drawer(
       width: MediaQuery.of(context).size.width * 2 / 3,
@@ -369,43 +616,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       ),
                       if (isParent) ...[
                         // Parent-specific menu items
-                        _CustomExpansionTile(
+                        if (canViewStudents)
+                          _CustomExpansionTile(
                           title: 'My Child',
                           icon: MediaRes.students_drawer_icon,
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => MultiBlocProvider(
-                                  providers: [
-                                    BlocProvider<StudentCubit>(
-                                      create: (_) => serviceLocator<StudentCubit>()
-                                        ..loadInitial(),
-                                    ),
-                                    BlocProvider<ClassroomCubit>(
-                                      create: (_) =>
-                                          serviceLocator<ClassroomCubit>()
-                                            ..loadActiveClassrooms(),
-                                    ),
-                                  ],
-                                  child: const StudentScreen(),
-                                ),
-                              ),
-                            );
+                            _openParentStudentProfile(parentChildProvider.selectedChild);
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (canViewAttendance)
+                          _CustomExpansionTile(
                           title: 'Attendance',
                           icon: MediaRes.attendanceIcon,
                           onTap: () {
                             Navigator.pop(context);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const ComingSoonScreen()),
-                            );
+                            _openParentAttendanceProfile(parentChildProvider.selectedChild);
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (canViewActivities)
+                          _CustomExpansionTile(
                           title: 'Activities',
                           icon: MediaRes.activitesIcon,
                           isCurrentRoute:
@@ -419,7 +649,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (canViewCommunication)
+                          _CustomExpansionTile(
                           title: 'Communication',
                           icon: MediaRes.communicationIcon,
                           isCurrentRoute:
@@ -468,7 +699,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             ),
                           ],
                         ),
-                        _CustomExpansionTile(
+                        if (canViewBilling)
+                          _CustomExpansionTile(
                           title: 'Billing',
                           icon: MediaRes.billing_drawer_icon,
                           isCurrentRoute:
@@ -484,7 +716,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         ),
                       ] else ...[
                         // Admin menu items
-                        _CustomExpansionTile(
+                        if (canViewClassrooms)
+                          _CustomExpansionTile(
                           title: 'Classrooms',
                           icon: MediaRes.classroom_drawer_icon,
                           onTap: () {
@@ -495,7 +728,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             );
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (canViewStudents)
+                          _CustomExpansionTile(
                           title: 'Students',
                           icon: MediaRes.students_drawer_icon,
                           onTap: () {
@@ -520,20 +754,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             );
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (canViewStaff)
+                          _CustomExpansionTile(
                           title: 'Staff',
                           icon: MediaRes.staffs_drawer_icon,
                           isCurrentRoute:
                               _currentRoute == StaffScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
+                          onTap: () async {
+                            final navigator = Navigator.of(context);
+                            navigator.pop();
+                            if (isStaff) {
+                              await _openLoggedInStaffProfile(navigator);
+                              return;
+                            }
                             if (_currentRoute != StaffScreen.routeName) {
-                              Navigator.pushNamed(
-                                  context, StaffScreen.routeName);
+                              navigator.pushNamed(StaffScreen.routeName);
                             }
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (canViewAttendance)
+                          _CustomExpansionTile(
                           title: 'Attendance',
                           icon: MediaRes.attendanceIcon,
                           isExpansionEnabled: true,
@@ -555,24 +795,72 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               },
                             ),
                             DrawerListTile(
-                              title: 'Staff Attendance',
+                              title: isStaff ? 'My Attendance' : 'Staff Attendance',
                               leading: SvgPicture.asset(
                                 MediaRes.staffAttendanceDrawer,
                                 colorFilter: const ColorFilter.mode(
                                     AppColors.themeColor, BlendMode.srcIn),
                               ),
                               onTap: () {
-                                Navigator.pop(context);
-                                Navigator.of(context).push(
+                                final navigator = Navigator.of(context);
+                                navigator.pop();
+                                if (isStaff) {
+                                  _openLoggedInStaffAttendanceProfile(navigator);
+                                  return;
+                                }
+                                navigator.push(
                                   MaterialPageRoute(
-                                      builder: (_) =>
-                                          const StaffAttendanceTabbedView()),
+                                    builder: (_) => const StaffAttendanceTabbedView(),
+                                  ),
                                 );
                               },
                             ),
                           ],
                         ),
-                        _CustomExpansionTile(
+                        if (canViewAttendance)
+                          _CustomExpansionTile(
+                            title: 'Availability',
+                            icon: MediaRes.attendanceIcon,
+                            isExpansionEnabled: true,
+                            children: [
+                              DrawerListTile(
+                                title: 'Individual Movement',
+                                leading: const Icon(
+                                  Icons.directions_walk,
+                                  color: AppColors.themeColor,
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  if (_currentRoute !=
+                                      IndividualMovementScreen.routeName) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      IndividualMovementScreen.routeName,
+                                    );
+                                  }
+                                },
+                              ),
+                              DrawerListTile(
+                                title: 'Future Availability',
+                                leading: const Icon(
+                                  Icons.calendar_month,
+                                  color: AppColors.themeColor,
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  if (_currentRoute !=
+                                      FutureAvailabilityScreen.routeName) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      FutureAvailabilityScreen.routeName,
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        if (canViewActivities)
+                          _CustomExpansionTile(
                           title: 'Activities',
                           icon: MediaRes.activitesIcon,
                           isCurrentRoute:
@@ -586,7 +874,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        _CustomExpansionTile(
+                        if (canViewCommunication)
+                          _CustomExpansionTile(
                           title: 'Communication',
                           icon: MediaRes.communicationIcon,
                           isExpansionEnabled: true,
@@ -654,7 +943,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             ),
                           ],
                         ),
-                        _CustomExpansionTile(
+                        if (canViewBilling)
+                          _CustomExpansionTile(
                           title: 'Billing',
                           icon: MediaRes.billing_drawer_icon,
                           onTap: () {

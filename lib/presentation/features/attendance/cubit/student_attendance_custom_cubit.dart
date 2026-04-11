@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
@@ -119,7 +120,7 @@ class StudentAttendanceCustomCubit
       emit(state.copyWith(
         isLoading: false,
         isRefreshing: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -158,7 +159,7 @@ class StudentAttendanceCustomCubit
       if (isClosed) return;
       emit(state.copyWith(
         isLoadingMore: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

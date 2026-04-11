@@ -4,7 +4,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -12,6 +11,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
@@ -23,6 +24,7 @@ import 'package:wowcare/data/features/attendance/repositories/attendance_reposit
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -45,22 +47,21 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   final ScrollController _scrollController = ScrollController();
 
   String _searchQuery = '';
-  String? _customSelectedClassroom;
+  List<String> _selectedClassroomNames = <String>[];
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
-
-  List<String> _classrooms = <String>['All'];
+  bool _isClassroomDataReady = false;
 
   // Optional: show a small spinner on "View" action (UI-only)
   final Map<String, bool> _loadingButtons = <String, bool>{};
 
   late final StudentAttendanceCustomCubit _cubit;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
-    _customSelectedClassroom = 'All';
     // Resolve cubit from DI with safe fallback (for hot-reload scenarios)
     if (serviceLocator.isRegistered<StudentAttendanceCustomCubit>()) {
       _cubit = serviceLocator<StudentAttendanceCustomCubit>();
@@ -77,9 +78,41 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     }
 
     _customSearchController.addListener(_onSearchChanged);
-    _initializeClassrooms();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
+    // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
+    // We also guard for "data not loaded yet" so name->code resolution is reliable.
+    _loadClassroomData();
     _initializeDefaultRange();
-    _loadAttendanceData(reset: true);
+    // Initial load should use cached data when available.
+    _loadAttendanceData(reset: false);
+  }
+
+  Future<void> _loadClassroomData() async {
+    _classroomCubit.loadActiveClassrooms(
+      force: true,
+      onlyTypeClassroom: true,
+    );
+
+    // Mark ready immediately if data already exists.
+    if (!_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isClassroomDataReady = true);
+      return;
+    }
+
+    // Poll the cubit's state for a short period (avoid hanging forever).
+    int attempts = 0;
+    while (_classroomCubit.state.isLoading && attempts < 100) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+          _classroomCubit.state.classrooms.isNotEmpty;
+    });
   }
 
   @override
@@ -88,6 +121,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _customSearchController.dispose();
     _scrollController.dispose();
     _cubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -176,23 +210,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
-  void _initializeClassrooms() {
-    final fromWidget = (widget.staffAllowedClassrooms ?? const <String>[])
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-
-    // If nothing provided, keep a small default set for UI rendering
-    final fallback = <String>['Room 1', 'Room 2', 'Room 3'];
-
-    _classrooms = <String>[
-      'All',
-      ...((fromWidget.isNotEmpty) ? fromWidget : fallback),
-    ];
-  }
-
   void _initializeDefaultRange() {
     final now = DateTime.now();
     _customRangeStart ??= DateTime(now.year, now.month, 1);
@@ -203,17 +220,29 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     setState(() {
       _searchQuery = _customSearchController.text;
     });
-     _loadAttendanceData(reset: true);
+    // For search & filter changes, prefer cache-first behaviour.
+    _loadAttendanceData(reset: false);
+  }
+
+  List<String>? _resolveSelectedClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) return null;
+    if (_classroomCubit.state.classrooms.isEmpty) return null;
+    final nameToCode = <String, String>{
+      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+    };
+    final codes = _selectedClassroomNames
+        .map((n) => nameToCode[n])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    return codes.isEmpty ? null : codes;
   }
 
   void _loadAttendanceData({bool reset = false}) {
     final fromDate = _customRangeStart ?? DateTime.now();
     final toDate = _customRangeEnd ?? DateTime.now();
 
-    final classroomCodes = (_customSelectedClassroom != null &&
-            _customSelectedClassroom != 'All')
-        ? <String>[_customSelectedClassroom!]
-        : null;
+    final classroomCodes = _resolveSelectedClassroomCodes();
 
     final search = _searchQuery.trim().isNotEmpty ? _searchQuery.trim() : null;
 
@@ -240,7 +269,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     List<StudentAttendanceCustomItem> items,
   ) {
     final q = _searchQuery.trim().toLowerCase();
-    final selected = (_customSelectedClassroom ?? 'All').trim();
 
     final filtered = <_CustomAttendanceRow>[];
 
@@ -251,9 +279,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       final matchesSearch =
           q.isEmpty || item.studentName.toLowerCase().contains(q);
 
-      final matchesClassroom = selected == 'All' ||
-          selected.isEmpty ||
-          item.classroomName == selected;
+      final matchesClassroom =
+          _selectedClassroomNames.isEmpty ||
+              _selectedClassroomNames.contains(item.classroomName);
 
       if (matchesSearch && matchesClassroom) {
         filtered.add(
@@ -350,73 +378,82 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 520;
-              if (isNarrow) {
-                return Column(
-                  children: [
-                    CustomSearchBar(
-                      controller: _customSearchController,
-                      hintText: 'Search Students',
-                    ),
-                    SizedBox(height: spacing),
-                    CustomDropdown(
-                      hintText: 'Select Classroom',
-                      items: _classrooms,
-                      selectedItem: _customSelectedClassroom ?? 'All',
-                      onSelect: (val) {
+          Row(
+            children: [
+              Expanded(
+                flex: responsive.isTablet ? 3 : 2,
+                child: CustomSearchBar(
+                  controller: _customSearchController,
+                  hintText: 'Search Students',
+                ),
+              ),
+              SizedBox(width: spacing),
+              Expanded(
+                flex: responsive.isTablet ? 2 : 1,
+                child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                  bloc: _classroomCubit,
+                  builder: (context, state) {
+                    final items =
+                        state.classrooms.map((c) => c.name).toList();
+                    final isLoading =
+                        state.isLoading || !_isClassroomDataReady;
+                    if (isLoading && items.isEmpty) {
+                      return ShimmerLoader(
+                        height: 40,
+                        borderRadius: BorderRadius.circular(12),
+                      );
+                    }
+                    return CustomMultiSelectDropdown(
+                      hintText: 'Classroom',
+                      items: items,
+                      selectedItems: _selectedClassroomNames,
+                      onChanged: (values) {
+                        if (isLoading) return;
                         setState(() {
-                          _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
+                          _selectedClassroomNames =
+                              List<String>.from(values);
                         });
                         _loadAttendanceData(reset: true);
                       },
-                    ),
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: CustomSearchBar(
-                      controller: _customSearchController,
-                      hintText: 'Search Students',
-                    ),
-                  ),
-                  SizedBox(width: spacing),
-                  Expanded(
-                    flex: 2,
-                    child: CustomDropdown(
-                      hintText: 'Select Classroom',
-                      items: _classrooms,
-                      selectedItem: _customSelectedClassroom ?? 'All',
-                      onSelect: (val) {
-                        setState(() {
-                          _customSelectedClassroom = (val == null || val.isEmpty) ? 'All' : val;
-                        });
-                        _loadAttendanceData(reset: true);
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          CustomDateTimeField(
-            hasLabel: false,
-            isRangePicker: true,
-            fetchInitialTime: false,
-            initialDate: _customRangeStart,
-            onRangeSelected: (start, end) {
-              setState(() {
-                _customRangeStart = start;
-                _customRangeEnd = end;
-              });
-              _loadAttendanceData(reset: true);
-            },
+          SizedBox(height: responsive.verticalSpacing / 2),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: true,
+                  // Ensure the picker displays current month's default start–end on open
+                  fetchInitialTime: true,
+                  onRangeSelected: (start, end) {
+                    setState(() {
+                      _customRangeStart = start;
+                      _customRangeEnd = end;
+                    });
+                    _loadAttendanceData(reset: true);
+                  },
+                ),
+              ),
+              SizedBox(width: spacing),
+              CustomClearAllChip(
+                onTap: () {
+                  setState(() {
+                    _customSearchController.clear();
+                    _searchQuery = '';
+                    _selectedClassroomNames = <String>[];
+                    final now = DateTime.now();
+                    _customRangeStart = DateTime(now.year, now.month, 1);
+                    _customRangeEnd = DateTime(now.year, now.month + 1, 0);
+                  });
+                  _loadAttendanceData(reset: true);
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -593,40 +630,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       name: studentName,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
-                    if (showGreenDot)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: dotSize,
-                          height: dotSize,
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(0, 177, 21, 1),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (showRedDot)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: dotSize,
-                          height: dotSize,
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(200, 32, 32, 1),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 const SizedBox(width: 14),
@@ -658,12 +661,13 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               const SizedBox(height: 10),
               Row(
                 children: [
-                  AppText.small(
-                    'Classroom',
-                    style: TextStyle(color: AppColors.secondaryColor),
+                  Expanded(
+                    child: AppText.small(
+                      'Classroom',
+                      style: TextStyle(color: AppColors.secondaryColor),
+                    ),
                   ),
-                  const Spacer(),
-                  Flexible(
+                  Expanded(
                     child: AppText.value(
                       roomName,
                       maxLines: 1,

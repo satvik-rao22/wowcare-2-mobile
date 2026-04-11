@@ -2,6 +2,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
     as staff_absent;
@@ -11,6 +12,7 @@ import '../../../../domain/features/attendance/repositories/attendance_repositor
 import '../datasources/attendance_remote_datasource.dart';
 import '../models/student_absence_record_models.dart';
 import '../models/student_attendance_models.dart';
+import '../models/staff_absence_record_models.dart';
 
 class AttendanceRepositoryImpl
     implements AttendanceRepository, AttendanceRepositoryWithCache {
@@ -80,6 +82,22 @@ class AttendanceRepositoryImpl
       identifier: identifier,
     );
   }
+
+  // Cache key for the student expected-attendance summary card.
+  static String _studentAttendanceSummaryCacheKey() =>
+      CacheManager.buildCacheKey(
+        feature: 'attendance',
+        resource: 'student_summary',
+        identifier: 'default',
+      );
+
+  // Cache key for the staff expected-attendance summary card.
+  static String _staffAttendanceSummaryCacheKey() =>
+      CacheManager.buildCacheKey(
+        feature: 'attendance',
+        resource: 'staff_summary',
+        identifier: 'default',
+      );
 
   @override
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
@@ -168,6 +186,7 @@ class AttendanceRepositoryImpl
               nano: model.signedInTime!.nano,
             )
           : null,
+      signedInBy: model.signedInBy,
       signedOutAt: model.signedOutAt,
       signedOutTime: model.signedOutTime != null
           ? StudentAttendanceTime(
@@ -177,10 +196,41 @@ class AttendanceRepositoryImpl
               nano: model.signedOutTime!.nano,
             )
           : null,
+      signedOutBy: model.signedOutBy,
+      signedInMethod: model.signedInMethod,
+      signedOutMethod: model.signedOutMethod,
       classroomCode: model.classroomCode,
       tagCodes: model.tagCodes,
       tagNames: model.tagNames,
       duration: model.duration,
+      // Transfer-related fields
+      isTransfer: model.isTransfer,
+      sequenceNumber: model.sequenceNumber,
+      totalSequenceCount: model.totalSequenceCount,
+      hasNextTransfer: model.hasNextTransfer,
+      isLastSequenceEntry: model.isLastSequenceEntry,
+      fromClassroomCode: model.fromClassroomCode,
+      fromClassroomName: model.fromClassroomName,
+      toClassroomCode: model.toClassroomCode,
+      toClassroomName: model.toClassroomName,
+      transferTime: model.transferTime != null
+          ? StudentAttendanceTime(
+              hour: model.transferTime!.hour,
+              minute: model.transferTime!.minute,
+              second: model.transferTime!.second,
+              nano: model.transferTime!.nano,
+            )
+          : null,
+      nextActionTime: model.nextActionTime != null
+          ? StudentAttendanceTime(
+              hour: model.nextActionTime!.hour,
+              minute: model.nextActionTime!.minute,
+              second: model.nextActionTime!.second,
+              nano: model.nextActionTime!.nano,
+            )
+          : null,
+      transferredBy: model.transferredBy,
+      transferReason: model.transferReason,
     );
   }
 
@@ -390,6 +440,7 @@ class AttendanceRepositoryImpl
     StaffAttendanceDailyItemModel model,
   ) {
     return StaffAttendanceDailyItem(
+      attendanceRecordCode: model.attendanceRecordCode,
       staffCode: model.staffCode,
       staffName: model.staffName,
       isExpectedToday: model.isExpectedToday,
@@ -418,6 +469,35 @@ class AttendanceRepositoryImpl
       attendedTime: model.attendedTime,
       attendedHours: model.attendedHours,
       attendedMinutes: model.attendedMinutes,
+      signedInMethod: model.signedInMethod,
+      signedOutMethod: model.signedOutMethod,
+      isTransfer: model.isTransfer,
+      sequenceNumber: model.sequenceNumber,
+      totalSequenceCount: model.totalSequenceCount,
+      hasNextTransfer: model.hasNextTransfer,
+      isLastSequenceEntry: model.isLastSequenceEntry,
+      fromClassroomCode: model.fromClassroomCode,
+      fromClassroomName: model.fromClassroomName,
+      toClassroomCode: model.toClassroomCode,
+      toClassroomName: model.toClassroomName,
+      transferTime: model.transferTime != null
+          ? StaffAttendanceTime(
+              hour: model.transferTime!.hour,
+              minute: model.transferTime!.minute,
+              second: model.transferTime!.second,
+              nano: model.transferTime!.nano,
+            )
+          : null,
+      nextActionTime: model.nextActionTime != null
+          ? StaffAttendanceTime(
+              hour: model.nextActionTime!.hour,
+              minute: model.nextActionTime!.minute,
+              second: model.nextActionTime!.second,
+              nano: model.nextActionTime!.nano,
+            )
+          : null,
+      transferredBy: model.transferredBy,
+      transferReason: model.transferReason,
     );
   }
 
@@ -455,6 +535,53 @@ class AttendanceRepositoryImpl
     int size = 10,
   }) async {
     final pageModel = await _remoteDataSource.getStaffAttendanceAbsent(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStaffAbsentPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<staff_absent.StaffAttendanceAbsentPage> getStaffAbsentFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffAbsentFormList(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+    );
+
+    return _mapStaffAbsentPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<staff_absent.StaffAttendanceAbsentPage>
+      getStaffAttendanceAbsentToggleView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final pageModel = await _remoteDataSource.getStaffAttendanceAbsentToggleView(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
       classroomCodes: classroomCodes,
@@ -665,6 +792,33 @@ class AttendanceRepositoryImpl
   }
 
   @override
+  Future<String> markStaffAbsent({
+    required String staffCode,
+    required List<String> staffCodes,
+    required String absenceFromDate,
+    required String absenceToDate,
+    required String absenceReason,
+    required String absenceType,
+    required Map<String, String> absenceNotes,
+  }) async {
+    final response = await _remoteDataSource.markStaffAbsent(
+      request: StaffMarkAbsentRequestModel(
+        staffCode: staffCode,
+        staffCodes: staffCodes,
+        absenceFromDate: absenceFromDate,
+        absenceToDate: absenceToDate,
+        absenceReason: absenceReason,
+        absenceType: absenceType,
+        absenceNotes: absenceNotes,
+      ),
+    );
+
+    return response.message.isNotEmpty
+        ? response.message
+        : 'Staff marked absent successfully';
+  }
+
+  @override
   Future<student_absent.StudentAttendanceAbsentFormPage>
       getStudentAttendanceAbsentToggleView({
     required String fromAbsenceDate,
@@ -687,5 +841,195 @@ class AttendanceRepositoryImpl
     );
 
     return _mapStudentAbsentFormPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<StudentAttendanceExpectedSummary>
+      getStudentAttendanceExpectedSummary() async {
+    // 1. Try cache first (summary is lightweight and global for "today").
+    final cached = await _cacheManager.loadCache(
+      _studentAttendanceSummaryCacheKey(),
+    );
+    if (cached != null) {
+      return StudentAttendanceExpectedSummary(
+        expected: cached['expected'] as int? ?? 0,
+        present: cached['present'] as int? ?? 0,
+        absent: cached['absent'] as int? ?? 0,
+        signOut: cached['signOut'] as int? ?? 0,
+        notMarked: cached['notMarked'] as int? ?? 0,
+      );
+    }
+
+    // 2. Fallback to API and cache the result.
+    final model =
+        await _remoteDataSource.getStudentAttendanceExpectedSummaryCard();
+
+    await _cacheManager.saveCache(
+      _studentAttendanceSummaryCacheKey(),
+      {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      },
+    );
+
+    return StudentAttendanceExpectedSummary(
+      expected: model.expected,
+      present: model.present,
+      absent: model.absent,
+      signOut: model.signOut,
+      notMarked: model.notMarked,
+    );
+  }
+
+  @override
+  Future<StudentAttendanceExpectedSummary>
+      getStaffAttendanceExpectedSummary() async {
+    // 1. Try cache first (summary is lightweight and global for "today").
+    final cached = await _cacheManager.loadCache(
+      _staffAttendanceSummaryCacheKey(),
+    );
+    if (cached != null) {
+      return StudentAttendanceExpectedSummary(
+        expected: cached['expected'] as int? ?? 0,
+        present: cached['present'] as int? ?? 0,
+        absent: cached['absent'] as int? ?? 0,
+        signOut: cached['signOut'] as int? ?? 0,
+        notMarked: cached['notMarked'] as int? ?? 0,
+      );
+    }
+
+    // 2. Fallback to API and cache the result.
+    final model =
+        await _remoteDataSource.getStaffAttendanceExpectedSummaryCard();
+
+    await _cacheManager.saveCache(
+      _staffAttendanceSummaryCacheKey(),
+      {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      },
+    );
+
+    return StudentAttendanceExpectedSummary(
+      expected: model.expected,
+      present: model.present,
+      absent: model.absent,
+      signOut: model.signOut,
+      notMarked: model.notMarked,
+    );
+  }
+
+  @override
+  Future<String?> getStaffTodaySignInStatus(String staffCode) async {
+    final map = await _remoteDataSource.getStaffSignInStatus(
+      staffCodes: <String>[staffCode],
+    );
+    return map[staffCode];
+  }
+
+  @override
+  Future<Map<String, String>> getStaffTodaySignInStatusMap(
+    List<String> staffCodes,
+  ) {
+    final codes = staffCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (codes.isEmpty) return Future.value(<String, String>{});
+    return _remoteDataSource.getStaffSignInStatus(staffCodes: codes);
+  }
+
+  @override
+  Future<String?> getStudentTodaySignInStatus(String studentCode) async {
+    final map = await _remoteDataSource.getStudentSignInStatus(
+      studentCodes: <String>[studentCode],
+    );
+    return map[studentCode];
+  }
+
+  @override
+  Future<Map<String, String>> getStudentTodaySignInStatusMap(
+    List<String> studentCodes,
+  ) {
+    final codes =
+        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (codes.isEmpty) return Future.value(<String, String>{});
+    return _remoteDataSource.getStudentSignInStatus(studentCodes: codes);
+  }
+
+  @override
+  Future<String> updateStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+    DateTime? signedInAt,
+    DateTime? signedOutAt,
+    String? originalClassroomCode,
+    String? currentClassroomCode,
+    String? notes,
+    String? timeZone,
+  }) async {
+    final payload = <String, dynamic>{
+      'staffCode': staffCode,
+      // Backend expects ISO8601 with timezone (e.g., "2026-03-04T16:31:09.002Z")
+      'signedInAt': signedInAt?.toIso8601String(),
+      'signedOutAt': signedOutAt?.toIso8601String(),
+      'signedInMethod': 'APP',
+      'signedOutMethod': 'APP',
+      // Location/geofence fields are currently not captured in the UI.
+      // Send defaults as per backend schema.
+      'signedInLocationLat': 0,
+      'signedInLocationLong': 0,
+      'signedInWithinGeofence': true,
+      'signedOutLocationLat': 0,
+      'signedOutLocationLong': 0,
+      'signedOutWithinGeofence': true,
+      'originalClassroomCode': originalClassroomCode,
+      'currentClassroomCode': currentClassroomCode,
+      'notes': notes,
+      'timeZone': timeZone,
+    };
+
+    return _remoteDataSource.updateStudentAttendanceRecord(
+      attendanceRecordCode: attendanceRecordCode,
+      payload: payload,
+    );
+  }
+
+  @override
+  Future<String> createStudentSignInRecords({
+    required String attendanceDate,
+    required String staffCode,
+    required List<String> studentCodes,
+    String? classroomCode,
+    Map<String, String>? classroomCodeByStudentCode,
+    String method = 'APP',
+    bool isExpected = true,
+    double latitude = 0,
+    double longitude = 0,
+    bool withinGeofence = false,
+    String? timeZone,
+    DateTime? occurredAt,
+  }) async {
+    final payload = <String, dynamic>{
+      'attendanceDate': attendanceDate,
+      'staffCode': staffCode,
+      'studentCodes': studentCodes,
+      'classroomCode': classroomCode,
+      if (classroomCodeByStudentCode != null &&
+          classroomCodeByStudentCode.isNotEmpty)
+        'classroomCodeByStudentCode': classroomCodeByStudentCode,
+      'method': method,
+      'isExpected': isExpected,
+      'latitude': latitude,
+      'longitude': longitude,
+      'withinGeofence': withinGeofence,
+      'timeZone': timeZone,
+      'occurredAt': occurredAt?.toIso8601String(),
+    };
+
+    return _remoteDataSource.createStudentSignInRecords(payload: payload);
   }
 }

@@ -13,28 +13,53 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+enum StudentFilterSection {
+  classroom,
+  status,
+  tags,
+  parents,
+  attendance,
+}
+
 class StudentFilterScreen extends StatefulWidget {
   const StudentFilterScreen({
     super.key,
     this.initialFilters,
+    this.sections = const [
+      StudentFilterSection.classroom,
+      StudentFilterSection.status,
+      StudentFilterSection.tags,
+      StudentFilterSection.parents,
+      StudentFilterSection.attendance,
+    ],
   });
 
   static const String routeName = '/student-filter';
 
   final Map<String, List<String>>? initialFilters;
+  final List<StudentFilterSection> sections;
 
   @override
   State<StudentFilterScreen> createState() => _StudentFilterScreenState();
 }
 
 class _StudentFilterScreenState extends State<StudentFilterScreen> {
-  final List<String> _labelList = const [
-    'Classroom',
-    'Status',
-    'Tags',
-    'Parents',
-    'Attendance',
-  ];
+  List<String> get _labelList {
+    return widget.sections.map((s) {
+      switch (s) {
+        case StudentFilterSection.classroom:
+          return 'Classroom';
+        case StudentFilterSection.status:
+          return 'Status';
+        case StudentFilterSection.tags:
+          return 'Tags';
+        case StudentFilterSection.parents:
+          return 'Parents';
+        case StudentFilterSection.attendance:
+          return 'Attendance';
+      }
+    }).toList();
+  }
 
   // Options
   List<String> _classroomList = [];
@@ -71,15 +96,23 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     _selectedParentsList = List<String>.from(initial['Parents'] ?? const []);
     _selectedAttendanceList = List<String>.from(initial['Attendance'] ?? const []);
 
-    if (_selectedStatusList.isEmpty) {
-      _selectedStatusList = ['Active'];
-    } else if (_selectedStatusList.length > 1) {
-      _selectedStatusList = [_selectedStatusList.last];
+    if (widget.sections.contains(StudentFilterSection.status)) {
+      if (_selectedStatusList.isEmpty) {
+        _selectedStatusList = ['Active'];
+      } else if (_selectedStatusList.length > 1) {
+        _selectedStatusList = [_selectedStatusList.last];
+      }
     }
 
-    _fetchFilterData();
-    _loadTags();
-    _loadParents();
+    if (widget.sections.contains(StudentFilterSection.classroom)) {
+      _fetchFilterData();
+    }
+    if (widget.sections.contains(StudentFilterSection.tags)) {
+      _loadTags();
+    }
+    if (widget.sections.contains(StudentFilterSection.parents)) {
+      _loadParents();
+    }
   }
 
   void _fetchFilterData() {
@@ -129,14 +162,25 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   }
 
   void _applyFilters() {
+    final result = <String, List<String>>{};
+    if (widget.sections.contains(StudentFilterSection.classroom)) {
+      result['Classroom'] = List<String>.from(_selectedClassroomList);
+    }
+    if (widget.sections.contains(StudentFilterSection.status)) {
+      result['Status'] = List<String>.from(_selectedStatusList);
+    }
+    if (widget.sections.contains(StudentFilterSection.tags)) {
+      result['Tags'] = List<String>.from(_selectedTagsList);
+    }
+    if (widget.sections.contains(StudentFilterSection.parents)) {
+      result['Parents'] = List<String>.from(_selectedParentsList);
+    }
+    if (widget.sections.contains(StudentFilterSection.attendance)) {
+      result['Attendance'] = List<String>.from(_selectedAttendanceList);
+    }
+
     Navigator.pop<Map<String, List<String>>>(context, {
-      'Classroom': List<String>.from(_selectedClassroomList),
-      'Status': List<String>.from(_selectedStatusList),
-      'Tags': List<String>.from(_selectedTagsList),
-      'Parents': List<String>.from(_selectedParentsList),
-      'Attendance': List<String>.from(_selectedAttendanceList),
-      // Code-based filters will be resolved in StudentScreen using
-      // ClassroomCubit + tags/guardian services as needed.
+      ...result,
     });
   }
 
@@ -187,66 +231,91 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           });
         }
 
-        final dropdownLists = <List<String>>[
-          _classroomList,
-          _statusList,
-          _tagsList,
-          _parentsList,
-          _attendanceList,
-        ];
+        List<String> _optionsFor(StudentFilterSection section) {
+          switch (section) {
+            case StudentFilterSection.classroom:
+              return _classroomList;
+            case StudentFilterSection.status:
+              return _statusList;
+            case StudentFilterSection.tags:
+              return _tagsList;
+            case StudentFilterSection.parents:
+              return _parentsList;
+            case StudentFilterSection.attendance:
+              return _attendanceList;
+          }
+        }
 
-        final selectedDropdownLists = <List<String>>[
-          _selectedClassroomList,
-          _selectedStatusList,
-          _selectedTagsList,
-          _selectedParentsList,
-          _selectedAttendanceList,
-        ];
+        List<String> _selectedFor(StudentFilterSection section) {
+          switch (section) {
+            case StudentFilterSection.classroom:
+              return _selectedClassroomList;
+            case StudentFilterSection.status:
+              return _selectedStatusList;
+            case StudentFilterSection.tags:
+              return _selectedTagsList;
+            case StudentFilterSection.parents:
+              return _selectedParentsList;
+            case StudentFilterSection.attendance:
+              return _selectedAttendanceList;
+          }
+        }
 
         // Consider API-driven data (classrooms, tags, parents) independently.
         // Even if one API fails, the others can still populate their dropdowns.
         final hasAnyApiData =
-            _classroomList.isNotEmpty ||
-            _tagsList.isNotEmpty ||
-            _parentsList.isNotEmpty;
+            (widget.sections.contains(StudentFilterSection.classroom) &&
+                _classroomList.isNotEmpty) ||
+            (widget.sections.contains(StudentFilterSection.tags) &&
+                _tagsList.isNotEmpty) ||
+            (widget.sections.contains(StudentFilterSection.parents) &&
+                _parentsList.isNotEmpty);
 
         if (hasAnyApiData) {
           return GridView.builder(
             padding: EdgeInsets.zero,
-            itemCount: dropdownLists.length,
+            itemCount: widget.sections.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
               childAspectRatio: 1.6,
             ),
-            itemBuilder: (context, index) => CustomMultiSelectDropdown(
-              label: _labelList[index],
-              hintText: 'Select',
-              items: dropdownLists[index],
-              selectedItems: selectedDropdownLists[index],
-              onChanged: (selectedItems) {
-                setState(() {
-                  if (index == 1 || index == 4) {
-                    // Status + Attendance: keep single selection (last picked).
-                    selectedDropdownLists[index]
+            itemBuilder: (context, index) {
+              final section = widget.sections[index];
+              final label = _labelList[index];
+              final items = _optionsFor(section);
+              final selected = _selectedFor(section);
+
+              return CustomMultiSelectDropdown(
+                label: label,
+                hintText: 'Select',
+                items: items,
+                selectedItems: selected,
+                onChanged: (selectedItems) {
+                  setState(() {
+                    final isSingleSelect = section == StudentFilterSection.status ||
+                        section == StudentFilterSection.attendance;
+
+                    selected
                       ..clear()
                       ..addAll(
-                        selectedItems.isEmpty ? const <String>[] : <String>[selectedItems.last],
+                        isSingleSelect
+                            ? (selectedItems.isEmpty
+                                ? const <String>[]
+                                : <String>[selectedItems.last])
+                            : selectedItems,
                       );
-                  } else {
-                    selectedDropdownLists[index]
-                      ..clear()
-                      ..addAll(selectedItems);
-                  }
 
-                  // Ensure status always has a default.
-                  if (index == 1 && _selectedStatusList.isEmpty) {
-                    _selectedStatusList.add('Active');
-                  }
-                });
-              },
-            ),
+                    // Ensure status always has a default if enabled.
+                    if (section == StudentFilterSection.status &&
+                        _selectedStatusList.isEmpty) {
+                      _selectedStatusList.add('Active');
+                    }
+                  });
+                },
+              );
+            },
           );
         }
 
@@ -260,21 +329,23 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
             mainAxisSpacing: 16,
             childAspectRatio: 1.6,
           ),
-          itemBuilder: (context, index) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _labelList[index],
-                style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
+          itemBuilder: (context, index) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _labelList[index],
+                  style: TextStyle(
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const ShimmerLoader(height: 40),
-            ],
-          ),
+                const SizedBox(height: 8),
+                const ShimmerLoader(height: 40),
+              ],
+            );
+          },
         );
       },
     );

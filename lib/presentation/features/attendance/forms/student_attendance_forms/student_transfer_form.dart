@@ -6,23 +6,41 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'dart:convert';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 
-// Mock student entity for UI-only implementation
+// Student entity for Transfer UI & API payload
 class StudentEntity {
   final int id;
+  final String studentCode;
   final String fullName;
   final int roomId;
   final String roomName;
   final String photoUuid;
   final List<TagEntity> tags;
+  final String classroomCode;
 
   StudentEntity({
     required this.id,
+    required this.studentCode,
     required this.fullName,
     required this.roomId,
     required this.roomName,
     this.photoUuid = '',
     this.tags = const [],
+    this.classroomCode = '',
   });
 
   @override
@@ -30,10 +48,10 @@ class StudentEntity {
       identical(this, other) ||
       other is StudentEntity &&
           runtimeType == other.runtimeType &&
-          id == other.id;
+          studentCode == other.studentCode;
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => studentCode.hashCode;
 }
 
 // Mock tag entity for UI-only implementation
@@ -48,10 +66,12 @@ class StudentTransferForm extends StatefulWidget {
     super.key,
     required this.students,
     this.refreshCallback,
+    this.classroomNameToCode = const <String, String>{},
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
+  final Map<String, String> classroomNameToCode;
 
   static const String routeName = '/student-transfer-form';
 
@@ -60,27 +80,138 @@ class StudentTransferForm extends StatefulWidget {
 }
 
 class _StudentTransferFormState extends State<StudentTransferForm> {
+  DateTime _selectedTransferDate = DateTime.now();
+  TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  bool? _isStaffAdminPersona;
   String? selectedClassroom;
   String currentClassroom = '';
-  List<String> availableClassrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C',
-    'Classroom D'
-  ];
+  List<String> availableClassrooms = [];
   List<StudentEntity> currentStudents = [];
+  bool _isSubmitting = false;
+  Map<String, String> _classroomNameToCode = <String, String>{};
 
   @override
   void initState() {
     super.initState();
     currentStudents = List.from(widget.students);
+    _classroomNameToCode = Map<String, String>.from(widget.classroomNameToCode);
     if (widget.students.isNotEmpty) {
-      currentClassroom = widget.students.first.roomName;
-      // Filter out current classroom from available classrooms
-      availableClassrooms = availableClassrooms
-          .where((room) => room != currentClassroom)
-          .toList();
+      currentClassroom = _deriveCurrentClassroomName();
+      availableClassrooms = _filteredClassroomNames(
+        _classroomNameToCode,
+      );
     }
+    _loadAvailableClassroomsFromApi();
+    _loadPersonaFlags();
+  }
+
+  Future<void> _loadPersonaFlags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      if (!isAdmin) {
+        final rolesJson = await storage.getString(StorageKeys.roles);
+        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
+          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
+          for (final r in roles) {
+            final roleCode =
+                ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
+            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+              isAdmin = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _isStaffAdminPersona = isAdmin;
+        if (!isAdmin) {
+          _selectedTransferDate = DateTime.now();
+          _selectedTransferTime = TimeOfDay.now();
+        }
+      });
+    } catch (_) {}
+  }
+
+  List<String> _filteredClassroomNames(Map<String, String> classroomNameToCode) {
+    // Determine names of classrooms currently occupied by selected students
+    final codeToName = _codeToNameMap();
+    final currentRoomNames = currentStudents.map((s) {
+      final code = s.classroomCode.trim();
+      final resolved = code.isNotEmpty ? (codeToName[code] ?? '') : '';
+      final fallback = s.roomName.trim();
+      return (resolved.isNotEmpty ? resolved : fallback);
+    }).where((name) => name.isNotEmpty).toSet();
+
+    return classroomNameToCode.entries
+        .where((entry) => entry.key.trim().isNotEmpty)
+        .where((entry) => !currentRoomNames.contains(entry.key))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+  }
+
+  Future<void> _loadAvailableClassroomsFromApi() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+
+      final getActiveClassroomsUseCase =
+          serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getActiveClassroomsUseCase(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: true,
+      );
+
+      final apiMap = <String, String>{
+        for (final classroom in classrooms)
+          if (classroom.name.trim().isNotEmpty && classroom.code.trim().isNotEmpty)
+            classroom.name: classroom.code,
+      };
+
+      if (!mounted || apiMap.isEmpty) return;
+      setState(() {
+        _classroomNameToCode = apiMap;
+        // Re-derive current classroom once we have a reliable map
+        currentClassroom = _deriveCurrentClassroomName();
+        availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
+        if (selectedClassroom != null &&
+            !availableClassrooms.contains(selectedClassroom)) {
+          selectedClassroom = null;
+        }
+      });
+    } catch (_) {
+      // Keep fallback map from widget.classroomNameToCode if API load fails.
+    }
+  }
+
+  Map<String, String> _codeToNameMap() {
+    if (_classroomNameToCode.isEmpty) return const <String, String>{};
+    // Reverse map name->code to code->name
+    final map = <String, String>{};
+    _classroomNameToCode.forEach((name, code) {
+      if (code.trim().isNotEmpty && name.trim().isNotEmpty) {
+        map[code.trim()] = name.trim();
+      }
+    });
+    return map;
+  }
+
+  String _deriveCurrentClassroomName() {
+    if (currentStudents.isEmpty) return '';
+    final first = currentStudents.first;
+    // Prefer resolving by classroomCode using loaded map
+    final code = first.classroomCode.trim();
+    if (code.isNotEmpty) {
+      final resolved = _codeToNameMap()[code] ?? '';
+      if (resolved.isNotEmpty) return resolved;
+    }
+    // Fallback to provided roomName if available
+    return first.roomName;
   }
 
   void _removeStudent(StudentEntity student) {
@@ -95,7 +226,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   void _handleSubmit() {
     if (selectedClassroom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Please select a classroom to transfer to'),
           backgroundColor: AppColors.warningColor,
@@ -104,15 +237,172 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       return;
     }
 
-    // UI-only: Just show success and navigate back
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transfer successfully'),
-        backgroundColor: AppColors.successColor,
-      ),
+    _submitTransfer();
+  }
+
+  Future<String> _resolveStaffCode() async {
+    return resolveStaffCodeForLoggedInUser();
+  }
+
+  Future<void> _submitTransfer() async {
+    if (_isSubmitting) return;
+    if (currentStudents.isEmpty || selectedClassroom == null) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
+        const SnackBar(
+          content: Text('No students selected to transfer'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final client = serviceLocator<ApiClient>().client;
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceRecordsTransfer,
+      ApiConstants.attendanceBaseUrl,
     );
-    Navigator.pop(context);
-    widget.refreshCallback?.call();
+
+    final now = DateTime.now();
+    final effectiveDate = (_isStaffAdminPersona ?? false) ? _selectedTransferDate : now;
+    final today = DateTime(now.year, now.month, now.day);
+    final pickedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
+    final safeDate = pickedDay.isAfter(today) ? today : effectiveDate;
+    final transferDate =
+        '${safeDate.year.toString().padLeft(4, '0')}-${safeDate.month.toString().padLeft(2, '0')}-${safeDate.day.toString().padLeft(2, '0')}';
+    final effectiveTime =
+        (_isStaffAdminPersona ?? false) ? _selectedTransferTime : TimeOfDay.fromDateTime(now);
+    final transferredAt = DateTime(
+      safeDate.year,
+      safeDate.month,
+      safeDate.day,
+      effectiveTime.hour,
+      effectiveTime.minute,
+    ).toUtc();
+
+    final staffCode = await _resolveStaffCode();
+    if (!mounted) return;
+    if (staffCode.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
+        const SnackBar(
+          content: Text('Unable to resolve staffCode. Please re-login.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final studentCodes = currentStudents
+        .map((s) => s.studentCode.trim())
+        .where((code) => code.isNotEmpty)
+        .toList();
+    if (studentCodes.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
+        const SnackBar(
+          content: Text('Student code missing for selected students'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final toClassroomCode = selectedClassroom == null
+        ? ''
+        : (_classroomNameToCode[selectedClassroom!] ?? '').trim();
+    if (toClassroomCode.isEmpty) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
+        const SnackBar(
+          content: Text(
+            'Selected classroom is not linked to a classroom code yet.',
+          ),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
+    final toClassroomCodeByStudentCode = <String, String>{
+      for (final s in currentStudents) s.studentCode: toClassroomCode,
+    };
+
+    final payload = <String, dynamic>{
+      'transferDate': transferDate,
+      'staffCode': staffCode,
+      'studentCodes': studentCodes,
+      'toClassroomCode': toClassroomCode,
+      'toClassroomCodeByStudentCode': toClassroomCodeByStudentCode,
+      // No dedicated reason field in UI yet, so send a generic placeholder.
+      'transferReason': 'Transferred via mobile app',
+      'timeZone': 'Asia/Kolkata',
+      'transferredAt': transferredAt.toIso8601String(),
+    };
+
+    try {
+      final response = await client.post<dynamic>(
+        endpoint,
+        data: payload,
+      );
+
+      final data = response.data;
+      bool success = false;
+      String message = 'Transfer successfully';
+
+      if (data is Map<String, dynamic>) {
+        success = data['success'] as bool? ?? false;
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+      }
+
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              success ? AppColors.successColor : AppColors.errorColor,
+        ),
+      );
+
+      if (success) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const StudentAttendanceTabbedView(),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final errorMessage = ApiErrorHandler.extractErrorMessage(e);
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -140,6 +430,61 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
               ),
             ),
             const SizedBox(height: 20),
+            // Date + Time (50/50 split) - align with StaffTransferForm
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Date'),
+                      const SizedBox(height: 8),
+                      CustomDateTimeField(
+                        hasLabel: false,
+                        isRangePicker: false,
+                        isTime: false,
+                        fetchInitialTime: false,
+                        initialDate: _selectedTransferDate,
+                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        onDateSelected: (date) {
+                          setState(() {
+                            final now = DateTime.now();
+                            final today = DateTime(now.year, now.month, now.day);
+                            final pickedDay =
+                                DateTime(date.year, date.month, date.day);
+                            _selectedTransferDate =
+                                pickedDay.isAfter(today) ? today : date;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppText.label('Time'),
+                      const SizedBox(height: 8),
+                      IgnorePointer(
+                        ignoring: !(_isStaffAdminPersona ?? false),
+                        child: SimpleTimePickerField(
+                          time: _selectedTransferTime,
+                          onTimeSelected: (t) {
+                            setState(() {
+                              _selectedTransferTime = t;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Below: Current classroom and Transfer to classroom
             Row(
               children: [
                 Expanded(
@@ -228,7 +573,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Submit',
-        onPressedConfirm: _handleSubmit,
+        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
       ),
     );
