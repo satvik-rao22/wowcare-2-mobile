@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -14,15 +15,13 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'student_sign_out_form.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
-import 'package:provider/provider.dart';
+import 'guardian_student_selection_scope.dart';
+import 'student_sign_out_form.dart';
 
 class StudentSelectionSignOutForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-out-form';
@@ -57,27 +56,32 @@ class _StudentSelectionSignOutFormState
   bool _isClassroomDataReady = false;
   bool _isTagMapLoading = false;
 
+  late final bool _restrictToGuardianChildren;
+
   late final GetStudentSignOutFormListUseCase
       _getStudentSignOutFormListUseCase;
   late final ClassroomCubit _classroomCubit;
   late final StorageService _storageService;
   late final GetTagNameCodeMapForSchoolUseCase
       _getTagNameCodeMapForSchoolUseCase;
-  late final GetStudentPageUseCase _getStudentPageUseCase;
 
   @override
   void initState() {
     super.initState();
+    _restrictToGuardianChildren = context.read<RoleProvider>().isParent;
     _getStudentSignOutFormListUseCase =
         serviceLocator<GetStudentSignOutFormListUseCase>();
     _classroomCubit = serviceLocator<ClassroomCubit>();
     _storageService = serviceLocator<StorageService>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
 
-    _loadClassrooms();
-    _loadTags();
+    if (_restrictToGuardianChildren) {
+      _isClassroomDataReady = true;
+    } else {
+      _loadClassrooms();
+      _loadTags();
+    }
     _loadStudents();
   }
 
@@ -214,29 +218,23 @@ class _StudentSelectionSignOutFormState
         size: 100,
       );
 
-      final isParent = context.read<RoleProvider>().isParent;
-      Set<String>? allowedStudentCodes;
-      if (isParent) {
-        final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
-        final schoolCode =
-            (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
-        if (guardianCode.isNotEmpty && schoolCode.isNotEmpty) {
-          final parentStudents = await _getStudentPageUseCase(
-            schoolCode: schoolCode,
-            guardianCodes: <String>[guardianCode],
-            page: 0,
-            size: 500,
-          );
-          allowedStudentCodes = parentStudents.items
-              .map((s) => s.code.trim())
-              .where((code) => code.isNotEmpty)
-              .toSet();
-        } else {
-          allowedStudentCodes = <String>{};
-        }
+      if (!mounted) return;
+
+      final allowUpper = await loadGuardianStudentAllowlistForSelection(context);
+
+      var items = page.items;
+      if (allowUpper != null) {
+        items = items
+            .where(
+              (i) => studentCodeAllowedForGuardianAllowlist(
+                i.studentCode,
+                allowUpper,
+              ),
+            )
+            .toList();
       }
 
-      final students = page.items.asMap().entries.map((entry) {
+      final students = items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
         return StudentEntity(
@@ -248,10 +246,11 @@ class _StudentSelectionSignOutFormState
           photoUuid: '', // API does not supply image here
           classroomCode: item.classroomCode,
         );
-      }).where((student) {
-        if (allowedStudentCodes == null) return true;
-        return allowedStudentCodes.contains(student.studentCode.trim());
       }).toList();
+
+      selectedStudents.removeWhere(
+        (s) => !students.any((e) => e.studentCode == s.studentCode),
+      );
 
       setState(() {
         _filteredStudents = List.from(students);
@@ -330,7 +329,11 @@ class _StudentSelectionSignOutFormState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppText.subtitle('Select Students'),
+          AppText.subtitle(
+            _restrictToGuardianChildren
+                ? 'Select your children'
+                : 'Select Students',
+          ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -342,7 +345,9 @@ class _StudentSelectionSignOutFormState
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search Students',
+                hintText: _restrictToGuardianChildren
+                    ? 'Search your children'
+                    : 'Search Students',
                 hintStyle: AppTextStyles.body.copyWith(
                   color: Colors.grey[700],
                 ),
@@ -353,59 +358,61 @@ class _StudentSelectionSignOutFormState
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                  bloc: _classroomCubit,
-                  builder: (context, classroomState) {
-                    final items = _classroomList.isNotEmpty
-                        ? _classroomList
-                        : classroomState.classrooms
-                            .map((c) => c.name)
-                            .toList(growable: false);
-                    final isLoading =
-                        classroomState.isLoading || !_isClassroomDataReady;
+          if (!_restrictToGuardianChildren) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                    bloc: _classroomCubit,
+                    builder: (context, classroomState) {
+                      final items = _classroomList.isNotEmpty
+                          ? _classroomList
+                          : classroomState.classrooms
+                              .map((c) => c.name)
+                              .toList(growable: false);
+                      final isLoading =
+                          classroomState.isLoading || !_isClassroomDataReady;
 
-                    if (isLoading && items.isEmpty) {
-                      return const ShimmerLoader(height: 40);
-                    }
+                      if (isLoading && items.isEmpty) {
+                        return const ShimmerLoader(height: 40);
+                      }
 
-                    return CustomDropdown(
-                      hintText: 'Classroom',
-                      items: items,
-                      selectedItem: _selectedClassroom,
-                      onSelect: (value) {
-                        if (isLoading) return;
-                        setState(() {
-                          _selectedClassroom = value;
-                          _selectedClassroomCode = value == null
-                              ? null
-                              : _classroomNameToCode[value];
-                        });
-                        _loadStudents();
-                      },
-                    );
-                  },
+                      return CustomDropdown(
+                        hintText: 'Classroom',
+                        items: items,
+                        selectedItem: _selectedClassroom,
+                        onSelect: (value) {
+                          if (isLoading) return;
+                          setState(() {
+                            _selectedClassroom = value;
+                            _selectedClassroomCode = value == null
+                                ? null
+                                : _classroomNameToCode[value];
+                          });
+                          _loadStudents();
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tagsList,
-                  selectedItems: _selectedTag,
-                  onChanged: (selectedItems) {
-                    setState(() {
-                      _selectedTag = selectedItems;
-                    });
-                    _loadStudents();
-                  },
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomMultiSelectDropdown(
+                    hintText: 'Tags',
+                    items: _tagsList,
+                    selectedItems: _selectedTag,
+                    onChanged: (selectedItems) {
+                      setState(() {
+                        _selectedTag = selectedItems;
+                      });
+                      _loadStudents();
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Padding(
@@ -442,7 +449,14 @@ class _StudentSelectionSignOutFormState
                         ),
                       )
                     : _filteredStudents.isEmpty
-                        ? const Center(child: AppText.body('No students found'))
+                        ? Center(
+                            child: AppText.body(
+                              _restrictToGuardianChildren
+                                  ? 'No linked children appear in today\'s sign-out list. If this looks wrong, check the child selector at the top of the app.'
+                                  : 'No students found',
+                              textAlign: TextAlign.center,
+                            ),
+                          )
                         : GridView.builder(
                             shrinkWrap: false,
                             physics: const AlwaysScrollableScrollPhysics(),

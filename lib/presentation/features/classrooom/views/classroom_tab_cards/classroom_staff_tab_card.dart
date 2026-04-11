@@ -312,9 +312,11 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
             id: 1,
             name: item.staffName,
             primaryRoomId: 0,
+            classroomCode: item.classroomCode,
             designation:
                 item.designation.isNotEmpty ? item.designation.first : 'Staff',
             staffCode: item.staffCode,
+            isExpectedToday: item.isExpectedToday,
           );
         }
       } else if (actionName == 'sign_out') {

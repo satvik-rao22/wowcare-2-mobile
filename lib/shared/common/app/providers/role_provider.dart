@@ -12,6 +12,10 @@ class RoleProvider extends ChangeNotifier {
   String _role = 'admin'; // Default to admin
   final Set<String> _modulesWithRead = <String>{};
   final Set<String> _modulesWithWrite = <String>{};
+  /// True when the matched school payload included a `permissions` list from
+  /// `/users/details` (even if empty). All personas use the same read/write
+  /// sets when this is on; when false, non-guardian roles keep legacy full access.
+  bool _granularModuleAccess = false;
   bool _initialized = false;
 
   RoleProvider() {
@@ -49,25 +53,48 @@ class RoleProvider extends ChangeNotifier {
     _role = 'admin';
     _modulesWithRead.clear();
     _modulesWithWrite.clear();
+    _granularModuleAccess = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_roleKey);
     notifyListeners();
   }
 
+  /// Whether the active school context uses API module rows for this user.
+  bool get usesGranularModuleAccess => _granularModuleAccess;
+
   bool canReadModule(String module) {
-    if (_modulesWithRead.isEmpty && _modulesWithWrite.isEmpty) {
-      // Keep old behavior while details are unavailable.
-      if (isParent) return false;
-      return true;
-    }
     final normalized = _normalizeModule(module);
+    if (!_granularModuleAccess) {
+      if (_modulesWithRead.isEmpty && _modulesWithWrite.isEmpty) {
+        if (isParent) return false;
+        return true;
+      }
+    }
     return _modulesWithRead.contains(normalized) ||
         _modulesWithWrite.contains(normalized);
   }
 
   bool canWriteModule(String module) {
     final normalized = _normalizeModule(module);
+    if (!_granularModuleAccess) {
+      if (_modulesWithRead.isEmpty && _modulesWithWrite.isEmpty) {
+        if (isParent) return false;
+        return true;
+      }
+    }
     return _modulesWithWrite.contains(normalized);
+  }
+
+  /// Opens navigation / read-only surfaces for [module] (read or write grants access).
+  /// Before granular permissions load (no API list yet), allows access so the app
+  /// does not freeze; with an explicit empty permission list, access is denied.
+  bool canOpenModule(String module) {
+    if (!_granularModuleAccess &&
+        _modulesWithRead.isEmpty &&
+        _modulesWithWrite.isEmpty) {
+      return true;
+    }
+    return canReadModule(module);
   }
 
   bool canAccessAny(List<String> modules) {
@@ -127,6 +154,7 @@ class RoleProvider extends ChangeNotifier {
   ) async {
     _modulesWithRead.clear();
     _modulesWithWrite.clear();
+    _granularModuleAccess = false;
     final org = (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
@@ -165,6 +193,7 @@ class RoleProvider extends ChangeNotifier {
 
     final permissions = matchedSchool['permissions'];
     if (permissions is List) {
+      _granularModuleAccess = true;
       for (final p in permissions) {
         if (p is! Map) continue;
         final permissionMap = Map<String, dynamic>.from(p);
@@ -180,5 +209,7 @@ class RoleProvider extends ChangeNotifier {
     }
   }
 
-  String _normalizeModule(String module) => module.trim().toLowerCase();
+  /// Aligns UI aliases (e.g. `staff-attendance`) with backend keys (`STAFF_ATTENDANCE`).
+  String _normalizeModule(String module) =>
+      module.trim().toLowerCase().replaceAll('-', '_');
 }

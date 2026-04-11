@@ -627,6 +627,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       photoUuid: current.photoUuid,
       designation: current.designationName ?? 'Staff',
       staffCode: widget.staffCode,
+      isExpectedToday: widget.isExpectedToday,
     );
 
     Widget? target;

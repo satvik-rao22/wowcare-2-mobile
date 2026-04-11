@@ -167,6 +167,15 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  /// Logged-in guardian profile from `GET /api/v1/guardian/profile`.
+  ///
+  /// Query: [schoolCode], [userCode]. Returns API `data` (includes guardian
+  /// `code` and `userCode`).
+  Future<Map<String, dynamic>> getGuardianProfile({
+    required String schoolCode,
+    required String userCode,
+  });
+
   /// Fetches student counts (active, upcoming, enrolled) for a school.
   ///
   /// The returned map must contain keys: 'activeCount', 'upcomingCount',

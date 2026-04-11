@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -72,6 +75,10 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, StudentAccessModules.student);
+
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
       child: SingleChildScrollView(
@@ -94,37 +101,49 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         color: AppColors.primaryColor,
                       ),
                     ),
-                    GradientAddButton(
-                      onTap: () async {
-                        final code = widget.studentCode ?? '';
-                        if (code.isEmpty) return;
-                        final repo =
-                            serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-                        final current =
-                            await repo.getStudentPickups(studentCode: code);
-                        if (current.length >= _maxPickupsPerStudent) {
-                          if (!mounted) return;
-                          CoreUtils.showTopSnackBar(
-                            context: context,
-                            message:
-                                'You can add up to $_maxPickupsPerStudent pickup contacts per student.',
-                            isError: true,
+                    if (canStudentWrite)
+                      GradientAddButton(
+                        onTap: () async {
+                          final code = widget.studentCode ?? '';
+                          if (code.isEmpty) return;
+                          final repo =
+                              serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+                          final current =
+                              await repo.getStudentPickups(studentCode: code);
+                          if (current.length >= _maxPickupsPerStudent) {
+                            if (!mounted) return;
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message:
+                                  'You can add up to $_maxPickupsPerStudent pickup contacts per student.',
+                              isError: true,
+                            );
+                            return;
+                          }
+                          final result = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AddPickupScreen(studentCode: code),
+                            ),
                           );
-                          return;
-                        }
-                        final result = await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => AddPickupScreen(studentCode: code),
-                          ),
-                        );
-                        if (result == true && mounted) {
-                          await _handleRefresh();
-                        }
-                      },
-                      wantedButtonSize: 40,
-                      iconSize: 22,
-                      borderRadius: 10,
-                    ),
+                          if (result == true && mounted) {
+                            await _handleRefresh();
+                          }
+                        },
+                        wantedButtonSize: 40,
+                        iconSize: 22,
+                        borderRadius: 10,
+                      )
+                    else
+                      Opacity(
+                        opacity: 0.45,
+                        child: GradientAddButton(
+                          onTap: () =>
+                              ModuleAccess.showWriteRestricted(context),
+                          wantedButtonSize: 40,
+                          iconSize: 22,
+                          borderRadius: 10,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -188,6 +207,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           onRefresh: _handleRefresh,
                           isLoading: _isMutating,
                           onSetLoading: (v) => setState(() => _isMutating = v),
+                          showActionButtons: canStudentWrite,
                         ),
                         if (i != pickups.length - 1)
                           const SizedBox(height: 12),
@@ -254,6 +274,7 @@ class _PickupCard extends StatefulWidget {
     this.rawEmail,
     this.phoneNumber,
     this.onRefresh,
+    this.showActionButtons = true,
   });
   final String studentCode;
   final String pickupCode;
@@ -272,6 +293,7 @@ class _PickupCard extends StatefulWidget {
   final String? phoneNumber;
   /// Called after edit or delete so parent can refresh pickups list and profile cache.
   final Future<void> Function()? onRefresh;
+  final bool showActionButtons;
 
   @override
   State<_PickupCard> createState() => _PickupCardState();
@@ -506,24 +528,26 @@ class _PickupCardState extends State<_PickupCard> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      if (isCarpool)
-                        CustomButtonLayout(
-                          confirmButtonLabel: 'Delete',
-                          onPressedConfirm: widget.isLoading ? null : _onDelete,
-                          showCancelButton: false,
-                          isForm: false,
-                          isLoading: widget.isLoading,
-                        )
-                      else
-                        CustomButtonLayout(
-                          confirmButtonLabel: 'Edit',
-                          cancelButtonLabel: 'Delete',
-                          onPressedConfirm: widget.isLoading ? null : _onEdit,
-                          onPressedCancel: widget.isLoading ? null : _onDelete,
-                          isForm: false,
-                          isLoading: widget.isLoading,
-                        ),
-                      const SizedBox(height: 12),
+                      if (widget.showActionButtons) ...[
+                        if (isCarpool)
+                          CustomButtonLayout(
+                            confirmButtonLabel: 'Delete',
+                            onPressedConfirm: widget.isLoading ? null : _onDelete,
+                            showCancelButton: false,
+                            isForm: false,
+                            isLoading: widget.isLoading,
+                          )
+                        else
+                          CustomButtonLayout(
+                            confirmButtonLabel: 'Edit',
+                            cancelButtonLabel: 'Delete',
+                            onPressedConfirm: widget.isLoading ? null : _onEdit,
+                            onPressedCancel: widget.isLoading ? null : _onDelete,
+                            isForm: false,
+                            isLoading: widget.isLoading,
+                          ),
+                        const SizedBox(height: 12),
+                      ],
                     ],
                   ),
                 ),

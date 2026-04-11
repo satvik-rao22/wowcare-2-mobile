@@ -173,7 +173,7 @@ class ApiConstants {
   /// Attendance base (LOCAL devtunnel) or UAT base host.
   static String get attendanceBaseUrl => isUat
       ? ApiConstantsUat.attendanceBaseUrl
-      : '$staffBaseUrl/attendance';
+      : 'https://wnmrl4rn-8083.inc1.devtunnels.ms/attendance';
 
   /// Activity base (LOCAL devtunnel) or UAT base host.
   static String get activityBaseUrl => isUat

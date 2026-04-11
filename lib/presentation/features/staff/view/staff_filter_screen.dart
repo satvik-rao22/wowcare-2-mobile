@@ -116,13 +116,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       }
     }).toList();
   }
-  final List<String> _labelList = [
-    'Primary Classroom',
-    'Allowed Classroom',
-    'Status',
-    'Designation',
-    'Attendance Status',
-  ];
 
   // Filter lists
   List<int> _primaryClassroomIdList = [];
@@ -141,6 +134,9 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
   List<String> _selectedStatusList = [];
   List<String> _selectedDesignationList = [];
   List<String> _selectedAttendanceStatusList = [];
+
+  final List<String> _sortByOptions = const ['Ascending', 'Descending'];
+  List<String> _selectedSortByList = ['Ascending'];
 
   void _syncPrimaryClassroomIds() {
     _selectedPrimaryClassroomIdList.clear();
@@ -181,6 +177,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       }
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
       _selectedAttendanceStatusList = List.from(widget.initialFilters!.attendanceStatuses);
+      final sb = widget.initialFilters!.sortBy?.trim().toLowerCase();
+      if (sb == 'asc' || sb == 'desc') {
+        _selectedSortByList = [
+          sb == 'asc' ? 'Ascending' : 'Descending',
+        ];
+      }
     }
     _fetchFilterData();
   }
@@ -255,28 +257,23 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             ? _selectedDesignationList.first
             : null;
     final String sortBy = (widget.sections.contains(StaffFilterSection.sortBy) &&
-                _selectedSortByList.isNotEmpty &&
-                _selectedSortByList.first == 'Ascending')
+            _selectedSortByList.isNotEmpty &&
+            _selectedSortByList.first == 'Ascending')
         ? 'asc'
         : 'desc';
 
     Navigator.pop(context, {
       'status': status,
       'designation': designation,
-      'primaryClassroomCodes': widget.sections.contains(StaffFilterSection.primaryClassroom)
-          ? primaryCodes
-          : const <String>[],
-      // For the simplified "Classroom" filter we reuse AllowedClassroom codes.
+      'primaryClassroomCodes':
+          widget.sections.contains(StaffFilterSection.primaryClassroom)
+              ? primaryCodes
+              : const <String>[],
       'classCodes': (widget.sections.contains(StaffFilterSection.classroom) ||
               widget.sections.contains(StaffFilterSection.allowedClassroom))
           ? allowedCodes
           : const <String>[],
       'sortBy': sortBy,
-    Navigator.pop(context, {
-      'status': status,
-      'designation': designation,
-      'primaryClassroomCodes': primaryCodes,
-      'classCodes': allowedCodes,
     });
   }
 
@@ -345,63 +342,45 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             (!widget.sections.contains(StaffFilterSection.attendanceStatus) ||
                 hasAttendance);
 
-        if (canRender) {
-          List<String> _optionsFor(StaffFilterSection section) {
-            switch (section) {
-              case StaffFilterSection.primaryClassroom:
-                return _primaryClassroomList;
-              case StaffFilterSection.allowedClassroom:
-                return _allowedClassroomList;
-              case StaffFilterSection.classroom:
-                return _allowedClassroomList;
-              case StaffFilterSection.status:
-                return _statusList;
-              case StaffFilterSection.designation:
-                return _designationList;
-              case StaffFilterSection.sortBy:
-                return _sortByOptions;
-              case StaffFilterSection.attendanceStatus:
-                return _attendanceStatusList;
-            }
+        List<String> optionsFor(StaffFilterSection section) {
+          switch (section) {
+            case StaffFilterSection.primaryClassroom:
+              return _primaryClassroomList;
+            case StaffFilterSection.allowedClassroom:
+              return _allowedClassroomList;
+            case StaffFilterSection.classroom:
+              return _allowedClassroomList;
+            case StaffFilterSection.status:
+              return _statusList;
+            case StaffFilterSection.designation:
+              return _designationList;
+            case StaffFilterSection.sortBy:
+              return _sortByOptions;
+            case StaffFilterSection.attendanceStatus:
+              return _attendanceStatusList;
           }
+        }
 
-          List<String> _selectedFor(StaffFilterSection section) {
-            switch (section) {
-              case StaffFilterSection.primaryClassroom:
-                return _selectedPrimaryClassroomList;
-              case StaffFilterSection.allowedClassroom:
-                return _selectedAllowedClassroomList;
-              case StaffFilterSection.classroom:
-                return _selectedAllowedClassroomList;
-              case StaffFilterSection.status:
-                return _selectedStatusList;
-              case StaffFilterSection.designation:
-                return _selectedDesignationList;
-              case StaffFilterSection.sortBy:
-                return _selectedSortByList;
-              case StaffFilterSection.attendanceStatus:
-                return _selectedAttendanceStatusList;
-            }
+        List<String> selectedFor(StaffFilterSection section) {
+          switch (section) {
+            case StaffFilterSection.primaryClassroom:
+              return _selectedPrimaryClassroomList;
+            case StaffFilterSection.allowedClassroom:
+              return _selectedAllowedClassroomList;
+            case StaffFilterSection.classroom:
+              return _selectedAllowedClassroomList;
+            case StaffFilterSection.status:
+              return _selectedStatusList;
+            case StaffFilterSection.designation:
+              return _selectedDesignationList;
+            case StaffFilterSection.sortBy:
+              return _selectedSortByList;
+            case StaffFilterSection.attendanceStatus:
+              return _selectedAttendanceStatusList;
           }
-        if (_primaryClassroomList.isNotEmpty &&
-            _statusList.isNotEmpty &&
-            _designationList.isNotEmpty &&
-            _attendanceStatusList.isNotEmpty) {
-          final _dropdownLists = [
-            _primaryClassroomList,
-            _allowedClassroomList,
-            _statusList,
-            _designationList,
-            _attendanceStatusList,
-          ];
-          final _selectedDropdownLists = [
-            _selectedPrimaryClassroomList,
-            _selectedAllowedClassroomList,
-            _selectedStatusList,
-            _selectedDesignationList,
-            _selectedAttendanceStatusList,
-          ];
-          
+        }
+
+        if (!canRender) {
           return GridView.builder(
             padding: EdgeInsets.zero,
             itemCount: widget.sections.length,
@@ -409,88 +388,96 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 1.6, // Further reduced to 1.6 to give more height
+              childAspectRatio: 1.6,
             ),
             itemBuilder: (context, index) {
-              final section = widget.sections[index];
-              final label = _labelList[index];
-              final items = _optionsFor(section);
-              final selected = _selectedFor(section);
-
-              return CustomMultiSelectDropdown(
-                label: label,
-                hintText: 'Select',
-                items: items,
-                selectedItems: selected,
-                onChanged: (selectedItems) {
-                  setState(() {
-                    selected
-            itemBuilder: (context, index) => CustomMultiSelectDropdown(
-              label: _labelList[index],
-              hintText: 'Select',
-              items: _dropdownLists[index],
-              selectedItems: _selectedDropdownLists[index],
-              onChanged: (selectedItems) {
-                setState(() {
-                  _selectedDropdownLists[index].clear();
-                  _selectedDropdownLists[index].addAll(selectedItems);
-                  if (index == 0) _syncPrimaryClassroomIds();
-                  if (index == 1) _syncAllowedClassroomIds();
-                  // Status: single selection only (last selected).
-                  if (index == 2 && selectedItems.isNotEmpty) {
-                    _selectedStatusList
-                      ..clear()
-                      ..addAll(selectedItems);
-
-                    if (section == StaffFilterSection.primaryClassroom) {
-                      _syncPrimaryClassroomIds();
-                    }
-                    if (section == StaffFilterSection.allowedClassroom ||
-                        section == StaffFilterSection.classroom) {
-                      _syncAllowedClassroomIds();
-                    }
-
-                    // Sort by: keep single selection (last selected)
-                    if (section == StaffFilterSection.sortBy &&
-                        selectedItems.isNotEmpty) {
-                      _selectedSortByList
-                        ..clear()
-                        ..add(selectedItems.last);
-                    }
-                  });
-                },
+              final label =
+                  index < _labelList.length ? _labelList[index] : '';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: AppColors.primaryColor.withValues(alpha: 0.5),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const ShimmerLoader(height: 40),
+                ],
               );
             },
           );
         }
-        
-        // Show loading state
+
         return GridView.builder(
           padding: EdgeInsets.zero,
-          itemCount: _labelList.length,
+          itemCount: widget.sections.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 1.6, // Further reduced to 1.6 to give more height
+            childAspectRatio: 1.6,
           ),
-          itemBuilder: (context, index) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_labelList[index],
-                  style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.5),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400)),
-              const SizedBox(height: 8),
-              const ShimmerLoader(height: 40),
-            ],
-          ),
+          itemBuilder: (context, index) {
+            final section = widget.sections[index];
+            final label = _labelList[index];
+            final items = optionsFor(section);
+            final selected = selectedFor(section);
+
+            return CustomMultiSelectDropdown(
+              label: label,
+              hintText: 'Select',
+              items: items,
+              selectedItems: selected,
+              onChanged: (selectedItems) {
+                setState(() {
+                  switch (section) {
+                    case StaffFilterSection.primaryClassroom:
+                      _selectedPrimaryClassroomList
+                        ..clear()
+                        ..addAll(selectedItems);
+                      _syncPrimaryClassroomIds();
+                      break;
+                    case StaffFilterSection.allowedClassroom:
+                    case StaffFilterSection.classroom:
+                      _selectedAllowedClassroomList
+                        ..clear()
+                        ..addAll(selectedItems);
+                      _syncAllowedClassroomIds();
+                      break;
+                    case StaffFilterSection.status:
+                      _selectedStatusList.clear();
+                      if (selectedItems.isNotEmpty) {
+                        _selectedStatusList.add(selectedItems.last);
+                      }
+                      break;
+                    case StaffFilterSection.designation:
+                      _selectedDesignationList
+                        ..clear()
+                        ..addAll(selectedItems);
+                      break;
+                    case StaffFilterSection.sortBy:
+                      _selectedSortByList.clear();
+                      if (selectedItems.isNotEmpty) {
+                        _selectedSortByList.add(selectedItems.last);
+                      }
+                      break;
+                    case StaffFilterSection.attendanceStatus:
+                      _selectedAttendanceStatusList
+                        ..clear()
+                        ..addAll(selectedItems);
+                      break;
+                  }
+                });
+              },
+            );
+          },
         );
       },
     );
   }
-
 }
-
 

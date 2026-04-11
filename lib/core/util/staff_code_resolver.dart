@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -25,6 +26,21 @@ Future<String> resolveStaffCodeForLoggedInUser({
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
   final currentSchoolCode =
       (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+  final rolesJsonEarly =
+      (await storage.getString(StorageKeys.roles) ?? '').trim();
+  if (shouldSkipStaffCodeResolutionForContext(
+    rolesJson: rolesJsonEarly,
+    organizationCode: currentOrganizationCode,
+    schoolCode: currentSchoolCode,
+  )) {
+    await storage.remove(StorageKeys.staffCode);
+    await storage.remove(StorageKeys.staffCodeUser);
+    await storage.remove(StorageKeys.staffCodeOrganization);
+    await storage.remove(StorageKeys.staffCodeSchool);
+    return '';
+  }
+
   final staffCodeOwner =
       (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
   final staffCodeOrganization =

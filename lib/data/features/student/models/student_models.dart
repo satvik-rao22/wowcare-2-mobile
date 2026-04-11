@@ -132,8 +132,9 @@ class StudentListItemModel extends Equatable {
       }
     }
 
+    final rawStudentId = json['code'] ?? json['studentCode'];
     return StudentListItemModel(
-      code: json['code'] as String? ?? '',
+      code: rawStudentId == null ? '' : rawStudentId.toString().trim(),
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       status: json['status'] as String? ?? '',

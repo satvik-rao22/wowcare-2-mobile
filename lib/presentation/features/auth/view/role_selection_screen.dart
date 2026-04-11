@@ -80,10 +80,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     width: double.infinity,
                     height: screenHeight * 0.08,
                     child: InkWell(
-                      onTap: () {
-                        // Set role to Admin
-                        context.read<RoleProvider>().setRole('admin');
-                        _completeLoginAndGoDashboard();
+                      onTap: () async {
+                        await context.read<RoleProvider>().setRole('admin');
+                        await context
+                            .read<RoleProvider>()
+                            .refreshAccessFromServer(force: true);
+                        await _completeLoginAndGoDashboard();
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -109,10 +111,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     width: double.infinity,
                     height: screenHeight * 0.08,
                     child: InkWell(
-                      onTap: () {
-                        // Set role to Parent
-                        context.read<RoleProvider>().setRole('parent');
-                        _completeLoginAndGoDashboard();
+                      onTap: () async {
+                        await context.read<RoleProvider>().setRole('parent');
+                        await context
+                            .read<RoleProvider>()
+                            .refreshAccessFromServer(force: true);
+                        await _completeLoginAndGoDashboard();
                       },
                       child: Container(
                         decoration: BoxDecoration(

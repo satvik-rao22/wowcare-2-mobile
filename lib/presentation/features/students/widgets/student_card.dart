@@ -139,10 +139,11 @@ class _StudentCardState extends State<StudentCard> {
                           Stack(
                             children: [
                               DocumentImageWidget(
-                                fileUuid: '',
+                                fileUuid: widget.studentCode,
                                 name: widget.name,
                                 size: 45,
-                                status: widget.status,
+                                studentCode: widget.studentCode,
+                                statusTooltip: widget.status,
                               ),
                             ],
                           ),

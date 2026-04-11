@@ -489,34 +489,9 @@ class CoreUtils {
   }) {
     if (context is Element && !context.mounted) return;
 
-    const Color successColor = Color.fromRGBO(21, 133, 49, 1);
-    const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
-
-    final backgroundColor = isError
-        ? Colors.red.shade50
-        : isWarning
-            ? Colors.orange.shade50
-            : isSuccess
-                ? successBackgroundColor
-                : Colors.black;
-    final contentColor = isError
-        ? Colors.red
-        : isWarning
-            ? Colors.orange
-            : isSuccess
-                ? successColor
-                : Colors.black;
-    final borderColor = isError
-        ? Colors.red.shade100
-        : isWarning
-            ? Colors.orange.shade100
-            : isSuccess
-                ? successBackgroundColor
-                : Colors.black;
-
     // Use the root overlay so messages remain visible even if the current route
     // is popped (e.g., user taps "Skip" and navigation happens immediately).
-    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    final overlay = _overlayForBanner(context);
     if (overlay == null) {
       // Avoid fallback floating SnackBar (can be laid out off-screen and crash).
       // If no overlay is currently available, skip this frame.
@@ -654,6 +629,9 @@ class CoreUtils {
       isWarning: resolvedWarning,
       isSuccess: isSuccess,
       duration: snackBar.duration,
+    );
+  }
+
   static void showTopSnackBar({
     required BuildContext context,
     required String message,

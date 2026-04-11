@@ -108,7 +108,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               builder: (context, parentChildProvider, _) {
                 if (!parentChildProvider.isLoaded &&
                     !parentChildProvider.isLoading) {
-                  Future.microtask(parentChildProvider.ensureLoaded);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!context.mounted) return;
+                    parentChildProvider.ensureLoaded();
+                  });
                 }
                 return Padding(
                   padding: const EdgeInsets.only(left: 20),

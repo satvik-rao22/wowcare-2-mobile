@@ -741,6 +741,8 @@ class _StudentScreenState extends State<StudentScreen> {
         });
       }
     }
+  }
+
   String _statusChipLabel() {
     final statusList = _currentFilters['Status'];
     if (statusList != null && statusList.isNotEmpty) {

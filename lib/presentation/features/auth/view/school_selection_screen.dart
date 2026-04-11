@@ -11,6 +11,9 @@ import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({
@@ -401,6 +404,15 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   organizationCode: widget.selectedOrg,
                                   schoolCode: schoolCode,
                                 );
+                                if (!context.mounted) return;
+                                await context
+                                    .read<RoleProvider>()
+                                    .refreshAccessFromServer(force: true);
+                                if (!context.mounted) return;
+                                context.read<ParentChildProvider>().invalidate();
+                                await context
+                                    .read<ParentChildProvider>()
+                                    .ensureLoaded(force: true);
                                 if (!context.mounted) return;
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(

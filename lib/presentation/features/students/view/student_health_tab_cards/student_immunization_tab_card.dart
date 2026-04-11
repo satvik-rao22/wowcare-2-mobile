@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -373,6 +376,10 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canMutateStudent =
+        ModuleAccess.mayWrite(role, StudentAccessModules.student);
+
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
@@ -450,7 +457,13 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                       ..sort(
                       (a, b) => a.doseNumber.compareTo(b.doseNumber),
                     ),
-                    onMore: (m) => _openEditImmunizationBottomSheet(model: m),
+                    onMore: (m) {
+                      if (!canMutateStudent) {
+                        ModuleAccess.showWriteRestricted(context);
+                        return;
+                      }
+                      _openEditImmunizationBottomSheet(model: m);
+                    },
                   ),
                   if (i != sortedKeys.length - 1) const SizedBox(height: 20),
                 ],

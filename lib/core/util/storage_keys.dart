@@ -36,6 +36,12 @@ class StorageKeys {
   /// Optional cached staff sign-in PIN (from my-profile pin API).
   static const String staffPin = 'staffPin';
 
+  /// Guardian record `code` from `GET /api/v1/guardian/profile` (not the auth userCode).
+  static const String guardianCode = 'guardianCode';
+  static const String guardianCodeUser = 'guardianCodeUser';
+  static const String guardianCodeSchool = 'guardianCodeSchool';
+  static const String guardianCodeOrganization = 'guardianCodeOrganization';
+
   /// JSON list of {organizationCode, schoolCode, schoolName} - all org+school combos user has access to.
   static const String organizationsAndSchools = 'organizationsAndSchools';
 

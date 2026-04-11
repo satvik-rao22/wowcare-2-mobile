@@ -8,8 +8,10 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 
 class LogOutModelBottomSheet extends StatefulWidget {
   const LogOutModelBottomSheet({
@@ -32,6 +34,10 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
       // context.read<ProfilePhotoProvider>().clearPhoto();
 
       await context.read<AuthCubit>().logoutSession();
+
+      if (context.mounted) {
+        context.read<ParentChildProvider>().invalidate();
+      }
 
       Navigator.pushNamedAndRemoveUntil(
         context,

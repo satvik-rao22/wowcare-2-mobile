@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
@@ -59,6 +62,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, StudentAccessModules.student);
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     return CustomRefreshIndicator(
@@ -114,6 +120,10 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                 children: [
                   GestureDetector(
                     onTap: () async {
+                      if (!canStudentWrite) {
+                        ModuleAccess.showWriteRestricted(context);
+                        return;
+                      }
                       final code = widget.studentCode;
                       if (code == null || code.isEmpty) return;
                       final currentHealth = health;
@@ -133,28 +143,31 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         widget.onHealthChanged?.call();
                       }
                     },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Health',
-                          style: AppTextStyles.title,
-                        ),
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            gradient: AppColors.buildPrimaryGradient(),
-                            borderRadius: BorderRadius.circular(8),
+                    child: Opacity(
+                      opacity: canStudentWrite ? 1 : 0.45,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Health',
+                            style: AppTextStyles.title,
                           ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.edit,
-                            size: 22,
-                            color: Colors.white,
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.buildPrimaryGradient(),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.edit,
+                              size: 22,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -163,6 +176,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                     medication: health?.medications,
                     dietRestrictions: health?.dietRestrictions,
                     photoPermission: _photoPermission,
+                    canMutateStudent: canStudentWrite,
                     onTogglePhotoPermission: (v) async {
                       final code = widget.studentCode;
                       if (code == null || code.isEmpty) return;
@@ -218,12 +232,14 @@ class _HealthCard extends StatelessWidget{
     required this.dietRestrictions,
     required this.photoPermission,
     required this.onTogglePhotoPermission,
+    this.canMutateStudent = true,
   });
   final String? allergies;
   final String? medication;
   final String? dietRestrictions;
   final bool photoPermission;
   final ValueChanged<bool> onTogglePhotoPermission;
+  final bool canMutateStudent;
 
   @override
   Widget build(BuildContext context) {
@@ -363,11 +379,27 @@ class _HealthCard extends StatelessWidget{
                           height: 16 / 13,
                         ),
                       ),
-                      CustomToggle(
-                        label: '',
-                        isToggled: photoPermission,
-                        onToggle: onTogglePhotoPermission,
-                      ),
+                      if (canMutateStudent)
+                        CustomToggle(
+                          label: '',
+                          isToggled: photoPermission,
+                          onToggle: onTogglePhotoPermission,
+                        )
+                      else
+                        GestureDetector(
+                          onTap: () =>
+                              ModuleAccess.showWriteRestricted(context),
+                          child: Opacity(
+                            opacity: 0.45,
+                            child: AbsorbPointer(
+                              child: CustomToggle(
+                                label: '',
+                                isToggled: photoPermission,
+                                onToggle: (_) {},
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ],

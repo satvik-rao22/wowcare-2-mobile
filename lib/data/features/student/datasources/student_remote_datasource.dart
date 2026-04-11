@@ -220,6 +220,15 @@ abstract class StudentRemoteDataSource {
     required String schoolCode,
   });
 
+  /// Logged-in guardian profile via `GET /api/v1/guardian/profile`.
+  ///
+  /// Query params: schoolCode, userCode. Returns the API `data` map (`code`,
+  /// `firstName`, `userCode`, etc.).
+  Future<Map<String, dynamic>> getGuardianProfile({
+    required String schoolCode,
+    required String userCode,
+  });
+
   /// Fetches children linked to a guardian via
   /// `GET /api/v1/guardian/children`.
   ///
@@ -1200,6 +1209,36 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     return data
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getGuardianProfile({
+    required String schoolCode,
+    required String userCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianProfile,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'userCode': userCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian profile API response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'];
+    if (data is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data);
+    }
+    return <String, dynamic>{};
   }
 
   @override

@@ -24,6 +24,8 @@ class DocumentImageWidget extends StatefulWidget {
   final Widget? errorWidget;
   final double? fontSize;
   final Color? statusColor; // optional small status dot color
+  /// Tooltip when showing [statusColor] without API-driven attendance label.
+  final String? statusTooltip;
   /// If true, the API-driven attendance dot is shown only when status == ABSENT.
   /// (E.g. sign-in selection screens want to highlight absences only.)
   final bool showOnlyAbsentAttendanceDot;
@@ -43,6 +45,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.errorWidget,
     this.fontSize,
     this.statusColor,
+    this.statusTooltip,
     this.showOnlyAbsentAttendanceDot = false,
   }) : super(key: key);
 
@@ -227,6 +230,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         return 'Student is ${_statusLabel!.toLowerCase()}';
       }
       return _statusLabel!;
+    }
+    final manual = widget.statusTooltip?.trim();
+    if (manual != null && manual.isNotEmpty) {
+      return manual;
     }
     return 'Status';
   }

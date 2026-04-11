@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
@@ -10,6 +12,7 @@ import 'package:wowcare/data/static/static_school_catalog.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 
 part 'auth_state.dart';
@@ -245,7 +248,20 @@ class AuthCubit extends Cubit<AuthState> {
             final effectiveSchoolCode =
                 isOrgAdminForSelectedOrg ? '-' : schoolCode;
 
-            if (orgCode.isNotEmpty && effectiveSchoolCode.isNotEmpty) {
+            final rolesJson =
+                jsonEncode(response.roles.map((e) => e.toJson()).toList());
+            final skipStaffLookup = shouldSkipStaffCodeResolutionForContext(
+              rolesJson: rolesJson,
+              organizationCode: orgCode,
+              schoolCode: effectiveSchoolCode,
+            );
+
+            if (skipStaffLookup) {
+              await storage.remove(StorageKeys.staffCode);
+              await storage.remove(StorageKeys.staffCodeUser);
+              await storage.remove(StorageKeys.staffCodeOrganization);
+              await storage.remove(StorageKeys.staffCodeSchool);
+            } else if (orgCode.isNotEmpty && effectiveSchoolCode.isNotEmpty) {
               final staffRepository = serviceLocator<StaffRepository>();
               final staffCode = await staffRepository.getStaffCodeForUser(
                 userCode: response.userCode,
@@ -254,10 +270,14 @@ class AuthCubit extends Cubit<AuthState> {
               );
               final trimmed = (staffCode ?? '').trim();
               if (trimmed.isNotEmpty) {
-                await _localDataSource.saveStaffCode(
-                  userCode: response.userCode,
+                await _localDataSource.setSelectedOrgAndSchool(
                   organizationCode: orgCode,
                   schoolCode: effectiveSchoolCode,
+                  schoolName: effectiveSchoolCode,
+                );
+                await _localDataSource.saveStaffCode(
+                  userCode: response.userCode,
+                  staffCode: trimmed,
                 );
 
                 try {

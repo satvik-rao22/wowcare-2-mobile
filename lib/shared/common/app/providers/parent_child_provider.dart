@@ -38,6 +38,8 @@ class ParentChildProvider extends ChangeNotifier {
   List<ParentChildRef> _children = const <ParentChildRef>[];
   bool _isLoading = false;
   bool _isLoaded = false;
+  /// Last session we successfully loaded for (user|org|school). Drives reload on context change.
+  String _lastLoadedContextKey = '';
 
   ParentChildRef? get selectedChild => _selectedChild;
   List<ParentChildRef> get children => _children;
@@ -46,25 +48,61 @@ class ParentChildProvider extends ChangeNotifier {
 
   List<String> get childNames => _children.map((e) => e.name).toList(growable: false);
 
+  static String _contextKey(String userCode, String orgCode, String schoolCode) =>
+      '${userCode.toLowerCase()}|${orgCode.toLowerCase()}|${schoolCode.toLowerCase()}';
+
+  /// Clears cached children so the next [ensureLoaded] runs a full fetch (e.g. logout, manual refresh).
+  void invalidate() {
+    _isLoaded = false;
+    _isLoading = false;
+    _lastLoadedContextKey = '';
+    _children = const <ParentChildRef>[];
+    _selectedChild = null;
+    notifyListeners();
+  }
+
   Future<void> ensureLoaded({bool force = false}) async {
     if (_isLoading) return;
-    if (_isLoaded && !force) return;
+
+    final storage = serviceLocator<StorageService>();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final orgCode =
+        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+
+    if (userCode.isEmpty) {
+      _children = const <ParentChildRef>[];
+      _selectedChild = null;
+      _isLoaded = false;
+      _lastLoadedContextKey = '';
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    final contextKey = _contextKey(userCode, orgCode, schoolCode);
+    final contextChanged = contextKey != _lastLoadedContextKey;
+
+    if (_isLoaded && !force && !contextChanged) {
+      return;
+    }
 
     _isLoading = true;
     notifyListeners();
 
     try {
-      final storage = serviceLocator<StorageService>();
       final remote = serviceLocator<StudentRemoteDataSource>();
       final studentPage = serviceLocator<GetStudentPageUseCase>();
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
 
-      if (guardianCode.isEmpty || schoolCode.isEmpty || userCode.isEmpty) {
+      if (guardianCode.isEmpty ||
+          schoolCode.isEmpty ||
+          orgCode.isEmpty ||
+          userCode.isEmpty) {
         _children = const <ParentChildRef>[];
         _selectedChild = null;
         _isLoaded = true;
+        _lastLoadedContextKey = '';
         return;
       }
 
@@ -75,7 +113,7 @@ class ParentChildProvider extends ChangeNotifier {
       );
       final byCode = <String, ParentChildRef>{};
       for (final row in rawChildren) {
-        final code = (row['code'] ?? '').toString().trim();
+        final code = (row['code'] ?? row['studentCode'] ?? '').toString().trim();
         if (code.isEmpty) continue;
         final firstName = (row['firstName'] ?? '').toString().trim();
         final lastName = (row['lastName'] ?? '').toString().trim();
@@ -87,7 +125,6 @@ class ParentChildProvider extends ChangeNotifier {
         );
       }
 
-      // Enrich child details (classroom/tags/schedule) from student page.
       if (byCode.isNotEmpty) {
         try {
           final page = await studentPage(
@@ -126,10 +163,12 @@ class ParentChildProvider extends ChangeNotifier {
         _selectedChild = matching ?? _children.first;
       }
       _isLoaded = true;
+      _lastLoadedContextKey = contextKey;
     } catch (_) {
       _children = const <ParentChildRef>[];
       _selectedChild = null;
       _isLoaded = true;
+      _lastLoadedContextKey = '';
     } finally {
       _isLoading = false;
       notifyListeners();

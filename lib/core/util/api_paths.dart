@@ -194,6 +194,8 @@ class ApiPaths {
       case 'student-absence-records':
       case 'student-attendance-records':
       case 'staff-attendance':
+      case 'staff-absence-records':
+      case 'staff-attendance-records':
         return ApiMicroservices.attendance;
       case 'classroom':
         return ApiMicroservices.classroom;
@@ -336,6 +338,7 @@ class ApiPaths {
   static const String guardianUser = '/api/v1/guardian-user';
   static const String guardian = '/api/v1/guardian';
   static const String guardianChildren = '/api/v1/guardian/children';
+  static const String guardianProfile = '/api/v1/guardian/profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
   static const String pickup = '/api/v1/pickup';
 
@@ -368,8 +371,8 @@ class ApiPaths {
   static String studentAttendanceRecord(String attendanceRecordCode) =>
       '/api/v1/student-attendance/$attendanceRecordCode';
 
-  /// DELETE student attendance record (daily view).
-  static String studentAttendanceRecords(String recordCode) =>
+  /// DELETE (or fetch) a student attendance record by record code.
+  static String studentAttendanceRecordByCode(String recordCode) =>
       '/api/v1/student-attendance-records/$recordCode';
 
   static const String studentAbsenceRecordsMarkAbsent =
@@ -423,7 +426,6 @@ class ApiPaths {
   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
 
   // —— Activity host ——
-  static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
   static const String activities = '/api/v1/activities';
   static const String activitiesUploadSessions =
       '/api/v1/activities/upload-sessions';

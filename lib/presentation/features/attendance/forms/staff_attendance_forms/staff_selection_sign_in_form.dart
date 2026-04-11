@@ -129,6 +129,7 @@ class _StaffSelectionSignInFormState
           designation:
               item.designation.isNotEmpty ? item.designation.first : 'Staff',
           staffCode: item.staffCode,
+          isExpectedToday: item.isExpectedToday,
         );
       }).toList();
 

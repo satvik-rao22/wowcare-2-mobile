@@ -188,7 +188,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     final client = serviceLocator<ApiClient>().client;
     final isParent = await _resolveIsParentSession();
     final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceRecordsSignOut,
+      isParent
+          ? ApiPaths.studentAttendanceRecordsParentSignOut
+          : ApiPaths.studentAttendanceRecordsSignOut,
       ApiConstants.attendanceBaseUrl,
     );
 
@@ -265,10 +267,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
-      'method': 'APP',
+      'method': isParent ? 'GPS' : 'APP',
       'latitude': 0,
       'longitude': 0,
       'withinGeofence': true,
+      'isGeofence': true,
       'timeZone': 'Asia/Kolkata',
     };
     if (isParent) {
@@ -318,9 +321,18 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     }
 
     try {
+      final body = Map<String, dynamic>.from(payload);
+      Map<String, dynamic>? queryParameters;
+      if (isParent) {
+        final g = body.remove('guardianCode');
+        if (g != null && g.toString().trim().isNotEmpty) {
+          queryParameters = {'guardianCode': g.toString().trim()};
+        }
+      }
       final response = await client.post<dynamic>(
         endpoint,
-        data: payload,
+        queryParameters: queryParameters,
+        data: body,
       );
 
       final data = response.data;

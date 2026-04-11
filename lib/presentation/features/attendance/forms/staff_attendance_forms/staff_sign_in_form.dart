@@ -16,6 +16,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -109,6 +110,55 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
   Future<String> _resolveStaffCode() =>
       resolveStaffCodeForLoggedInUser();
+
+  /// Loads `staffCode -> isExpectedToday` from the sign-in form list GET API
+  /// for the given calendar date (same contract as the list shown in selection UI).
+  Future<Map<String, bool>> _fetchIsExpectedTodayFromSignInFormList({
+    required String attendanceDate,
+  }) async {
+    final useCase = serviceLocator<GetStaffSignInFormListUseCase>();
+    final page = await useCase(
+      fromAttendanceDate: attendanceDate,
+      toAttendanceDate: attendanceDate,
+      page: 0,
+      size: 500,
+    );
+    return {
+      for (final item in page.items) item.staffCode: item.isExpectedToday,
+    };
+  }
+
+  bool _isExpectedTodayForStaffCode(
+    String code,
+    Map<String, bool> fromApi,
+  ) {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return true;
+    final apiValue = fromApi[trimmed];
+    if (apiValue != null) return apiValue;
+    for (final s in _selectedStaff) {
+      if ((s.staffCode ?? '').trim() == trimmed) {
+        return s.isExpectedToday;
+      }
+    }
+    return true;
+  }
+
+  /// OpenAPI defines a single [isExpectedToday] on the sign-in body (not a per-staff map).
+  /// For one target, use that staff's value. For multiple targets, use the common value if
+  /// all agree; if mixed, default to [true] (the API cannot express per-row flags).
+  bool _requestBodyIsExpectedToday({
+    required List<String> staffCodes,
+    required Map<String, bool> fromApi,
+  }) {
+    if (staffCodes.isEmpty) return true;
+    final vals = staffCodes
+        .map((c) => _isExpectedTodayForStaffCode(c, fromApi))
+        .toList();
+    final first = vals.first;
+    if (vals.every((v) => v == first)) return first;
+    return true;
+  }
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
@@ -239,6 +289,16 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       return;
     }
 
+    Map<String, bool> expectedFromApi = <String, bool>{};
+    try {
+      expectedFromApi =
+          await _fetchIsExpectedTodayFromSignInFormList(
+        attendanceDate: attendanceDate,
+      );
+    } catch (_) {
+      // Fall back to [StaffEntity.isExpectedToday] / true when the list call fails.
+    }
+
     late final Map<String, dynamic> payload;
     if (!isStaffAdmin) {
       // Self sign-in for teacher persona.
@@ -248,12 +308,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
       payload = <String, dynamic>{
         'staffCode': staffCode,
-        'method': 'KIOSK',
+        'method': 'APP',
         'latitude': 0,
         'longitude': 0,
         'withinGeofence': true,
         'timeZone': 'Asia/Kolkata',
         'occurredAt': occurredAt.toIso8601String(),
+        'isExpectedToday':
+            _isExpectedTodayForStaffCode(staffCode, expectedFromApi),
       };
     } else {
       // Admin sign-in: supports signing in other staff in a bulk-like request.
@@ -269,6 +331,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           : '';
 
       payload = <String, dynamic>{
+        'isExpectedToday': _requestBodyIsExpectedToday(
+          staffCodes: staffCodes,
+          fromApi: expectedFromApi,
+        ),
         'attendanceDate': attendanceDate,
         'staffCode': staffCode,
         'staffCodes': staffCodes,

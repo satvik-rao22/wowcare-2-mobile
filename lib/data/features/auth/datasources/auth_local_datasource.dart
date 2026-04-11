@@ -152,6 +152,10 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.remove(StorageKeys.staffCodeSchool);
     await _storage.remove(StorageKeys.staffType);
     await _storage.remove(StorageKeys.userAccessDetails);
+    await _storage.remove(StorageKeys.guardianCode);
+    await _storage.remove(StorageKeys.guardianCodeUser);
+    await _storage.remove(StorageKeys.guardianCodeSchool);
+    await _storage.remove(StorageKeys.guardianCodeOrganization);
     await _storage.remove('selected_role');
   }
 

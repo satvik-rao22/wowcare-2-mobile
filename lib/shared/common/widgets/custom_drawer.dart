@@ -33,6 +33,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
@@ -326,6 +327,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
     await context.read<RoleProvider>().refreshAccessFromServer(force: true);
 
     if (!mounted) return;
+    context.read<ParentChildProvider>().invalidate();
+    await context.read<ParentChildProvider>().ensureLoaded(force: true);
+
+    if (!mounted) return;
     setState(() {
       _selectedSchoolCode = schoolCode;
       _selectedSchoolName = schoolName;
@@ -338,51 +343,75 @@ class _CustomDrawerState extends State<CustomDrawer> {
     Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
   }
 
-  Future<void> _openParentAttendanceProfile(ParentChildRef? selectedChild) async {
+  void _showSnackOnRoot(String message, {bool isError = false}) {
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.errorColor : AppColors.warningColor,
+      ),
+    );
+  }
+
+  /// Opens [StudentAttendanceProfile] for the child selected in the global app bar
+  /// dropdown.
+  ///
+  /// [navigator] and [parentChild] must be captured **before** closing the drawer.
+  /// After [Navigator.pop], this [State] is often disposed while awaiting
+  /// [ensureLoaded], so we must not rely on [mounted] or this widget's [context].
+  Future<void> _openParentAttendanceProfile(
+    NavigatorState navigator,
+    ParentChildProvider parentChild,
+  ) async {
     try {
-      if (selectedChild == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No child selected. Please select a child first.'),
-            backgroundColor: AppColors.warningColor,
-          ),
+      await parentChild.ensureLoaded();
+
+      final selectedChild = parentChild.selectedChild;
+      if (selectedChild == null || selectedChild.code.trim().isEmpty) {
+        _showSnackOnRoot(
+          'No child selected. Choose a child from the menu at the top first.',
         );
         return;
       }
 
-      final signOutFormList = serviceLocator<GetStudentSignOutFormListUseCase>();
+      String roomName = selectedChild.classroom.trim().isNotEmpty
+          ? selectedChild.classroom
+          : '—';
+      var isSignedIn = false;
 
-      final now = DateTime.now();
-      final date =
-          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final signedInPage = await signOutFormList(
-        fromAttendanceDate: date,
-        toAttendanceDate: date,
-        page: 0,
-        size: 100,
-      );
-
-      final selected = signedInPage.items.where(
-        (i) => i.studentCode.trim() == selectedChild.code.trim(),
-      );
-
-      String roomName = selectedChild.classroom;
-      bool isSignedIn = false;
-
-      if (selected.isNotEmpty) {
-        final child = selected.first;
-        roomName = child.classroomName.trim().isNotEmpty
-            ? child.classroomName
-            : selectedChild.classroom;
-        isSignedIn = child.hasSignIn && !child.hasSignOut;
+      try {
+        final signOutFormList =
+            serviceLocator<GetStudentSignOutFormListUseCase>();
+        final now = DateTime.now();
+        final date =
+            '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final signedInPage = await signOutFormList(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 100,
+        );
+        final selected = signedInPage.items.where(
+          (i) => i.studentCode.trim() == selectedChild.code.trim(),
+        );
+        if (selected.isNotEmpty) {
+          final child = selected.first;
+          roomName = child.classroomName.trim().isNotEmpty
+              ? child.classroomName
+              : roomName;
+          isSignedIn = child.hasSignIn && !child.hasSignOut;
+        }
+      } catch (_) {
+        // Parents/guardians may not have sign-out form list access.
       }
 
-      if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
+      if (!navigator.context.mounted) return;
+      await navigator.push<void>(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
           builder: (_) => StudentAttendanceProfile(
-            studentCode: selectedChild.code,
+            studentCode: selectedChild.code.trim(),
             studentId: 0,
             studentName: selectedChild.name,
             studentPhotoUuid: null,
@@ -392,13 +421,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ),
       );
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to open attendance right now.'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
+      _showSnackOnRoot('Unable to open attendance right now.', isError: true);
     }
   }
 
@@ -414,6 +437,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
       return;
     }
 
+    if (!mounted) return;
+    await context.read<RoleProvider>().refreshAccessFromServer(force: true);
     if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -630,8 +655,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           title: 'Attendance',
                           icon: MediaRes.attendanceIcon,
                           onTap: () {
+                            final nav = Navigator.of(context);
+                            final parentChild =
+                                context.read<ParentChildProvider>();
                             Navigator.pop(context);
-                            _openParentAttendanceProfile(parentChildProvider.selectedChild);
+                            _openParentAttendanceProfile(nav, parentChild);
                           },
                         ),
                         if (canViewActivities)
