@@ -214,12 +214,11 @@ class _StaffSelectionSignInFormState
       return;
     }
 
-    // For UI-only, navigate to the first selected staff's form
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => StaffSignInForm(
-          staff: selectedStaff.first,
+          staffList: selectedStaff.toList(),
         ),
       ),
     );

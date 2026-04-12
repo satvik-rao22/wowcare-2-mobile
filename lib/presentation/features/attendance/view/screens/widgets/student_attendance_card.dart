@@ -12,6 +12,7 @@ enum SignMethod {
   qr,
   kiosk,
   direct,
+  web,
 }
 
 class StudentAttendanceCardData {
@@ -373,13 +374,29 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
           ),
         );
       case SignMethod.direct:
-        // App-based sign-in/out. Use a simple app icon from Material.
         return Tooltip(
           message: 'APP',
-          child: Icon(
-            Icons.phone_android,
-            size: size,
-            color: AppColors.themeColor,
+          child: SvgPicture.asset(
+            MediaRes.appMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.web:
+        return Tooltip(
+          message: 'WEB',
+          child: SvgPicture.asset(
+            MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
     }

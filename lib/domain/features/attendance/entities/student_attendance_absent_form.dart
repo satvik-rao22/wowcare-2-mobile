@@ -11,6 +11,7 @@ class StudentAttendanceAbsentFormItem extends Equatable {
     this.markedAbsentByName,
     this.absenceNote,
     this.absentDays = 0,
+    this.absenceRecordCode,
   });
 
   final String studentCode;
@@ -23,6 +24,9 @@ class StudentAttendanceAbsentFormItem extends Equatable {
   final String? absenceNote;
   final int absentDays;
 
+  /// Server identifier for DELETE `/api/v1/student-absence-records/{code}`.
+  final String? absenceRecordCode;
+
   @override
   List<Object?> get props => [
         studentCode,
@@ -34,6 +38,7 @@ class StudentAttendanceAbsentFormItem extends Equatable {
         markedAbsentByName,
         absenceNote,
         absentDays,
+        absenceRecordCode,
       ];
 }
 

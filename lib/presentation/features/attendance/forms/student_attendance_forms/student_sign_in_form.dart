@@ -12,6 +12,10 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -36,6 +40,7 @@ class StudentEntity {
   final String roomName;
   final String classroomCode;
   final String? photoUuid;
+  final bool isExpectedToday;
 
   StudentEntity({
     required this.id,
@@ -45,6 +50,7 @@ class StudentEntity {
     required this.roomName,
     required this.classroomCode,
     this.photoUuid,
+    this.isExpectedToday = true,
   });
 
   @override
@@ -80,6 +86,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
+  Map<String, bool> _expectedTodayFromApi = {};
+  bool _unexpectedGateLoading = true;
+  bool _unexpectedSignInAcknowledged = false;
+  int _unexpectedGateToken = 0;
 
   @override
   void initState() {
@@ -87,6 +97,109 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     setCurrentDateTime();
     currentStudents = List.from(widget.students);
     _loadPersonaFlags();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runUnexpectedSignInGate();
+    });
+  }
+
+  String _attendanceDateYyyyMmDd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  bool _hasUnexpectedAmongSelected() {
+    for (final s in currentStudents) {
+      final code = s.studentCode.trim();
+      if (code.isEmpty) continue;
+      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
+      if (!expected) return true;
+    }
+    return false;
+  }
+
+  List<String> _unexpectedStudentFullNames() {
+    final out = <String>[];
+    for (final s in currentStudents) {
+      final code = s.studentCode.trim();
+      if (code.isEmpty) continue;
+      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
+      if (!expected) out.add(s.fullName);
+    }
+    return out;
+  }
+
+  Future<void> _runUnexpectedSignInGate() async {
+    if (!mounted) return;
+    if (currentStudents.isEmpty) {
+      setState(() {
+        _unexpectedGateLoading = false;
+        _unexpectedSignInAcknowledged = true;
+      });
+      return;
+    }
+    final token = ++_unexpectedGateToken;
+    setState(() {
+      _unexpectedGateLoading = true;
+    });
+
+    final dateStr = _attendanceDateYyyyMmDd(selectedDate);
+    try {
+      final useCase = serviceLocator<GetStudentSignInFormListUseCase>();
+      final page = await useCase(
+        fromAttendanceDate: dateStr,
+        toAttendanceDate: dateStr,
+        classroomCodes: null,
+        tagCodes: null,
+        search: null,
+        page: 0,
+        size: 500,
+      );
+      if (!mounted || token != _unexpectedGateToken) return;
+      final m = <String, bool>{};
+      for (final item in page.items) {
+        m[item.studentCode.trim()] = item.isExpectedToday;
+      }
+      setState(() {
+        _expectedTodayFromApi = m;
+      });
+    } catch (_) {
+      if (!mounted || token != _unexpectedGateToken) return;
+      setState(() {
+        _expectedTodayFromApi = {};
+      });
+    }
+
+    if (!mounted || token != _unexpectedGateToken) return;
+
+    final hasUnexpected = _hasUnexpectedAmongSelected();
+    if (!hasUnexpected) {
+      setState(() {
+        _unexpectedSignInAcknowledged = true;
+        _unexpectedGateLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _unexpectedSignInAcknowledged = false;
+      _unexpectedGateLoading = false;
+    });
+
+    if (!mounted || token != _unexpectedGateToken) return;
+
+    final result = await showUnexpectedSignInAttentionDialog(
+      context,
+      unexpectedFullNames: _unexpectedStudentFullNames(),
+      forStaff: false,
+    );
+
+    if (!mounted || token != _unexpectedGateToken) return;
+
+    if (result?.confirmed == true) {
+      setState(() {
+        _unexpectedSignInAcknowledged = true;
+      });
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _loadPersonaFlags() async {
@@ -97,6 +210,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (!_isStaffAdminPersona!) {
         setCurrentDateTime();
       }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runUnexpectedSignInGate();
     });
   }
 
@@ -134,13 +250,110 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   void _removeStudent(StudentEntity student) {
     setState(() {
       currentStudents.remove(student);
-      if (currentStudents.isEmpty) {
-        Navigator.pop(context);
-      }
     });
+    if (currentStudents.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    if (!_hasUnexpectedAmongSelected()) {
+      setState(() {
+        _unexpectedSignInAcknowledged = true;
+      });
+    }
   }
 
   Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
+
+  bool _absenceDateMatchesCalendarDay(
+    String absenceDateRaw,
+    String targetYyyyMmDd,
+  ) {
+    final trimmed = absenceDateRaw.trim();
+    if (trimmed.isEmpty) return false;
+    if (trimmed.length >= 10 &&
+        trimmed.substring(0, 10) == targetYyyyMmDd) {
+      return true;
+    }
+    try {
+      final dt = DateTime.parse(trimmed).toLocal();
+      final norm =
+          '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      return norm == targetYyyyMmDd;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Staff sign-in: for students marked absent on [attendanceDateYyyyMmDd],
+  /// delete absence records first (override sign-in).
+  Future<void> _deleteTodaysAbsenceRecordsBeforeStaffSignIn({
+    required String attendanceDateYyyyMmDd,
+    required String staffCode,
+    required List<StudentEntity> students,
+  }) async {
+    final repo = serviceLocator<AttendanceRepository>();
+    final allItems = <StudentAttendanceAbsentFormItem>[];
+
+    var page = 0;
+    const pageSize = 100;
+    while (true) {
+      final absentPage = await repo.getStudentAbsentFormList(
+        fromAbsenceDate: attendanceDateYyyyMmDd,
+        toAbsenceDate: attendanceDateYyyyMmDd,
+        page: page,
+        size: pageSize,
+      );
+      allItems.addAll(absentPage.items);
+      if (!absentPage.hasMore) break;
+      page++;
+      if (page > 100) break;
+    }
+
+    final processedStudentCodes = <String>{};
+    for (final s in students) {
+      final sc = s.studentCode.trim();
+      if (sc.isEmpty || processedStudentCodes.contains(sc)) continue;
+
+      final matches = allItems.where((it) {
+        if (it.studentCode.trim() != sc) return false;
+        return _absenceDateMatchesCalendarDay(
+          it.absenceDate,
+          attendanceDateYyyyMmDd,
+        );
+      }).toList();
+
+      if (matches.isEmpty) continue;
+
+      final withCode = matches
+          .where(
+            (it) => (it.absenceRecordCode ?? '').trim().isNotEmpty,
+          )
+          .toList();
+      if (withCode.isEmpty) {
+        throw Exception(
+          'Cannot sign in ${s.fullName.split(' ').first}: marked absent for '
+          'this day but the absence record could not be resolved. Refresh and try again.',
+        );
+      }
+
+      final room = s.classroomCode.trim();
+      StudentAttendanceAbsentFormItem chosen = withCode.first;
+      if (room.isNotEmpty) {
+        final byRoom = withCode
+            .where((it) => it.classroomCode.trim() == room)
+            .toList();
+        if (byRoom.isNotEmpty) {
+          chosen = byRoom.first;
+        }
+      }
+
+      await repo.deleteStudentAbsenceRecord(
+        absenceRecordCode: chosen.absenceRecordCode!.trim(),
+        staffCode: staffCode,
+      );
+      processedStudentCodes.add(sc);
+    }
+  }
 
   Future<bool> _resolveIsParentSession() async {
     if (context.read<RoleProvider>().isParent) return true;
@@ -190,10 +403,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
       return;
     }
-
-    setState(() {
-      _isSubmitting = true;
-    });
 
     final client = serviceLocator<ApiClient>().client;
     final isParent = await _resolveIsParentSession();
@@ -331,7 +540,22 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       });
     }
 
+    setState(() {
+      _isSubmitting = true;
+    });
+
     try {
+      if (!isParent) {
+        final staffCode = (payload['staffCode'] ?? '').toString().trim();
+        if (staffCode.isNotEmpty) {
+          await _deleteTodaysAbsenceRecordsBeforeStaffSignIn(
+            attendanceDateYyyyMmDd: attendanceDate,
+            staffCode: staffCode,
+            students: List<StudentEntity>.from(currentStudents),
+          );
+        }
+      }
+
       final body = Map<String, dynamic>.from(payload);
       Map<String, dynamic>? queryParameters;
       if (isParent) {
@@ -478,6 +702,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                             final pickedDay = DateTime(date.year, date.month, date.day);
                             selectedDate = pickedDay.isAfter(today) ? today : date;
                           });
+                          _runUnexpectedSignInGate();
                         },
                       ),
                     ],
@@ -511,7 +736,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-In',
-        onPressedConfirm: _isSubmitting ? null : _submitSignIn,
+        onPressedConfirm: (_isSubmitting ||
+                _unexpectedGateLoading ||
+                (_hasUnexpectedAmongSelected() &&
+                    !_unexpectedSignInAcknowledged))
+            ? null
+            : _submitSignIn,
       ),
     );
   }

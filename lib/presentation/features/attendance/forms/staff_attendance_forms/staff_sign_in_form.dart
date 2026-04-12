@@ -20,6 +20,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffSignInForm extends StatefulWidget {
@@ -44,6 +45,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona; // Admin can change time to past, but not future.
+  Map<String, bool> _expectedTodayFromApi = {};
+  bool _unexpectedGateLoading = true;
+  bool _unexpectedSignInAcknowledged = false;
+  int _unexpectedGateToken = 0;
 
   @override
   void initState() {
@@ -62,6 +67,97 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       ];
     }
     _loadPersonaFlags();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runUnexpectedSignInGate();
+    });
+  }
+
+  String _attendanceDateYyyyMmDd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  bool _hasUnexpectedAmongSelected() {
+    for (final s in _selectedStaff) {
+      final code = (s.staffCode ?? '').trim();
+      if (code.isEmpty) continue;
+      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
+      if (!expected) return true;
+    }
+    return false;
+  }
+
+  List<String> _unexpectedStaffFullNames() {
+    final out = <String>[];
+    for (final s in _selectedStaff) {
+      final code = (s.staffCode ?? '').trim();
+      if (code.isEmpty) continue;
+      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
+      if (!expected) out.add(s.name);
+    }
+    return out;
+  }
+
+  Future<void> _runUnexpectedSignInGate() async {
+    if (!mounted) return;
+    if (_selectedStaff.isEmpty) {
+      setState(() {
+        _unexpectedGateLoading = false;
+        _unexpectedSignInAcknowledged = true;
+      });
+      return;
+    }
+    final token = ++_unexpectedGateToken;
+    setState(() {
+      _unexpectedGateLoading = true;
+    });
+
+    final dateStr = _attendanceDateYyyyMmDd(selectedDate);
+    try {
+      final map = await _fetchIsExpectedTodayFromSignInFormList(
+        attendanceDate: dateStr,
+      );
+      if (!mounted || token != _unexpectedGateToken) return;
+      setState(() {
+        _expectedTodayFromApi = map;
+      });
+    } catch (_) {
+      if (!mounted || token != _unexpectedGateToken) return;
+      setState(() {
+        _expectedTodayFromApi = {};
+      });
+    }
+
+    if (!mounted || token != _unexpectedGateToken) return;
+
+    if (!_hasUnexpectedAmongSelected()) {
+      setState(() {
+        _unexpectedSignInAcknowledged = true;
+        _unexpectedGateLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _unexpectedSignInAcknowledged = false;
+      _unexpectedGateLoading = false;
+    });
+
+    if (!mounted || token != _unexpectedGateToken) return;
+
+    final result = await showUnexpectedSignInAttentionDialog(
+      context,
+      unexpectedFullNames: _unexpectedStaffFullNames(),
+      forStaff: true,
+    );
+
+    if (!mounted || token != _unexpectedGateToken) return;
+
+    if (result?.confirmed == true) {
+      setState(() {
+        _unexpectedSignInAcknowledged = true;
+      });
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _loadPersonaFlags() async {
@@ -74,6 +170,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         selectedDate = DateTime.now();
         selectedTime = TimeOfDay.now();
       }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runUnexpectedSignInGate();
     });
   }
 
@@ -297,7 +396,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         attendanceDate: attendanceDate,
       );
     } catch (_) {
-      // Fall back to [StaffEntity.isExpectedToday] / true when the list call fails.
+      // Fall back to cached gate data, then [StaffEntity.isExpectedToday] / true.
+      expectedFromApi = Map<String, bool>.from(_expectedTodayFromApi);
     }
 
     late final Map<String, dynamic> payload;
@@ -462,6 +562,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                             final picked = DateTime(date.year, date.month, date.day);
                             selectedDate = picked.isAfter(today) ? today : date;
                           });
+                          _runUnexpectedSignInGate();
                         },
                       ),
                     ],
@@ -496,7 +597,12 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-In',
-        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
+        onPressedConfirm: (_isSubmitting ||
+                _unexpectedGateLoading ||
+                (_hasUnexpectedAmongSelected() &&
+                    !_unexpectedSignInAcknowledged))
+            ? null
+            : _handleSubmit,
         showCancelButton: false,
       ),
     );

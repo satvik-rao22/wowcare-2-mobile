@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/user-profile/view/guardian_user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -21,6 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 
 class TabBarStyle {
@@ -113,6 +115,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     parentChildProvider.ensureLoaded();
                   });
                 }
+                final names = parentChildProvider.childNames;
+                final canPickChild =
+                    !parentChildProvider.isLoading && names.isNotEmpty;
                 return Padding(
                   padding: const EdgeInsets.only(left: 20),
                   child: SizedBox(
@@ -120,10 +125,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     child: CustomDropdown(
                       hintText: parentChildProvider.isLoading
                           ? 'Loading children...'
-                          : 'Select child',
-                      items: parentChildProvider.childNames,
+                          : 'No children linked',
+                      items: names,
                       selectedItem: parentChildProvider.selectedChild?.name,
                       onSelect: parentChildProvider.selectByName,
+                      prependHintAsSelectableItem: false,
+                      isEnabled: canPickChild,
                     ),
                   ),
                 );
@@ -399,11 +406,14 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 );
                 break;
               case 1:
-                // Navigate to profile if available
-                //ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Profile')));
+                final isParentPersona = context.read<RoleProvider>().isParent;
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => UserProfileScreen()),
+                  MaterialPageRoute<void>(
+                    builder: (_) => isParentPersona
+                        ? const GuardianUserProfileScreen()
+                        : const UserProfileScreen(),
+                  ),
                 );
                 break;
               case 5:

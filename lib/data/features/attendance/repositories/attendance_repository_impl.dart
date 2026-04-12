@@ -777,6 +777,7 @@ class AttendanceRepositoryImpl
       markedAbsentByName: model.markedAbsentByName,
       absenceNote: model.absenceNote,
       absentDays: model.absentDays,
+      absenceRecordCode: model.absenceRecordCode,
     );
   }
 
@@ -804,6 +805,19 @@ class AttendanceRepositoryImpl
     );
 
     return _mapStudentAbsentFormPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    await _remoteDataSource.deleteStudentAbsenceRecord(
+      absenceRecordCode: absenceRecordCode,
+      staffCode: staffCode,
+      allowedClassroomCodes: allowed,
+    );
   }
 
   @override

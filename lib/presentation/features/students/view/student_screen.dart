@@ -569,6 +569,7 @@ class _StudentScreenState extends State<StudentScreen> {
             roomName: item.classroomName,
             classroomCode: item.classroomCode,
             photoUuid: null,
+            isExpectedToday: item.isExpectedToday,
           );
         }).toList();
         if (entities.isEmpty) {

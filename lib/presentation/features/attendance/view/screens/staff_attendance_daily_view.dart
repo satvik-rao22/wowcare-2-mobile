@@ -912,6 +912,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         return SignMethod.qr;
       case 'APP':
         return SignMethod.direct;
+      case 'WEB':
+        return SignMethod.web;
       default:
         return null;
     }

@@ -569,6 +569,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         return SignMethod.qr;
       case 'APP':
         return SignMethod.direct;
+      case 'WEB':
+        return SignMethod.web;
       default:
         return null;
     }

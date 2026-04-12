@@ -790,6 +790,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             roomName: commonArgs.roomName,
             classroomCode: commonArgs.classroomCode,
             photoUuid: commonArgs.photoUuid,
+            isExpectedToday: current.isExpectedToday,
           ),
         ],
         refreshCallback: refreshData,

@@ -216,6 +216,13 @@ abstract class AttendanceRemoteDataSource {
     required List<String> allowedClassroomCodes,
   });
 
+  /// Delete a single student absence record (marked absent).
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+    required List<String> allowedClassroomCodes,
+  });
+
   /// Marks students absent for a date range.
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
@@ -1159,6 +1166,29 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final queryParameters = <String, dynamic>{
+      'staffCode': staffCode,
+    };
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
+    await _client.delete<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
+    );
+  }
+
+  @override
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+    required List<String> allowedClassroomCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAbsenceRecordByCode(absenceRecordCode),
       ApiConstants.attendanceBaseUrl,
     );
 
