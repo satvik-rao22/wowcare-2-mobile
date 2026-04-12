@@ -6,12 +6,27 @@ List<Map<String, dynamic>> attachmentsForActivityPatchRequest(
   for (final a in items) {
     final ac = (a['assetCode'] ?? '').toString().trim();
     if (ac.isEmpty) continue;
-    final student = (a['studentCode'] ?? a['ownerCode'] ?? '').toString();
-    out.add({
+    final owner = (a['studentCode'] ?? a['ownerCode'] ?? '').toString().trim();
+    final bindingRaw = (a['bindingMode'] ?? '').toString().trim();
+    final bindingMode = bindingRaw.isNotEmpty
+        ? bindingRaw
+        : (owner.isNotEmpty ? 'PER_STUDENT' : 'ACTIVITY');
+    final ownerTypeRaw = (a['ownerType'] ?? '').toString().trim();
+    final ownerType =
+        ownerTypeRaw.isNotEmpty ? ownerTypeRaw : (owner.isNotEmpty ? 'STUDENT' : '');
+
+    final entry = <String, dynamic>{
       'assetCode': ac,
-      'studentCode': student,
-      'bindingMode': (a['bindingMode'] ?? 'ACTIVITY').toString(),
-    });
+      'bindingMode': bindingMode,
+    };
+    if (owner.isNotEmpty) {
+      entry['studentCode'] = owner;
+      entry['ownerCode'] = owner;
+    }
+    if (ownerType.isNotEmpty) {
+      entry['ownerType'] = ownerType;
+    }
+    out.add(entry);
   }
   return out;
 }
@@ -28,10 +43,33 @@ String normalizeActivityDeliveryUrl(String? raw) {
   }
 }
 
+const List<String> _attachmentUrlKeys = [
+  'deliveryUrl',
+  'thumbnailUrl',
+  'artifactUrl',
+  'originalDownloadUrl',
+];
+
+/// First non-empty URL on the row (same preference order as the activity feed card).
 String _attachmentPrimaryDeliveryUrl(Map<String, dynamic> row) {
-  final d = (row['deliveryUrl'] ?? '').toString().trim();
-  if (d.isNotEmpty) return d;
-  return (row['thumbnailUrl'] ?? '').toString().trim();
+  for (final key in _attachmentUrlKeys) {
+    final d = (row[key] ?? '').toString().trim();
+    if (d.isNotEmpty) return d;
+  }
+  return '';
+}
+
+bool _attachmentRowUrlsIntersectRemaining(
+  Map<String, dynamic> row,
+  Set<String> remainingNorm,
+) {
+  for (final key in _attachmentUrlKeys) {
+    final u = (row[key] ?? '').toString().trim();
+    if (u.isEmpty) continue;
+    final n = normalizeActivityDeliveryUrl(u);
+    if (n.isNotEmpty && remainingNorm.contains(n)) return true;
+  }
+  return false;
 }
 
 bool _isVideoAttachmentMap(Map<String, dynamic> row, String? deliveryUrl) {
@@ -51,6 +89,24 @@ List<String> imageDeliveryUrlsFromAttachmentRows(
     if (u.isEmpty) continue;
     if (_isVideoAttachmentMap(a, u)) continue;
     urls.add(u);
+  }
+  return urls;
+}
+
+/// Video URLs from attachment rows (for edit UI + PATCH merge).
+List<String> videoDeliveryUrlsFromAttachmentRows(
+  List<Map<String, dynamic>> rows,
+) {
+  final urls = <String>[];
+  for (final a in rows) {
+    for (final key in _attachmentUrlKeys) {
+      final u = (a[key] ?? '').toString().trim();
+      if (u.isEmpty) continue;
+      if (_isVideoAttachmentMap(a, u)) {
+        urls.add(u);
+        break;
+      }
+    }
   }
   return urls;
 }
@@ -78,7 +134,7 @@ List<Map<String, dynamic>> mergeAttachmentRowsForEditPatch({
       continue;
     }
 
-    if (remainingNormalizedDeliveryUrls.contains(normalized)) {
+    if (_attachmentRowUrlsIntersectRemaining(copy, remainingNormalizedDeliveryUrls)) {
       result.add(copy);
       continue;
     }

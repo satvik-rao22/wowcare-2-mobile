@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -15,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -25,14 +28,15 @@ import '../../../../domain/features/activity/usecases/get_classroom_activity_set
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
-import '../../../../shared/common/views/filter_screen.dart';
+import '../util/activity_filter_metadata_cache.dart';
+import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
-import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
 import 'edit_create_activity_screens/incident_activity.dart';
@@ -42,6 +46,7 @@ import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
+import '../util/activity_feed_page_cache_codec.dart';
 
 class ActivityDailyTab extends StatefulWidget {
   const ActivityDailyTab({
@@ -65,7 +70,11 @@ class ActivityDailyTab extends StatefulWidget {
   State<ActivityDailyTab> createState() => _ActivityDailyTabState();
 }
 
-class _ActivityDailyTabState extends State<ActivityDailyTab> {
+class _ActivityDailyTabState extends State<ActivityDailyTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   //final TextEditingController _searchController = TextEditingController();
   late bool isNotParent;
 
@@ -110,6 +119,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   String? _schoolCode;
   List<ActivitySetting> _classroomActivitySettings = [];
   List<String> _tagFilterOptions = [];
+  Map<String, String> _tagNameToCode = {};
+  final Set<String> _studentCodesForTagFilter = {};
 
   late final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
@@ -117,9 +128,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetStudentPageUseCase _getStudentPageUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
+  StreamSubscription<void>? _feedInvalidationSub;
 
   final List<Color> _colorPalette = [
     const Color(0xFFB3E5FC),
@@ -261,8 +274,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     return '$y-$m-$day';
   }
 
-  String? _activityTypeCodeForApiFilter() {
-    final label = _selectedActivityType;
+  String? _activityTypeCodeForLabel(String? label) {
     if (label == null || label.trim().isEmpty) return null;
     for (final s in _classroomActivitySettings) {
       if (_filterLabelMatchesSetting(label, s.activityTypeName)) {
@@ -270,6 +282,81 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       }
     }
     return null;
+  }
+
+  /// Single type for API: one filter-sheet selection, else parent "Activity Type" dropdown.
+  String? _activityTypeCodeForApiFilter() {
+    if (_filterActivityTypes.length == 1) {
+      return _activityTypeCodeForLabel(_filterActivityTypes.first);
+    }
+    if (_filterActivityTypes.isEmpty) {
+      return _activityTypeCodeForLabel(_selectedActivityType);
+    }
+    return null;
+  }
+
+  List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
+    var list = items;
+    if (_filterActivityTypes.length > 1) {
+      final codes = _filterActivityTypes
+          .map(_activityTypeCodeForLabel)
+          .whereType<String>()
+          .toSet();
+      final names =
+          _filterActivityTypes.map((e) => e.trim().toLowerCase()).toSet();
+      list = list.where((a) {
+        final c = a.activityTypeCode?.trim();
+        if (c != null && c.isNotEmpty && codes.contains(c)) return true;
+        return names.contains(a.name.trim().toLowerCase());
+      }).toList();
+    }
+    if (_filterTags.isNotEmpty && _studentCodesForTagFilter.isNotEmpty) {
+      list = list
+          .where((a) =>
+              a.studentCode != null &&
+              _studentCodesForTagFilter.contains(a.studentCode))
+          .toList();
+    }
+    return list;
+  }
+
+  Future<void> _rebuildStudentCodesForTagFilter() async {
+    _studentCodesForTagFilter.clear();
+    if (_filterTags.isEmpty || !mounted) return;
+    final school = _schoolCode;
+    final classroomName = _selectdClassroom;
+    if (school == null ||
+        school.isEmpty ||
+        classroomName == null ||
+        !_classroomCodeByName.containsKey(classroomName)) {
+      return;
+    }
+    final cc = _classroomCodeByName[classroomName]!;
+    try {
+      for (final tagName in _filterTags) {
+        final tagCode = _tagNameToCode[tagName];
+        if (tagCode == null || tagCode.trim().isEmpty) continue;
+        var page = 0;
+        while (true) {
+          final sp = await _getStudentPageUseCase(
+            schoolCode: school,
+            classroomCodes: [cc],
+            tagCodes: [tagCode.trim()],
+            page: page,
+            size: 100,
+          );
+          if (!mounted) return;
+          for (final s in sp.items) {
+            _studentCodesForTagFilter.add(s.code);
+          }
+          if (!sp.hasMore) break;
+          page++;
+          if (page > 100) break;
+        }
+      }
+    } catch (_) {
+      if (mounted) _studentCodesForTagFilter.clear();
+    }
   }
 
   bool _filterLabelMatchesSetting(String uiLabel, String settingName) {
@@ -297,7 +384,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       return;
     }
     _schoolCode = school;
-    await _loadTagFilterOptions();
 
     final classroomCacheKey = CacheManager.buildCacheKey(
       feature: 'activity',
@@ -363,7 +449,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             .map((c) => {'name': c.name, 'code': c.code})
             .toList(),
       });
-      await _reloadStudentsAndSettingsThenFeed();
+      await Future.wait<void>([
+        _loadDailyFeed(refresh: true),
+        _reloadStudentsAndSettings(),
+        _loadTagFilterOptions(),
+      ]);
     } catch (e) {
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -377,7 +467,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     }
   }
 
-  Future<void> _reloadStudentsAndSettingsThenFeed() async {
+  Future<void> _reloadStudentsAndSettings() async {
     _studentCodeByName.clear();
     _availableStudents = [];
     _classroomActivitySettings = [];
@@ -404,9 +494,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     );
 
     try {
-      final settings = await _getClassroomActivitySettingsUseCase(
+      final settings = await ActivityFilterMetadataCache.loadClassroomActivitySettings(
+        cacheManager: _cacheManager,
+        useCase: _getClassroomActivitySettingsUseCase,
         classroomCode: code,
-        refresh: false,
       );
       if (!mounted) return;
       setState(() {
@@ -477,27 +568,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         });
       }
     }
+  }
 
+  Future<void> _reloadStudentsAndSettingsThenFeed() async {
+    await _reloadStudentsAndSettings();
     await _loadDailyFeed();
   }
 
-  List<ActivityItem> _mapDailyFeedPageToItems(
-    ActivityFeedPage page,
-    String? typeCode,
-  ) {
-    var items =
+  List<ActivityItem> _mapDailyFeedPageToItems(ActivityFeedPage page) {
+    final raw =
         page.content.map((row) => activityItemFromFeedRow(row)).toList();
-
-    if (typeCode == null &&
-        _selectedActivityType != null &&
-        _selectedActivityType!.trim().isNotEmpty) {
-      final want = _selectedActivityType!.trim();
-      final filtered = items.where((a) => a.name == want).toList();
-      if (filtered.isNotEmpty) {
-        items = filtered;
-      }
-    }
-    return items;
+    return _withClientFilters(raw);
   }
 
   void _onFeedScroll() {
@@ -564,7 +645,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         size: _feedPageSize,
       );
 
-      final items = _mapDailyFeedPageToItems(page, typeCode);
+      final items = _mapDailyFeedPageToItems(page);
 
       if (!mounted) return;
       setState(() {
@@ -630,6 +711,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       dateStr,
       studentCode ?? '',
       typeCode ?? '',
+      _filterActivityTypes.join(','),
+      _filterTags.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -649,6 +732,42 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         return;
       }
     }
+
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
+
+    if (!refresh) {
+      try {
+        final cached = await _cacheManager.loadCache(
+          ActivityFeedPageCacheCodec.dailyCacheKey(requestKey),
+          validFor: StorageKeys.activityFeedCacheDuration,
+        );
+        final rev =
+            await ActivityFeedInvalidation.currentRevision(_storageService);
+        final cachedPage =
+            ActivityFeedPageCacheCodec.decode(cached, currentRevision: rev);
+        if (cachedPage != null && mounted) {
+          final items = _mapDailyFeedPageToItems(cachedPage);
+          setState(() {
+            _activities = items;
+            _loadingFeed = false;
+            _feedError = null;
+            _feedHasMore = !cachedPage.last;
+            _feedNextPage =
+                cachedPage.last ? 0 : cachedPage.pageNumber + 1;
+            _loadingMoreFeed = false;
+          });
+          _lastFeedRequestKey = requestKey;
+          _isFeedRequestInFlight = false;
+          _lastFeedCompletedAt = DateTime.now();
+          _lastFeedCompletedWithError = false;
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _maybeLoadNextDailyFeedPage());
+          return;
+        }
+      } catch (_) {}
+    }
+
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
 
@@ -671,12 +790,20 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         size: _feedPageSize,
       );
 
-      final items = _mapDailyFeedPageToItems(page, typeCode);
+      final items = _mapDailyFeedPageToItems(page);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
         return;
       }
+      try {
+        final rev =
+            await ActivityFeedInvalidation.currentRevision(_storageService);
+        await _cacheManager.saveCache(
+          ActivityFeedPageCacheCodec.dailyCacheKey(requestKey),
+          ActivityFeedPageCacheCodec.wrapPage(page, rev),
+        );
+      } catch (_) {}
       setState(() {
         _activities = items;
         _loadingFeed = false;
@@ -718,6 +845,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
@@ -731,10 +859,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
     _feedScrollController.addListener(_onFeedScroll);
+    _feedInvalidationSub =
+        ActivityFeedInvalidation.onInvalidated.listen((_) {
+      if (mounted) {
+        _loadDailyFeed(refresh: true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _feedInvalidationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
     super.dispose();
@@ -752,33 +887,41 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     }
   }
 
-  List<String> _activityTypeNamesForFilter() {
-    final out = _classroomActivitySettings
-        .map((s) => s.activityTypeName.trim())
-        .where((n) => n.isNotEmpty)
-        .toSet()
-        .toList();
-    out.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return out;
-  }
-
-  List<FilerSection> _activityFeedFilterSections() {
-    return [
-      FilerSection(
-        label: 'Tags',
-        hintText: 'Select tags',
-        items: List<String>.from(_tagFilterOptions),
-        initialSelected: _filterTags,
-        isMultiSelectDropDown: false,
+  Future<void> _openActivityFilter() async {
+    final school = _schoolCode;
+    final classroomName = _selectdClassroom;
+    if (school == null ||
+        school.isEmpty ||
+        classroomName == null ||
+        !_classroomCodeByName.containsKey(classroomName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Select a classroom first',
+        isWarning: true,
+      );
+      return;
+    }
+    final classroomCode = _classroomCodeByName[classroomName]!;
+    final result = await Navigator.push<Map<String, List<String>>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ActivityFilterScreen(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          initialFilters: {
+            'Tags': List<String>.from(_filterTags),
+            'Activity Type': List<String>.from(_filterActivityTypes),
+          },
+        ),
       ),
-      FilerSection(
-        label: 'Activity Type',
-        hintText: 'Select Activity',
-        items: _activityTypeNamesForFilter(),
-        initialSelected: _filterActivityTypes,
-        isMultiSelectDropDown: false,
-      ),
-    ];
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _filterTags = List<String>.from(result['Tags'] ?? const []);
+      _filterActivityTypes =
+          List<String>.from(result['Activity Type'] ?? const []);
+    });
+    await _loadDailyFeed(refresh: true);
   }
 
   Future<void> _deleteActivityFromSheet(
@@ -805,7 +948,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         message: message,
         isSuccess: true,
       );
-      await _loadDailyFeed(refresh: true);
     } catch (e) {
       if (!mounted) return;
       if (sheetContext.mounted) Navigator.of(sheetContext).pop();
@@ -821,9 +963,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
     try {
-      final map = await _getTagNameCodeMapForSchoolUseCase(schoolCode: school);
+      final map = await ActivityFilterMetadataCache.loadTagNameCodeMap(
+        cacheManager: _cacheManager,
+        useCase: _getTagNameCodeMapForSchoolUseCase,
+        schoolCode: school,
+      );
       if (!mounted) return;
       setState(() {
+        _tagNameToCode = Map<String, String>.from(map);
         _tagFilterOptions = map.keys.toList()
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         _filterTags.removeWhere((t) => !_tagFilterOptions.contains(t));
@@ -865,6 +1012,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return OrientationBuilder(
         builder: (context, orientation){
           if(orientation == Orientation.landscape){
@@ -887,7 +1035,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: AbsorbPointer(
                             child: _buildCustomDropdown(
                               'Select Student',
@@ -898,13 +1046,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               (v) => setState(() {
                                 _selectedStudent = v;
                               }),
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: _datePickerFilter(
                             selectedDate: _selectedDate,
                             onDateSelected: (date) {
@@ -967,33 +1115,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               color: Colors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(100),
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                        sections: _activityFeedFilterSections(),
-                                        onApply: (filters) {
-                                          setState(() {
-                                            _filterTags = List<String>.from(
-                                              filters['Tags'] ?? const [],
-                                            );
-                                            _filterActivityTypes =
-                                                List<String>.from(
-                                              filters['Activity Type'] ??
-                                                  const [],
-                                            );
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
-                                  }
-                                },
+                                onTap: _openActivityFilter,
                                 child: Padding(
                                   padding: const EdgeInsets.all(8),
                                   child: SvgPicture.asset(
@@ -1043,7 +1165,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _datePickerFilter(
                               selectedDate: _selectedDate,
                               onDateSelected: (date) {
@@ -1058,7 +1180,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _buildCustomDropdown(
                               'Activity Type',
                               activityType,
@@ -1069,7 +1191,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                 });
                                 _loadDailyFeed();
                               },
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
@@ -1622,7 +1744,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             //             crossAxisAlignment: CrossAxisAlignment.stretch,
             //             children: [
             //               SizedBox(
-            //                 height: 65,
+            //                 height: 40,
             //                 child: AbsorbPointer(
             //                   child: _buildCustomDropdown(
             //                     'Select Student',
@@ -1631,13 +1753,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             //                         (v) => setState(() {
             //                       _selectedStudent = v;
             //                     }),
-            //                     height: 65,
+            //                     height: 40,
             //                   ),
             //                 ),
             //               ),
             //               const SizedBox(height: 8),
             //               SizedBox(
-            //                 height: 65,
+            //                 height: 40,
             //                 child: _datePickerFilter(
             //                   selectedDate: _selectedDate,
             //                   onDateSelected: (date) {
@@ -1807,7 +1929,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             //             children: [
             //               Expanded(
             //                 child: SizedBox(
-            //                   height: 65,
+            //                   height: 40,
             //                   child: _datePickerFilter(
             //                     selectedDate: _selectedDate,
             //                     onDateSelected: (date) {
@@ -1821,7 +1943,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             //               const SizedBox(width: 8),
             //               Expanded(
             //                 child: SizedBox(
-            //                   height: 65,
+            //                   height: 40,
             //                   child: _buildCustomDropdown(
             //                     'Activity Type',
             //                     activityType,
@@ -1829,7 +1951,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             //                         (v) => setState(() {
             //                       _selectedActivityType = v;
             //                     }),
-            //                     height: 65,
+            //                     height: 40,
             //                   ),
             //                 ),
             //               ),
@@ -2315,7 +2437,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: AbsorbPointer(
                             child: _buildCustomDropdown(
                               'Select Student',
@@ -2326,13 +2448,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               (v) => setState(() {
                                 _selectedStudent = v;
                               }),
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: _datePickerFilter(
                             selectedDate: _selectedDate,
                             onDateSelected: (date) {
@@ -2395,33 +2517,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               color: Colors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(100),
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                        sections: _activityFeedFilterSections(),
-                                        onApply: (filters) {
-                                          setState(() {
-                                            _filterTags = List<String>.from(
-                                              filters['Tags'] ?? const [],
-                                            );
-                                            _filterActivityTypes =
-                                                List<String>.from(
-                                              filters['Activity Type'] ??
-                                                  const [],
-                                            );
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
-                                  }
-                                },
+                                onTap: _openActivityFilter,
                                 child: Padding(
                                   padding: const EdgeInsets.all(8),
                                   child: SvgPicture.asset(
@@ -2471,7 +2567,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _datePickerFilter(
                               selectedDate: _selectedDate,
                               onDateSelected: (date) {
@@ -2486,7 +2582,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _buildCustomDropdown(
                               'Activity Type',
                               activityType,
@@ -2497,7 +2593,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                 });
                                 _loadDailyFeed();
                               },
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
@@ -3060,25 +3156,26 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
           color: const Color(0xFFB1AFE9).withOpacity(0.102),
-          //color: const Color(0xFFF8F7FA),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
-                child: AppText.small(
+                child: Text(
                   selectedDate != null
                       ? DateFormat('MMM dd, yyyy').format(selectedDate)
                       : 'Select Date',
-                  style: AppTextStyles.small.copyWith(
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
                     color: selectedDate == null
-                        ? AppColors.primaryColor.withOpacity(0.6)
-                        : AppColors.primaryColor,
-                    fontWeight: FontWeight.w500,
+                        ? Colors.grey[600]
+                        : Colors.black87,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3105,42 +3202,31 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
-    double? height = null,
+    double? height,
   }) {
-    final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: null,
       hintText: hintText,
-      height: height,
+      height: height ?? 40,
       items: items,
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
-      labelStyle: TextStyle(
-        fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
-        fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
-      ),
-      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-      fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
         fontFamily: 'Manrope',
-        fontSize: responsive.inputFontSize,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
-        height: 19 / 14,
-      ),
-      popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: responsive.inputFontSize,
+        fontSize: 15,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: selectedItem != null && selectedItem.trim().isNotEmpty
+            ? Colors.black87
+            : Colors.grey[600],
       ),
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: responsive.isTablet ? 16.0 : 12.0,
-        vertical: responsive.isTablet ? 16.0 : 12.0,
+      popupItemTextStyle: const TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: Colors.black87,
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
   }
 }
@@ -3171,7 +3257,7 @@ class PopupItem extends StatelessWidget {
   }
 }
 
-/// Feed card line under student avatars (Bottle: amount/status + description).
+/// Feed card line under student avatars (Meal / Bottle / Nap / Learning / Bathroom + description).
 String activityFeedCardBodyLine(ActivityItem activity) {
   if (activity.name == 'Meal') {
     final mt = activity.mealType?.trim();
@@ -3244,6 +3330,46 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     }
     return firstLine;
   }
+  if (activity.name == 'Learning') {
+    final at = activity.activityType?.trim();
+    final cats = activity.categoryType;
+    final desc = activity.description?.trim();
+    final parts = <String>[];
+    if (at != null && at.isNotEmpty) parts.add(at);
+    if (cats != null && cats.isNotEmpty) {
+      final c = cats
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .join(', ');
+      if (c.isNotEmpty) parts.add(c);
+    }
+    if (parts.isNotEmpty) {
+      final first = parts.join(' · ');
+      if (desc != null && desc.isNotEmpty) {
+        return '$first\n$desc';
+      }
+      return first;
+    }
+    if (desc != null && desc.isNotEmpty) return desc;
+    return 'No description';
+  }
+  if (activity.name == 'Bathroom') {
+    final t = activity.bathroomType?.trim();
+    final st = activity.bathroomSubType?.trim();
+    final desc = activity.description?.trim();
+    final parts = <String>[];
+    if (t != null && t.isNotEmpty) parts.add(t);
+    if (st != null && st.isNotEmpty) parts.add(st);
+    if (parts.isNotEmpty) {
+      final first = parts.join(' · ');
+      if (desc != null && desc.isNotEmpty) {
+        return '$first\n$desc';
+      }
+      return first;
+    }
+    if (desc != null && desc.isNotEmpty) return desc;
+    return 'No description';
+  }
   final d = activity.description?.trim();
   return (d != null && d.isNotEmpty) ? d : 'No description';
 }
@@ -3252,6 +3378,8 @@ int activityFeedCardBodyMaxLines(ActivityItem activity) {
   if (activity.name == 'Bottle') return 2;
   if (activity.name == 'Meal') return 3;
   if (activity.name == 'Nap Start' || activity.name == 'Nap End') return 4;
+  if (activity.name == 'Learning') return 3;
+  if (activity.name == 'Bathroom') return 3;
   return 1;
 }
 

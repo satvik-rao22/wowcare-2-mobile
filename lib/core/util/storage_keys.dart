@@ -53,6 +53,14 @@ class StorageKeys {
   // Cache Duration
   static const Duration cacheValidDuration = Duration(minutes: 5);
 
+  /// Activity feed (daily / range) first-page cache — slightly longer to avoid
+  /// refetching when switching tabs or returning to the feed screen.
+  static const Duration activityFeedCacheDuration = Duration(minutes: 10);
+
+  /// Incremented when activities are created/updated/deleted so cached feed
+  /// snapshots are ignored until refetched.
+  static const String activityFeedCacheRevision = 'activity_feed_cache_revision';
+
   // Temporary default until school selection is fully wired
   // static const String defaultOrganizationCode = 'ORG_FA144927-1';
   // static const String defaultSchoolCode = 'SCH_8A889124-7';

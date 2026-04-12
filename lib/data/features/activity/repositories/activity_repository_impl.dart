@@ -1,5 +1,6 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 
+import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';
@@ -15,10 +16,12 @@ class ActivityRepositoryImpl implements ActivityRepository {
   ActivityRepositoryImpl(
     this._remoteDataSource,
     StorageService storageService,
-  ) : _cacheManager = CacheManager(storageService);
+  )   : _cacheManager = CacheManager(storageService),
+        _storageService = storageService;
 
   final ActivityRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
+  final StorageService _storageService;
 
   // Cache key helper: activity_settings_cache_{classroomCode}
   static String _activitySettingsCacheKey(String classroomCode) {
@@ -147,8 +150,8 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String description,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
-  }) {
-    return _remoteDataSource.updateActivity(
+  }) async {
+    final message = await _remoteDataSource.updateActivity(
       code: code,
       staffCode: staffCode,
       activityDate: activityDate,
@@ -156,11 +159,15 @@ class ActivityRepositoryImpl implements ActivityRepository {
       parameterValues: parameterValues,
       attachments: attachments,
     );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
   }
 
   @override
-  Future<String> deleteActivity({required String code}) {
-    return _remoteDataSource.deleteActivity(code: code);
+  Future<String> deleteActivity({required String code}) async {
+    final message = await _remoteDataSource.deleteActivity(code: code);
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
   }
 
   @override
@@ -189,7 +196,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
       attachments: attachments,
     );
 
-    return _remoteDataSource.createActivity(request: request);
+    final message = await _remoteDataSource.createActivity(request: request);
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
   }
 
   @override

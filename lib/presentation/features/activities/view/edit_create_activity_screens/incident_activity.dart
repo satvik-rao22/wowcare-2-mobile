@@ -1116,7 +1116,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<void> _uploadMediaOnSelection() async {
-    if (_layoutAsEdit || (_newPhotos.isEmpty && _newVideo == null) || _isUploadingMedia) {
+    if (widget.readOnly ||
+        (_newPhotos.isEmpty && _newVideo == null) ||
+        _isUploadingMedia) {
       return;
     }
 

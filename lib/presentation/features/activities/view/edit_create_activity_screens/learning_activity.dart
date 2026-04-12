@@ -438,7 +438,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   }
 
   Future<void> _uploadPhotosOnSelection() async {
-    if (_layoutAsEdit || _newPhotos.isEmpty || _isUploadingMedia) return;
+    if (widget.readOnly || _newPhotos.isEmpty || _isUploadingMedia) return;
 
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;

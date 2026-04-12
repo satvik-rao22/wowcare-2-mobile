@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -13,6 +16,7 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
@@ -21,13 +25,14 @@ import '../../../../domain/features/activity/usecases/delete_activity_usecase.da
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
-import '../../../../shared/common/views/filter_screen.dart';
+import '../util/activity_filter_metadata_cache.dart';
+import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
-import '../../../../shared/utils/responsive_helper.dart';
 import '../widgets/avtivity_media_preview.dart';
 import 'activity_daily_tab.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
@@ -40,6 +45,7 @@ import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
+import '../util/activity_feed_page_cache_codec.dart';
 
 class ActivityCustomTab extends StatefulWidget {
   const ActivityCustomTab({
@@ -59,7 +65,11 @@ class ActivityCustomTab extends StatefulWidget {
   State<ActivityCustomTab> createState() => _ActivityCustomTabState();
 }
 
-class _ActivityCustomTabState extends State<ActivityCustomTab> {
+class _ActivityCustomTabState extends State<ActivityCustomTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late bool isNotParent;
 
   DateTime? _selectedStartDate = DateTime(
@@ -84,6 +94,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   final Map<String, String> _studentCodeByName = {};
   List<ActivitySetting> _classroomActivitySettings = [];
   List<String> _tagFilterOptions = [];
+  Map<String, String> _tagNameToCode = {};
+  final Set<String> _studentCodesForTagFilter = {};
   bool _isFeedRequestInFlight = false;
   String? _lastFeedRequestKey;
   DateTime? _lastFeedCompletedAt;
@@ -101,9 +113,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetStudentPageUseCase _getStudentPageUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
+  StreamSubscription<void>? _feedInvalidationSub;
 
   final List<String> activityType = [
     'Nap Start',
@@ -263,6 +277,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
@@ -275,10 +290,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       await _bootstrapRangeFeed();
     });
     _feedScrollController.addListener(_onFeedScroll);
+    _feedInvalidationSub =
+        ActivityFeedInvalidation.onInvalidated.listen((_) {
+      if (mounted) {
+        _loadRangeFeed(refresh: true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _feedInvalidationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
     super.dispose();
@@ -304,7 +326,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   }
 
   List<ActivityItem> _itemsFromRangeFeedPage(ActivityFeedPage page) {
-    return page.content.map((row) => activityItemFromFeedRow(row)).toList();
+    final raw =
+        page.content.map((row) => activityItemFromFeedRow(row)).toList();
+    return _withClientFilters(raw);
   }
 
   Future<void> _loadNextRangeFeedPage() async {
@@ -381,42 +405,55 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     }
   }
 
-  List<String> _activityTypeNamesForFilter() {
-    final out = _classroomActivitySettings
-        .map((s) => s.activityTypeName.trim())
-        .where((n) => n.isNotEmpty)
-        .toSet()
-        .toList();
-    out.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return out;
-  }
-
-  List<FilerSection> _activityFeedFilterSections() {
-    return [
-      FilerSection(
-        label: 'Tags',
-        hintText: 'Select tags',
-        items: List<String>.from(_tagFilterOptions),
-        initialSelected: _filterTags,
-        isMultiSelectDropDown: false,
+  Future<void> _openActivityFilter() async {
+    final school = _schoolCode;
+    final classroomName = _selectdClassroom;
+    if (school == null ||
+        school.isEmpty ||
+        classroomName == null ||
+        !_classroomCodeByName.containsKey(classroomName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Select a classroom first',
+        isWarning: true,
+      );
+      return;
+    }
+    final classroomCode = _classroomCodeByName[classroomName]!;
+    final result = await Navigator.push<Map<String, List<String>>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ActivityFilterScreen(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          initialFilters: {
+            'Tags': List<String>.from(_filterTags),
+            'Activity Type': List<String>.from(_filterActivityTypes),
+          },
+        ),
       ),
-      FilerSection(
-        label: 'Activity Type',
-        hintText: 'Select Activity',
-        items: _activityTypeNamesForFilter(),
-        initialSelected: _filterActivityTypes,
-        isMultiSelectDropDown: false,
-      ),
-    ];
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _filterTags = List<String>.from(result['Tags'] ?? const []);
+      _filterActivityTypes =
+          List<String>.from(result['Activity Type'] ?? const []);
+    });
+    await _loadRangeFeed(refresh: true);
   }
 
   Future<void> _loadTagFilterOptions() async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
     try {
-      final map = await _getTagNameCodeMapForSchoolUseCase(schoolCode: school);
+      final map = await ActivityFilterMetadataCache.loadTagNameCodeMap(
+        cacheManager: _cacheManager,
+        useCase: _getTagNameCodeMapForSchoolUseCase,
+        schoolCode: school,
+      );
       if (!mounted) return;
       setState(() {
+        _tagNameToCode = Map<String, String>.from(map);
         _tagFilterOptions = map.keys.toList()
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         _filterTags.removeWhere((t) => !_tagFilterOptions.contains(t));
@@ -438,16 +475,99 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     return '${d.year}-${two(d.month)}-${two(d.day)}';
   }
 
-  String? _activityTypeCodeForApiFilter() {
-    final label = _selectedActivityType;
+  bool _filterLabelMatchesSetting(String uiLabel, String settingName) {
+    final u = uiLabel.toLowerCase().trim();
+    final n = settingName.toLowerCase().trim();
+    if (u.isEmpty || n.isEmpty) return false;
+    if (u == n) return true;
+    if (n.contains(u) || u.contains(n)) return true;
+    final ua = u.split(RegExp(r'\s+')).where((e) => e.length > 2).toSet();
+    final na = n.split(RegExp(r'\s+')).where((e) => e.length > 2).toSet();
+    return ua.intersection(na).isNotEmpty;
+  }
+
+  String? _activityTypeCodeForLabel(String? label) {
     if (label == null || label.trim().isEmpty) return null;
-    final want = label.toLowerCase().trim();
     for (final s in _classroomActivitySettings) {
-      final name = s.activityTypeName.toLowerCase().trim();
-      if (name == want) return s.activityTypeCode;
-      if (name.contains(want) || want.contains(name)) return s.activityTypeCode;
+      if (_filterLabelMatchesSetting(label, s.activityTypeName)) {
+        return s.activityTypeCode;
+      }
     }
     return null;
+  }
+
+  String? _activityTypeCodeForApiFilter() {
+    if (_filterActivityTypes.length == 1) {
+      return _activityTypeCodeForLabel(_filterActivityTypes.first);
+    }
+    if (_filterActivityTypes.isEmpty) {
+      return _activityTypeCodeForLabel(_selectedActivityType);
+    }
+    return null;
+  }
+
+  List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
+    var list = items;
+    if (_filterActivityTypes.length > 1) {
+      final codes = _filterActivityTypes
+          .map(_activityTypeCodeForLabel)
+          .whereType<String>()
+          .toSet();
+      final names =
+          _filterActivityTypes.map((e) => e.trim().toLowerCase()).toSet();
+      list = list.where((a) {
+        final c = a.activityTypeCode?.trim();
+        if (c != null && c.isNotEmpty && codes.contains(c)) return true;
+        return names.contains(a.name.trim().toLowerCase());
+      }).toList();
+    }
+    if (_filterTags.isNotEmpty && _studentCodesForTagFilter.isNotEmpty) {
+      list = list
+          .where((a) =>
+              a.studentCode != null &&
+              _studentCodesForTagFilter.contains(a.studentCode))
+          .toList();
+    }
+    return list;
+  }
+
+  Future<void> _rebuildStudentCodesForTagFilter() async {
+    _studentCodesForTagFilter.clear();
+    if (_filterTags.isEmpty || !mounted) return;
+    final school = _schoolCode;
+    final classroomName = _selectdClassroom;
+    if (school == null ||
+        school.isEmpty ||
+        classroomName == null ||
+        !_classroomCodeByName.containsKey(classroomName)) {
+      return;
+    }
+    final cc = _classroomCodeByName[classroomName]!;
+    try {
+      for (final tagName in _filterTags) {
+        final tagCode = _tagNameToCode[tagName];
+        if (tagCode == null || tagCode.trim().isEmpty) continue;
+        var page = 0;
+        while (true) {
+          final sp = await _getStudentPageUseCase(
+            schoolCode: school,
+            classroomCodes: [cc],
+            tagCodes: [tagCode.trim()],
+            page: page,
+            size: 100,
+          );
+          if (!mounted) return;
+          for (final s in sp.items) {
+            _studentCodesForTagFilter.add(s.code);
+          }
+          if (!sp.hasMore) break;
+          page++;
+          if (page > 100) break;
+        }
+      }
+    } catch (_) {
+      if (mounted) _studentCodesForTagFilter.clear();
+    }
   }
 
   Future<void> _bootstrapRangeFeed() async {
@@ -462,8 +582,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       return;
     }
-
-    await _loadTagFilterOptions();
 
     final school = _schoolCode ?? '';
     final classroomCacheKey = CacheManager.buildCacheKey(
@@ -516,7 +634,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
             .toList(),
       });
 
-      await _loadRangeFeed();
+      await Future.wait<void>([
+        _loadRangeFeed(),
+        _loadTagFilterOptions(),
+      ]);
     } catch (e) {
       if (!mounted) return;
       final msg = ApiErrorHandler.extractErrorMessage(e);
@@ -551,7 +672,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         message: message,
         isSuccess: true,
       );
-      await _loadRangeFeed(refresh: true);
     } catch (e) {
       if (!mounted) return;
       if (sheetContext.mounted) Navigator.of(sheetContext).pop();
@@ -592,6 +712,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       _dateQueryParam(end),
       studentCodeForRequest ?? '',
       typeCode ?? '',
+      _filterActivityTypes.join(','),
+      _filterTags.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -605,145 +727,47 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         return;
       }
     }
+
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
+
+    if (!refresh) {
+      try {
+        final cached = await _cacheManager.loadCache(
+          ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
+          validFor: StorageKeys.activityFeedCacheDuration,
+        );
+        final rev =
+            await ActivityFeedInvalidation.currentRevision(_storageService);
+        final cachedPage =
+            ActivityFeedPageCacheCodec.decode(cached, currentRevision: rev);
+        if (cachedPage != null && mounted) {
+          final items = _itemsFromRangeFeedPage(cachedPage);
+          setState(() {
+            activities
+              ..clear()
+              ..addAll(items);
+            _feedError = null;
+            _feedHasMore = !cachedPage.last;
+            _feedNextPage =
+                cachedPage.last ? 0 : cachedPage.pageNumber + 1;
+            _loadingMoreFeed = false;
+          });
+          _lastFeedRequestKey = requestKey;
+          _isFeedRequestInFlight = false;
+          _lastFeedCompletedAt = DateTime.now();
+          _lastFeedCompletedWithError = false;
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+          return;
+        }
+      } catch (_) {}
+    }
+
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
 
     try {
-      final school = _schoolCode;
-      final shouldReloadClassroomDependencies =
-          refresh ||
-          _lastResolvedClassroomCode != classroomCode ||
-          !classroomStudents.containsKey(classroomName) ||
-          _classroomActivitySettings.isEmpty;
-
-      if (shouldReloadClassroomDependencies) {
-        if (school != null && school.isNotEmpty) {
-          final studentsCacheKey = CacheManager.buildCacheKey(
-            feature: 'activity',
-            resource: 'students',
-            identifier: '$school|$classroomCode',
-          );
-          if (!refresh) {
-            try {
-              final cachedStudents = await _cacheManager.loadCache(studentsCacheKey);
-              if (cachedStudents != null && cachedStudents['students'] is List) {
-                final cachedList = (cachedStudents['students'] as List)
-                    .whereType<Map>()
-                    .map((e) => <String, String>{
-                          'name': (e['name'] ?? '').toString(),
-                          'code': (e['code'] ?? '').toString(),
-                        })
-                    .where((e) =>
-                        (e['name'] ?? '').isNotEmpty &&
-                        (e['code'] ?? '').isNotEmpty)
-                    .toList();
-                if (cachedList.isNotEmpty) {
-                  _studentCodeByName
-                    ..clear()
-                    ..addEntries(cachedList.map(
-                        (s) => MapEntry(s['name'] ?? '', s['code'] ?? '')));
-                  classroomStudents[classroomName] =
-                      cachedList.map((s) => s['name'] ?? '').toList();
-                  _updateAvailableStudents();
-                }
-              }
-            } catch (_) {}
-          }
-
-          final students = await _getStudentClassroomListUseCase(
-            schoolCode: school,
-            classroomCode: classroomCode,
-            status: const ['ACTIVE'],
-            refresh: refresh,
-          );
-          _studentCodeByName
-            ..clear()
-            ..addEntries(students.map((s) => MapEntry(s.fullName, s.studentCode)));
-          classroomStudents[classroomName] = students.map((s) => s.fullName).toList();
-          _updateAvailableStudents();
-          await _cacheManager.saveCache(studentsCacheKey, {
-            'students': students
-                .map((s) => {'name': s.fullName, 'code': s.studentCode})
-                .toList(),
-          });
-        }
-
-        final settingsCacheKey = CacheManager.buildCacheKey(
-          feature: 'activity',
-          resource: 'settings',
-          identifier: classroomCode,
-        );
-        if (!refresh) {
-          try {
-            final cachedSettings = await _cacheManager.loadCache(settingsCacheKey);
-            if (cachedSettings != null && cachedSettings['settings'] is List) {
-              final list = (cachedSettings['settings'] as List)
-                  .whereType<Map>()
-                  .map(
-                    (e) => ActivitySetting(
-                      activityTypeCode: (e['activityTypeCode'] ?? '').toString(),
-                      activityTypeName: (e['activityTypeName'] ?? '').toString(),
-                      description: (e['description'] ?? '').toString(),
-                      category: (e['category'] ?? '').toString(),
-                      icon: (e['icon'] ?? '').toString(),
-                      color: (e['color'] ?? '').toString(),
-                      isSystem: (e['isSystem'] as bool?) ?? false,
-                      isMultiStudent: (e['isMultiStudent'] as bool?) ?? false,
-                      requiresStaff: (e['requiresStaff'] as bool?) ?? false,
-                      requiresPhoto: (e['requiresPhoto'] as bool?) ?? false,
-                      requiresVideo: (e['requiresVideo'] as bool?) ?? false,
-                      allowsAttachments:
-                          (e['allowsAttachments'] as bool?) ?? false,
-                      maxAttachments: (e['maxAttachments'] as int?) ?? 0,
-                      isEnabled: (e['isEnabled'] as bool?) ?? true,
-                      isFavorite: (e['isFavorite'] as bool?) ?? false,
-                      displayOrder: (e['displayOrder'] as int?) ?? 0,
-                    ),
-                  )
-                  .where((e) =>
-                      e.activityTypeCode.isNotEmpty &&
-                      e.activityTypeName.isNotEmpty)
-                  .toList();
-              if (list.isNotEmpty) {
-                _classroomActivitySettings = list;
-              }
-            }
-          } catch (_) {}
-        }
-
-        try {
-          _classroomActivitySettings = await _getClassroomActivitySettingsUseCase(
-            classroomCode: classroomCode,
-            refresh: refresh,
-          );
-          await _cacheManager.saveCache(settingsCacheKey, {
-            'settings': _classroomActivitySettings
-                .map((s) => {
-                      'activityTypeCode': s.activityTypeCode,
-                      'activityTypeName': s.activityTypeName,
-                      'description': s.description,
-                      'category': s.category,
-                      'icon': s.icon,
-                      'color': s.color,
-                      'isSystem': s.isSystem,
-                      'isMultiStudent': s.isMultiStudent,
-                      'requiresStaff': s.requiresStaff,
-                      'requiresPhoto': s.requiresPhoto,
-                      'requiresVideo': s.requiresVideo,
-                      'allowsAttachments': s.allowsAttachments,
-                      'maxAttachments': s.maxAttachments,
-                      'isEnabled': s.isEnabled,
-                      'isFavorite': s.isFavorite,
-                      'displayOrder': s.displayOrder,
-                    })
-                .toList(),
-          });
-        } catch (_) {
-          // Keep existing in-memory/cached settings on fetch failure.
-        }
-        _lastResolvedClassroomCode = classroomCode;
-      }
-
       final page = await _getRangeActivityFeedUseCase(
         classroomCode: classroomCode,
         startDate: _dateQueryParam(start),
@@ -760,6 +784,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         _isFeedRequestInFlight = false;
         return;
       }
+      try {
+        final rev =
+            await ActivityFeedInvalidation.currentRevision(_storageService);
+        await _cacheManager.saveCache(
+          ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
+          ActivityFeedPageCacheCodec.wrapPage(page, rev),
+        );
+      } catch (_) {}
       setState(() {
         activities
           ..clear()
@@ -774,6 +806,154 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       _lastFeedCompletedWithError = false;
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+
+      try {
+        final school = _schoolCode;
+        final shouldReloadClassroomDependencies =
+            refresh ||
+            _lastResolvedClassroomCode != classroomCode ||
+            !classroomStudents.containsKey(classroomName) ||
+            _classroomActivitySettings.isEmpty;
+
+        if (shouldReloadClassroomDependencies) {
+          if (school != null && school.isNotEmpty) {
+            final studentsCacheKey = CacheManager.buildCacheKey(
+              feature: 'activity',
+              resource: 'students',
+              identifier: '$school|$classroomCode',
+            );
+            if (!refresh) {
+              try {
+                final cachedStudents =
+                    await _cacheManager.loadCache(studentsCacheKey);
+                if (cachedStudents != null &&
+                    cachedStudents['students'] is List) {
+                  final cachedList = (cachedStudents['students'] as List)
+                      .whereType<Map>()
+                      .map((e) => <String, String>{
+                            'name': (e['name'] ?? '').toString(),
+                            'code': (e['code'] ?? '').toString(),
+                          })
+                      .where((e) =>
+                          (e['name'] ?? '').isNotEmpty &&
+                          (e['code'] ?? '').isNotEmpty)
+                      .toList();
+                  if (cachedList.isNotEmpty) {
+                    _studentCodeByName
+                      ..clear()
+                      ..addEntries(cachedList.map(
+                          (s) => MapEntry(s['name'] ?? '', s['code'] ?? '')));
+                    classroomStudents[classroomName] =
+                        cachedList.map((s) => s['name'] ?? '').toList();
+                    _updateAvailableStudents();
+                  }
+                }
+              } catch (_) {}
+            }
+
+            final students = await _getStudentClassroomListUseCase(
+              schoolCode: school,
+              classroomCode: classroomCode,
+              status: const ['ACTIVE'],
+              refresh: refresh,
+            );
+            _studentCodeByName
+              ..clear()
+              ..addEntries(
+                  students.map((s) => MapEntry(s.fullName, s.studentCode)));
+            classroomStudents[classroomName] =
+                students.map((s) => s.fullName).toList();
+            _updateAvailableStudents();
+            await _cacheManager.saveCache(studentsCacheKey, {
+              'students': students
+                  .map((s) => {'name': s.fullName, 'code': s.studentCode})
+                  .toList(),
+            });
+          }
+
+          final settingsCacheKey = CacheManager.buildCacheKey(
+            feature: 'activity',
+            resource: 'settings',
+            identifier: classroomCode,
+          );
+          if (!refresh) {
+            try {
+              final cachedSettings =
+                  await _cacheManager.loadCache(settingsCacheKey);
+              if (cachedSettings != null && cachedSettings['settings'] is List) {
+                final list = (cachedSettings['settings'] as List)
+                    .whereType<Map>()
+                    .map(
+                      (e) => ActivitySetting(
+                        activityTypeCode:
+                            (e['activityTypeCode'] ?? '').toString(),
+                        activityTypeName:
+                            (e['activityTypeName'] ?? '').toString(),
+                        description: (e['description'] ?? '').toString(),
+                        category: (e['category'] ?? '').toString(),
+                        icon: (e['icon'] ?? '').toString(),
+                        color: (e['color'] ?? '').toString(),
+                        isSystem: (e['isSystem'] as bool?) ?? false,
+                        isMultiStudent: (e['isMultiStudent'] as bool?) ?? false,
+                        requiresStaff: (e['requiresStaff'] as bool?) ?? false,
+                        requiresPhoto: (e['requiresPhoto'] as bool?) ?? false,
+                        requiresVideo: (e['requiresVideo'] as bool?) ?? false,
+                        allowsAttachments:
+                            (e['allowsAttachments'] as bool?) ?? false,
+                        maxAttachments: (e['maxAttachments'] as int?) ?? 0,
+                        isEnabled: (e['isEnabled'] as bool?) ?? true,
+                        isFavorite: (e['isFavorite'] as bool?) ?? false,
+                        displayOrder: (e['displayOrder'] as int?) ?? 0,
+                      ),
+                    )
+                    .where((e) =>
+                        e.activityTypeCode.isNotEmpty &&
+                        e.activityTypeName.isNotEmpty)
+                    .toList();
+                if (list.isNotEmpty) {
+                  _classroomActivitySettings = list;
+                }
+              }
+            } catch (_) {}
+          }
+
+          try {
+            _classroomActivitySettings =
+                await _getClassroomActivitySettingsUseCase(
+              classroomCode: classroomCode,
+              refresh: refresh,
+            );
+            await _cacheManager.saveCache(settingsCacheKey, {
+              'settings': _classroomActivitySettings
+                  .map((s) => {
+                        'activityTypeCode': s.activityTypeCode,
+                        'activityTypeName': s.activityTypeName,
+                        'description': s.description,
+                        'category': s.category,
+                        'icon': s.icon,
+                        'color': s.color,
+                        'isSystem': s.isSystem,
+                        'isMultiStudent': s.isMultiStudent,
+                        'requiresStaff': s.requiresStaff,
+                        'requiresPhoto': s.requiresPhoto,
+                        'requiresVideo': s.requiresVideo,
+                        'allowsAttachments': s.allowsAttachments,
+                        'maxAttachments': s.maxAttachments,
+                        'isEnabled': s.isEnabled,
+                        'isFavorite': s.isFavorite,
+                        'displayOrder': s.displayOrder,
+                      })
+                  .toList(),
+            });
+          } catch (_) {
+            // Keep existing in-memory/cached settings on fetch failure.
+          }
+          _lastResolvedClassroomCode = classroomCode;
+          if (mounted) setState(() {});
+        }
+      } catch (_) {
+        // Students/settings are non-blocking after the feed is shown.
+      }
     } catch (e) {
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -793,6 +973,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return OrientationBuilder(
         builder: (context, orientation){
           if(orientation == Orientation.landscape){
@@ -814,22 +995,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: AbsorbPointer(
                             child: _buildCustomDropdown(
                               'Select Student',
-                              [?widget.studentName],
+                              widget.studentName != null
+                                  ? [widget.studentName!]
+                                  : <String>[],
                               widget.studentName,
                                   (v) => setState(() {
                                 _selectedStudent = v;
                               }),
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: _datePickerFilter(
                             selectedStartDate: _selectedStartDate,
                             selectedEndDate: _selectedEndDate,
@@ -894,33 +1077,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                               color: Colors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(100),
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                        sections: _activityFeedFilterSections(),
-                                        onApply: (filters) {
-                                          setState(() {
-                                            _filterTags = List<String>.from(
-                                              filters['Tags'] ?? const [],
-                                            );
-                                            _filterActivityTypes =
-                                                List<String>.from(
-                                              filters['Activity Type'] ??
-                                                  const [],
-                                            );
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
-                                  }
-                                },
+                                onTap: _openActivityFilter,
                                 child: Padding(
                                   padding: const EdgeInsets.all(8),
                                   child: SvgPicture.asset(
@@ -951,6 +1108,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
+                                _loadRangeFeed(refresh: true);
                               },
                               label: 'Clear All',
                             ),
@@ -962,7 +1120,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _datePickerFilter(
                               selectedStartDate: _selectedStartDate,
                               selectedEndDate: _selectedEndDate,
@@ -972,7 +1130,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _buildCustomDropdown(
                               'Activity Type',
                               activityType,
@@ -983,7 +1141,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                 });
                                 _loadRangeFeed(refresh: true);
                               },
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
@@ -1444,13 +1602,29 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           ),
                                                           const SizedBox(height: 10),
 
-                                                          AppText.body(
+                                                          Text(
                                                             activityFeedCardBodyLine(activity),
                                                             style: AppTextStyles.body.copyWith(
                                                               color: AppColors.primaryColor,
                                                               fontWeight: FontWeight.w600,
+                                                              height: 1.0,
                                                             ),
-                                                            maxLines: activityFeedCardBodyMaxLines(activity),
+                                                            strutStyle: StrutStyle(
+                                                              fontFamily: Fonts.manrope,
+                                                              fontSize: 14,
+                                                              height: 1.0,
+                                                              leading: 0,
+                                                              fontWeight: FontWeight.w600,
+                                                              forceStrutHeight: true,
+                                                            ),
+                                                            textHeightBehavior:
+                                                                const TextHeightBehavior(
+                                                              applyHeightToFirstAscent: false,
+                                                              applyHeightToLastDescent: false,
+                                                            ),
+                                                            maxLines:
+                                                                activityFeedCardBodyMaxLines(
+                                                                    activity),
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
                                                           const SizedBox(height: 10),
@@ -1506,22 +1680,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           SizedBox(
-                            height: 65,
+                            height: 40,
                             child: AbsorbPointer(
                               child: _buildCustomDropdown(
                                 'Select Student',
-                                [?widget.studentName],
+                                widget.studentName != null
+                                  ? [widget.studentName!]
+                                  : <String>[],
                                 widget.studentName,
                                     (v) => setState(() {
                                   _selectedStudent = v;
                                 }),
-                                height: 65,
+                                height: 40,
                               ),
                             ),
                           ),
                           const SizedBox(height: 8),
                           SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _datePickerFilter(
                               selectedStartDate: _selectedStartDate,
                               selectedEndDate: _selectedEndDate,
@@ -1586,33 +1762,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(100),
-                                  onTap: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => FilterScreen(
-                                          sections: _activityFeedFilterSections(),
-                                          onApply: (filters) {
-                                            setState(() {
-                                              _filterTags = List<String>.from(
-                                                filters['Tags'] ?? const [],
-                                              );
-                                              _filterActivityTypes =
-                                                  List<String>.from(
-                                                filters['Activity Type'] ??
-                                                    const [],
-                                              );
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    );
-                                    if (!mounted) return;
-                                    if (result is Map) {
-                                      // TODO: apply filters to list
-                                      setState(() {});
-                                    }
-                                  },
+                                  onTap: _openActivityFilter,
                                   child: Padding(
                                     padding: const EdgeInsets.all(8),
                                     child: SvgPicture.asset(
@@ -1643,6 +1793,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     _filterActivityTypes.clear();
                                     _filterTags.clear();
                                   });
+                                  _loadRangeFeed(refresh: true);
                                 },
                                 label: 'Clear All',
                               ),
@@ -1654,7 +1805,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                         children: [
                           Expanded(
                             child: SizedBox(
-                              height: 65,
+                              height: 40,
                               child: _datePickerFilter(
                                 selectedStartDate: _selectedStartDate,
                                 selectedEndDate: _selectedEndDate,
@@ -1664,7 +1815,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: SizedBox(
-                              height: 65,
+                              height: 40,
                               child: _buildCustomDropdown(
                                 'Activity Type',
                                 activityType,
@@ -1675,7 +1826,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                 });
                                 _loadRangeFeed(refresh: true);
                               },
-                                height: 65,
+                                height: 40,
                               ),
                             ),
                           ),
@@ -2053,13 +2204,29 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                       ),
                                                       const SizedBox(height: 10),
 
-                                                      AppText.body(
+                                                      Text(
                                                         activityFeedCardBodyLine(activity),
                                                         style: AppTextStyles.body.copyWith(
                                                           color: AppColors.primaryColor,
                                                           fontWeight: FontWeight.w600,
+                                                          height: 1.0,
                                                         ),
-                                                        maxLines: activityFeedCardBodyMaxLines(activity),
+                                                        strutStyle: StrutStyle(
+                                                          fontFamily: Fonts.manrope,
+                                                          fontSize: 14,
+                                                          height: 1.0,
+                                                          leading: 0,
+                                                          fontWeight: FontWeight.w600,
+                                                          forceStrutHeight: true,
+                                                        ),
+                                                        textHeightBehavior:
+                                                            const TextHeightBehavior(
+                                                          applyHeightToFirstAscent: false,
+                                                          applyHeightToLastDescent: false,
+                                                        ),
+                                                        maxLines:
+                                                            activityFeedCardBodyMaxLines(
+                                                                activity),
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
                                                       const SizedBox(height: 10),
@@ -2112,22 +2279,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: AbsorbPointer(
                             child: _buildCustomDropdown(
                               'Select Student',
-                              [?widget.studentName],
+                              widget.studentName != null
+                                  ? [widget.studentName!]
+                                  : <String>[],
                               widget.studentName,
                                   (v) => setState(() {
                                 _selectedStudent = v;
                               }),
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
-                          height: 65,
+                          height: 40,
                           child: _datePickerFilter(
                             selectedStartDate: _selectedStartDate,
                             selectedEndDate: _selectedEndDate,
@@ -2192,33 +2361,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                               color: Colors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(100),
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                        sections: _activityFeedFilterSections(),
-                                        onApply: (filters) {
-                                          setState(() {
-                                            _filterTags = List<String>.from(
-                                              filters['Tags'] ?? const [],
-                                            );
-                                            _filterActivityTypes =
-                                                List<String>.from(
-                                              filters['Activity Type'] ??
-                                                  const [],
-                                            );
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
-                                  }
-                                },
+                                onTap: _openActivityFilter,
                                 child: Padding(
                                   padding: const EdgeInsets.all(8),
                                   child: SvgPicture.asset(
@@ -2249,6 +2392,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
+                                _loadRangeFeed(refresh: true);
                               },
                               label: 'Clear All',
                             ),
@@ -2260,7 +2404,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _datePickerFilter(
                               selectedStartDate: _selectedStartDate,
                               selectedEndDate: _selectedEndDate,
@@ -2270,7 +2414,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: SizedBox(
-                            height: 65,
+                            height: 40,
                             child: _buildCustomDropdown(
                               'Activity Type',
                               activityType,
@@ -2281,7 +2425,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                 });
                                 _loadRangeFeed(refresh: true);
                               },
-                              height: 65,
+                              height: 40,
                             ),
                           ),
                         ),
@@ -2717,18 +2861,29 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                             const SizedBox(height: 10),
 
                                                             Text(
-                                                              activity.description!,
-
-                                                              style: TextStyle(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                FontWeight.w600,
+                                                              activityFeedCardBodyLine(activity),
+                                                              style: AppTextStyles.body.copyWith(
+                                                                color: AppColors.primaryColor,
+                                                                fontWeight: FontWeight.w600,
+                                                                height: 1.0,
                                                               ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                              TextOverflow.ellipsis,
+                                                              strutStyle: StrutStyle(
+                                                                fontFamily: Fonts.manrope,
+                                                                fontSize: 14,
+                                                                height: 1.0,
+                                                                leading: 0,
+                                                                fontWeight: FontWeight.w600,
+                                                                forceStrutHeight: true,
+                                                              ),
+                                                              textHeightBehavior:
+                                                                  const TextHeightBehavior(
+                                                                applyHeightToFirstAscent: false,
+                                                                applyHeightToLastDescent: false,
+                                                              ),
+                                                              maxLines:
+                                                                  activityFeedCardBodyMaxLines(
+                                                                      activity),
+                                                              overflow: TextOverflow.ellipsis,
                                                             ),
                                                             const SizedBox(height: 10),
                                                             Text(
@@ -2793,7 +2948,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                   crossAxisAlignment: CrossAxisAlignment.stretch,
   //                   children: [
   //                     SizedBox(
-  //                       height: 65,
+  //                       height: 40,
   //                       child: AbsorbPointer(
   //                         child: _buildCustomDropdown(
   //                           'Select Student',
@@ -2802,13 +2957,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                           (v) => setState(() {
   //                             _selectedStudent = v;
   //                           }),
-  //                           height: 65,
+  //                           height: 40,
   //                         ),
   //                       ),
   //                     ),
   //                     const SizedBox(height: 8),
   //                     SizedBox(
-  //                       height: 65,
+  //                       height: 40,
   //                       child: _datePickerFilter(
   //                         selectedStartDate: _selectedStartDate,
   //                         selectedEndDate: _selectedEndDate,
@@ -2975,7 +3130,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                   children: [
   //                     Expanded(
   //                       child: SizedBox(
-  //                         height: 65,
+  //                         height: 40,
   //                         child: _datePickerFilter(
   //                           selectedStartDate: _selectedStartDate,
   //                           selectedEndDate: _selectedEndDate,
@@ -2985,7 +3140,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                     const SizedBox(width: 8),
   //                     Expanded(
   //                       child: SizedBox(
-  //                         height: 65,
+  //                         height: 40,
   //                         child: _buildCustomDropdown(
   //                           'Activity Type',
   //                           activityType,
@@ -2993,7 +3148,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                           (v) => setState(() {
   //                             _selectedActivityType = v;
   //                           }),
-  //                           height: 65,
+  //                           height: 40,
   //                         ),
   //                       ),
   //                     ),
@@ -3445,11 +3600,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
           color: const Color(0xFFB1AFE9).withOpacity(0.102),
-          //color: const Color(0xFFF8F7FA),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3460,11 +3614,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate ?? selectedStartDate)}'
                       : 'Select Date',
                   style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
                     color: selectedStartDate == null
-                        ? AppColors.primaryColor.withOpacity(0.6)
-                        : AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                        ? Colors.grey[600]
+                        : Colors.black87,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3507,42 +3662,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
-    double? height = null,
+    double? height,
   }) {
-    final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: null,
       hintText: hintText,
       items: items,
-      height: height,
+      height: height ?? 40,
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
-      labelStyle: TextStyle(
-        fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
-        fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
-      ),
-      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-      fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
         fontFamily: 'Manrope',
-        fontSize: responsive.inputFontSize,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
-        height: 19 / 14,
-      ),
-      popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: responsive.inputFontSize,
+        fontSize: 15,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: selectedItem != null && selectedItem.trim().isNotEmpty
+            ? Colors.black87
+            : Colors.grey[600],
       ),
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: responsive.isTablet ? 16.0 : 12.0,
-        vertical: responsive.isTablet ? 16.0 : 12.0,
+      popupItemTextStyle: const TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: Colors.black87,
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
   }
 }

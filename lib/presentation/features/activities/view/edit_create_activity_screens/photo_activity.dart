@@ -122,13 +122,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-      if (widget.isPhoto && activity.photoUrl != null) {
-        _existingPhotoUrls = [activity.photoUrl!];
-        _remainingExistingPhotoUrls = List<String>.from(_existingPhotoUrls);
-      } else {
-        _existingVideoUrl = activity.videoUrl;
-        _remainingExistingVideoUrl = _existingVideoUrl;
-      }
+      _applyExistingMediaFromAttachmentRows(
+        activity.photoUrl,
+        activity.videoUrl,
+      );
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -162,13 +159,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
-        if (widget.isPhoto && item.photoUrl != null) {
-          _existingPhotoUrls = [item.photoUrl!];
-          _remainingExistingPhotoUrls = List<String>.from(_existingPhotoUrls);
-        } else {
-          _existingVideoUrl = item.videoUrl;
-          _remainingExistingVideoUrl = _existingVideoUrl;
-        }
+        _applyExistingMediaFromAttachmentRows(
+          item.photoUrl,
+          item.videoUrl,
+        );
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -182,6 +176,41 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
       if (mounted) setState(() => _loadingActivityDetail = false);
+    }
+  }
+
+  /// Prefer URLs from raw attachment rows so PATCH merge matches any of
+  /// delivery / thumbnail / artifact URLs the API returns.
+  void _applyExistingMediaFromAttachmentRows(
+    String? fallbackPhotoUrl,
+    String? fallbackVideoUrl,
+  ) {
+    final rows = _detailAttachmentRows;
+    if (widget.isPhoto) {
+      final fromRows = imageDeliveryUrlsFromAttachmentRows(rows);
+      if (fromRows.isNotEmpty) {
+        _existingPhotoUrls = fromRows;
+        _remainingExistingPhotoUrls = List<String>.from(fromRows);
+      } else if (fallbackPhotoUrl != null && fallbackPhotoUrl.trim().isNotEmpty) {
+        _existingPhotoUrls = [fallbackPhotoUrl.trim()];
+        _remainingExistingPhotoUrls = List<String>.from(_existingPhotoUrls);
+      } else {
+        _existingPhotoUrls = [];
+        _remainingExistingPhotoUrls = [];
+      }
+      _existingVideoUrl = null;
+      _remainingExistingVideoUrl = null;
+    } else {
+      final fromRows = videoDeliveryUrlsFromAttachmentRows(rows);
+      if (fromRows.isNotEmpty) {
+        _existingVideoUrl = fromRows.first;
+        _remainingExistingVideoUrl = _existingVideoUrl;
+      } else {
+        _existingVideoUrl = fallbackVideoUrl;
+        _remainingExistingVideoUrl = _existingVideoUrl;
+      }
+      _existingPhotoUrls = [];
+      _remainingExistingPhotoUrls = [];
     }
   }
 
@@ -260,7 +289,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   }
 
   Future<void> _uploadMediaOnSelection() async {
-    if (_layoutAsEdit || _isUploadingMedia) return;
+    if (_isUploadingMedia) return;
     if (_photos.isEmpty && _video == null) return;
 
     final activityTypeCode = _activityTypeCode;

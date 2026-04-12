@@ -74,6 +74,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
   List<File> _newPhotos = [];
+  List<String> _remainingExistingPhotoUrls = [];
   final ActivityPhotoAttachmentState _photoAttachmentState =
       ActivityPhotoAttachmentState();
 
@@ -117,6 +118,13 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
+      _remainingExistingPhotoUrls =
+          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      if (_remainingExistingPhotoUrls.isEmpty &&
+          activity.photoUrl != null &&
+          activity.photoUrl!.trim().isNotEmpty) {
+        _remainingExistingPhotoUrls = [activity.photoUrl!.trim()];
+      }
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -151,6 +159,13 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+        _remainingExistingPhotoUrls =
+            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        if (_remainingExistingPhotoUrls.isEmpty &&
+            item.photoUrl != null &&
+            item.photoUrl!.trim().isNotEmpty) {
+          _remainingExistingPhotoUrls = [item.photoUrl!.trim()];
+        }
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -247,13 +262,15 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   ) {
     setState(() {
       _newPhotos = photos;
+      _remainingExistingPhotoUrls =
+          List<String>.from(remainingExistingPhotoUrls);
       _photoAttachmentState.onSelectedFilesChanged(photos);
     });
     _uploadPhotosOnSelection();
   }
 
   Future<void> _uploadPhotosOnSelection() async {
-    if (widget.isEdit || _newPhotos.isEmpty || _isUploadingMedia) return;
+    if (widget.readOnly || _newPhotos.isEmpty || _isUploadingMedia) return;
 
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
@@ -653,6 +670,15 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       return;
     }
 
+    if (_isUploadingMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for the photo upload to finish',
+        isWarning: true,
+      );
+      return;
+    }
+
     final combinedDateTime = DateTime(
       _activityDate!.year,
       _activityDate!.month,
@@ -721,10 +747,17 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
           {'parameterCode': amountParamCode, 'value': amountOz.toString()},
       ];
 
-      final mergedRows = <Map<String, dynamic>>[
-        ..._detailAttachmentRows,
-        ...newAttachments,
-      ];
+      final remainingNorm = _remainingExistingPhotoUrls
+          .map(normalizeActivityDeliveryUrl)
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      final mergedRows = mergeAttachmentRowsForEditPatch(
+        existingRows: _detailAttachmentRows
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
+        newUploadRows: newAttachments,
+        remainingNormalizedDeliveryUrls: remainingNorm,
+      );
 
       final message = await _updateActivityUseCase(
         code: activityCode,
@@ -951,10 +984,13 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                   limit: 10,
                   photoSizeLimit: 20,
                   label: 'Upload Photo',
-                  initialPhotoUrls: _effectiveActivity.photoUrl != null &&
-                          _effectiveActivity.photoUrl!.trim().isNotEmpty
-                      ? [_effectiveActivity.photoUrl!.trim()]
-                      : const [],
+                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                      ? List<String>.from(_remainingExistingPhotoUrls)
+                      : (_effectiveActivity.photoUrl != null &&
+                              _effectiveActivity.photoUrl!.trim().isNotEmpty
+                          ? [_effectiveActivity.photoUrl!.trim()]
+                          : const []),
+                  onMediaChanged: _onMediaChanged,
                 ),
               )
             else

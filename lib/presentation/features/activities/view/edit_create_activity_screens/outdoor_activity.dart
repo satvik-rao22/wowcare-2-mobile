@@ -571,7 +571,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   }
 
   Future<void> _uploadPhotosOnSelection() async {
-    if (widget.isEdit || _newPhotos.isEmpty || _isUploadingMedia) return;
+    if (widget.readOnly || _newPhotos.isEmpty || _isUploadingMedia) return;
 
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
