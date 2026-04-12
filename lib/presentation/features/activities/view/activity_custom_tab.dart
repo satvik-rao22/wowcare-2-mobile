@@ -15,6 +15,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
@@ -25,6 +26,7 @@ import '../../../../domain/features/student_classroom/usecases/get_student_class
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../widgets/avtivity_media_preview.dart';
 import 'activity_daily_tab.dart';
@@ -87,6 +89,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   DateTime? _lastFeedCompletedAt;
   bool _lastFeedCompletedWithError = false;
   String? _lastResolvedClassroomCode;
+  static const int _feedPageSize = 10;
+  final ScrollController _feedScrollController = ScrollController();
+  bool _feedHasMore = false;
+  bool _loadingMoreFeed = false;
+  int _feedNextPage = 0;
 
   late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
@@ -267,6 +274,97 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapRangeFeed();
     });
+    _feedScrollController.addListener(_onFeedScroll);
+  }
+
+  @override
+  void dispose() {
+    _feedScrollController.removeListener(_onFeedScroll);
+    _feedScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onFeedScroll() {
+    _maybeLoadNextRangeFeedPage();
+  }
+
+  void _maybeLoadNextRangeFeedPage() {
+    if (!_feedScrollController.hasClients) return;
+    if (_loadingMoreFeed || !_feedHasMore || _isFeedRequestInFlight) {
+      return;
+    }
+    final position = _feedScrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      _loadNextRangeFeedPage();
+      return;
+    }
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      _loadNextRangeFeedPage();
+    }
+  }
+
+  List<ActivityItem> _itemsFromRangeFeedPage(ActivityFeedPage page) {
+    return page.content.map((row) => activityItemFromFeedRow(row)).toList();
+  }
+
+  Future<void> _loadNextRangeFeedPage() async {
+    if (_loadingMoreFeed || !_feedHasMore || _isFeedRequestInFlight) return;
+
+    final classroomName = _selectdClassroom;
+    if (classroomName == null) return;
+
+    final classroomCode = _classroomCodeByName[classroomName];
+    if (classroomCode == null || classroomCode.trim().isEmpty) return;
+
+    final start = _selectedStartDate;
+    final end = _selectedEndDate ?? _selectedStartDate;
+    if (start == null || end == null) return;
+
+    final selectedStudent = _selectedStudent;
+    final studentCodeForRequest = selectedStudent == null
+        ? null
+        : _studentCodeByName[selectedStudent];
+    final typeCode = _activityTypeCodeForApiFilter();
+
+    _loadingMoreFeed = true;
+    if (mounted) setState(() {});
+
+    try {
+      final page = await _getRangeActivityFeedUseCase(
+        classroomCode: classroomCode,
+        startDate: _dateQueryParam(start),
+        endDate: _dateQueryParam(end),
+        studentCode: studentCodeForRequest,
+        activityTypeCode: typeCode,
+        page: _feedNextPage,
+        size: _feedPageSize,
+      );
+
+      final items = _itemsFromRangeFeedPage(page);
+
+      if (!mounted) return;
+      setState(() {
+        activities.addAll(items);
+        _feedHasMore = !page.last;
+        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+      });
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
+        setState(() => _feedHasMore = false);
+      }
+    } finally {
+      _loadingMoreFeed = false;
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+      }
+    }
   }
 
   void _updateAvailableStudents() {
@@ -653,15 +751,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         studentCode: studentCodeForRequest,
         activityTypeCode: typeCode,
         page: 0,
-        size: 200,
+        size: _feedPageSize,
       );
 
-      var items = page.content
-          .map((row) => activityItemFromFeedRow(row))
-          .toList();
-
-      // Do not apply additional client-side student filtering here.
-      // Server-side `studentCode` filter is already applied in API request.
+      final items = _itemsFromRangeFeedPage(page);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -672,10 +765,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
           ..clear()
           ..addAll(items);
         _feedError = null;
+        _feedHasMore = !page.last;
+        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+        _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = false;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
     } catch (e) {
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -684,6 +782,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
         _feedError = msg;
+        _feedHasMore = false;
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
@@ -698,6 +797,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         builder: (context, orientation){
           if(orientation == Orientation.landscape){
             return CustomScrollView(
+              controller: _feedScrollController,
               slivers: [
                 SliverToBoxAdapter(child:  Padding(
                   padding: ResponsiveSizing.contentPadding(context),
@@ -918,6 +1018,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                               (context, index){
+                            if (index == activities.length) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: PrimaryCircularLoader(
+                                    size: 28,
+                                    strokeWidth: 3,
+                                  ),
+                                ),
+                              );
+                            }
                             final activity = activities[index];
                             final students = activity.studentList;
                             final Color activityColor =
@@ -1368,7 +1479,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                               ],
                             );
                           },
-                          childCount: activities.length
+                          childCount: activities.length +
+                              (_loadingMoreFeed ? 1 : 0),
                       ),
                     ),
                   ),
@@ -2215,9 +2327,23 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                           const SizedBox(height: 10),
                           Expanded(
                             child: ListView.builder(
+                              controller: _feedScrollController,
                               padding: EdgeInsets.zero,
-                              itemCount: activities.length,
+                              itemCount: activities.length +
+                                  (_loadingMoreFeed ? 1 : 0),
                               itemBuilder: (context, index) {
+                                if (index == activities.length) {
+                                  return const Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(vertical: 24),
+                                    child: Center(
+                                      child: PrimaryCircularLoader(
+                                        size: 28,
+                                        strokeWidth: 3,
+                                      ),
+                                    ),
+                                  );
+                                }
                                 final activity = activities[index];
                                 final students = activity.studentList;
                                 final Color activityColor = _colorPalette[index % _colorPalette.length];

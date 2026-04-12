@@ -17,6 +17,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
@@ -72,13 +73,26 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
   List<File> _newPhotos = [];
+  File? _newVideo;
   final Map<String, String> _uploadedAssetCodeByPath = {};
   String? _lastUploadContextKey;
   List<String> _remainingExistingPhotoUrls = [];
+  String? _remainingExistingVideoUrl;
 
   int get _uploadedPhotoCount => _newPhotos
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
       .length;
+
+  bool get _newVideoUploadComplete =>
+      _newVideo == null ||
+      _uploadedAssetCodeByPath.containsKey(_newVideo!.path);
+
+  String? get _editorInitialVideoUrl {
+    final a = (_remainingExistingVideoUrl ?? '').trim();
+    if (a.isNotEmpty) return a;
+    final b = (_effectiveActivity.videoUrl ?? '').trim();
+    return b.isNotEmpty ? b : null;
+  }
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
@@ -89,6 +103,102 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+
+  ActivityTypeParameter? _findFirstAidParameter(
+    List<ActivityTypeParameter> parameters,
+  ) {
+    for (final p in parameters) {
+      final n = p.parameterName.toLowerCase();
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt == 'BOOLEAN' && n.contains('first') && n.contains('aid')) {
+        return p;
+      }
+    }
+    for (final p in parameters) {
+      final n = p.parameterName.toLowerCase();
+      if (n.contains('first') && n.contains('aid')) return p;
+    }
+    return null;
+  }
+
+  /// Dropdown-style parameters must use [selectedOptionCode]; plain BOOLEAN
+  /// uses JSON [value] (bool). Display strings like "Yes"/"No" are rejected.
+  Map<String, dynamic>? _firstAidParameterEntry(
+    ActivityTypeParameter param,
+    bool given,
+  ) {
+    final pc = param.code.trim();
+    if (pc.isEmpty) return null;
+
+    String? optionApiCode(ActivityTypeParameterOption o) {
+      final c = (o.optionCode ?? o.code).trim();
+      return c.isEmpty ? null : c;
+    }
+
+    final sorted = List<ActivityTypeParameterOption>.from(param.options)
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
+    if (sorted.isNotEmpty) {
+      ActivityTypeParameterOption? byExactLabel(bool affirmative) {
+        for (final o in sorted) {
+          final label = (o.optionLabel ?? '').toLowerCase().trim();
+          if (affirmative) {
+            if (label == 'yes' ||
+                label == 'true' ||
+                label == 'y' ||
+                label == '1') {
+              return o;
+            }
+          } else {
+            if (label == 'no' ||
+                label == 'false' ||
+                label == 'n' ||
+                label == '0') {
+              return o;
+            }
+          }
+        }
+        return null;
+      }
+
+      ActivityTypeParameterOption? byFuzzyLabel(bool affirmative) {
+        for (final o in sorted) {
+          final label = (o.optionLabel ?? '').toLowerCase().trim();
+          if (affirmative) {
+            if (label.contains('yes') || label.contains('administered')) {
+              return o;
+            }
+          } else if (label.contains('no') || label.contains('not')) {
+            return o;
+          }
+        }
+        return null;
+      }
+
+      final pick = given
+          ? (byExactLabel(true) ?? byFuzzyLabel(true))
+          : (byExactLabel(false) ?? byFuzzyLabel(false));
+      if (pick != null) {
+        final oc = optionApiCode(pick);
+        if (oc != null) {
+          return {'parameterCode': pc, 'selectedOptionCode': oc};
+        }
+      }
+      if (sorted.length == 2) {
+        final o = sorted[given ? 1 : 0];
+        final oc = optionApiCode(o);
+        if (oc != null) {
+          return {'parameterCode': pc, 'selectedOptionCode': oc};
+        }
+      }
+    }
+
+    final dt = (param.dataType ?? '').toUpperCase();
+    if (dt == 'BOOLEAN') {
+      return {'parameterCode': pc, 'value': given};
+    }
+    return {'parameterCode': pc, 'value': given ? 'Yes' : 'No'};
+  }
 
   @override
   void initState() {
@@ -129,6 +239,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           activity.photoUrl!.trim().isNotEmpty) {
         _remainingExistingPhotoUrls = [activity.photoUrl!.trim()];
       }
+      final vu = activity.videoUrl?.trim();
+      _remainingExistingVideoUrl =
+          vu != null && vu.isNotEmpty ? vu : null;
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -172,6 +285,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             item.photoUrl!.trim().isNotEmpty) {
           _remainingExistingPhotoUrls = [item.photoUrl!.trim()];
         }
+        final vu = item.videoUrl?.trim();
+        _remainingExistingVideoUrl =
+            vu != null && vu.isNotEmpty ? vu : null;
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -289,15 +405,24 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    if (_newPhotos.isEmpty) {
+    if (_newVideo == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please add at least one photo',
+        message: 'Please add at least one video (required for Incident)',
         isWarning: true,
       );
       return;
     }
-    if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
+    if (!_newVideoUploadComplete || _isUploadingMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for the video to finish uploading',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_newPhotos.isNotEmpty &&
+        (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please wait for all photos to finish uploading',
@@ -381,7 +506,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     });
 
     try {
-      final attachments = await _ensurePhotoAssetsUploaded(
+      final attachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
         organizationCode: organizationCode,
@@ -417,27 +542,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         return null;
       }
 
-      String? findFirstAidParamCode() {
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          final dt = (p.dataType ?? '').toUpperCase();
-          if (dt == 'BOOLEAN' && n.contains('first') && n.contains('aid')) {
-            return p.code;
-          }
-        }
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          if (n.contains('first') && n.contains('aid')) return p.code;
-        }
-        return null;
-      }
-
       final dateParamCode = findParamCode('date');
       final timeParamCode = findParamCode('time');
       final staffParamCode = findParamCode('staff');
       final whatParamCode = findWhatHappenedParamCode();
       final notesParamCode = findAdditionalNotesParamCode();
-      final firstAidParamCode = findFirstAidParamCode();
+      final firstAidParam = _findFirstAidParameter(details.parameters);
+      final firstAidEntry = firstAidParam == null
+          ? null
+          : _firstAidParameterEntry(firstAidParam, _firstAidGiven);
 
       final sameWhatAndNotes = whatParamCode != null &&
           notesParamCode != null &&
@@ -464,12 +577,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           {'parameterCode': staffParamCode, 'value': staffCode},
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
           {'parameterCode': whatParamCode, 'value': whatValueForParam},
-        if (firstAidParamCode != null &&
-            firstAidParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': firstAidParamCode,
-            'value': _firstAidGiven ? 'true' : 'false',
-          },
+        if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             additionalNotes.isNotEmpty &&
@@ -579,10 +687,41 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     final existingPatch =
         attachmentsForActivityPatchRequest(_detailAttachmentRows);
-    if (existingPatch.isEmpty && _newPhotos.isEmpty) {
+    final keepsExistingVideo = (_remainingExistingVideoUrl ?? '')
+        .trim()
+        .isNotEmpty;
+    final hasVideoForSave =
+        _newVideo != null || keepsExistingVideo;
+    if (!hasVideoForSave) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please add at least one photo',
+        message: 'Incident requires at least one video attachment',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_newVideo != null && !_newVideoUploadComplete) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for the video upload to finish',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_newPhotos.isNotEmpty && _uploadedPhotoCount != _newPhotos.length) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for all photos to finish uploading',
+        isWarning: true,
+      );
+      return;
+    }
+    if (existingPatch.isEmpty &&
+        _newPhotos.isEmpty &&
+        _newVideo == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please keep or add at least one attachment',
         isWarning: true,
       );
       return;
@@ -590,7 +729,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (_isUploadingMedia) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please wait for the photo upload to finish',
+        message: 'Please wait for media uploads to finish',
         isWarning: true,
       );
       return;
@@ -668,7 +807,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final newAttachments = await _ensurePhotoAssetsUploaded(
+      final newAttachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
         organizationCode: organizationCode,
@@ -680,6 +819,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           .map(normalizeActivityDeliveryUrl)
           .where((e) => e.isNotEmpty)
           .toSet();
+      final v = (_remainingExistingVideoUrl ?? '').trim();
+      if (v.isNotEmpty) {
+        remainingNorm.add(normalizeActivityDeliveryUrl(v));
+      }
       final mergedRows = mergeAttachmentRowsForEditPatch(
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
@@ -718,27 +861,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         return null;
       }
 
-      String? findFirstAidParamCode() {
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          final dt = (p.dataType ?? '').toUpperCase();
-          if (dt == 'BOOLEAN' && n.contains('first') && n.contains('aid')) {
-            return p.code;
-          }
-        }
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          if (n.contains('first') && n.contains('aid')) return p.code;
-        }
-        return null;
-      }
-
       final dateParamCode = findParamCode('date');
       final timeParamCode = findParamCode('time');
       final staffParamCode = findParamCode('staff');
       final whatParamCode = findWhatHappenedParamCode();
       final notesParamCode = findAdditionalNotesParamCode();
-      final firstAidParamCode = findFirstAidParamCode();
+      final firstAidParam = _findFirstAidParameter(details.parameters);
+      final firstAidEntry = firstAidParam == null
+          ? null
+          : _firstAidParameterEntry(firstAidParam, _firstAidGiven);
 
       final sameWhatAndNotes = whatParamCode != null &&
           notesParamCode != null &&
@@ -765,12 +896,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           {'parameterCode': staffParamCode, 'value': staffCode},
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
           {'parameterCode': whatParamCode, 'value': whatValueForParam},
-        if (firstAidParamCode != null &&
-            firstAidParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': firstAidParamCode,
-            'value': _firstAidGiven ? 'true' : 'false',
-          },
+        if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             additionalNotes.isNotEmpty &&
@@ -823,14 +949,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     await _submitCreateActivity();
   }
 
-  Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
+  Future<List<Map<String, dynamic>>> _ensureIncidentMediaUploaded({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
     required String schoolCode,
     required List<String> studentCodes,
   }) async {
-    if (_newPhotos.isEmpty) return const [];
+    if (_newPhotos.isEmpty && _newVideo == null) return const [];
 
     final normalizedStudentCodes = studentCodes
         .map((e) => e.trim())
@@ -849,11 +975,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     }
 
     final ownerCode = studentCodes.first;
-    final missing = _newPhotos
+    final missingPhotos = _newPhotos
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
+    final missingVideo = _newVideo != null &&
+        !_uploadedAssetCodeByPath.containsKey(_newVideo!.path);
 
-    if (missing.isNotEmpty) {
+    if (missingPhotos.isNotEmpty || missingVideo) {
       setState(() => _isUploadingMedia = true);
       try {
         final uploadSession =
@@ -867,7 +995,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         );
 
         final sessionAssetCodes = <String>[];
-        for (final photo in missing) {
+        for (final photo in missingPhotos) {
           final fileName = photo.uri.pathSegments.isNotEmpty
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
@@ -896,6 +1024,43 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
           sessionAssetCodes.add(presign.assetCode);
         }
+        if (missingVideo && _newVideo != null) {
+          final file = _newVideo!;
+          final lower = file.path.toLowerCase();
+          final extension =
+              lower.contains('.') ? lower.split('.').last : 'mp4';
+          final fileName =
+              'video_${DateTime.now().millisecondsSinceEpoch}.$extension';
+          final contentLengthBytes = await file.length();
+          final contentType = lower.endsWith('.mov')
+              ? 'video/quicktime'
+              : lower.endsWith('.webm')
+                  ? 'video/webm'
+                  : 'video/mp4';
+          final presign = await _imageUploadService.createAssetPresign(
+            sessionCode: uploadSession.sessionCode,
+            documentApiBasePath: uploadSession.documentApiBasePath,
+            fileName: fileName,
+            contentType: contentType,
+            contentLengthBytes: contentLengthBytes,
+            mediaType: 'VIDEO',
+            ownerType: 'STUDENT',
+            ownerCode: ownerCode,
+          );
+          await _imageUploadService.uploadFileToPresignedUrl(
+            file: file,
+            presignedPutUrl: presign.presignedPutUrl,
+            requiredHeaders: presign.requiredHeaders,
+            fallbackContentType: contentType,
+          );
+          await _imageUploadService.completeAssetUpload(
+            sessionCode: uploadSession.sessionCode,
+            assetCode: presign.assetCode,
+            documentApiBasePath: uploadSession.documentApiBasePath,
+          );
+          _uploadedAssetCodeByPath[file.path] = presign.assetCode;
+          sessionAssetCodes.add(presign.assetCode);
+        }
         await _imageUploadService.waitUntilAssetsReady(
           sessionCode: uploadSession.sessionCode,
           expectedAssetCodes: sessionAssetCodes,
@@ -916,6 +1081,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         });
       }
     }
+    if (_newVideo != null) {
+      final assetCode = _uploadedAssetCodeByPath[_newVideo!.path];
+      if (assetCode != null && assetCode.isNotEmpty) {
+        attachments.add({
+          'assetCode': assetCode,
+          'studentCode': ownerCode,
+          'bindingMode': 'PER_STUDENT',
+        });
+      }
+    }
     return attachments;
   }
 
@@ -927,17 +1102,23 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   ) {
     setState(() {
       _newPhotos = photos;
+      _newVideo = video;
       _remainingExistingPhotoUrls =
           List<String>.from(remainingExistingPhotoUrls);
-      _uploadedAssetCodeByPath.removeWhere(
-        (path, _) => !_newPhotos.any((f) => f.path == path),
-      );
+      _remainingExistingVideoUrl = remainingExistingVideoUrl;
+      _uploadedAssetCodeByPath.removeWhere((path, _) {
+        final stillPhoto = _newPhotos.any((f) => f.path == path);
+        final stillVideo = _newVideo?.path == path;
+        return !stillPhoto && !stillVideo;
+      });
     });
-    _uploadPhotosOnSelection();
+    _uploadMediaOnSelection();
   }
 
-  Future<void> _uploadPhotosOnSelection() async {
-    if (_layoutAsEdit || _newPhotos.isEmpty || _isUploadingMedia) return;
+  Future<void> _uploadMediaOnSelection() async {
+    if (_layoutAsEdit || (_newPhotos.isEmpty && _newVideo == null) || _isUploadingMedia) {
+      return;
+    }
 
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
@@ -964,7 +1145,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     }
 
     try {
-      await _ensurePhotoAssetsUploaded(
+      await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
         organizationCode: organizationCode,
@@ -974,7 +1155,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Photo uploaded successfully',
+        message: 'Media uploaded successfully',
         isSuccess: true,
       );
     } catch (error) {
@@ -1198,8 +1379,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 ignoring: !_canInteract,
                 child: MediaUploader(
                   isRequired: false,
-                  allowVideo: false,
+                  allowVideo: true,
                   allowPhoto: true,
+                  allowPhotoAndVideoTogether: true,
                   isPictureBox: false,
                   limit: 10,
                   photoSizeLimit: 20,
@@ -1209,22 +1391,24 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                               _effectiveActivity.photoUrl!.trim().isNotEmpty
                           ? [_effectiveActivity.photoUrl!.trim()]
                           : const []),
-                  label: 'Upload Photo',
+                  initialVideoUrl: _editorInitialVideoUrl,
+                  label: 'Photos & video',
                   onMediaChanged: _onMediaChanged,
                 ),
               )
             else
               MediaUploader(
                 isRequired: true,
-                allowVideo: false,
+                allowVideo: true,
                 allowPhoto: true,
+                allowPhotoAndVideoTogether: true,
                 isPictureBox: false,
                 limit: 10,
                 photoSizeLimit: 20,
-                label: 'Upload Photo',
+                label: 'Photos & video (video required)',
                 onMediaChanged: _onMediaChanged,
               ),
-            if (_newPhotos.isNotEmpty) ...[
+            if (_newPhotos.isNotEmpty || _newVideo != null) ...[
               const SizedBox(height: 8),
               _buildUploadStatus(),
             ],
@@ -1261,7 +1445,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           ),
           SizedBox(width: 8),
           Text(
-            'Uploading photo...',
+            'Uploading media...',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -1272,33 +1456,64 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
     }
 
-    if (_uploadedPhotoCount == _newPhotos.length) {
+    final uploadsSynced = (_newPhotos.isEmpty ||
+            _uploadedPhotoCount == _newPhotos.length) &&
+        (_newVideo == null || _newVideoUploadComplete);
+    final createSatisfied =
+        _layoutAsEdit || _newVideo != null;
+
+    if (uploadsSynced && createSatisfied) {
+      final parts = <String>[];
+      if (_newPhotos.isNotEmpty) {
+        parts.add(
+          '${_uploadedPhotoCount}/${_newPhotos.length} photo(s)',
+        );
+      }
+      if (_newVideo != null) {
+        parts.add('1 video');
+      }
+      final label = parts.isEmpty ? 'Ready' : parts.join(', ');
       return Row(
         children: [
           const Icon(Icons.check_circle, size: 16, color: Colors.green),
           const SizedBox(width: 8),
-          Text(
-            'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
+          Expanded(
+            child: Text(
+              'Uploaded $label',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.green,
+              ),
             ),
           ),
         ],
       );
     }
 
+    final buf = StringBuffer()
+      ..write(
+        'Photos $_uploadedPhotoCount/${_newPhotos.length}',
+      );
+    if (_newVideo != null) {
+      buf.write(
+        _newVideoUploadComplete ? ', video ready' : ', video uploading…',
+      );
+    } else if (!_layoutAsEdit) {
+      buf.write(' — add a video (required)');
+    }
     return Row(
       children: [
         const Icon(Icons.error_outline, size: 16, color: Colors.orange),
         const SizedBox(width: 8),
-        Text(
-          'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.orange,
+        Expanded(
+          child: Text(
+            buf.toString(),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.orange,
+            ),
           ),
         ),
       ],

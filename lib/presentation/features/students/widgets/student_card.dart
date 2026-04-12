@@ -468,10 +468,9 @@ class _StudentCardState extends State<StudentCard> {
                                               type: widget.isActive
                                                   ? 'student_deactivate'
                                                   : 'student_reactivate',
-                                              onDelete: () async {
-                                                // Let the confirmation sheet show its loader
-                                                // while the actual API logic runs.
+                                              onDelete: () {
                                                 widget.onPrimaryAction?.call();
+                                                return Future.value();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -521,8 +520,9 @@ class _StudentCardState extends State<StudentCard> {
                                               return DeleteConfirmationBottomSheet(
                                                 name: widget.name,
                                                 type: 'student_delete',
-                                                onDelete: () async {
+                                                onDelete: () {
                                                   widget.onDeleteAction?.call();
+                                                  return Future.value();
                                                 },
                                                 onCancel: () {
                                                   Navigator.of(ctx).pop();

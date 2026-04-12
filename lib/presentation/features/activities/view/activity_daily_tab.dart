@@ -96,6 +96,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
   final Map<String, String> _classroomCodeByName = {};
   final Map<String, String> _studentCodeByName = {};
   List<ActivityItem> _activities = [];
+  static const int _feedPageSize = 10;
+  final ScrollController _feedScrollController = ScrollController();
+  bool _feedHasMore = false;
+  bool _loadingMoreFeed = false;
+  int _feedNextPage = 0;
   bool _loadingFeed = false;
   bool _isFeedRequestInFlight = false;
   String? _lastFeedRequestKey;
@@ -476,6 +481,116 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     await _loadDailyFeed();
   }
 
+  List<ActivityItem> _mapDailyFeedPageToItems(
+    ActivityFeedPage page,
+    String? typeCode,
+  ) {
+    var items =
+        page.content.map((row) => activityItemFromFeedRow(row)).toList();
+
+    if (typeCode == null &&
+        _selectedActivityType != null &&
+        _selectedActivityType!.trim().isNotEmpty) {
+      final want = _selectedActivityType!.trim();
+      final filtered = items.where((a) => a.name == want).toList();
+      if (filtered.isNotEmpty) {
+        items = filtered;
+      }
+    }
+    return items;
+  }
+
+  void _onFeedScroll() {
+    _maybeLoadNextDailyFeedPage();
+  }
+
+  void _maybeLoadNextDailyFeedPage() {
+    if (!_feedScrollController.hasClients) return;
+    if (_loadingMoreFeed ||
+        !_feedHasMore ||
+        _loadingFeed ||
+        _isFeedRequestInFlight) {
+      return;
+    }
+    final position = _feedScrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      _loadNextDailyFeedPage();
+      return;
+    }
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      _loadNextDailyFeedPage();
+    }
+  }
+
+  Future<void> _loadNextDailyFeedPage() async {
+    if (_loadingMoreFeed || !_feedHasMore || _loadingFeed) return;
+
+    final classroomName = _selectdClassroom;
+    final school = _schoolCode;
+    final date = _selectedDate;
+    if (classroomName == null ||
+        school == null ||
+        school.isEmpty ||
+        date == null ||
+        !_classroomCodeByName.containsKey(classroomName)) {
+      return;
+    }
+
+    final classroomCode = _classroomCodeByName[classroomName]!;
+    final dateStr = _dateQueryParam(date);
+
+    String? studentCode;
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final sc = widget.studentProfile!['studentCode'];
+      if (sc is String && sc.trim().isNotEmpty) {
+        studentCode = sc.trim();
+      }
+    } else if (_selectedStudent != null) {
+      studentCode = _studentCodeByName[_selectedStudent!];
+    }
+
+    final typeCode = _activityTypeCodeForApiFilter();
+
+    _loadingMoreFeed = true;
+    if (mounted) setState(() {});
+
+    try {
+      final page = await _getDailyActivityFeedUseCase(
+        classroomCode: classroomCode,
+        date: dateStr,
+        studentCode: studentCode,
+        activityTypeCode: typeCode,
+        page: _feedNextPage,
+        size: _feedPageSize,
+      );
+
+      final items = _mapDailyFeedPageToItems(page, typeCode);
+
+      if (!mounted) return;
+      setState(() {
+        _activities.addAll(items);
+        _feedHasMore = !page.last;
+        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+      });
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
+        setState(() => _feedHasMore = false);
+      }
+    } finally {
+      _loadingMoreFeed = false;
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _maybeLoadNextDailyFeedPage());
+      }
+    }
+  }
+
   Future<void> _loadDailyFeed({bool refresh = false}) async {
     final classroomName = _selectdClassroom;
     final school = _schoolCode;
@@ -489,6 +604,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         setState(() {
           _activities = [];
           _loadingFeed = false;
+          _feedHasMore = false;
+          _loadingMoreFeed = false;
         });
       }
       return;
@@ -539,6 +656,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       setState(() {
         _loadingFeed = true;
         _feedError = null;
+        _feedHasMore = true;
+        _loadingMoreFeed = false;
       });
     }
 
@@ -549,22 +668,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         studentCode: studentCode,
         activityTypeCode: typeCode,
         page: 0,
-        size: 200,
+        size: _feedPageSize,
       );
 
-      var items =
-          page.content.map((row) => activityItemFromFeedRow(row)).toList();
-
-      if (typeCode == null &&
-          _selectedActivityType != null &&
-          _selectedActivityType!.trim().isNotEmpty) {
-        final want = _selectedActivityType!.trim();
-        final filtered = items.where((a) => a.name == want).toList();
-        // Keep original list if local label matching fails.
-        if (filtered.isNotEmpty) {
-          items = filtered;
-        }
-      }
+      final items = _mapDailyFeedPageToItems(page, typeCode);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -574,10 +681,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
+        _feedHasMore = !page.last;
+        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
       });
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = false;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _maybeLoadNextDailyFeedPage());
     } catch (e) {
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -587,6 +698,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       setState(() {
         _loadingFeed = false;
         _feedError = msg;
+        _feedHasMore = false;
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
@@ -618,6 +730,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
+    _feedScrollController.addListener(_onFeedScroll);
+  }
+
+  @override
+  void dispose() {
+    _feedScrollController.removeListener(_onFeedScroll);
+    _feedScrollController.dispose();
+    super.dispose();
   }
 
   void _updateAvailableStudents() {
@@ -743,12 +863,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     );
   }
 
-  // @override
-  // void dispose() {
-  //  // _searchController.dispose();
-  //   super.dispose();
-  // }
-
   @override
   Widget build(BuildContext context) {
     return OrientationBuilder(
@@ -757,6 +871,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
             return CustomRefreshIndicator(
               onRefresh: _onRefresh,
               child: CustomScrollView(
+                controller: _feedScrollController,
                 slivers: [
                 SliverToBoxAdapter(child: Padding(
                   padding: ResponsiveSizing.contentPadding(context),
@@ -1005,6 +1120,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                           (context, index){
+                            if (index == _activities.length) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: PrimaryCircularLoader(
+                                    size: 28,
+                                    strokeWidth: 3,
+                                  ),
+                                ),
+                              );
+                            }
                             final activity = _activities[index];
                             final students = activity.studentList;
                             final Color activityColor =
@@ -1471,7 +1597,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                               ],
                             );
                           },
-                          childCount: _activities.length
+                          childCount: _activities.length +
+                              (_loadingMoreFeed ? 1 : 0),
                       ),
                     ),
                   ),
@@ -2419,9 +2546,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                           const SizedBox(height: 10),
                           Expanded(
                             child: ListView.builder(
+                              controller: _feedScrollController,
                               padding: EdgeInsets.zero,
-                              itemCount: _activities.length,
+                              itemCount: _activities.length +
+                                  (_loadingMoreFeed ? 1 : 0),
                               itemBuilder: (context, index) {
+                                if (index == _activities.length) {
+                                  return const Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(vertical: 24),
+                                    child: Center(
+                                      child: PrimaryCircularLoader(
+                                        size: 28,
+                                        strokeWidth: 3,
+                                      ),
+                                    ),
+                                  );
+                                }
                                 final activity = _activities[index];
                                 final students = activity.studentList;
                                 final Color activityColor =
@@ -2460,10 +2601,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                           width: 18,
                                           height: 18,
                                           decoration: BoxDecoration(
-                                            //color: activity.color,
-                                            color: activityColor,
-                                            shape: BoxShape.circle,
-                                          ),
+                                                //color: activity.color,
+                                                color: activityColor,
+                                                shape: BoxShape.circle,
+                                              ),
                                         ),
                                         const SizedBox(width: 20),
                                         SizedBox(

@@ -969,6 +969,7 @@ class MediaUploader extends StatefulWidget {
     this.onMediaChanged,
     this.allowPhoto = true,
     this.allowVideo = true,
+    this.allowPhotoAndVideoTogether = false,
     this.isRequired = false,
     this.limit = 10,
     this.label = 'Upload Photos & Video',
@@ -990,6 +991,9 @@ class MediaUploader extends StatefulWidget {
 
   final bool allowPhoto;
   final bool allowVideo;
+  /// When [allowPhoto] and [allowVideo] are both true, keeps photos and video
+  /// at the same time instead of replacing one with the other (e.g. Incident).
+  final bool allowPhotoAndVideoTogether;
   final bool isRequired;
   final int limit;
   final String label;
@@ -1001,6 +1005,11 @@ class MediaUploader extends StatefulWidget {
 }
 
 class _MediaUploaderState extends State<MediaUploader> {
+
+  bool get _keepPhotoAndVideoTogether =>
+      widget.allowPhoto &&
+      widget.allowVideo &&
+      widget.allowPhotoAndVideoTogether;
 
   List<File> _newPhotos = [];
   File? _newVideoFile;
@@ -1136,7 +1145,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
-    if (_currentType == MediaType.video) {
+    if (_currentType == MediaType.video && !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('photos');
       if (!replace) return;
       _clearVideo();
@@ -1188,7 +1197,9 @@ class _MediaUploaderState extends State<MediaUploader> {
   Future<void> _pickVideo(ImageSource source) async {
     if (!widget.allowVideo) return;
 
-    if (_hasMedia && _currentType == MediaType.photos) {
+    if (_hasMedia &&
+        _currentType == MediaType.photos &&
+        !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('video');
       if (!replace) return;
     }
@@ -1240,8 +1251,15 @@ class _MediaUploaderState extends State<MediaUploader> {
     setState(() {
       _newVideoFile = file;
       _videoThumbnailFile = null;
-      _newPhotos.clear();
-      _currentType = MediaType.video;
+      if (!_keepPhotoAndVideoTogether) {
+        _newPhotos.clear();
+      }
+      final hasPhotos =
+          _newPhotos.isNotEmpty || _existingPhotoUrls.isNotEmpty;
+      _currentType =
+          _keepPhotoAndVideoTogether && hasPhotos
+              ? MediaType.photos
+              : MediaType.video;
     });
     await _generateVideoThumbnail();
     _notifyParent();
@@ -1467,12 +1485,14 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Widget _buildAllPreviews() {
+    final showVideoPreview = _keepPhotoAndVideoTogether
+        ? (_newVideoFile != null || _existingVideoUrl != null)
+        : _currentType == MediaType.video;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-
-          if (_currentType == MediaType.video) _buildVideoPreview(),
+          if (showVideoPreview) _buildVideoPreview(),
           ..._existingPhotoUrls.map((url) => _buildPhotoPreviewNetwork(url)),
           ..._newPhotos.asMap().entries.map((e) => _buildPhotoPreviewFile(e.value, e.key)),
 
