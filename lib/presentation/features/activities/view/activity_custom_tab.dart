@@ -3,16 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bathroom_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_incident_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_meal_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_medication_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_outdoor_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -173,21 +163,69 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         LearningActivityScreen(activityData: activity, isEdit: true),
   };
 
-  // Map activity label to the destination view activity screen
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
-    'Nap Start': (activity) => ViewNapActivity(activityData: activity),
-    'Nap End': (activity) => ViewNapActivity(activityData: activity, isNapStart: false,),
-    'Bathroom': (activity) => ViewBathroomActivity(activityData: activity),
-    'Bottle': (activity) => ViewBottleActivity(activityData: activity),
-    'Meal': (activity) => ViewMealActivity(activityData: activity),
-    'Incident': (activity) => ViewIncidentActivity(activityData: activity),
-    'Photo': (activity) => ViewPhotoVideoActivity(activityData: activity),
-    'Video': (activity) =>
-        ViewPhotoVideoActivity(activityData: activity, isVideo: true),
-    'Medication': (activity) => ViewMedicationActivity(activityData: activity),
-    'Notes': (activity) => ViewNotesActivity(activityData: activity),
-    'Outdoor': (activity) => ViewOutdoorActivity(activityData: activity),
-    'Learning': (activity) => ViewLearningActivity(activityData: activity),
+    'Nap Start': (activity) => NapActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Nap End': (activity) => NapActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Bathroom': (activity) => BathroomActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Bottle': (activity) => BottleActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Meal': (activity) => MealActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Incident': (activity) => IncidentActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Photo': (activity) => PhotoVideoActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+          isPhoto: true,
+        ),
+    'Video': (activity) => PhotoVideoActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+          isPhoto: false,
+        ),
+    'Medication': (activity) => MedicationActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Notes': (activity) => NotesActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Outdoor': (activity) => OutdoorActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Learning': (activity) => LearningActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
   };
 
   static final Map<String, dynamic> activityIcons = {
@@ -936,7 +974,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                   minHeight: 180,
                                                 ),
                                                 margin: const EdgeInsets.only(
-                                                  bottom: 12,
+                                                  bottom: 10,
                                                 ),
                                                 padding: const EdgeInsets.all(12),
                                                 decoration: BoxDecoration(
@@ -1289,7 +1327,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 4))
+                const SliverToBoxAdapter(child: SizedBox(height: 10))
               ],
             );
             // ignore: dead_code
@@ -1489,7 +1527,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                     ),
                   ),
 
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 12),
 
                   if (activities.length == 0)
                     Padding(
@@ -1515,7 +1553,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       padding: ResponsiveSizing.activityFeedListPadding(context),
                       child: Column(
                         children: [
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 10),
                           ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
@@ -1600,7 +1638,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                               minHeight: 180,
                                             ),
                                               margin: const EdgeInsets.only(
-                                              bottom: 12,
+                                              bottom: 10,
                                             ),
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
@@ -2095,7 +2133,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
 
                 if (activities.length == 0)
                   Expanded(
@@ -2129,7 +2167,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       padding: ResponsiveSizing.activityFeedListPadding(context),
                       child: Column(
                         children: [
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 10),
                           Expanded(
                             child: ListView.builder(
                               padding: EdgeInsets.zero,
@@ -2233,7 +2271,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                     minHeight: 180,
                                                   ),
                                               margin: const EdgeInsets.only(
-                                              bottom: 12,
+                                              bottom: 10,
                                             ),
                                                   padding: const EdgeInsets.all(12),
                                                   decoration: BoxDecoration(

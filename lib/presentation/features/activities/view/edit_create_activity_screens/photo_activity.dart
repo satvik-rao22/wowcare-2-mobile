@@ -19,11 +19,14 @@ import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
+import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
+import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
@@ -35,20 +38,25 @@ class PhotoVideoActivityScreen extends StatefulWidget {
     this.isEdit = false,
     required this.isPhoto,
     this.activityData,
+    this.readOnly = false,
   });
 
   final List<Map<String, dynamic>>? selectedStudents;
   final bool isEdit;
   final bool isPhoto;
   final ActivityItem? activityData;
+  final bool readOnly;
 
   @override
   State<PhotoVideoActivityScreen> createState() => _PhotoVideoActivityScreenState();
 }
 
 class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
-  late final List<Map<String, dynamic>> _selectedStudentsData;
-  late final List<String> _selectedStudents;
+  bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
+  bool get _canInteract => !widget.readOnly;
+
+  List<Map<String, dynamic>> _selectedStudentsData = [];
+  List<String> _selectedStudents = [];
   List<String> _studentsToEdit = [];
   bool _selectAll = false;
   final TextEditingController _descriptionController = TextEditingController();
@@ -61,6 +69,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _loadingActivityDetail = false;
+  ActivityItem? _liveActivity;
+  List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
 
   List<File> _photos = [];
@@ -79,7 +90,12 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   late final GetClassroomActivitySettingsUseCase _getSettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getDetailsUseCase;
   late final CreateActivityUseCase _createUseCase;
+  late final GetActivityUseCase _getActivityUseCase;
+  late final UpdateActivityUseCase _updateActivityUseCase;
   late final ImageUploadService _uploadService;
+
+  ActivityItem get _effectiveActivity =>
+      _liveActivity ?? widget.activityData!;
 
   @override
   void initState() {
@@ -87,6 +103,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     _getSettingsUseCase = serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getDetailsUseCase = serviceLocator<GetActivityTypeDetailsUseCase>();
     _createUseCase = serviceLocator<CreateActivityUseCase>();
+    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
+    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
     _uploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -94,17 +112,73 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _selectedStudents =
           _selectedStudentsData.map((student) => student['name'] as String).toList();
       _loadActivityTypeCode();
-    } else if (widget.isEdit) {
+    } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
+      _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
+      _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
+      _activityTypeCode = activity.activityTypeCode;
+      _detailAttachmentRows = (activity.snapshotAttachments ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
       if (widget.isPhoto && activity.photoUrl != null) {
         _existingPhotoUrls = [activity.photoUrl!];
       } else {
         _existingVideoUrl = activity.videoUrl;
       }
+      final iso = activity.activityDateIso;
+      if (iso != null && iso.trim().isNotEmpty) {
+        try {
+          final dt = DateTime.parse(iso.trim()).toLocal();
+          _activityDate = DateTime(dt.year, dt.month, dt.day);
+          _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        } catch (_) {}
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _prefetchActivityForEdit();
+      });
     }
     _loadStaffContext();
+  }
+
+  Future<void> _prefetchActivityForEdit() async {
+    if (!_layoutAsEdit || !mounted) return;
+    final code = widget.activityData?.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _loadingActivityDetail = true);
+    try {
+      final detail = await _getActivityUseCase(code: code);
+      if (!mounted) return;
+      final item = activityItemFromActivityDetail(detail);
+      setState(() {
+        _liveActivity = item;
+        _selectedStudents = List<String>.from(item.studentList);
+        _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        _descriptionController.text = item.description ?? '';
+        _activityTypeCode = item.activityTypeCode;
+        _detailAttachmentRows = detail.attachments
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        if (widget.isPhoto && item.photoUrl != null) {
+          _existingPhotoUrls = [item.photoUrl!];
+        } else {
+          _existingVideoUrl = item.videoUrl;
+        }
+        final nextIso = item.activityDateIso;
+        if (nextIso != null && nextIso.trim().isNotEmpty) {
+          try {
+            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            _activityDate = DateTime(dt.year, dt.month, dt.day);
+            _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+          } catch (_) {}
+        }
+      });
+    } catch (e) {
+      CoreUtils.logApiError('Prefetch activity for edit: $e');
+    } finally {
+      if (mounted) setState(() => _loadingActivityDetail = false);
+    }
   }
 
   Future<void> _loadStaffContext() async {
@@ -180,7 +254,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   }
 
   Future<void> _uploadMediaOnSelection() async {
-    if (widget.isEdit || _isUploadingMedia) return;
+    if (_layoutAsEdit || _isUploadingMedia) return;
     if (_photos.isEmpty && _video == null) return;
 
     final activityTypeCode = _activityTypeCode;
@@ -328,7 +402,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   }
 
   Future<void> _submitCreate() async {
-    if (_isSubmitting || widget.isEdit) return;
+    if (_isSubmitting) return;
+    if (_layoutAsEdit) return;
     if (_isUploadingMedia) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -468,20 +543,198 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     }
   }
 
-  void _onSaveOrAddPressed() {
-    if (widget.isEdit) {
-      if (_studentsToEdit.isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please select at least one student',
-          isWarning: true,
-        );
-        return;
-      }
-      Navigator.of(context).popUntil((route) => route.settings.name == ActivityFeedScreen.routeName);
+  Future<void> _submitUpdateActivity() async {
+    if (_isSubmitting) return;
+    if (widget.readOnly) return;
+
+    final activityCode = _effectiveActivity.activityCode?.trim();
+    if (activityCode == null || activityCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Missing activity reference. Refresh the activity list and try again.',
+        isError: true,
+      );
       return;
     }
-    _submitCreate();
+
+    if (_isUploadingMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: widget.isPhoto
+            ? 'Please wait until photo upload completes.'
+            : 'Please wait until video upload completes.',
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (_studentsToEdit.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one student',
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (!_hasMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: widget.isPhoto
+            ? 'Please keep or upload a photo before saving.'
+            : 'Please keep or upload a video before saving.',
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (_activityDate == null || _activityTime == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select date and time',
+        isWarning: true,
+      );
+      return;
+    }
+
+    final classroomCodeRaw = _selectedStudentsData.first['classroomCode'] ??
+        _selectedStudentsData.first['classroomcode'];
+    final classroomCode =
+        classroomCodeRaw is String ? classroomCodeRaw.trim() : '';
+    if (classroomCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Missing classroom information for activity',
+        isError: true,
+      );
+      return;
+    }
+
+    final studentCodes = _selectedStudentsData
+        .map((s) => (s['studentCode'] as String?)?.trim())
+        .whereType<String>()
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (studentCodes.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve student codes for activity',
+        isError: true,
+      );
+      return;
+    }
+
+    final staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+    final schoolCode = _schoolCode;
+    final organizationCode = _organizationCode;
+    final activityTypeCode = _activityTypeCode;
+    if (staffCode == null ||
+        schoolCode == null ||
+        organizationCode == null ||
+        activityTypeCode == null ||
+        staffCode.isEmpty ||
+        schoolCode.isEmpty ||
+        organizationCode.isEmpty ||
+        activityTypeCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Missing required context for activity update.',
+        isError: true,
+      );
+      return;
+    }
+
+    final localDate =
+        '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
+    final localTime =
+        '${_activityTime!.hour.toString().padLeft(2, '0')}:${_activityTime!.minute.toString().padLeft(2, '0')}:00';
+    final activityDateIso = DateTime(
+      _activityDate!.year,
+      _activityDate!.month,
+      _activityDate!.day,
+      _activityTime!.hour,
+      _activityTime!.minute,
+    ).toUtc().toIso8601String();
+
+    final desc = _descriptionController.text.trim();
+
+    setState(() => _isSubmitting = true);
+    try {
+      List<Map<String, dynamic>> newUploads = const [];
+      if (_photos.isNotEmpty || _video != null) {
+        newUploads = _uploadedAttachments.isNotEmpty
+            ? _uploadedAttachments
+            : await _uploadAndBuildAttachments(
+                classroomCode: classroomCode,
+                activityTypeCode: activityTypeCode,
+                organizationCode: organizationCode,
+                schoolCode: schoolCode,
+                studentCodes: studentCodes,
+              );
+      }
+
+      final mergedRows = <Map<String, dynamic>>[
+        ..._detailAttachmentRows,
+        ...newUploads,
+      ];
+      final patchAttachments =
+          attachmentsForActivityPatchRequest(mergedRows);
+
+      final details = await _getDetailsUseCase(code: activityTypeCode);
+      String? findCode(String contains) {
+        for (final p in details.parameters) {
+          if (p.parameterName.toLowerCase().contains(contains)) return p.code;
+        }
+        return null;
+      }
+      final parameterValues = <Map<String, dynamic>>[
+        if (findCode('date') != null)
+          {'parameterCode': findCode('date'), 'value': localDate},
+        if (findCode('time') != null)
+          {'parameterCode': findCode('time'), 'value': localTime},
+        if (findCode('staff') != null)
+          {'parameterCode': findCode('staff'), 'value': staffCode},
+        if (findCode('description') != null)
+          {'parameterCode': findCode('description'), 'value': desc},
+      ];
+
+      final message = await _updateActivityUseCase(
+        code: activityCode,
+        staffCode: staffCode,
+        activityDate: activityDateIso,
+        description: desc,
+        parameterValues: parameterValues,
+        attachments: patchAttachments,
+      );
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      Navigator.of(context).popUntil(
+        (route) => route.settings.name == ActivityFeedScreen.routeName,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(error),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _onSaveOrAddPressed() async {
+    if (widget.readOnly) return;
+    if (widget.isEdit) {
+      await _submitUpdateActivity();
+      return;
+    }
+    await _submitCreate();
   }
 
   @override
@@ -502,7 +755,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.isEdit) ...[
+              if (_layoutAsEdit && _canInteract) ...[
                 const SizedBox(height: 12),
                 CustomCheckbox(
                   label: 'Select All',
@@ -523,28 +776,35 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: responsive.isTablet ? 3.8 : (widget.isEdit ? 4.2 : 3.0),
+                  childAspectRatio: responsive.isTablet ? 3.8 : (_layoutAsEdit ? 4.2 : 3.0),
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   final name = _selectedStudents[index];
                   final selected = _studentsToEdit.contains(name);
-                  if (widget.isEdit) {
+                  if (_layoutAsEdit) {
                     return StudentTile(
                       name: name,
-                      isSelected: selected,
-                      onSelected: (value) => setState(() {
-                        if (value == true) {
-                          _studentsToEdit.add(name);
-                        } else {
-                          _studentsToEdit.remove(name);
-                        }
-                      }),
+                      isSelected: _canInteract ? selected : true,
+                      onSelected: _canInteract
+                          ? (value) => setState(() {
+                                if (value == true) {
+                                  _studentsToEdit.add(name);
+                                } else {
+                                  _studentsToEdit.remove(name);
+                                }
+                              })
+                          : null,
                     );
                   }
                   return SelectedStudentTile(
                     name: name,
-                    onTap: () => setState(() => _selectedStudents.remove(name)),
+                    onTap: () => setState(() {
+                      _selectedStudents.remove(name);
+                      _selectedStudentsData.removeWhere(
+                        (m) => (m['name'] as String?) == name,
+                      );
+                    }),
                   );
                 },
               ),
@@ -552,31 +812,38 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 children: [
                   Flexible(
                     child: DateWidget(
-                      isEditable: true,
+                      isEditable: _layoutAsEdit ? _canInteract : true,
                       isRequired: true,
-                      initialDate: widget.isEdit ? widget.activityData?.date : null,
+                      initialDate:
+                          _layoutAsEdit ? _effectiveActivity.date : null,
                       onDateChanged: (d) => _activityDate = d,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Flexible(
                     child: TimeWidget(
-                      isEditable: true,
+                      isEditable: _layoutAsEdit ? _canInteract : true,
                       isRequired: true,
-                      prefilledTime: widget.isEdit ? widget.activityData?.time : null,
+                      prefilledTime:
+                          _layoutAsEdit ? _effectiveActivity.time : null,
                       onTimeChanged: (t) => _activityTime = t,
                     ),
                   ),
                 ],
               ),
               SizedBox(height: responsive.verticalSpacing),
-              MediaUploader(
-                isRequired: true,
-                allowVideo: !widget.isPhoto,
-                allowPhoto: widget.isPhoto,
-                onMediaChanged: _onMediaChanged,
-                initialPhotoUrls: widget.isEdit ? _existingPhotoUrls : const [],
-                initialVideoUrl: widget.isEdit ? _existingVideoUrl : null,
+              IgnorePointer(
+                ignoring: _layoutAsEdit && !_canInteract,
+                child: MediaUploader(
+                  isRequired: true,
+                  allowVideo: !widget.isPhoto,
+                  allowPhoto: widget.isPhoto,
+                  onMediaChanged:
+                      _layoutAsEdit && !_canInteract ? null : _onMediaChanged,
+                  initialPhotoUrls:
+                      _layoutAsEdit ? _existingPhotoUrls : const [],
+                  initialVideoUrl: _layoutAsEdit ? _existingVideoUrl : null,
+                ),
               ),
               if (_isUploadingMedia) ...[
                 const SizedBox(height: 8),
@@ -587,31 +854,38 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               ],
               SizedBox(height: responsive.verticalSpacing),
               StaffPresentWidget(
-                staffName: widget.isEdit ? widget.activityData?.createdBy ?? '' : _staffName,
-                isEditable: false,
+                staffName: _layoutAsEdit
+                    ? _effectiveActivity.createdBy
+                    : _staffName,
+                isEditable: _canInteract,
               ),
               SizedBox(height: responsive.verticalSpacing),
               InputWidget(
                 controller: _descriptionController,
                 height: 100,
                 hint: 'Enter Description',
+                readOnly: !_canInteract,
               ),
             ],
           ),
         ),
       ),
-      bottomBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: CustomButtonLayout(
-            confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-            onPressedConfirm: _onSaveOrAddPressed,
-            showCancelButton: false,
-            isForm: false,
-            isLoading: _isSubmitting || _isUploadingMedia,
-          ),
-        ),
-      ),
+      bottomBar: widget.readOnly
+          ? const SafeArea(child: SizedBox.shrink())
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: CustomButtonLayout(
+                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                  onPressedConfirm: _onSaveOrAddPressed,
+                  showCancelButton: false,
+                  isForm: false,
+                  isLoading: _isSubmitting ||
+                      _isUploadingMedia ||
+                      _loadingActivityDetail,
+                ),
+              ),
+            ),
     );
   }
 }

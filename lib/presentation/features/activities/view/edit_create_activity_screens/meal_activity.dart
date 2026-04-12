@@ -18,7 +18,9 @@ import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
+import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
@@ -32,16 +34,21 @@ class MealActivityScreen extends StatefulWidget {
     this.selectedStudents,
     this.isEdit = false,
     this.activityData,
+    this.readOnly = false,
   });
   final List<Map<String, dynamic>>? selectedStudents;
   final bool isEdit;
   final ActivityItem? activityData;
+  final bool readOnly;
 
   @override
   State<MealActivityScreen> createState() => _MealActivityScreenState();
 }
 
 class _MealActivityScreenState extends State<MealActivityScreen> {
+  bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
+  bool get _canInteract => !widget.readOnly;
+
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
   List<String> _studentsToEdit = [];
@@ -63,10 +70,17 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _loadingActivityDetail = false;
+  ActivityItem? _liveActivity;
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
+  late final GetActivityUseCase _getActivityUseCase;
+  late final UpdateActivityUseCase _updateActivityUseCase;
+
+  ActivityItem get _effectiveActivity =>
+      _liveActivity ?? widget.activityData!;
 
   @override
   void initState() {
@@ -80,6 +94,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
+    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
+    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -87,9 +103,11 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           .map((student) => student['name'] as String)
           .toList();
       _loadActivityContextForCreate();
-    } else if (widget.isEdit) {
+    } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
+      _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
+      _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
       _selectedMealType = activity.mealType;
       final q = activity.mealQuantity?.trim();
@@ -98,8 +116,56 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               ? q
               : null;
       _activityTypeCode = activity.activityTypeCode;
+      final iso = activity.activityDateIso;
+      if (iso != null && iso.trim().isNotEmpty) {
+        try {
+          final dt = DateTime.parse(iso.trim()).toLocal();
+          _activityDate = DateTime(dt.year, dt.month, dt.day);
+          _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        } catch (_) {}
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _prefetchActivityForEdit();
+      });
     }
     _loadStaffContext();
+  }
+
+  Future<void> _prefetchActivityForEdit() async {
+    if (!_layoutAsEdit || !mounted) return;
+    final code = widget.activityData?.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _loadingActivityDetail = true);
+    try {
+      final detail = await _getActivityUseCase(code: code);
+      if (!mounted) return;
+      final item = activityItemFromActivityDetail(detail);
+      setState(() {
+        _liveActivity = item;
+        _selectedStudents = List<String>.from(item.studentList);
+        _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        _descriptionController.text = item.description ?? '';
+        _selectedMealType = item.mealType;
+        final q = item.mealQuantity?.trim();
+        _selectedQuantity =
+            (q != null && q.isNotEmpty && _quantityOptions.contains(q))
+                ? q
+                : null;
+        _activityTypeCode = item.activityTypeCode;
+        final nextIso = item.activityDateIso;
+        if (nextIso != null && nextIso.trim().isNotEmpty) {
+          try {
+            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            _activityDate = DateTime(dt.year, dt.month, dt.day);
+            _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+          } catch (_) {}
+        }
+      });
+    } catch (e) {
+      CoreUtils.logApiError('Prefetch activity for edit: $e');
+    } finally {
+      if (mounted) setState(() => _loadingActivityDetail = false);
+    }
   }
 
   Future<void> _loadStaffContext() async {
@@ -208,7 +274,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
 
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
-    if (widget.isEdit) return;
+    if (_layoutAsEdit) return;
 
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -447,41 +513,219 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     }
   }
 
-  void _onPressedBottom() {
+  Future<void> _submitUpdateActivity() async {
     if (_isSubmitting) return;
+    if (widget.readOnly) return;
 
-    if (widget.isEdit) {
-      if (_studentsToEdit.isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please select at least one student',
-          isWarning: true,
-        );
-        return;
-      }
-      if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please select a meal type',
-          isWarning: true,
-        );
-        return;
-      }
-      if (_selectedQuantity == null || _selectedQuantity!.trim().isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please select quantity',
-          isWarning: true,
-        );
-        return;
-      }
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+    final activityCode = _effectiveActivity.activityCode?.trim();
+    if (activityCode == null || activityCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Missing activity reference. Refresh the activity list and try again.',
+        isError: true,
+      );
       return;
     }
 
-    _submitCreateActivity();
+    if (_studentsToEdit.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one student',
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select a meal type',
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (_selectedQuantity == null || _selectedQuantity!.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select quantity',
+        isWarning: true,
+      );
+      return;
+    }
+
+    final description = _descriptionController.text.trim();
+    if (description.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please enter description',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length < 5) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (_activityDate == null || _activityTime == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select date and time',
+        isWarning: true,
+      );
+      return;
+    }
+
+    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+    if (staffCode == null || staffCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Missing staff information. Please re-login and try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    final activityTypeCode = _activityTypeCode;
+    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Unable to determine activity type for Meal. Please check activity settings.',
+        isError: true,
+      );
+      return;
+    }
+
+    final combinedDateTime = DateTime(
+      _activityDate!.year,
+      _activityDate!.month,
+      _activityDate!.day,
+      _activityTime!.hour,
+      _activityTime!.minute,
+    );
+    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
+
+    setState(() => _isSubmitting = true);
+    try {
+      final details =
+          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+
+      String? findParamCode(String contains) {
+        final target = contains.toLowerCase();
+        for (final p in details.parameters) {
+          final name = p.parameterName.toLowerCase();
+          if (name.contains(target)) return p.code;
+        }
+        return null;
+      }
+
+      final dateParamCode = findParamCode('date');
+      final timeParamCode = findParamCode('time');
+      final staffParamCode = findParamCode('staff');
+      final descParamCode = findParamCode('description');
+
+      final mealTypeParam = _findMealTypeParameter(details.parameters);
+      final quantityParam = _findQuantityParameter(details.parameters);
+
+      Map<String, dynamic>? mealTypeEntry = _paramEntryForOption(
+        mealTypeParam,
+        _selectedMealType!.trim(),
+      );
+      if (mealTypeEntry == null && _selectedMealType!.trim().isNotEmpty) {
+        final c = findParamCode('meal');
+        if (c != null && c.trim().isNotEmpty) {
+          mealTypeEntry = {
+            'parameterCode': c,
+            'value': _selectedMealType!.trim(),
+          };
+        }
+      }
+
+      Map<String, dynamic>? quantityEntry = _paramEntryForOption(
+        quantityParam,
+        _selectedQuantity!.trim(),
+      );
+      if (quantityEntry == null && _selectedQuantity!.trim().isNotEmpty) {
+        final c = findParamCode('quant');
+        if (c != null && c.trim().isNotEmpty) {
+          quantityEntry = {
+            'parameterCode': c,
+            'value': _selectedQuantity!.trim(),
+          };
+        }
+      }
+
+      String two(int v) => v.toString().padLeft(2, '0');
+      final localDate =
+          '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
+      final localTime =
+          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+
+      final parameterValues = <Map<String, dynamic>>[
+        if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
+          {'parameterCode': dateParamCode, 'value': localDate},
+        if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
+          {'parameterCode': timeParamCode, 'value': localTime},
+        if (staffParamCode != null &&
+            staffParamCode.trim().isNotEmpty &&
+            staffCode.trim().isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffCode},
+        if (descParamCode != null &&
+            descParamCode.trim().isNotEmpty &&
+            description.isNotEmpty)
+          {'parameterCode': descParamCode, 'value': description},
+        if (mealTypeEntry != null) mealTypeEntry,
+        if (quantityEntry != null) quantityEntry,
+      ];
+
+      final message = await _updateActivityUseCase(
+        code: activityCode,
+        staffCode: staffCode,
+        activityDate: activityDateIso,
+        description: description,
+        parameterValues: parameterValues,
+        attachments: const [],
+      );
+
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      Navigator.of(context).popUntil((route) {
+        return route.settings.name == ActivityFeedScreen.routeName;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _onPressedBottom() async {
+    if (_isSubmitting) return;
+    if (widget.readOnly) return;
+
+    if (widget.isEdit) {
+      await _submitUpdateActivity();
+      return;
+    }
+
+    await _submitCreateActivity();
   }
 
   void _updateSelectAllState() {
@@ -519,7 +763,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
-            if (widget.isEdit) ...[
+            if (_layoutAsEdit && _canInteract) ...[
               Align(
                 alignment: Alignment.centerLeft,
                 child: CustomCheckbox(
@@ -551,7 +795,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                 mainAxisSpacing: 12,
                 childAspectRatio: responsive.isTablet
                     ? 3.8
-                    : widget.isEdit
+                    : _layoutAsEdit
                         ? 4.2
                         : 3.0,
               ),
@@ -560,27 +804,29 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                 final String name = _selectedStudents[index];
                 final bool isSelected = _studentsToEdit.contains(name);
 
-                return widget.isEdit
+                return _layoutAsEdit
                     ? StudentTile(
-                  name: name,
-                  isSelected: isSelected,
-                        onSelected: (bool? selected) {
-                          ScaffoldMessenger.of(context)
-                              .removeCurrentSnackBar();
-                    setState(() {
-                            if (selected == true) {
-                        _studentsToEdit.add(name);
-                      } else {
-                        _studentsToEdit.remove(name);
-                      }
-                      _updateSelectAllState();
-                    });
-                  },
-                )
+                        name: name,
+                        isSelected: _canInteract ? isSelected : true,
+                        onSelected: _canInteract
+                            ? (bool? selected) {
+                                ScaffoldMessenger.of(context)
+                                    .removeCurrentSnackBar();
+                                setState(() {
+                                  if (selected == true) {
+                                    _studentsToEdit.add(name);
+                                  } else {
+                                    _studentsToEdit.remove(name);
+                                  }
+                                  _updateSelectAllState();
+                                });
+                              }
+                            : null,
+                      )
                     : SelectedStudentTile(
-                  name: name,
-                  onTap: () => _removeStudent(name),
-                );
+                        name: name,
+                        onTap: () => _removeStudent(name),
+                      );
               },
             ),
             SizedBox(height: responsive.verticalSpacing),
@@ -589,6 +835,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               dropDownName: 'Meal Type',
               selectedValue: _selectedMealType,
               isRequired: true,
+              isEnabled: _canInteract,
               onSelect: (value) {
                 setState(() {
                   _selectedMealType = value;
@@ -600,7 +847,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               options: _quantityOptions,
               dropDownName: 'Quantity',
               selectedValue: _selectedQuantity,
-                isRequired: true,
+              isRequired: true,
+              isEnabled: _canInteract,
               onSelect: (value) {
                 setState(() {
                   _selectedQuantity = value;
@@ -611,11 +859,11 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
             Row(
               children: [
                 Flexible(
-                  child: widget.isEdit
+                  child: _layoutAsEdit
                       ? DateWidget(
-                          isEditable: true,
+                          isEditable: _canInteract,
                           isRequired: true,
-                          initialDate: widget.activityData?.date,
+                          initialDate: _effectiveActivity.date,
                           onDateChanged: (d) {
                             setState(() {
                               _activityDate = d;
@@ -634,11 +882,11 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                 ),
                 const SizedBox(width: 10),
                 Flexible(
-                  child: widget.isEdit
+                  child: _layoutAsEdit
                       ? TimeWidget(
-                          isEditable: true,
+                          isEditable: _canInteract,
                           isRequired: true,
-                          prefilledTime: widget.activityData?.time,
+                          prefilledTime: _effectiveActivity.time,
                           onTimeChanged: (t) {
                             setState(() {
                               _activityTime = t;
@@ -659,10 +907,10 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
             ),
             SizedBox(height: responsive.verticalSpacing),
             StaffPresentWidget(
-              staffName: widget.isEdit
-                  ? (widget.activityData?.createdBy ?? '')
+              staffName: _layoutAsEdit
+                  ? (_effectiveActivity.createdBy)
                   : _staffName,
-              isEditable: false,
+              isEditable: _canInteract,
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
@@ -670,23 +918,26 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               height: 100,
               hint: 'Enter Description',
               isRequired: true,
+              readOnly: !_canInteract,
             ),
             SizedBox(height: responsive.verticalSpacing),
           ],
         ),
       ),
-      bottomBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: CustomButtonLayout(
-            confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-            onPressedConfirm: _onPressedBottom,
-            showCancelButton: false,
-            isForm: false,
-            isLoading: _isSubmitting,
-          ),
-        ),
-      ),
+      bottomBar: widget.readOnly
+          ? const SafeArea(child: SizedBox.shrink())
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: CustomButtonLayout(
+                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                  onPressedConfirm: _onPressedBottom,
+                  showCancelButton: false,
+                  isForm: false,
+                  isLoading: _isSubmitting || _loadingActivityDetail,
+                ),
+              ),
+            ),
     );
   }
 }

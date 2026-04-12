@@ -1,8 +1,13 @@
 import 'package:equatable/equatable.dart';
 
+import 'activity_detail.dart';
+
 /// One row from `GET /api/v1/activities/feed/daily` (`data.content[]`).
 class ActivityFeedRow extends Equatable {
   const ActivityFeedRow({
+    this.activityCode,
+    this.studentCode,
+    this.classroomCode,
     required this.activityTypeCode,
     required this.activityTypeName,
     required this.activityDateIso,
@@ -15,6 +20,10 @@ class ActivityFeedRow extends Equatable {
     required this.attachments,
   });
 
+  /// Present on feed rows and on `GET /api/v1/activities/code/{code}` — used for edit/PATCH.
+  final String? activityCode;
+  final String? studentCode;
+  final String? classroomCode;
   final String activityTypeCode;
   final String activityTypeName;
   final String activityDateIso;
@@ -25,6 +34,24 @@ class ActivityFeedRow extends Equatable {
   final String createdBy;
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
+
+  factory ActivityFeedRow.fromActivityDetail(ActivityDetail d) {
+    return ActivityFeedRow(
+      activityCode: d.code,
+      studentCode: d.studentCode,
+      classroomCode: d.classroomCode,
+      activityTypeCode: d.activityTypeCode,
+      activityTypeName: d.activityTypeName,
+      activityDateIso: d.activityDateIso,
+      description: d.description,
+      studentFirstName: d.studentFirstName,
+      studentMiddleName: d.studentMiddleName,
+      studentLastName: d.studentLastName,
+      createdBy: d.createdBy,
+      parameterValues: d.parameterValues,
+      attachments: d.attachments,
+    );
+  }
 
   String get studentDisplayName {
     final parts = [
@@ -37,6 +64,9 @@ class ActivityFeedRow extends Equatable {
 
   @override
   List<Object?> get props => [
+        activityCode,
+        studentCode,
+        classroomCode,
         activityTypeCode,
         activityTypeName,
         activityDateIso,

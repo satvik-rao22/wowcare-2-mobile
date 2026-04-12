@@ -2,6 +2,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
+import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/entities/activity_type_details.dart';
@@ -130,6 +131,31 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }) async {
     final model = await _remoteDataSource.getActivityTypeDetails(code: code);
     return model.toEntity();
+  }
+
+  @override
+  Future<ActivityDetail> getActivity({required String code}) async {
+    final data = await _remoteDataSource.getActivityByCode(code: code);
+    return ActivityDetail.fromApiData(data);
+  }
+
+  @override
+  Future<String> updateActivity({
+    required String code,
+    required String staffCode,
+    required String activityDate,
+    required String description,
+    List<Map<String, dynamic>> parameterValues = const [],
+    List<Map<String, dynamic>> attachments = const [],
+  }) {
+    return _remoteDataSource.updateActivity(
+      code: code,
+      staffCode: staffCode,
+      activityDate: activityDate,
+      description: description,
+      parameterValues: parameterValues,
+      attachments: attachments,
+    );
   }
 
   @override

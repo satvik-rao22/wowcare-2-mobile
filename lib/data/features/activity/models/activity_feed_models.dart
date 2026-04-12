@@ -79,7 +79,16 @@ class ActivityFeedPageModel {
       final first = (json['studentFirstName'] ?? '').toString();
       final last = (json['studentLastName'] ?? '').toString();
 
+      final code = (json['code'] ?? json['activityCode'] ?? '')
+          .toString()
+          .trim();
+      final stu = (json['studentCode'] ?? '').toString().trim();
+      final room = (json['classroomCode'] ?? '').toString().trim();
+
       return ActivityFeedRow(
+        activityCode: code.isEmpty ? null : code,
+        studentCode: stu.isEmpty ? null : stu,
+        classroomCode: room.isEmpty ? null : room,
         activityTypeCode: (json['activityTypeCode'] ?? '').toString(),
         activityTypeName: (json['activityTypeName'] ?? '').toString(),
         activityDateIso: activityDate,

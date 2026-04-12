@@ -26,11 +26,10 @@ class ResponsiveSizing {
     return EdgeInsets.fromLTRB(extra, extra, 8, 0);
   }
 
-  /// Activity feed list: no extra horizontal inset — [GlobalScaffold] already wraps the body
-  /// with 8px; avoids stacking padding that widened the right gap. Vertical matches [contentPadding].
+  /// Activity feed list area: same insets as [StudentScreen] scroll body — default
+  /// [GlobalScaffold] body padding (8) plus this [contentPadding] (e.g. phone: +8 L/T/R).
   static EdgeInsets activityFeedListPadding(BuildContext context) {
-    final base = contentPadding(context);
-    return EdgeInsets.fromLTRB(0, base.top, 0, base.bottom);
+    return contentPadding(context);
   }
 }
 

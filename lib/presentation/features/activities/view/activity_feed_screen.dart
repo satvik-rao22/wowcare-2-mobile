@@ -52,7 +52,6 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
       //hasBackButton: true,
       showCustomNavigationBar: true,
       isParent: !isNotParent,
-      bodyPadding: const EdgeInsets.fromLTRB(8, 8, 0, 0),
       body: isNotParent ?
       Column(
         children: [

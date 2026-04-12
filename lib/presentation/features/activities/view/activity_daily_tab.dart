@@ -5,16 +5,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bathroom_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_incident_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_meal_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_medication_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_outdoor_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -28,6 +18,7 @@ import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
@@ -171,22 +162,70 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         LearningActivityScreen(activityData: activity, isEdit: true),
   };
 
-  // Map activity label to the destination view activity screen
+  /// View: same screens as edit, read-only.
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
-    'Nap Start': (activity) => ViewNapActivity(activityData: activity),
-    'Nap End': (activity) =>
-        ViewNapActivity(activityData: activity, isNapStart: false),
-    'Bathroom': (activity) => ViewBathroomActivity(activityData: activity),
-    'Bottle': (activity) => ViewBottleActivity(activityData: activity),
-    'Meal': (activity) => ViewMealActivity(activityData: activity),
-    'Incident': (activity) => ViewIncidentActivity(activityData: activity),
-    'Photo': (activity) => ViewPhotoVideoActivity(activityData: activity),
-    'Video': (activity) =>
-        ViewPhotoVideoActivity(activityData: activity, isVideo: true),
-    'Medication': (activity) => ViewMedicationActivity(activityData: activity),
-    'Notes': (activity) => ViewNotesActivity(activityData: activity),
-    'Outdoor': (activity) => ViewOutdoorActivity(activityData: activity),
-    'Learning': (activity) => ViewLearningActivity(activityData: activity),
+    'Nap Start': (activity) => NapActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Nap End': (activity) => NapActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Bathroom': (activity) => BathroomActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Bottle': (activity) => BottleActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Meal': (activity) => MealActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Incident': (activity) => IncidentActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Photo': (activity) => PhotoVideoActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+          isPhoto: true,
+        ),
+    'Video': (activity) => PhotoVideoActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+          isPhoto: false,
+        ),
+    'Medication': (activity) => MedicationActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Notes': (activity) => NotesActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Outdoor': (activity) => OutdoorActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
+    'Learning': (activity) => LearningActivityScreen(
+          activityData: activity,
+          isEdit: true,
+          readOnly: true,
+        ),
   };
 
   static final Map<String, dynamic> activityIcons = {
@@ -1024,7 +1063,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                   minHeight: 180,
                                                 ),
                                                 margin: const EdgeInsets.only(
-                                                  bottom: 12,
+                                                  bottom: 10,
                                                 ),
                                                 padding: const EdgeInsets.all(12),
                                                 decoration: BoxDecoration(
@@ -1393,7 +1432,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                const SliverToBoxAdapter(child: SizedBox(height: 10)),
               ],
             ),);
             // return SingleChildScrollView(
@@ -2297,7 +2336,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
 
                 if (_loadingFeed && _activities.isEmpty)
                   Expanded(
@@ -2334,7 +2373,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                       padding: ResponsiveSizing.activityFeedListPadding(context),
                       child: Column(
                         children: [
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 10),
                           Expanded(
                             child: ListView.builder(
                               padding: EdgeInsets.zero,
@@ -2443,7 +2482,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                     minHeight: 180,
                                                   ),
                                                     margin: const EdgeInsets.only(
-                                                    bottom: 12,
+                                                    bottom: 10,
                                                   ),
                                                   padding: const EdgeInsets.all(12),
                                                   decoration: BoxDecoration(
@@ -3091,6 +3130,14 @@ class ActivityItem {
   final String? bathroomSubType; // also for bathroom activity
   /// From feed row; used to load activity-type parameter definitions in edit flows.
   final String? activityTypeCode;
+  /// `GET /api/v1/activities/code/{code}` / `PATCH /api/v1/activities/{code}`
+  final String? activityCode;
+  final String? studentCode;
+  final String? classroomCode;
+  /// Raw ISO from API (edit / prefetch).
+  final String? activityDateIso;
+  /// Attachment rows from feed (or detail) snapshot; used by edit screens without GET-by-code.
+  final List<Map<String, dynamic>>? snapshotAttachments;
 
   const ActivityItem({
     required this.time,
@@ -3118,7 +3165,35 @@ class ActivityItem {
     this.bathroomType,
     this.bathroomSubType,
     this.activityTypeCode,
+    this.activityCode,
+    this.studentCode,
+    this.classroomCode,
+    this.activityDateIso,
+    this.snapshotAttachments,
   });
+}
+
+/// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.
+ActivityItem activityItemFromActivityDetail(ActivityDetail detail) {
+  return activityItemFromFeedRow(ActivityFeedRow.fromActivityDetail(detail));
+}
+
+/// Maps [ActivityItem] to student maps used by create/edit activity screens.
+List<Map<String, dynamic>> studentDataMapsForActivityEdit(ActivityItem activity) {
+  final code = activity.studentCode?.trim();
+  final room = activity.classroomCode?.trim();
+  final maps = <Map<String, dynamic>>[];
+  for (final name in activity.studentList) {
+    maps.add({
+      'name': name,
+      if (code != null && code.isNotEmpty) 'studentCode': code,
+      if (room != null && room.isNotEmpty) 'classroomCode': room,
+    });
+  }
+  if (maps.isEmpty && activity.studentList.isEmpty) {
+    maps.add({'name': 'Student'});
+  }
+  return maps;
 }
 
 /// Maps backend [ActivityFeedRow.activityTypeName] to UI keys used in [activityRoutes].
@@ -3340,5 +3415,21 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     activityTypeCode: row.activityTypeCode.trim().isEmpty
         ? null
         : row.activityTypeCode.trim(),
+    activityCode: (row.activityCode ?? '').trim().isEmpty
+        ? null
+        : row.activityCode!.trim(),
+    studentCode: (row.studentCode ?? '').trim().isEmpty
+        ? null
+        : row.studentCode!.trim(),
+    classroomCode: (row.classroomCode ?? '').trim().isEmpty
+        ? null
+        : row.classroomCode!.trim(),
+    activityDateIso:
+        row.activityDateIso.trim().isEmpty ? null : row.activityDateIso.trim(),
+    snapshotAttachments: row.attachments.isEmpty
+        ? null
+        : row.attachments
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
   );
 }

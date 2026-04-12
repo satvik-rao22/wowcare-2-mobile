@@ -1,4 +1,5 @@
 import '../entities/activity_asset_presign.dart';
+import '../entities/activity_detail.dart';
 import '../entities/activity_feed_row.dart';
 import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
@@ -36,6 +37,19 @@ abstract class ActivityRepository {
     String? activityTypeCode,
     int page = 0,
     int size = 100,
+  });
+
+  /// `GET /api/v1/activities/code/{code}`
+  Future<ActivityDetail> getActivity({required String code});
+
+  /// `PATCH /api/v1/activities/{code}`
+  Future<String> updateActivity({
+    required String code,
+    required String staffCode,
+    required String activityDate,
+    required String description,
+    List<Map<String, dynamic>> parameterValues = const [],
+    List<Map<String, dynamic>> attachments = const [],
   });
 
   /// Creates a new activity via `POST /api/v1/activities`.
