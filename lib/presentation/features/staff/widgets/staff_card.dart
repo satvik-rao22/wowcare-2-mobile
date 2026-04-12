@@ -511,7 +511,7 @@ class _StaffCardState extends State<StaffCard> {
                                               type: widget.isActive
                                                   ? 'staff_deactivate'
                                                   : 'staff_reactivate',
-                                              onDelete: () {
+                                              onDelete: () async {
                                                 // Let the confirmation sheet show its loader
                                                 // while the actual API logic runs.
                                                 widget.onPrimaryAction?.call();

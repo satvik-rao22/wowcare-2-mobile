@@ -159,6 +159,11 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<String> deleteActivity({required String code}) {
+    return _remoteDataSource.deleteActivity(code: code);
+  }
+
+  @override
   Future<String> createActivity({
     required String activityTypeCode,
     required String classroomCode,

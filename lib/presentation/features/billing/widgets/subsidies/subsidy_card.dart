@@ -103,7 +103,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
                                     return DeleteConfirmationBottomSheet(
                                       name: widget.subsidy.subsidyName,
                                       type: 'subsidy',
-                                      onDelete: () {
+                                      onDelete: () async {
                                         Navigator.of(ctx).pop();
                                         widget.onDelete?.call();
                                       },

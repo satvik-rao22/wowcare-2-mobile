@@ -52,6 +52,9 @@ abstract class ActivityRepository {
     List<Map<String, dynamic>> attachments = const [],
   });
 
+  /// `DELETE /api/v1/activities/{code}` (soft delete).
+  Future<String> deleteActivity({required String code});
+
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
     required String activityTypeCode,

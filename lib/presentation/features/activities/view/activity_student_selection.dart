@@ -14,6 +14,7 @@ import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_s
 import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../../../shared/common/widgets/ellipsis_tooltip_text.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
@@ -678,17 +679,17 @@ class _ActivityStudentListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => onSelectionChanged(!isSelected),
-            child: Container(
-              decoration: BoxDecoration(
+      child: Container(
+        decoration: BoxDecoration(
           border: Border.all(
             color: AppColors.themeColor,
-                ),
+          ),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
               : Colors.white,
-              ),
-              child: Padding(
+        ),
+        child: Padding(
           padding: const EdgeInsets.only(right: 4),
           child: Row(
             children: [
@@ -705,21 +706,21 @@ class _ActivityStudentListItem extends StatelessWidget {
                 name: name,
                 size: 32,
                 fontSize: 14,
-          ),
+              ),
               const SizedBox(width: 8),
-          Expanded(
-                child: Text(
-                  name.trim().isEmpty ? 'Student' : name.trim(),
+              Expanded(
+                child: EllipsisTooltipText(
+                  text: name.trim().isEmpty ? 'Student' : name.trim(),
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  preferLongPress: true,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
           ),
         ),
       ),

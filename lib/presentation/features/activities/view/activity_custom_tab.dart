@@ -16,6 +16,7 @@ import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
@@ -93,6 +94,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
 
@@ -254,6 +256,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
@@ -320,9 +323,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         _filterTags.removeWhere((t) => !_tagFilterOptions.contains(t));
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _tagFilterOptions = []);
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
       }
     }
   }
@@ -349,9 +357,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
 
     if ((_schoolCode ?? '').isEmpty) {
       if (!mounted) return;
+      const msg = 'School is not selected.';
       setState(() {
-        _feedError = 'School is not selected.';
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       return;
     }
 
@@ -411,9 +421,47 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       await _loadRangeFeed();
     } catch (e) {
       if (!mounted) return;
+      final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
-        _feedError = ApiErrorHandler.extractErrorMessage(e);
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+    }
+  }
+
+  Future<void> _deleteActivityFromSheet(
+    BuildContext sheetContext,
+    ActivityItem activity,
+  ) async {
+    final code = activity.activityCode?.trim();
+    if (code == null || code.isEmpty) {
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot delete: missing activity reference.',
+        isError: true,
+      );
+      return;
+    }
+    try {
+      final message = await _deleteActivityUseCase(code: code);
+      if (!mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      await _loadRangeFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
     }
   }
 
@@ -424,9 +472,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     final classroomCode = _classroomCodeByName[classroomName];
     if (classroomCode == null || classroomCode.trim().isEmpty) {
       if (!mounted) return;
+      const msg = 'Classroom is not mapped to a valid code.';
       setState(() {
-        _feedError = 'Classroom is not mapped to a valid code.';
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       return;
     }
 
@@ -631,9 +681,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         _isFeedRequestInFlight = false;
         return;
       }
+      final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
-        _feedError = ApiErrorHandler.extractErrorMessage(e);
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = true;
@@ -1219,15 +1271,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                                           return DeleteConfirmationBottomSheet(
                                                                             name: activity.name,
                                                                             type: 'Activity',
-                                                                            onDelete: () {
-                                                                              CoreUtils.showTopSnackBar(
-                                                                                  context: context,
-                                                                                  message: '${activity.name} activity deleted successfully',
-                                                                                  isSuccess: true
-                                                                              );
-                                                                              Navigator.of(ctx).pop();
-                                                                              //widget.onDelete?.call();
-                                                                            },
+                                                                            onDelete: () =>
+                                                                                _deleteActivityFromSheet(ctx, activity),
                                                                             onCancel: () {
                                                                               Navigator.of(ctx).pop();
                                                                             },

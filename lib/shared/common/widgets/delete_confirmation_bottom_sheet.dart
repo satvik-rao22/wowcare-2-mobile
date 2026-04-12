@@ -7,7 +7,9 @@ class DeleteConfirmationBottomSheet extends StatefulWidget {
   final String name; // student name or generic subject name
   final String type;
   final String? planName; // optional plan name for plan actions
-  final VoidCallback onDelete;
+  /// Awaited while the confirm button shows loading; use [Navigator.pop] on the
+  /// sheet context when finished (success or handled error).
+  final Future<void> Function() onDelete;
   final VoidCallback onCancel;
   final bool isLoading;
 
@@ -226,8 +228,9 @@ class _DeleteConfirmationBottomSheetState
                 onPressedConfirm: () {
                   if (_isLoading) return;
                   setState(() => _isLoading = true);
-                  // onDelete is responsible for closing the bottom sheet.
-                  widget.onDelete();
+                  widget.onDelete().whenComplete(() {
+                    if (mounted) setState(() => _isLoading = false);
+                  });
                 },
                 onPressedCancel: () {
                   if (_isLoading) return;

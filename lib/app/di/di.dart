@@ -95,6 +95,7 @@ import '../../domain/features/activity/usecases/get_activity_type_details_usecas
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
@@ -428,6 +429,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<UpdateActivityUseCase>(
     () => UpdateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteActivityUseCase>(
+    () => DeleteActivityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
     () => CreateActivityUploadSessionsUseCase(serviceLocator()),

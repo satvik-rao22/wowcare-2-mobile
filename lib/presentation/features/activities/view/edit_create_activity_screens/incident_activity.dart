@@ -24,9 +24,8 @@ import '../../../../../domain/features/activity/usecases/get_classroom_activity_
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../../../../shared/common/widgets/student_tile.dart';
+import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
@@ -55,8 +54,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
-  List<String> _studentsToEdit = [];
-  bool _selectAll = false;
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addNotesController = TextEditingController();
   bool _firstAidGiven = false;
@@ -535,7 +532,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    if (_studentsToEdit.isEmpty) {
+    if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select at least one student',
@@ -990,11 +987,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     }
   }
 
-  void _updateSelectAllState() {
-    _selectAll = _selectedStudents.every((student) => _studentsToEdit.contains(student));
-
-  }
-
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
@@ -1026,90 +1018,67 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10,),
-            // Select All
             if (_layoutAsEdit)
               Align(
                 alignment: Alignment.centerLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      color: AppColors.primaryColor.withValues(alpha: 0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Students involved'),
+                      TextSpan(
+                        text: ' *',
                         style: TextStyle(
                           color: AppColors.primaryColor.withValues(alpha: 0.6),
                           fontWeight: FontWeight.w500,
                         ),
-                        children: [
-                          const TextSpan(text: 'Students involved'),
-                          TextSpan(text: ' *', style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.6),
-                            fontWeight: FontWeight.w500,
-                          ),),
-                        ],
-                      ),
-                    ),
-                    if (_canInteract) ...[
-                      const SizedBox(height: 10,),
-                      CustomCheckbox(
-                        label: 'Select All',
-                        value: _selectAll,
-                        borderColor: AppColors.themeColor,
-                        onChanged: (v) {
-                          final newVal = v ?? false;
-                          setState(() {
-                            _selectAll = newVal;
-                            if (newVal) {
-                              _studentsToEdit = List.from(_selectedStudents);
-                            } else {
-                              _studentsToEdit.clear();
-                            }
-                          });
-                        },
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            if (_layoutAsEdit) const SizedBox(height: 12,),
-            GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(10),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: responsive.isTablet ? 3 : 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: responsive.isTablet ? 3.8 : _layoutAsEdit ? 4.2 : 3.0,
+            if (_layoutAsEdit) const SizedBox(height: 12),
+            if (_layoutAsEdit)
+              GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: responsive.isTablet ? 3 : 2,
+                  crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                  mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                  mainAxisExtent: 50,
+                ),
+                itemCount: _selectedStudents.length,
+                itemBuilder: (context, index) {
+                  return ActivityStudentDisplayTile(
+                    name: _selectedStudents[index],
+                  );
+                },
+              )
+            else
+              GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(10),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: responsive.isTablet ? 3 : 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                ),
+                itemCount: _selectedStudents.length,
+                itemBuilder: (context, index) {
+                  final String name = _selectedStudents[index];
+                  return SelectedStudentTile(
+                    name: name,
+                    onTap: () => _removeStudent(name),
+                  );
+                },
               ),
-              itemCount: _selectedStudents.length,
-              itemBuilder: (context, index) {
-                final String name = _selectedStudents[index];
-                final bool isSelected = _studentsToEdit.contains(name);
-
-                return _layoutAsEdit
-                ? StudentTile(
-                  name: name,
-                  isSelected: _canInteract ? isSelected : true,
-                  onSelected: _canInteract
-                      ? (bool? selected){
-                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                    setState(() {
-                      if(selected == true){
-                        _studentsToEdit.add(name);
-                      } else {
-                        _studentsToEdit.remove(name);
-                      }
-                      _updateSelectAllState();
-                    });
-                  }
-                      : null,
-                )
-                    :SelectedStudentTile(
-                  name: name,
-                  onTap: () => _removeStudent(name),
-                );
-              },
-            ),
             SizedBox(height: responsive.verticalSpacing,),
             Row(
               children: [

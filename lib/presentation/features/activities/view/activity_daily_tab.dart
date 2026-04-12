@@ -22,6 +22,7 @@ import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
@@ -111,6 +112,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
 
@@ -281,10 +283,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
     if (!mounted) return;
     if (school.isEmpty) {
+      const msg = 'School is not selected.';
       setState(() {
-        _feedError = 'School is not selected.';
+        _feedError = msg;
         _classroomOptions = [];
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       return;
     }
     _schoolCode = school;
@@ -360,9 +364,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         _isFeedRequestInFlight = false;
         return;
       }
+      final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
-        _feedError = ApiErrorHandler.extractErrorMessage(e);
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
     }
   }
 
@@ -577,10 +583,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         _isFeedRequestInFlight = false;
         return;
       }
+      final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
         _loadingFeed = false;
-        _feedError = ApiErrorHandler.extractErrorMessage(e);
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = true;
@@ -598,6 +606,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
@@ -652,6 +661,42 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
     ];
   }
 
+  Future<void> _deleteActivityFromSheet(
+    BuildContext sheetContext,
+    ActivityItem activity,
+  ) async {
+    final code = activity.activityCode?.trim();
+    if (code == null || code.isEmpty) {
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot delete: missing activity reference.',
+        isError: true,
+      );
+      return;
+    }
+    try {
+      final message = await _deleteActivityUseCase(code: code);
+      if (!mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      await _loadDailyFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    }
+  }
+
   Future<void> _loadTagFilterOptions() async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
@@ -663,9 +708,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         _filterTags.removeWhere((t) => !_tagFilterOptions.contains(t));
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _tagFilterOptions = []);
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
       }
     }
   }
@@ -1308,15 +1358,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                           return DeleteConfirmationBottomSheet(
                                                                             name: activity.name,
                                                                             type: 'Activity',
-                                                                            onDelete: () {
-                                                                              CoreUtils.showTopSnackBar(
-                                                                                  context: context,
-                                                                                  message: '${activity.name} activity deleted successfully',
-                                                                                  isSuccess: true
-                                                                              );
-                                                                              Navigator.of(ctx).pop();
-                                                                              //widget.onDelete?.call();
-                                                                            },
+                                                                            onDelete: () =>
+                                                                                _deleteActivityFromSheet(ctx, activity),
                                                                             onCancel: () {
                                                                               Navigator.of(ctx).pop();
                                                                             },
@@ -2720,15 +2763,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                                             return DeleteConfirmationBottomSheet(
                                                                               name: activity.name,
                                                                               type: 'Activity',
-                                                                              onDelete: () {
-                                                                                CoreUtils.showTopSnackBar(
-                                                                                    context: context,
-                                                                                    message: '${activity.name} activity deleted successfully',
-                                                                                    isSuccess: true
-                                                                                );
-                                                                                Navigator.of(ctx).pop();
-                                                                                //widget.onDelete?.call();
-                                                                              },
+                                                                              onDelete: () =>
+                                                                                  _deleteActivityFromSheet(ctx, activity),
                                                                               onCancel: () {
                                                                                 Navigator.of(ctx).pop();
                                                                               },
@@ -3385,6 +3421,20 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
       row.studentDisplayName.isEmpty ? 'Student' : row.studentDisplayName;
   final by = row.createdBy.trim().isEmpty ? 'Staff' : row.createdBy.trim();
 
+  /// Learning: API stores these in [parameterValues] (e.g. PM_054 Activity Name, PM_055 Categories).
+  final String? learningActivityName = name == 'Learning'
+      ? (pickParam(
+              (n) =>
+                  n.contains('activity') &&
+                  (n.contains('name') || n.contains('type')),
+            ) ??
+            pickParam(
+              (n) => n.contains('learning') && !n.contains('categor'),
+            ))
+      : null;
+  final String? learningCategory =
+      name == 'Learning' ? pickParam((n) => n.contains('categor')) : null;
+
   return ActivityItem(
     time: time,
     date: date,
@@ -3394,6 +3444,10 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     videoUrl: videoUrl,
     studentList: [studentName],
     createdBy: by,
+    activityType: learningActivityName,
+    categoryType: learningCategory != null && learningCategory.isNotEmpty
+        ? [learningCategory]
+        : null,
     mealType: name == 'Meal' ? mealType : null,
     mealQuantity: name == 'Meal' ? mealQuantity : null,
     amountConsumed: name == 'Bottle' ? amountConsumed : null,
