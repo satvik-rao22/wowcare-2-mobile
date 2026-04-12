@@ -21,6 +21,7 @@ import '../../../../../domain/features/activity/usecases/create_activity_usecase
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -599,38 +600,15 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           ),
         ),
       ),
-      bottomBar: _bottomBar(context, responsive),
-    );
-  }
-
-  Widget _bottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(bottom: safeBottom, left: 16, right: 16, top: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
-      child: Container(
-        height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-        ),
-        child: TextButton(
-          onPressed: _isSubmitting ? null : _onSaveOrAddPressed,
-          child: Text(
-            widget.isEdit ? 'Save' : 'Add',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.buttonFontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+      bottomBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: CustomButtonLayout(
+            confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+            onPressedConfirm: _onSaveOrAddPressed,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting || _isUploadingMedia,
           ),
         ),
       ),

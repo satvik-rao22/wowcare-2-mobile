@@ -953,7 +953,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       ),
       bottomBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: CustomButtonLayout(
             confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
             onPressedConfirm: _onPressedBottom,

@@ -29,6 +29,7 @@ import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../../../../shared/common/views/filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
@@ -89,6 +90,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   final Map<String, String> _classroomCodeByName = {};
   final Map<String, String> _studentCodeByName = {};
   List<ActivitySetting> _classroomActivitySettings = [];
+  List<String> _tagFilterOptions = [];
   bool _isFeedRequestInFlight = false;
   String? _lastFeedRequestKey;
   DateTime? _lastFeedCompletedAt;
@@ -100,6 +102,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   late final GetClassroomActivitySettingsUseCase
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
+  late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
 
@@ -141,187 +144,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //   'Sara Khan',
   // ];
   final List<String> _classroomOptions = [];
-  final List<ActivityItem> activities = [
-    ActivityItem(
-        time: "07:10 PM",
-        date: 'December 31, 2025',
-        name: "Incident",
-        description: "incident happened",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Kabir Mehta'],
-        createdBy: 'Staff A',
-        whatHappened: 'incident happened',
-        firstAidAdministered: true,
-        staffPresent: 'Staff A',
-        additionalNotes: 'some notes'
-
-    ),
-    ActivityItem(
-      time: "07:00 PM",
-      date: 'December 31, 2025',
-      name: "Nap End",
-      description: "Nap Ended at 6:30 PM",
-      //color: Color(0xFFFFE0B2), // orange
-      studentList: ['Kabir Mehta', 'Sara Khan'],
-      createdBy: 'Staff A',
-      napStartTime: '6:00 PM',
-      napEndTime: '6:30 PM',
-    ),
-    ActivityItem(
-        time: "05:30 PM",
-        date: 'December 31, 2025',
-        name: "Nap Start",
-        description: "Nap Started at 6:00 PM",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Kabir Mehta', 'Sara Khan'],
-        createdBy: 'Staff A',
-        napStartTime: '6:00 PM',
-        remainderOn: true
-    ),
-    ActivityItem(
-      time: "05:10 PM",
-      date: 'December 30, 2025',
-      name: "Medication",
-      description: "Medication given",
-      //color: Color(0xFFFFE0B2), // orange
-      studentList: ['Sara Khan', 'Raghav Gupta'],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "05:00 PM",
-      date: 'December 30, 2025',
-      name: "Outdoor",
-      description: "Outdoor Activity",
-      photoUrl:
-      'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
-      //color: Color(0xFFFFE0B2), // orange
-      // photoUrl:
-      //     "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
-      studentList: ['Kabir Mehta', 'Sara Khan'],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "04:30 PM",
-      date: 'December 29, 2025',
-      name: "Learning",
-      description: "Drawing Activity",
-      //color: Color(0xFFB3E5FC), // blue
-      photoUrl:
-          "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com",
-      studentList: ['Raghav Gupta'],
-      createdBy: 'Staff B',
-      categoryType: ['Self Care'],
-      activityType: 'Morning Time',
-    ),
-    ActivityItem(
-        time: "04:00 PM",
-        date: 'December 20, 2025',
-        name: "Bathroom",
-        description: "Bathroom Activity",
-        //color: Color(0xFFB3E5FC), // blue
-        studentList: [
-          'Sara Khan',
-          'Raghav Gupta',
-          'Kabir Mehta',
-        ],
-        createdBy: 'Staff B',
-        bathroomType: 'Pee',
-        bathroomSubType: 'Accident'
-    ),
-    ActivityItem(
-      time: "02:22 PM",
-      date: 'December 19, 2025',
-      name: "Meal",
-      description: "Lunch (Finished)",
-      //color: Color(0xFFC8E6C9), // green
-      photoUrl:
-          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-      studentList: [
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-      ],
-      createdBy: 'Staff A',
-      mealType: 'Lunch',
-      mealQuantity: '8 Oz'
-    ),
-    ActivityItem(
-      time: "02:22 PM",
-      date: 'December 12, 2025',
-      name: "Photo",
-      description: "Lunch (Finished)",
-      //color: Color(0xFFC8E6C9), // green
-      photoUrl:
-          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-      studentList: [
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-      ],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "01:00 PM",
-      date: 'December 10, 2025',
-      name: "Meal",
-      description: "Drawing Activity",
-      //color: Color(0xFFD1C4E9), // purple
-      photoUrl:
-          "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff B',
-      mealType: 'Breakfast',
-      mealQuantity: '3 Oz',
-    ),
-    ActivityItem(
-      time: "02:22 PM",
-      date: 'December 9, 2025',
-      name: "Notes",
-      description: "Lunch (Finished) notes activity",
-      //color: Color(0xFFC8E6C9), // green
-      photoUrl:
-      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-      studentList: [
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-      ],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "01:00 PM",
-      date: 'December 8, 2025',
-      name: "Video",
-      description: "Drawing Activity",
-      //color: Color(0xFFD1C4E9), // purple
-      // photoUrl:
-      //     "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
-      //videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_1MB.mp4',
-      videoUrl:
-          "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff B',
-    ),
-    ActivityItem(
-        time: "05:00 PM",
-        date: 'December 7, 2025',
-        name: "Bottle",
-        description: "Bottle Activity",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Kabir Mehta', 'Sara Khan'],
-        createdBy: 'Staff A',
-        amountConsumed: '5 Oz'
-    ),
-  ];
+  final List<ActivityItem> activities = [];
 
   static final Map<String, Widget Function(ActivityItem)> editActivityRoutes = {
     'Nap Start': (activity) =>
@@ -391,6 +214,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getStudentClassroomListUseCase =
         serviceLocator<GetStudentClassroomListUseCase>();
+    _getTagNameCodeMapForSchoolUseCase =
+        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
@@ -414,6 +239,53 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     } else {
       _availableStudents = [];
       _selectedStudent = null;
+    }
+  }
+
+  List<String> _activityTypeNamesForFilter() {
+    final out = _classroomActivitySettings
+        .map((s) => s.activityTypeName.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList();
+    out.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return out;
+  }
+
+  List<FilerSection> _activityFeedFilterSections() {
+    return [
+      FilerSection(
+        label: 'Tags',
+        hintText: 'Select tags',
+        items: List<String>.from(_tagFilterOptions),
+        initialSelected: _filterTags,
+        isMultiSelectDropDown: false,
+      ),
+      FilerSection(
+        label: 'Activity Type',
+        hintText: 'Select Activity',
+        items: _activityTypeNamesForFilter(),
+        initialSelected: _filterActivityTypes,
+        isMultiSelectDropDown: false,
+      ),
+    ];
+  }
+
+  Future<void> _loadTagFilterOptions() async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty) return;
+    try {
+      final map = await _getTagNameCodeMapForSchoolUseCase(schoolCode: school);
+      if (!mounted) return;
+      setState(() {
+        _tagFilterOptions = map.keys.toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        _filterTags.removeWhere((t) => !_tagFilterOptions.contains(t));
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _tagFilterOptions = []);
+      }
     }
   }
 
@@ -444,6 +316,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
       });
       return;
     }
+
+    await _loadTagFilterOptions();
 
     final school = _schoolCode ?? '';
     final classroomCacheKey = CacheManager.buildCacheKey(
@@ -835,57 +709,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => FilterScreen(
-                                        sections: [
-                                          FilerSection(
-                                            label: 'Tags',
-                                            hintText: 'Select tags',
-                                            items: [
-                                              '5 Days',
-                                              'Full Day',
-                                              'Photo Permission',
-                                              'Vegetarian',
-                                              'First Aid',
-                                              'Allergy',
-                                              'Pickup Authorized',
-                                              'Medication',
-                                              'Half Day',
-                                              'Boy',
-                                              'Girl',
-                                            ],
-                                            initialSelected: _filterTags,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                          FilerSection(
-                                            label: 'Activity Type',
-                                            hintText: 'Select Activity',
-                                            items: [
-                                              'Nap Start',
-                                              'Nap End',
-                                              'Bathroom',
-                                              'Bottle',
-                                              'Meal',
-                                              'Incident',
-                                              'Photo',
-                                              'Outdoor',
-                                              'Medication',
-                                              'Notes',
-                                              'Learning',
-                                              'Sign-in',
-                                              'Sign-out',
-                                              'Absent',
-                                            ],
-                                            initialSelected: _filterActivityTypes,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                        ],
+                                        sections: _activityFeedFilterSections(),
                                         onApply: (filters) {
                                           setState(() {
-                                            _filterTags = (filters['Tags'] ?? const [])
-                                                .cast<String>();
+                                            _filterTags = List<String>.from(
+                                              filters['Tags'] ?? const [],
+                                            );
                                             _filterActivityTypes =
-                                                (filters['Activity Type'] ??
-                                                        const [])
-                                                    .cast<String>();
+                                                List<String>.from(
+                                              filters['Activity Type'] ??
+                                                  const [],
+                                            );
                                           });
                                         },
                                       ),
@@ -990,7 +824,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                   ),
                 if(activities.isNotEmpty)
                   SliverPadding(
-                    padding: ResponsiveSizing.contentPadding(context),
+                    padding: ResponsiveSizing.activityFeedListPadding(context),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                               (context, index){
@@ -1066,7 +900,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     // Activity Card
                                     Expanded(
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        padding: const EdgeInsets.only(
+                                          left: 16,
+                                          right: 0,
+                                        ),
                                         child: Column(
                                           children: [
                                             const SizedBox(height: 15),
@@ -1099,7 +936,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                   minHeight: 180,
                                                 ),
                                                 margin: const EdgeInsets.only(
-                                                  bottom: 24,
+                                                  bottom: 12,
                                                 ),
                                                 padding: const EdgeInsets.all(12),
                                                 decoration: BoxDecoration(
@@ -1452,7 +1289,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 20,),)
+                const SliverToBoxAdapter(child: SizedBox(height: 4))
               ],
             );
             // ignore: dead_code
@@ -1559,57 +1396,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => FilterScreen(
-                                          sections: [
-                                            FilerSection(
-                                              label: 'Tags',
-                                              hintText: 'Select tags',
-                                              items: [
-                                                '5 Days',
-                                                'Full Day',
-                                                'Photo Permission',
-                                                'Vegetarian',
-                                                'First Aid',
-                                                'Allergy',
-                                                'Pickup Authorized',
-                                                'Medication',
-                                                'Half Day',
-                                                'Boy',
-                                                'Girl',
-                                              ],
-                                              initialSelected: _filterTags,
-                                              isMultiSelectDropDown: false,
-                                            ),
-                                            FilerSection(
-                                              label: 'Activity Type',
-                                              hintText: 'Select Activity',
-                                              items: [
-                                                'Nap Start',
-                                                'Nap End',
-                                                'Bathroom',
-                                                'Bottle',
-                                                'Meal',
-                                                'Incident',
-                                                'Photo',
-                                                'Outdoor',
-                                                'Medication',
-                                                'Notes',
-                                                'Learning',
-                                                'Sign-in',
-                                                'Sign-out',
-                                                'Absent',
-                                              ],
-                                              initialSelected: _filterActivityTypes,
-                                              isMultiSelectDropDown: false,
-                                            ),
-                                          ],
+                                          sections: _activityFeedFilterSections(),
                                           onApply: (filters) {
                                             setState(() {
-                                              _filterTags = (filters['Tags'] ?? const [])
-                                                  .cast<String>();
+                                              _filterTags = List<String>.from(
+                                                filters['Tags'] ?? const [],
+                                              );
                                               _filterActivityTypes =
-                                                  (filters['Activity Type'] ??
-                                                          const [])
-                                                      .cast<String>();
+                                                  List<String>.from(
+                                                filters['Activity Type'] ??
+                                                    const [],
+                                              );
                                             });
                                           },
                                         ),
@@ -1692,7 +1489,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 6),
 
                   if (activities.length == 0)
                     Padding(
@@ -1715,14 +1512,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
 
                   if (activities.length != 0)
                     Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
+                      padding: ResponsiveSizing.activityFeedListPadding(context),
                       child: Column(
                         children: [
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 4),
                           ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.only(right: 16),
+                            padding: EdgeInsets.zero,
                             itemCount: activities.length,
                             itemBuilder: (context, index) {
                               final activity = activities[index];
@@ -1789,15 +1586,21 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                       const SizedBox(width: 16),
 
                                       // Activity Card
-                                      Column(
-                                        children: [
-                                          const SizedBox(height: 15),
-                                          Container(
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 16,
+                                            right: 0,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              const SizedBox(height: 15),
+                                              Container(
                                             constraints: const BoxConstraints(
                                               minHeight: 180,
                                             ),
-                                            margin: const EdgeInsets.only(
-                                              bottom: 24,
+                                              margin: const EdgeInsets.only(
+                                              bottom: 12,
                                             ),
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
@@ -2080,7 +1883,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                               ],
                                             ),
                                           ),
-                                        ],
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -2197,57 +2002,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => FilterScreen(
-                                        sections: [
-                                          FilerSection(
-                                            label: 'Tags',
-                                            hintText: 'Select tags',
-                                            items: [
-                                              '5 Days',
-                                              'Full Day',
-                                              'Photo Permission',
-                                              'Vegetarian',
-                                              'First Aid',
-                                              'Allergy',
-                                              'Pickup Authorized',
-                                              'Medication',
-                                              'Half Day',
-                                              'Boy',
-                                              'Girl',
-                                            ],
-                                            initialSelected: _filterTags,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                          FilerSection(
-                                            label: 'Activity Type',
-                                            hintText: 'Select Activity',
-                                            items: [
-                                              'Nap Start',
-                                              'Nap End',
-                                              'Bathroom',
-                                              'Bottle',
-                                              'Meal',
-                                              'Incident',
-                                              'Photo',
-                                              'Outdoor',
-                                              'Medication',
-                                              'Notes',
-                                              'Learning',
-                                              'Sign-in',
-                                              'Sign-out',
-                                              'Absent',
-                                            ],
-                                            initialSelected: _filterActivityTypes,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                        ],
+                                        sections: _activityFeedFilterSections(),
                                         onApply: (filters) {
                                           setState(() {
-                                            _filterTags = (filters['Tags'] ?? const [])
-                                                .cast<String>();
+                                            _filterTags = List<String>.from(
+                                              filters['Tags'] ?? const [],
+                                            );
                                             _filterActivityTypes =
-                                                (filters['Activity Type'] ??
-                                                        const [])
-                                                    .cast<String>();
+                                                List<String>.from(
+                                              filters['Activity Type'] ??
+                                                  const [],
+                                            );
                                           });
                                         },
                                       ),
@@ -2330,7 +2095,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
 
                 if (activities.length == 0)
                   Expanded(
@@ -2361,13 +2126,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                 if (activities.length != 0)
                   Expanded(
                     child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
+                      padding: ResponsiveSizing.activityFeedListPadding(context),
                       child: Column(
                         children: [
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 4),
                           Expanded(
                             child: ListView.builder(
-                              padding: const EdgeInsets.only(right: 16),
+                              padding: EdgeInsets.zero,
                               itemCount: activities.length,
                               itemBuilder: (context, index) {
                                 final activity = activities[index];
@@ -2467,9 +2232,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                   constraints: const BoxConstraints(
                                                     minHeight: 180,
                                                   ),
-                                                  margin: const EdgeInsets.only(
-                                                    bottom: 24,
-                                                  ),
+                                              margin: const EdgeInsets.only(
+                                              bottom: 12,
+                                            ),
                                                   padding: const EdgeInsets.all(12),
                                                   decoration: BoxDecoration(
                                                     color: activityColor.withOpacity(

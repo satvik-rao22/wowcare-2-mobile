@@ -692,6 +692,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   }
 
   Future<void> _onSaveOrAddPressed() async {
+    if (_isSubmitting) return;
+
     if (widget.isEdit) {
       if (_studentsToEdit.isEmpty) {
         CoreUtils.showTopSnackBar(

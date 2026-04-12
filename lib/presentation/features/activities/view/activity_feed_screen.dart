@@ -52,7 +52,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
       //hasBackButton: true,
       showCustomNavigationBar: true,
       isParent: !isNotParent,
-      studentList: ['Anya Mehta', 'Kabir Mehta'],// hardcoding right now, letter will be fetched from backend
+      bodyPadding: const EdgeInsets.fromLTRB(8, 8, 0, 0),
       body: isNotParent ?
       Column(
         children: [
@@ -126,8 +126,6 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
               ],
             ),
           ),
-
-          const SizedBox(height: 16),
         ],
       )
       : Column(
@@ -160,8 +158,6 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
               ],
             ),
           ),
-
-          const SizedBox(height: 16),
         ],
       ),
     );

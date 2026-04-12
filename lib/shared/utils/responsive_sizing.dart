@@ -25,6 +25,13 @@ class ResponsiveSizing {
     final double extra = (desiredOuter - 8).clamp(0, 32).toDouble();
     return EdgeInsets.fromLTRB(extra, extra, 8, 0);
   }
+
+  /// Activity feed list: no extra horizontal inset — [GlobalScaffold] already wraps the body
+  /// with 8px; avoids stacking padding that widened the right gap. Vertical matches [contentPadding].
+  static EdgeInsets activityFeedListPadding(BuildContext context) {
+    final base = contentPadding(context);
+    return EdgeInsets.fromLTRB(0, base.top, 0, base.bottom);
+  }
 }
 
 
