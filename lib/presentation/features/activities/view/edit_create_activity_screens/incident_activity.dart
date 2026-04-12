@@ -77,6 +77,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   List<File> _newPhotos = [];
   final Map<String, String> _uploadedAssetCodeByPath = {};
   String? _lastUploadContextKey;
+  List<String> _remainingExistingPhotoUrls = [];
 
   int get _uploadedPhotoCount => _newPhotos
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
@@ -124,6 +125,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
+      _remainingExistingPhotoUrls =
+          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      if (_remainingExistingPhotoUrls.isEmpty &&
+          activity.photoUrl != null &&
+          activity.photoUrl!.trim().isNotEmpty) {
+        _remainingExistingPhotoUrls = [activity.photoUrl!.trim()];
+      }
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -160,6 +168,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+        _remainingExistingPhotoUrls =
+            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        if (_remainingExistingPhotoUrls.isEmpty &&
+            item.photoUrl != null &&
+            item.photoUrl!.trim().isNotEmpty) {
+          _remainingExistingPhotoUrls = [item.photoUrl!.trim()];
+        }
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -575,15 +590,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       return;
     }
-    if (_newPhotos.isNotEmpty) {
-      if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please wait for all photos to finish uploading',
-          isWarning: true,
-        );
-        return;
-      }
+    if (_isUploadingMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for the photo upload to finish',
+        isWarning: true,
+      );
+      return;
     }
 
     final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
@@ -666,10 +679,17 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final mergedRows = <Map<String, dynamic>>[
-        ..._detailAttachmentRows,
-        ...newAttachments,
-      ];
+      final remainingNorm = _remainingExistingPhotoUrls
+          .map(normalizeActivityDeliveryUrl)
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      final mergedRows = mergeAttachmentRowsForEditPatch(
+        existingRows: _detailAttachmentRows
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
+        newUploadRows: newAttachments,
+        remainingNormalizedDeliveryUrls: remainingNorm,
+      );
       final attachments =
           attachmentsForActivityPatchRequest(mergedRows);
 
@@ -769,6 +789,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         parameterValues: parameterValues,
         attachments: attachments,
       );
+
+      try {
+        await _getActivityUseCase(code: activityCode);
+      } catch (_) {}
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -904,10 +928,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
-    _newPhotos = photos;
-    _uploadedAssetCodeByPath.removeWhere(
-      (path, _) => !_newPhotos.any((f) => f.path == path),
-    );
+    setState(() {
+      _newPhotos = photos;
+      _remainingExistingPhotoUrls =
+          List<String>.from(remainingExistingPhotoUrls);
+      _uploadedAssetCodeByPath.removeWhere(
+        (path, _) => !_newPhotos.any((f) => f.path == path),
+      );
+    });
     _uploadPhotosOnSelection();
   }
 
@@ -1206,12 +1234,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   isPictureBox: false,
                   limit: 10,
                   photoSizeLimit: 20,
-                  initialPhotoUrls:
-                      _effectiveActivity.photoUrl != null &&
+                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                      ? List<String>.from(_remainingExistingPhotoUrls)
+                      : (_effectiveActivity.photoUrl != null &&
                               _effectiveActivity.photoUrl!.trim().isNotEmpty
                           ? [_effectiveActivity.photoUrl!.trim()]
-                          : const [],
+                          : const []),
                   label: 'Upload Photo',
+                  onMediaChanged: _onMediaChanged,
                 ),
               )
             else

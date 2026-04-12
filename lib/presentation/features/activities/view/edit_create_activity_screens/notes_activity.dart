@@ -73,6 +73,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   List<File> _newPhotos = [];
   final Map<String, String> _uploadedAssetCodeByPath = {};
   String? _lastUploadContextKey;
+  List<String> _remainingExistingPhotoUrls = [];
 
   int get _uploadedPhotoCount => _newPhotos
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
@@ -117,6 +118,13 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
+      _remainingExistingPhotoUrls =
+          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      if (_remainingExistingPhotoUrls.isEmpty &&
+          activity.photoUrl != null &&
+          activity.photoUrl!.trim().isNotEmpty) {
+        _remainingExistingPhotoUrls = [activity.photoUrl!.trim()];
+      }
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -151,6 +159,13 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+        _remainingExistingPhotoUrls =
+            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        if (_remainingExistingPhotoUrls.isEmpty &&
+            item.photoUrl != null &&
+            item.photoUrl!.trim().isNotEmpty) {
+          _remainingExistingPhotoUrls = [item.photoUrl!.trim()];
+        }
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -560,6 +575,15 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     );
     final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
+    if (_isUploadingMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for the photo upload to finish',
+        isWarning: true,
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final newAttachments = await _ensurePhotoAssetsUploaded(
@@ -606,10 +630,17 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final mergedAttachmentRows = <Map<String, dynamic>>[
-        ..._detailAttachmentRows,
-        ...newAttachments,
-      ];
+      final remainingNorm = _remainingExistingPhotoUrls
+          .map(normalizeActivityDeliveryUrl)
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      final mergedAttachmentRows = mergeAttachmentRowsForEditPatch(
+        existingRows: _detailAttachmentRows
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
+        newUploadRows: newAttachments,
+        remainingNormalizedDeliveryUrls: remainingNorm,
+      );
 
       final message = await _updateActivityUseCase(
         code: activityCode,
@@ -620,6 +651,10 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         attachments:
             attachmentsForActivityPatchRequest(mergedAttachmentRows),
       );
+
+      try {
+        await _getActivityUseCase(code: activityCode);
+      } catch (_) {}
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -745,10 +780,14 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
-    _newPhotos = photos;
-    _uploadedAssetCodeByPath.removeWhere(
-      (path, _) => !_newPhotos.any((f) => f.path == path),
-    );
+    setState(() {
+      _newPhotos = photos;
+      _remainingExistingPhotoUrls =
+          List<String>.from(remainingExistingPhotoUrls);
+      _uploadedAssetCodeByPath.removeWhere(
+        (path, _) => !_newPhotos.any((f) => f.path == path),
+      );
+    });
     _uploadPhotosOnSelection();
   }
 
@@ -957,10 +996,13 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   isPictureBox: false,
                   limit: 10,
                   label: 'Upload Photo',
-                  initialPhotoUrls: _effectiveActivity.photoUrl != null &&
-                          _effectiveActivity.photoUrl!.trim().isNotEmpty
-                      ? [_effectiveActivity.photoUrl!.trim()]
-                      : const [],
+                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                      ? List<String>.from(_remainingExistingPhotoUrls)
+                      : (_effectiveActivity.photoUrl != null &&
+                              _effectiveActivity.photoUrl!.trim().isNotEmpty
+                          ? [_effectiveActivity.photoUrl!.trim()]
+                          : const []),
+                  onMediaChanged: _onMediaChanged,
                 ),
               )
             else

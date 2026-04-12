@@ -98,6 +98,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   List<File> _newPhotos = [];
   final Map<String, String> _uploadedAssetCodeByPath = {};
   String? _lastUploadContextKey;
+  List<String> _remainingExistingPhotoUrls = [];
 
   int get _uploadedPhotoCount => _newPhotos
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
@@ -146,6 +147,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
+      _remainingExistingPhotoUrls =
+          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      if (_remainingExistingPhotoUrls.isEmpty &&
+          activity.photoUrl != null &&
+          activity.photoUrl!.trim().isNotEmpty) {
+        _remainingExistingPhotoUrls = [activity.photoUrl!.trim()];
+      }
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -184,6 +192,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+        _remainingExistingPhotoUrls =
+            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        if (_remainingExistingPhotoUrls.isEmpty &&
+            item.photoUrl != null &&
+            item.photoUrl!.trim().isNotEmpty) {
+          _remainingExistingPhotoUrls = [item.photoUrl!.trim()];
+        }
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -414,10 +429,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
-    _newPhotos = photos;
-    _uploadedAssetCodeByPath.removeWhere(
-      (path, _) => !_newPhotos.any((f) => f.path == path),
-    );
+    setState(() {
+      _newPhotos = photos;
+      _remainingExistingPhotoUrls =
+          List<String>.from(remainingExistingPhotoUrls);
+      _uploadedAssetCodeByPath.removeWhere(
+        (path, _) => !_newPhotos.any((f) => f.path == path),
+      );
+    });
     _uploadPhotosOnSelection();
   }
 
@@ -855,6 +874,15 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     );
     final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
+    if (_isUploadingMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for the photo upload to finish',
+        isWarning: true,
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final newAttachments = await _ensurePhotoAssetsUploaded(
@@ -865,10 +893,17 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final mergedRows = <Map<String, dynamic>>[
-        ..._detailAttachmentRows,
-        ...newAttachments,
-      ];
+      final remainingNorm = _remainingExistingPhotoUrls
+          .map(normalizeActivityDeliveryUrl)
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      final mergedRows = mergeAttachmentRowsForEditPatch(
+        existingRows: _detailAttachmentRows
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
+        newUploadRows: newAttachments,
+        remainingNormalizedDeliveryUrls: remainingNorm,
+      );
 
       final details =
           await _getActivityTypeDetailsUseCase(code: activityTypeCode);
@@ -948,6 +983,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         parameterValues: parameterValues,
         attachments: attachmentsForActivityPatchRequest(mergedRows),
       );
+
+      try {
+        await _getActivityUseCase(code: activityCode);
+      } catch (_) {}
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -1232,12 +1271,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   allowPhoto: true,
                   isPictureBox: false,
                   limit: 10,
-                  initialPhotoUrls:
-                      _effectiveActivity.photoUrl != null &&
+                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                      ? List<String>.from(_remainingExistingPhotoUrls)
+                      : (_effectiveActivity.photoUrl != null &&
                               _effectiveActivity.photoUrl!.trim().isNotEmpty
                           ? [_effectiveActivity.photoUrl!.trim()]
-                          : const [],
+                          : const []),
                   label: 'Upload Photos',
+                  onMediaChanged: _onMediaChanged,
                 ),
               )
             else

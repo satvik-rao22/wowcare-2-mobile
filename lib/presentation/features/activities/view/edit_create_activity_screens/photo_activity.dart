@@ -78,6 +78,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   File? _video;
   List<String> _existingPhotoUrls = [];
   String? _existingVideoUrl;
+  /// URLs still shown in the editor; used to merge PATCH attachments without duplicating rows.
+  List<String> _remainingExistingPhotoUrls = [];
+  String? _remainingExistingVideoUrl;
   final Map<String, String> _uploadedAssetCodeByPath = {};
   List<Map<String, dynamic>> _uploadedAttachments = [];
 
@@ -124,8 +127,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           .toList();
       if (widget.isPhoto && activity.photoUrl != null) {
         _existingPhotoUrls = [activity.photoUrl!];
+        _remainingExistingPhotoUrls = List<String>.from(_existingPhotoUrls);
       } else {
         _existingVideoUrl = activity.videoUrl;
+        _remainingExistingVideoUrl = _existingVideoUrl;
       }
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
@@ -162,8 +167,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
             .toList();
         if (widget.isPhoto && item.photoUrl != null) {
           _existingPhotoUrls = [item.photoUrl!];
+          _remainingExistingPhotoUrls = List<String>.from(_existingPhotoUrls);
         } else {
           _existingVideoUrl = item.videoUrl;
+          _remainingExistingVideoUrl = _existingVideoUrl;
         }
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
@@ -248,6 +255,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _video = video;
       _existingPhotoUrls = remainingExistingPhotoUrls;
       _existingVideoUrl = remainingExistingVideoUrl;
+      _remainingExistingPhotoUrls = List<String>.from(remainingExistingPhotoUrls);
+      _remainingExistingVideoUrl = remainingExistingVideoUrl;
       _uploadedAttachments = [];
     });
     _uploadMediaOnSelection();
@@ -674,10 +683,21 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               );
       }
 
-      final mergedRows = <Map<String, dynamic>>[
-        ..._detailAttachmentRows,
-        ...newUploads,
-      ];
+      final remainingNorm = <String>{
+        for (final u in _remainingExistingPhotoUrls)
+          normalizeActivityDeliveryUrl(u),
+        if (_remainingExistingVideoUrl != null &&
+            _remainingExistingVideoUrl!.trim().isNotEmpty)
+          normalizeActivityDeliveryUrl(_remainingExistingVideoUrl),
+      }..removeWhere((e) => e.isEmpty);
+
+      final mergedRows = mergeAttachmentRowsForEditPatch(
+        existingRows: _detailAttachmentRows
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
+        newUploadRows: newUploads,
+        remainingNormalizedDeliveryUrls: remainingNorm,
+      );
       final patchAttachments =
           attachmentsForActivityPatchRequest(mergedRows);
 
@@ -707,6 +727,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         parameterValues: parameterValues,
         attachments: patchAttachments,
       );
+      try {
+        await _getActivityUseCase(code: activityCode);
+      } catch (_) {}
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
