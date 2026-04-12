@@ -13,6 +13,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
@@ -283,29 +284,12 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   @override
   bool get wantKeepAlive => true;
 
-  // Refresh the current active tab
-  void _refreshCurrentTab() {
-    final currentIndex = _tabController.index;
-    switch (currentIndex) {
-      case 0: // Daily tab
-        final dailyState = _dailyViewKey.currentState;
-        if (dailyState != null) {
-          (dailyState as dynamic)._loadAttendanceData(context, reset: true);
-        }
-        break;
-      case 1: // Custom tab
-        final customState = _customViewKey.currentState;
-        if (customState != null) {
-          (customState as dynamic)._loadAttendanceData(reset: true);
-        }
-        break;
-      case 2: // Absent tab
-        final absentState = _absentViewKey.currentState;
-        if (absentState != null) {
-          (absentState as dynamic)._loadInitialData(reset: true);
-        }
-        break;
-    }
+  void _refreshDailyAfterAttendanceFlow() {
+    final dailyState = _dailyViewKey.currentState;
+    if (dailyState == null) return;
+    if (dailyState is! DailyAttendanceParentRefresh) return;
+    (dailyState as DailyAttendanceParentRefresh)
+        .refreshAfterReturningFromAttendanceFlow();
   }
 
   void _showActionMenu(BuildContext context) {
@@ -425,28 +409,36 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       if (!mounted) return;
       switch (label) {
         case 'Sign-in':
-          Navigator.push(
+          Navigator.push<void>(
             context,
             MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
-          );
+          ).then((_) {
+            if (mounted) _refreshDailyAfterAttendanceFlow();
+          });
           break;
         case 'Sign-Out':
-          Navigator.push(
+          Navigator.push<void>(
             context,
             MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
-          );
+          ).then((_) {
+            if (mounted) _refreshDailyAfterAttendanceFlow();
+          });
           break;
         case 'Transfer':
-          Navigator.push(
+          Navigator.push<void>(
             context,
             MaterialPageRoute(builder: (_) => StaffTransferForm(staff: staff)),
-          );
+          ).then((_) {
+            if (mounted) _refreshDailyAfterAttendanceFlow();
+          });
           break;
         case 'Absent':
-          Navigator.push(
+          Navigator.push<void>(
             context,
             MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
-          );
+          ).then((_) {
+            if (mounted) _refreshDailyAfterAttendanceFlow();
+          });
           break;
       }
       return;
@@ -454,28 +446,36 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
     switch (label) {
       case 'Sign-in':
-        Navigator.push(
+        Navigator.push<void>(
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionSignInForm()),
-        );
+        ).then((_) {
+          if (mounted) _refreshDailyAfterAttendanceFlow();
+        });
         break;
       case 'Sign-Out':
-        Navigator.push(
+        Navigator.push<void>(
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionSignOutForm()),
-        );
+        ).then((_) {
+          if (mounted) _refreshDailyAfterAttendanceFlow();
+        });
         break;
       case 'Transfer':
-        Navigator.push(
+        Navigator.push<void>(
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionTransferForm()),
-        );
+        ).then((_) {
+          if (mounted) _refreshDailyAfterAttendanceFlow();
+        });
         break;
       case 'Absent':
-        Navigator.push(
+        Navigator.push<void>(
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionMarkAbsentForm()),
-        );
+        ).then((_) {
+          if (mounted) _refreshDailyAfterAttendanceFlow();
+        });
         break;
     }
   }

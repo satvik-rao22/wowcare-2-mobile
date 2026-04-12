@@ -15,6 +15,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
@@ -25,6 +26,7 @@ import 'package:wowcare/presentation/features/students/view/student_filter_scree
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
@@ -70,6 +72,12 @@ class _StudentScreenState extends State<StudentScreen> {
   Map<String, String> _guardianNameToCode = <String, String>{};
   int _activeCount = 0;
   int _upcomingCount = 0;
+  int _expectedStudentsTotal = 0;
+  int _expectedSignedIn = 0;
+  int _expectedAbsent = 0;
+  int _expectedSignedOut = 0;
+  int _expectedNotMarked = 0;
+  bool _expectedStudentsSummaryLoading = true;
   bool _isAttendanceActionLoading = false;
   final Map<String, String> _attendanceStatusByStudentCode =
       <String, String>{};
@@ -89,6 +97,7 @@ class _StudentScreenState extends State<StudentScreen> {
         _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
+        _loadExpectedStudentsSummary();
       }
     });
   }
@@ -168,6 +177,48 @@ class _StudentScreenState extends State<StudentScreen> {
     }
   }
 
+  Future<void> _loadExpectedStudentsSummary() async {
+    if (!mounted) return;
+    setState(() {
+      _expectedStudentsSummaryLoading = true;
+    });
+    try {
+      final useCase = serviceLocator<GetStudentAttendanceExpectedSummaryUseCase>();
+      final summary = await useCase();
+      if (!mounted) return;
+      setState(() {
+        _expectedStudentsTotal = summary.expected;
+        _expectedSignedIn = summary.present;
+        _expectedAbsent = summary.absent;
+        _expectedSignedOut = summary.signOut;
+        _expectedNotMarked = summary.notMarked;
+        _expectedStudentsSummaryLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _expectedStudentsTotal = 0;
+        _expectedSignedIn = 0;
+        _expectedAbsent = 0;
+        _expectedSignedOut = 0;
+        _expectedNotMarked = 0;
+        _expectedStudentsSummaryLoading = false;
+      });
+    }
+  }
+
+  void _openStudentAttendanceWithLegendFilter(String status) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => StudentAttendanceTabbedView(
+          initialTabIndex: 0,
+          dailyIncomingFilter: status,
+        ),
+      ),
+    );
+  }
+
   Future<void> _refreshAllStudentApis() async {
     final studentCubit = context.read<StudentCubit>();
     await Future.wait([
@@ -175,6 +226,7 @@ class _StudentScreenState extends State<StudentScreen> {
       _loadTagNameCodeMap(),
       _loadGuardianNameCodeMap(),
       _loadStudentCounts(),
+      _loadExpectedStudentsSummary(),
     ]);
   }
 
@@ -921,6 +973,7 @@ class _StudentScreenState extends State<StudentScreen> {
                 // Keep these in sync on refresh as well (but DO NOT call tags API).
                 _loadGuardianNameCodeMap(),
                 _loadStudentCounts(),
+                _loadExpectedStudentsSummary(),
               ]);
               if (mounted && _selectedDemo.any((e) => e)) {
                 await _refreshAttendanceStatusForSelection(students);
@@ -1074,48 +1127,81 @@ class _StudentScreenState extends State<StudentScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  // Attendance stat card (Present/Absent)
+                  // Expected Students (same breakdown as Student Attendance daily summary)
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final bool isTablet = constraints.maxWidth >= 600;
-                      final double present = 98.0; // demo
-                      final double absent = 22.0; // demo
-                      final int expectedTotal = (present + absent).toInt();
-                      final String total = '$expectedTotal';
+                      final present = _expectedSignedIn.toDouble();
+                      final absent = _expectedAbsent.toDouble();
+                      final signedOut = _expectedSignedOut.toDouble();
+                      final notMarked = _expectedNotMarked.toDouble();
                       final items = [
                         ProgressItemHelper(
-                          label: 'Present (${present.toInt()})',
+                          label: 'Signed-In (${present.toInt()})',
                           value: present,
                           color: AppColors.lightGreenProgressBar,
-                          filterValue: 'Present'
+                          filterValue: 'Signed-In',
                         ),
                         ProgressItemHelper(
                           label: 'Absent (${absent.toInt()})',
                           value: absent,
                           color: AppColors.redProgressBar,
-                          filterValue: 'Absent'
+                          filterValue: 'Absent',
+                        ),
+                        ProgressItemHelper(
+                          label: 'Signed Out (${signedOut.toInt()})',
+                          value: signedOut,
+                          color: AppColors.lightBlueProgressBar,
+                          filterValue: 'Signed Out',
+                        ),
+                        ProgressItemHelper(
+                          label: 'Not Marked (${notMarked.toInt()})',
+                          value: notMarked,
+                          color: AppColors.mustardProgressBar,
+                          filterValue: 'Not Marked',
                         ),
                       ];
                       return Container(
                         margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
-                        child: CustomStatBarCard(
-                          title: 'Expected\nAttendance',
-                          number: total,
-                          selectedFilterValue: (_currentFilters['Attendance']?.length == 1) ? _currentFilters['Attendance']!.first : null,
-                          items: items,
-                          fullWidthBar: false,
-                          onLegendTap: (String label, String? filterValue){
-                            setState(() {
-                              final current = _currentFilters['Attendance'];
-                              if (current != null && current.length == 1 && current.first == filterValue) {
-                                _currentFilters.remove('Attendance');
-                              } else {
-                                _currentFilters['Attendance'] = [filterValue!];
-                              }
-                            });
-                            // Note: Attendance filter not yet supported by API
-                            // _applyFiltersToCubit();
-                          },
+                        child: Stack(
+                          children: [
+                            CustomStatBarCard(
+                              title: 'Expected\nStudents',
+                              number: '$_expectedStudentsTotal',
+                              items: items,
+                              fullWidthBar: false,
+                              onLegendTap: (String label, String? filterValue) {
+                                final status = label.split(' ').first;
+                                if (status == 'Signed-In' ||
+                                    status == 'Absent' ||
+                                    status == 'Signed' ||
+                                    status == 'Not') {
+                                  if (status == 'Signed') {
+                                    _openStudentAttendanceWithLegendFilter('Signed Out');
+                                  } else if (status == 'Not') {
+                                    _openStudentAttendanceWithLegendFilter('Not Marked');
+                                  } else {
+                                    _openStudentAttendanceWithLegendFilter(status);
+                                  }
+                                }
+                              },
+                            ),
+                            if (_expectedStudentsSummaryLoading)
+                              Positioned.fill(
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: PrimaryCircularLoader(),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     },
@@ -1194,8 +1280,6 @@ class _StudentScreenState extends State<StudentScreen> {
                                             _currentFilters['Tags'] ?? const <String>[];
                                         final parentsList =
                                             _currentFilters['Parents'] ?? const <String>[];
-                                        final attendanceList =
-                                            _currentFilters['Attendance'] ?? const <String>[];
 
                                         final String status =
                                             statusList.isNotEmpty ? statusList.first : '';
@@ -1210,15 +1294,12 @@ class _StudentScreenState extends State<StudentScreen> {
                                         final bool hasTagsFilter = tagsList.isNotEmpty;
                                         final bool hasParentsFilter =
                                             parentsList.isNotEmpty;
-                                        final bool hasAttendanceFilter =
-                                            attendanceList.isNotEmpty;
 
                                         final int badgeCount =
                                             (hasNonDefaultStatus ? 1 : 0) +
                                                 (hasClassroomFilter ? 1 : 0) +
                                                 (hasTagsFilter ? 1 : 0) +
-                                                (hasParentsFilter ? 1 : 0) +
-                                                (hasAttendanceFilter ? 1 : 0);
+                                                (hasParentsFilter ? 1 : 0);
 
                                         if (badgeCount == 0) {
                                           return const SizedBox.shrink();

@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -37,6 +39,7 @@ import 'package:wowcare/data/features/attendance/repositories/attendance_reposit
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
@@ -45,6 +48,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
     show FilterData;
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
@@ -67,7 +71,8 @@ class StudentAttendanceDailyViewScreen extends StatefulWidget {
   State<StudentAttendanceDailyViewScreen> createState() => _StudentAttendanceDailyViewScreenState();
 }
 
-class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDailyViewScreen> {
+class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDailyViewScreen>
+    implements DailyAttendanceParentRefresh {
   final TextEditingController _searchController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _showAbsentOnly = false;
@@ -100,6 +105,10 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   late final StudentAttendanceDailyCubit _cubit;
   late final StudentAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _absentToggleClassroomNameByCode = {};
+  final Set<String> _absentToggleClassroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -185,6 +194,13 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadStudentCounts();
     });
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadAttendanceData(reset: true);
+    unawaited(_loadStudentCounts());
   }
 
   Future<void> _loadStudentCounts() async {
@@ -411,12 +427,55 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     }
   }
 
+  String _absentToggleClassroomDisplay(StudentAttendanceAbsentFormItem item) {
+    final apiName = item.classroomName.trim();
+    if (apiName.isNotEmpty) return apiName;
+    final code = item.classroomCode.trim();
+    if (code.isEmpty) return '';
+    final fromCubit = _resolveClassroomNameByCode(code);
+    if (fromCubit != null) return fromCubit;
+    final cached = _absentToggleClassroomNameByCode[code]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return code;
+  }
+
+  void _prefetchAbsentToggleClassroomNames(
+    List<StudentAttendanceAbsentFormItem> items,
+  ) {
+    for (final item in items) {
+      final code = item.classroomCode.trim();
+      if (code.isEmpty) continue;
+      if (item.classroomName.trim().isNotEmpty) continue;
+      if (_resolveClassroomNameByCode(code) != null) continue;
+      if (_absentToggleClassroomNameByCode.containsKey(code)) continue;
+      if (_absentToggleClassroomFetchInFlight.contains(code)) continue;
+      _absentToggleClassroomFetchInFlight.add(code);
+      unawaited(_fetchAbsentToggleClassroomName(code));
+    }
+  }
+
+  Future<void> _fetchAbsentToggleClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _absentToggleClassroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep showing classroom code when lookup fails.
+    } finally {
+      _absentToggleClassroomFetchInFlight.remove(code);
+    }
+  }
+
   StudentAbsentCardData _absentEntityToCard(
     StudentAttendanceAbsentFormItem item,
     int index,
   ) {
-    final roomName =
-        _resolveClassroomNameByCode(item.classroomCode) ?? item.classroomCode;
+    final roomName = _absentToggleClassroomDisplay(item);
 
     final absenceDate = item.absenceDate.isNotEmpty
         ? item.absenceDate
@@ -618,12 +677,18 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
     
-    return BlocBuilder<StudentAttendanceAbsentToggleCubit,
+    return BlocListener<StudentAttendanceAbsentToggleCubit,
         StudentAttendanceAbsentToggleState>(
-      builder: (context, absentState) {
-        return BlocBuilder<StudentAttendanceDailyCubit,
-            StudentAttendanceDailyState>(
-          builder: (context, state) {
+      listenWhen: (prev, curr) => prev.items != curr.items,
+      listener: (context, state) {
+        _prefetchAbsentToggleClassroomNames(state.items);
+      },
+      child: BlocBuilder<StudentAttendanceAbsentToggleCubit,
+          StudentAttendanceAbsentToggleState>(
+        builder: (context, absentState) {
+          return BlocBuilder<StudentAttendanceDailyCubit,
+              StudentAttendanceDailyState>(
+            builder: (context, state) {
             final isAbsentMode = _showAbsentOnly;
             final isLoading = isAbsentMode ? absentState.isLoading : state.isLoading;
             final isLoadingMore =
@@ -769,7 +834,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                             });
                           },
                           onView: () {
-                            Navigator.push(
+                            Navigator.push<void>(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
@@ -785,7 +850,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                   profileStatus: 'A',
                                 ),
                               ),
-                            );
+                            ).then((_) {
+                              if (mounted) {
+                                refreshAfterReturningFromAttendanceFlow();
+                              }
+                            });
                           },
                         );
                       }).toList(),
@@ -829,7 +898,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                             });
                           },
                           onEdit: () async {
-                            final updated = await Navigator.push<bool>(
+                            await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => StudentEditAttendanceForm(
@@ -838,8 +907,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                 ),
                               ),
                             );
-                            if (updated == true) {
-                              _loadAttendanceData(reset: true);
+                            if (mounted) {
+                              refreshAfterReturningFromAttendanceFlow();
                             }
                           },
                           onDelete: () {
@@ -973,7 +1042,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                             );
                           },
                           onView: () {
-                            Navigator.push(
+                            Navigator.push<void>(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
@@ -989,7 +1058,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                   profileStatus: 'A',
                                 ),
                               ),
-                            );
+                            ).then((_) {
+                              if (mounted) {
+                                refreshAfterReturningFromAttendanceFlow();
+                              }
+                            });
                           },
                         );
                       }).toList(),
@@ -1007,9 +1080,10 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
             ),
           ),
         );
-          },
-        );
-      },
+            },
+          );
+        },
+      ),
     );
   }
 

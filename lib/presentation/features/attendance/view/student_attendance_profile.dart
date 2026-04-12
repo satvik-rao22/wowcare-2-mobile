@@ -257,6 +257,39 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return codeToNameMap[code] ?? fallback;
   }
 
+  /// Resolves [student] header classroom when it holds a **code** (common for
+  /// guardian flows: [ParentChildRef.classroom] / [Student.classroom]) using
+  /// active classrooms from the API ([_loadClassroomCodeToNameMap]).
+  void _applyResolvedClassroomHeaderName(Map<String, String> codeToNameMap) {
+    final current = student;
+    if (current == null || !mounted) return;
+    final raw = current.roomName.trim();
+    final resolved = _resolveClassroomNameByCode(
+      raw.isEmpty ? null : raw,
+      codeToNameMap,
+      raw.isEmpty ? '—' : raw,
+    );
+    if (resolved == current.roomName) return;
+    setState(() {
+      student = _StudentModel(
+        id: current.id,
+        name: current.name,
+        photoUuid: current.photoUuid,
+        roomName: resolved,
+        isSignedIn: current.isSignedIn,
+        isAbsent: current.isAbsent,
+        isExpectedToday: current.isExpectedToday,
+        isPresentToday: current.isPresentToday,
+        profileStatus: current.profileStatus,
+        isPhotoPermission: current.isPhotoPermission,
+        medications: current.medications,
+        note: current.note,
+        allergies: current.allergies,
+        dietRestriction: current.dietRestriction,
+      );
+    });
+  }
+
   /// Helper to format API time (either a string or {hour, minute, ...} map)
   /// into 'hh:mm:ss a' format for further formatting / calculations.
   String _formatApiTime(dynamic value) {
@@ -502,6 +535,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
     try {
       final codeToNameMap = await _loadClassroomCodeToNameMap();
+      _applyResolvedClassroomHeaderName(codeToNameMap);
       // --------- Load attendance (present days / summary) ----------
       final profileResponse = await client.get<dynamic>(
         profileEndpoint,

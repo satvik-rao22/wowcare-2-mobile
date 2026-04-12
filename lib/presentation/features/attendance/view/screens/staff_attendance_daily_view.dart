@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -35,6 +37,10 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_count_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
+    show StaffAttendanceAbsentItem;
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -52,7 +58,8 @@ class StaffAttendanceDailyViewScreen extends StatefulWidget {
   State<StaffAttendanceDailyViewScreen> createState() => _StaffAttendanceDailyViewScreenState();
 }
 
-class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyViewScreen> {
+class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyViewScreen>
+    implements DailyAttendanceParentRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   DateTime _selectedDate = DateTime.now();
@@ -80,6 +87,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   late final StaffAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
   String? _loggedInUserName;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _absentToggleClassroomNameByCode = {};
+  final Set<String> _absentToggleClassroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -113,6 +124,13 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadStaffCounts();
     });
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadAttendanceData(context, reset: true);
+    unawaited(_loadStaffCounts());
   }
 
   Future<void> _loadStaffCounts() async {
@@ -307,6 +325,50 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     return null;
   }
 
+  String _staffAbsentToggleClassroomDisplay(StaffAttendanceAbsentItem item) {
+    final apiName = item.classroomName.trim();
+    if (apiName.isNotEmpty) return apiName;
+    final code = item.classroomCode.trim();
+    if (code.isEmpty) return '';
+    final fromCubit = _resolveClassroomNameByCode(code);
+    if (fromCubit != null) return fromCubit;
+    final cached = _absentToggleClassroomNameByCode[code]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return code;
+  }
+
+  void _prefetchStaffAbsentToggleClassroomNames(
+    List<StaffAttendanceAbsentItem> items,
+  ) {
+    for (final item in items) {
+      final code = item.classroomCode.trim();
+      if (code.isEmpty) continue;
+      if (item.classroomName.trim().isNotEmpty) continue;
+      if (_resolveClassroomNameByCode(code) != null) continue;
+      if (_absentToggleClassroomNameByCode.containsKey(code)) continue;
+      if (_absentToggleClassroomFetchInFlight.contains(code)) continue;
+      _absentToggleClassroomFetchInFlight.add(code);
+      unawaited(_fetchStaffAbsentToggleClassroomName(code));
+    }
+  }
+
+  Future<void> _fetchStaffAbsentToggleClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _absentToggleClassroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep showing classroom code when lookup fails.
+    } finally {
+      _absentToggleClassroomFetchInFlight.remove(code);
+    }
+  }
+
   void _clearAllFiltersAndSearch() {
     setState(() {
       _searchController.clear();
@@ -343,12 +405,18 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           value: _absentToggleCubit,
         ),
       ],
-      child: BlocBuilder<StaffAttendanceAbsentToggleCubit,
+      child: BlocListener<StaffAttendanceAbsentToggleCubit,
           StaffAttendanceAbsentToggleState>(
-        builder: (context, absentState) {
-          return BlocBuilder<StaffAttendanceDailyCubit,
-              StaffAttendanceDailyState>(
-            builder: (context, state) {
+        listenWhen: (prev, curr) => prev.items != curr.items,
+        listener: (context, state) {
+          _prefetchStaffAbsentToggleClassroomNames(state.items);
+        },
+        child: BlocBuilder<StaffAttendanceAbsentToggleCubit,
+            StaffAttendanceAbsentToggleState>(
+          builder: (context, absentState) {
+            return BlocBuilder<StaffAttendanceDailyCubit,
+                StaffAttendanceDailyState>(
+              builder: (context, state) {
               final isAbsentMode = _showAbsentOnly;
               final isLoading = isAbsentMode
                   ? absentState.isLoading
@@ -451,9 +519,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                   ),
                 ),
               );
-            },
-          );
-        },
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -748,7 +817,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
             });
           },
           onEdit: () async {
-            final updated = await Navigator.push<bool>(
+            await Navigator.push<bool>(
               context,
               MaterialPageRoute(
                 builder: (_) => StaffEditAttendanceForm(
@@ -757,8 +826,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                 ),
               ),
             );
-            if (updated == true) {
-              _loadAttendanceData(context, reset: true);
+            if (mounted) {
+              refreshAfterReturningFromAttendanceFlow();
             }
           },
           onDelete: () {
@@ -868,7 +937,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
             );
           },
           onView: () {
-            Navigator.push(
+            Navigator.push<void>(
               context,
               MaterialPageRoute(
                 builder: (_) => StaffAttendanceProfile(
@@ -885,7 +954,11 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                   profileStatus: 'A',
                 ),
               ),
-            );
+            ).then((_) {
+              if (mounted) {
+                refreshAfterReturningFromAttendanceFlow();
+              }
+            });
           },
         );
       }).toList(),
@@ -962,8 +1035,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       children: items.asMap().entries.map((entry) {
         final index = entry.key;
         final it = entry.value;
-        final roomName =
-            _resolveClassroomNameByCode(it.classroomCode) ?? it.classroomCode;
+        final roomName = _staffAbsentToggleClassroomDisplay(it);
         final absenceDate = it.absenceDate;
         final absentTime = it.markedAbsentTime?.formattedHms ?? '';
         final staff = StaffAbsentCardData(
@@ -994,7 +1066,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
             });
           },
           onView: () {
-            Navigator.push(
+            Navigator.push<void>(
               context,
               MaterialPageRoute(
                 builder: (_) => StaffAttendanceProfile(
@@ -1010,7 +1082,11 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                   profileStatus: 'A',
                 ),
               ),
-            );
+            ).then((_) {
+              if (mounted) {
+                refreshAfterReturningFromAttendanceFlow();
+              }
+            });
           },
         );
       }).toList(),
