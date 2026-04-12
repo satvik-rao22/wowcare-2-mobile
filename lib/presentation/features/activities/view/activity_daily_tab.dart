@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bathroom_activity.dart';
@@ -1320,13 +1321,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                           ),
                                                           const SizedBox(height: 10),
 
-                                                          AppText.body(
+                                                          Text(
                                                             activityFeedCardBodyLine(activity),
                                                             style: AppTextStyles.body.copyWith(
                                                               color: AppColors.primaryColor,
                                                               fontWeight: FontWeight.w600,
+                                                              height: 1.0,
                                                             ),
-                                                            maxLines: activityFeedCardBodyMaxLines(activity),
+                                                            strutStyle: StrutStyle(
+                                                              fontFamily: Fonts.manrope,
+                                                              fontSize: 14,
+                                                              height: 1.0,
+                                                              leading: 0,
+                                                              fontWeight: FontWeight.w600,
+                                                              forceStrutHeight: true,
+                                                            ),
+                                                            textHeightBehavior:
+                                                                const TextHeightBehavior(
+                                                              applyHeightToFirstAscent: false,
+                                                              applyHeightToLastDescent: false,
+                                                            ),
+                                                            maxLines:
+                                                                activityFeedCardBodyMaxLines(
+                                                                    activity),
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
                                                           const SizedBox(height: 10),
@@ -2763,13 +2780,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab> {
                                                             ),
                                                             const SizedBox(height: 10),
 
-                                                            AppText.body(
+                                                            Text(
                                                               activityFeedCardBodyLine(activity),
                                                               style: AppTextStyles.body.copyWith(
                                                                 color: AppColors.primaryColor,
                                                                 fontWeight: FontWeight.w600,
+                                                                height: 1.0,
                                                               ),
-                                                              maxLines: activityFeedCardBodyMaxLines(activity),
+                                                              strutStyle: StrutStyle(
+                                                                fontFamily: Fonts.manrope,
+                                                                fontSize: 14,
+                                                                height: 1.0,
+                                                                leading: 0,
+                                                                fontWeight: FontWeight.w600,
+                                                                forceStrutHeight: true,
+                                                              ),
+                                                              textHeightBehavior:
+                                                                  const TextHeightBehavior(
+                                                                applyHeightToFirstAscent: false,
+                                                                applyHeightToLastDescent: false,
+                                                              ),
+                                                              maxLines:
+                                                                  activityFeedCardBodyMaxLines(
+                                                                      activity),
                                                               overflow: TextOverflow.ellipsis,
                                                             ),
                                                             const SizedBox(height: 10),
@@ -2946,6 +2979,32 @@ class PopupItem extends StatelessWidget {
 
 /// Feed card line under student avatars (Bottle: amount/status + description).
 String activityFeedCardBodyLine(ActivityItem activity) {
+  if (activity.name == 'Meal') {
+    final mt = activity.mealType?.trim();
+    final mq = activity.mealQuantity?.trim();
+    final desc = activity.description?.trim();
+
+    String? firstLine;
+    if (mt != null &&
+        mt.isNotEmpty &&
+        mq != null &&
+        mq.isNotEmpty) {
+      firstLine = '$mt Quantity: $mq';
+    } else if (mt != null && mt.isNotEmpty) {
+      firstLine = mt;
+    } else if (mq != null && mq.isNotEmpty) {
+      firstLine = 'Quantity: $mq';
+    }
+
+    if (firstLine != null && firstLine.isNotEmpty) {
+      if (desc != null && desc.isNotEmpty) {
+        return '$firstLine\n$desc';
+      }
+      return firstLine;
+    }
+    if (desc != null && desc.isNotEmpty) return desc;
+    return 'No description';
+  }
   if (activity.name == 'Bottle') {
     final desc = activity.description?.trim();
     final oz = _formatBottleOzCompact(activity.amountConsumed);
@@ -2972,12 +3031,34 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     if (desc != null && desc.isNotEmpty) return desc;
     return 'No description';
   }
+  if (activity.name == 'Nap Start' || activity.name == 'Nap End') {
+    final desc = activity.description?.trim();
+    final isStart = activity.name == 'Nap Start';
+    final at = isStart
+        ? (activity.napStartTime?.trim().isNotEmpty == true
+            ? activity.napStartTime!.trim()
+            : activity.time.trim())
+        : (activity.napEndTime?.trim().isNotEmpty == true
+            ? activity.napEndTime!.trim()
+            : (activity.napStartTime?.trim().isNotEmpty == true
+                ? activity.napStartTime!.trim()
+                : activity.time.trim()));
+    final firstLine =
+        at.isNotEmpty ? 'Nap ${isStart ? 'started' : 'ended'} at $at' : 'Nap';
+    if (desc != null && desc.isNotEmpty) {
+      return '$firstLine\n$desc';
+    }
+    return firstLine;
+  }
   final d = activity.description?.trim();
   return (d != null && d.isNotEmpty) ? d : 'No description';
 }
 
 int activityFeedCardBodyMaxLines(ActivityItem activity) {
-  return activity.name == 'Bottle' ? 2 : 1;
+  if (activity.name == 'Bottle') return 2;
+  if (activity.name == 'Meal') return 3;
+  if (activity.name == 'Nap Start' || activity.name == 'Nap End') return 4;
+  return 1;
 }
 
 String? _formatBottleOzCompact(String? raw) {
@@ -3133,9 +3214,11 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     for (final p in row.parameterValues) {
       final n = (p['parameterName'] ?? '').toString().toLowerCase();
       if (!match(n)) continue;
+      // Prefer human-readable labels (dropdowns) before option codes in valueText.
       for (final key in <String>[
-        'valueText',
         'selectedOptionLabel',
+        'optionLabel',
+        'valueText',
         'valueNumber',
         'valueTime',
         'valueDatetime',
@@ -3215,16 +3298,29 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
         );
   final mealType = pickParam((n) => n.contains('meal') && n.contains('type')) ??
       pickParam((n) => n.contains('meal') && !n.contains('quantity'));
-  final mealQuantity = pickParam(
-    (n) => n.contains('quantity') || n.contains('portion'),
-  );
+  final mealQuantity = name == 'Meal'
+      ? pickParam(
+          (n) =>
+              (n.contains('quant') || n.contains('portion')) &&
+              !n.contains('meal type'),
+        )
+      : pickParam(
+          (n) => n.contains('quantity') || n.contains('portion'),
+        );
   final napStartTime = pickParam((n) => n.contains('nap') && n.contains('start')) ??
       pickParam((n) => n.contains('start') && n.contains('nap'));
   final napEndTime = pickParam(
         (n) =>
             n.contains('nap') &&
             (n.contains('end') || n.contains('stop'))) ??
-      pickParam((n) => n.contains('end') && n.contains('time'));
+      pickParam(
+        (n) =>
+            n.contains('end') &&
+            n.contains('nap') &&
+            (n.contains('time') || n.contains('stop')),
+      );
+  /// Single "Time" param (e.g. PM_027) when nap start/end params are absent.
+  final napTimeParam = pickParam((n) => n.trim().toLowerCase() == 'time');
   final bathroomType = pickParam(
           (n) => n.contains('bathroom') && n.contains('type')) ??
       pickParam((n) => n.contains('potty') || n.contains('diaper'));
@@ -3251,9 +3347,11 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     bottleConsumptionStatus:
         name == 'Bottle' ? bottleStatusFromParams : null,
     napStartTime: (name == 'Nap Start' || name == 'Nap End')
-        ? napStartTime
+        ? (napStartTime ?? napTimeParam)
         : null,
-    napEndTime: name == 'Nap End' ? napEndTime : null,
+    napEndTime: name == 'Nap End'
+        ? (napEndTime ?? napTimeParam)
+        : null,
     whatHappened:
         (name == 'Incident' || name == 'Notes') && desc.isNotEmpty
             ? desc

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
@@ -17,6 +19,8 @@ import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../shared/services/image_upload/image_upload_service.dart';
+import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/student_tile.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -40,8 +44,8 @@ class OutdoorActivityScreen extends StatefulWidget {
 }
 
 class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
-  late final List<Map<String, dynamic>> _selectedStudentsData;
-  late final List<String> _selectedStudents;
+  List<Map<String, dynamic>> _selectedStudentsData = [];
+  List<String> _selectedStudents = [];
   List<String> _studentsToEdit = [];
   bool _selectAll = false;
   final TextEditingController _descriptionController = TextEditingController();
@@ -54,19 +58,33 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isUploadingMedia = false;
+  List<File> _newPhotos = [];
+  final Map<String, String> _uploadedAssetCodeByPath = {};
+  String? _lastUploadContextKey;
+
+  int get _uploadedPhotoCount => _newPhotos
+      .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
+      .length;
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
+  late final ImageUploadService _imageUploadService;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _activityDate = DateTime(now.year, now.month, now.day);
+    _activityTime = TimeOfDay.fromDateTime(now);
+
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
+    _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -77,8 +95,12 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     } else if (widget.isEdit) {
       final activity = widget.activityData!;
       _selectedStudents = List<String>.from(activity.studentList);
+      _selectedStudentsData = _selectedStudents
+          .map((name) => <String, dynamic>{'name': name})
+          .toList();
       _descriptionController.text =
           activity.whatHappened ?? activity.description ?? '';
+      _activityTypeCode = activity.activityTypeCode;
     }
     _loadStaffContext();
   }
@@ -91,6 +113,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
+      _selectedStudentsData.removeWhere(
+        (m) => (m['name'] as String?) == name,
+      );
 
       if (_selectedStudents.isEmpty) {
         Navigator.of(context).pop();
@@ -152,10 +177,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
 
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
-
-    if (widget.isEdit) {
-      return;
-    }
+    if (widget.isEdit) return;
 
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -252,6 +274,15 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       return;
     }
 
+    if (_isUploadingMedia) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please wait for the photo upload to finish',
+        isWarning: true,
+      );
+      return;
+    }
+
     final combinedDateTime = DateTime(
       _activityDate!.year,
       _activityDate!.month,
@@ -266,6 +297,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     });
 
     try {
+      final attachments = await _ensurePhotoAssetsUploaded(
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        studentCodes: studentCodes,
+      );
+
       final details =
           await _getActivityTypeDetailsUseCase(code: activityTypeCode);
 
@@ -298,7 +337,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
             staffParamCode.trim().isNotEmpty &&
             staffCode.trim().isNotEmpty)
           {'parameterCode': staffParamCode, 'value': staffCode},
-        if (descParamCode != null && descParamCode.trim().isNotEmpty)
+        if (descParamCode != null &&
+            descParamCode.trim().isNotEmpty &&
+            description.isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
       ];
 
@@ -312,7 +353,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         activityDate: activityDateIso,
         description: description,
         parameterValues: parameterValues,
-        attachments: const [],
+        attachments: attachments,
       );
 
       if (!mounted) return;
@@ -342,7 +383,226 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     }
   }
 
+  /// Outdoor activity settings use shared attachments for the class/students.
+  Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
+    required String classroomCode,
+    required String activityTypeCode,
+    required String organizationCode,
+    required String schoolCode,
+    required List<String> studentCodes,
+  }) async {
+    if (_newPhotos.isEmpty) return const [];
+
+    final normalizedStudentCodes = studentCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList()
+      ..sort();
+    final uploadContextKey = [
+      organizationCode.trim(),
+      schoolCode.trim(),
+      classroomCode.trim(),
+      normalizedStudentCodes.join(','),
+    ].join('|');
+    if (_lastUploadContextKey != uploadContextKey) {
+      _uploadedAssetCodeByPath.clear();
+      _lastUploadContextKey = uploadContextKey;
+    }
+
+    final ownerCode = studentCodes.first;
+    final missing = _newPhotos
+        .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
+        .toList();
+
+    if (missing.isNotEmpty) {
+      setState(() => _isUploadingMedia = true);
+      try {
+        final uploadSession =
+            await _imageUploadService.createActivityUploadSession(
+          organizationCode: organizationCode,
+          schoolCode: schoolCode,
+          classroomCode: classroomCode,
+          activityTypeCode: activityTypeCode,
+          bindingMode: 'SHARED',
+          studentCodes: studentCodes,
+        );
+
+        final sessionAssetCodes = <String>[];
+        for (final photo in missing) {
+          final fileName = photo.uri.pathSegments.isNotEmpty
+              ? photo.uri.pathSegments.last
+              : 'photo.jpg';
+          final contentLengthBytes = await photo.length();
+          final presign = await _imageUploadService.createAssetPresign(
+            sessionCode: uploadSession.sessionCode,
+            documentApiBasePath: uploadSession.documentApiBasePath,
+            fileName: fileName,
+            contentType: 'image/jpeg',
+            contentLengthBytes: contentLengthBytes,
+            mediaType: 'IMAGE',
+            ownerType: 'STUDENT',
+            ownerCode: ownerCode,
+          );
+          await _imageUploadService.uploadFileToPresignedUrl(
+            file: photo,
+            presignedPutUrl: presign.presignedPutUrl,
+            requiredHeaders: presign.requiredHeaders,
+            fallbackContentType: 'image/jpeg',
+          );
+          await _imageUploadService.completeAssetUpload(
+            sessionCode: uploadSession.sessionCode,
+            assetCode: presign.assetCode,
+            documentApiBasePath: uploadSession.documentApiBasePath,
+          );
+          _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
+          sessionAssetCodes.add(presign.assetCode);
+        }
+        await _imageUploadService.waitUntilAssetsReady(
+          sessionCode: uploadSession.sessionCode,
+          expectedAssetCodes: sessionAssetCodes,
+        );
+      } finally {
+        if (mounted) setState(() => _isUploadingMedia = false);
+      }
+    }
+
+    final attachments = <Map<String, dynamic>>[];
+    for (final photo in _newPhotos) {
+      final assetCode = _uploadedAssetCodeByPath[photo.path];
+      if (assetCode != null && assetCode.isNotEmpty) {
+        attachments.add({
+          'assetCode': assetCode,
+          'studentCode': ownerCode,
+          'bindingMode': 'SHARED',
+        });
+      }
+    }
+    return attachments;
+  }
+
+  void _onMediaChanged(
+    List<File> photos,
+    File? video,
+    List<String> remainingExistingPhotoUrls,
+    String? remainingExistingVideoUrl,
+  ) {
+    _newPhotos = photos;
+    _uploadedAssetCodeByPath.removeWhere(
+      (path, _) => !_newPhotos.any((f) => f.path == path),
+    );
+    _uploadPhotosOnSelection();
+  }
+
+  Future<void> _uploadPhotosOnSelection() async {
+    if (widget.isEdit || _newPhotos.isEmpty || _isUploadingMedia) return;
+
+    final activityTypeCode = _activityTypeCode;
+    final schoolCode = _schoolCode;
+    final organizationCode = _organizationCode;
+    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+        _selectedStudentsData.first['classroomcode'];
+    final classroomCode =
+        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final studentCodes = _selectedStudentsData
+        .map((s) => (s['studentCode'] as String?)?.trim())
+        .whereType<String>()
+        .where((c) => c.isNotEmpty)
+        .toList();
+
+    if (activityTypeCode == null ||
+        activityTypeCode.isEmpty ||
+        schoolCode == null ||
+        schoolCode.isEmpty ||
+        organizationCode == null ||
+        organizationCode.isEmpty ||
+        classroomCode.isEmpty ||
+        studentCodes.isEmpty) {
+      return;
+    }
+
+    try {
+      await _ensurePhotoAssetsUploaded(
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        studentCodes: studentCodes,
+      );
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Photo uploaded successfully',
+        isSuccess: true,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(error),
+        isError: true,
+      );
+    }
+  }
+
+  Widget _buildUploadStatus() {
+    if (_isUploadingMedia) {
+      return Row(
+        children: const [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 8),
+          Text(
+            'Uploading photo...',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_newPhotos.isEmpty) return const SizedBox.shrink();
+
+    if (_uploadedPhotoCount == _newPhotos.length) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Text(
+            'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.green,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const SizedBox(width: 8),
+        Text(
+          'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.orange,
+          ),
+        ),
+      ],
+    );
+  }
+
   void _onSaveOrAddPressed() {
+    if (_isSubmitting) return;
     if (widget.isEdit) {
       if (_studentsToEdit.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -459,12 +719,20 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                           isEditable: true,
                           isRequired: true,
                           initialDate: widget.activityData?.date,
-                          onDateChanged: (d) => _activityDate = d,
+                          onDateChanged: (d) {
+                            setState(() {
+                              _activityDate = d;
+                            });
+                          },
                         )
                       : DateWidget(
                           isEditable: true,
                           isRequired: true,
-                          onDateChanged: (d) => _activityDate = d,
+                          onDateChanged: (d) {
+                            setState(() {
+                              _activityDate = d;
+                            });
+                          },
                         ),
                 ),
                 const SizedBox(width: 10),
@@ -474,12 +742,20 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                           isEditable: true,
                           isRequired: true,
                           prefilledTime: widget.activityData?.time,
-                          onTimeChanged: (t) => _activityTime = t,
+                          onTimeChanged: (t) {
+                            setState(() {
+                              _activityTime = t;
+                            });
+                          },
                         )
                       : TimeWidget(
                           isRequired: true,
                           isEditable: true,
-                          onTimeChanged: (t) => _activityTime = t,
+                          onTimeChanged: (t) {
+                            setState(() {
+                              _activityTime = t;
+                            });
+                          },
                         ),
                 ),
               ],
@@ -505,7 +781,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 allowVideo: false,
                 allowPhoto: true,
                 isPictureBox: false,
-                limit: 1,
+                limit: 2,
                 label: 'Upload Photo',
                 initialPhotoUrls: widget.activityData?.photoUrl != null &&
                         widget.activityData!.photoUrl!.trim().isNotEmpty
@@ -518,60 +794,27 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 allowVideo: false,
                 allowPhoto: true,
                 isPictureBox: false,
-                limit: 1,
+                limit: 2,
                 label: 'Upload Photo',
+                onMediaChanged: _onMediaChanged,
               ),
+            if (!widget.isEdit && _newPhotos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildUploadStatus(),
+            ],
             SizedBox(height: responsive.verticalSpacing),
           ],
         ),
       ),
-      bottomBar: _buildBottomBar(context, responsive),
-    );
-  }
-
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
-      child: Container(
-        height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(
-            responsive.isTablet ? 16.0 : 8.0,
-          ),
-        ),
-        child: TextButton(
-          onPressed: _isSubmitting ? null : _onSaveOrAddPressed,
-          style: TextButton.styleFrom(overlayColor: Colors.transparent),
-          child: Text(
-            widget.isEdit ? 'Save' : 'Add',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.buttonFontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+      bottomBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: CustomButtonLayout(
+            confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+            onPressedConfirm: _onSaveOrAddPressed,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting,
           ),
         ),
       ),
