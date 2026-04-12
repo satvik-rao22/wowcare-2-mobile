@@ -626,6 +626,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     MaterialPageRoute(
                       builder: (_) => ActivityFeedScreen(
                         fromStudentProfile: true,
+                        allowActivityWrite: ModuleAccess.mayWrite(
+                          role,
+                          AppAccessModules.dailyActivity,
+                        ),
                         studentName: {
                           'name': _displayName,
                           if (widget.studentCode != null &&

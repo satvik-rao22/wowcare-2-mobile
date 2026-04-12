@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/guardian_code_resolver.dart';
 import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
@@ -47,6 +48,7 @@ import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 import '../util/activity_feed_page_cache_codec.dart';
+import '../util/activity_parent_feed_merge.dart';
 
 class ActivityDailyTab extends StatefulWidget {
   const ActivityDailyTab({
@@ -55,6 +57,7 @@ class ActivityDailyTab extends StatefulWidget {
     this.studentName,
     this.studentProfile,
     this.isNotParent = true,
+    this.allowActivityWrite = true,
   });
 
   final bool fromStudentProfile;
@@ -63,6 +66,8 @@ class ActivityDailyTab extends StatefulWidget {
   /// Optional map (e.g. `name`, `studentCode`) when opened from student profile.
   final Map<String, dynamic>? studentProfile;
   final bool isNotParent;
+  /// Edit / delete / add; false when [DAILY_ACTIVITY] has `write: false`.
+  final bool allowActivityWrite;
 
   static const String routeName = '/activityDailyTab';
 
@@ -77,6 +82,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
   //final TextEditingController _searchController = TextEditingController();
   late bool isNotParent;
+  bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
   DateTime? _selectedDate = DateTime.now();
   String? _selectdClassroom;
@@ -121,6 +127,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   List<String> _tagFilterOptions = [];
   Map<String, String> _tagNameToCode = {};
   final Set<String> _studentCodesForTagFilter = {};
+
+  /// Guardian home: children we may show activities for.
+  final Set<String> _parentAllowedStudentCodes = {};
+  final Map<String, String> _parentStudentClassroomByCode = {};
+  bool _loadingParentContext = false;
 
   late final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
@@ -385,6 +396,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
     _schoolCode = school;
 
+    if (_parentHome) {
+      await _bootstrapParentHome();
+      return;
+    }
+
     final classroomCacheKey = CacheManager.buildCacheKey(
       feature: 'activity',
       resource: 'classrooms',
@@ -462,6 +478,85 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
         _feedError = msg;
+      });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+    }
+  }
+
+  Future<void> _bootstrapParentHome() async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty) return;
+
+    if (mounted) {
+      setState(() {
+        _loadingParentContext = true;
+        _feedError = null;
+      });
+    }
+
+    try {
+      final guardianCode = await resolveGuardianCodeForLoggedInUser();
+      if (guardianCode.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _feedError = 'Could not load guardian profile.';
+            _parentAllowedStudentCodes.clear();
+            _parentStudentClassroomByCode.clear();
+            _loadingParentContext = false;
+            _activities = [];
+            _loadingFeed = false;
+            _feedHasMore = false;
+          });
+        }
+        return;
+      }
+
+      final page = await _getStudentPageUseCase(
+        schoolCode: school,
+        guardianCodes: [guardianCode],
+        page: 0,
+        size: 500,
+      );
+      if (!mounted) return;
+
+      _parentAllowedStudentCodes.clear();
+      _parentStudentClassroomByCode.clear();
+      for (final s in page.items) {
+        final code = s.code.trim();
+        if (code.isEmpty) continue;
+        final cc = s.classroom.trim();
+        if (cc.isEmpty) continue;
+        _parentAllowedStudentCodes.add(code);
+        _parentStudentClassroomByCode[code] = cc;
+      }
+
+      if (_parentAllowedStudentCodes.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _feedError = 'No linked children with a classroom.';
+            _loadingParentContext = false;
+            _activities = [];
+            _loadingFeed = false;
+            _feedHasMore = false;
+          });
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          _loadingParentContext = false;
+        });
+      }
+      await _loadDailyFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      final msg = ApiErrorHandler.extractErrorMessage(e);
+      setState(() {
+        _feedError = msg;
+        _loadingParentContext = false;
+        _parentAllowedStudentCodes.clear();
+        _parentStudentClassroomByCode.clear();
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
     }
@@ -606,6 +701,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   Future<void> _loadNextDailyFeedPage() async {
     if (_loadingMoreFeed || !_feedHasMore || _loadingFeed) return;
 
+    if (_parentHome) {
+      return _loadNextParentHomeDailyFeedPage();
+    }
+
     final classroomName = _selectdClassroom;
     final school = _schoolCode;
     final date = _selectedDate;
@@ -672,7 +771,199 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
   }
 
+  Future<void> _loadParentHomeDailyFeed({bool refresh = false}) async {
+    final school = _schoolCode;
+    final date = _selectedDate;
+    if (school == null ||
+        school.isEmpty ||
+        date == null ||
+        _parentAllowedStudentCodes.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _activities = [];
+          _loadingFeed = false;
+          _feedHasMore = false;
+          _loadingMoreFeed = false;
+        });
+      }
+      return;
+    }
+
+    final codes = _parentAllowedStudentCodes.toList()..sort();
+    final dateStr = _dateQueryParam(date);
+    final typeCode = _activityTypeCodeForApiFilter();
+    final requestKey = [
+      'parentDaily',
+      school,
+      codes.join(','),
+      dateStr,
+      typeCode ?? '',
+      _filterActivityTypes.join(','),
+      _filterTags.join(','),
+    ].join('|');
+
+    if (!refresh && _lastFeedRequestKey == requestKey) {
+      if (_isFeedRequestInFlight) return;
+      if (!_lastFeedCompletedWithError) return;
+      final completedAt = _lastFeedCompletedAt;
+      if (completedAt != null &&
+          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+        return;
+      }
+    }
+
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
+
+    _isFeedRequestInFlight = true;
+    _lastFeedRequestKey = requestKey;
+
+    if (mounted) {
+      setState(() {
+        _loadingFeed = true;
+        _feedError = null;
+        _feedHasMore = true;
+        _loadingMoreFeed = false;
+      });
+    }
+
+    try {
+      final pages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return const ActivityFeedPage(
+              content: [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: 0,
+              last: true,
+            );
+          }
+          return _getDailyActivityFeedUseCase(
+            classroomCode: cc,
+            date: dateStr,
+            studentCode: sc,
+            activityTypeCode: typeCode,
+            page: 0,
+            size: _feedPageSize,
+          );
+        }),
+      );
+
+      final merged = mergeActivityFeedPages(pages);
+      final items = _mapDailyFeedPageToItems(merged);
+
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
+      setState(() {
+        _activities = items;
+        _loadingFeed = false;
+        _feedError = null;
+        _feedHasMore = !merged.last;
+        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
+      });
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = false;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _maybeLoadNextDailyFeedPage());
+    } catch (e) {
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
+      final msg = ApiErrorHandler.extractErrorMessage(e);
+      setState(() {
+        _loadingFeed = false;
+        _feedError = msg;
+        _feedHasMore = false;
+      });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = true;
+    }
+  }
+
+  Future<void> _loadNextParentHomeDailyFeedPage() async {
+    if (_loadingMoreFeed || !_feedHasMore || _loadingFeed) return;
+
+    final school = _schoolCode;
+    final date = _selectedDate;
+    if (school == null ||
+        school.isEmpty ||
+        date == null ||
+        _parentAllowedStudentCodes.isEmpty) {
+      return;
+    }
+
+    final dateStr = _dateQueryParam(date);
+    final typeCode = _activityTypeCodeForApiFilter();
+    final pageIndex = _feedNextPage;
+
+    _loadingMoreFeed = true;
+    if (mounted) setState(() {});
+
+    try {
+      final pages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return ActivityFeedPage(
+              content: const [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: pageIndex,
+              last: true,
+            );
+          }
+          return _getDailyActivityFeedUseCase(
+            classroomCode: cc,
+            date: dateStr,
+            studentCode: sc,
+            activityTypeCode: typeCode,
+            page: pageIndex,
+            size: _feedPageSize,
+          );
+        }),
+      );
+
+      final merged = mergeActivityFeedPages(pages);
+      final items = _mapDailyFeedPageToItems(merged);
+
+      if (!mounted) return;
+      setState(() {
+        _activities.addAll(items);
+        _feedHasMore = !merged.last;
+        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
+      });
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
+        setState(() => _feedHasMore = false);
+      }
+    } finally {
+      _loadingMoreFeed = false;
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _maybeLoadNextDailyFeedPage());
+      }
+    }
+  }
+
   Future<void> _loadDailyFeed({bool refresh = false}) async {
+    if (_parentHome) {
+      return _loadParentHomeDailyFeed(refresh: refresh);
+    }
+
     final classroomName = _selectdClassroom;
     final school = _schoolCode;
     final date = _selectedDate;
@@ -1161,10 +1452,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         ),
                       ],
                     )
-                        : Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
+                        : SizedBox(
                             height: 40,
                             child: _datePickerFilter(
                               selectedDate: _selectedDate,
@@ -1176,33 +1464,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               },
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SizedBox(
-                            height: 40,
-                            child: _buildCustomDropdown(
-                              'Activity Type',
-                              activityType,
-                              _selectedActivityType,
-                              (v) {
-                                setState(() {
-                                  _selectedActivityType = v;
-                                });
-                                _loadDailyFeed();
-                              },
-                              height: 40,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),),
                 SliverToBoxAdapter(child: SizedBox(height: 12,),),
-                if (_loadingFeed && _activities.isEmpty)
+                if ((_loadingFeed || _loadingParentContext) &&
+                    _activities.isEmpty)
                   SliverToBoxAdapter(child: _dailyFeedLoadingSheet(context)),
-                if (!_loadingFeed && _activities.isEmpty)
+                if (!_loadingFeed &&
+                    !_loadingParentContext &&
+                    _activities.isEmpty)
                   SliverToBoxAdapter(child: Padding(
                     padding: ResponsiveSizing.contentPadding(context),
                     child: Container(
@@ -1553,69 +1823,71 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                       }
                                                                     },
                                                                   ),
-                                                                  PopupMenuItem<String>(
-                                                                    value: 'edit',
-                                                                    child: PopupItem(
-                                                                      title: 'Edit',
-                                                                      icon: Icon(
-                                                                        Icons.edit,
-                                                                        color: AppColors
-                                                                            .themeColor,
+                                                                  if (widget.allowActivityWrite) ...[
+                                                                    PopupMenuItem<String>(
+                                                                      value: 'edit',
+                                                                      child: PopupItem(
+                                                                        title: 'Edit',
+                                                                        icon: Icon(
+                                                                          Icons.edit,
+                                                                          color: AppColors
+                                                                              .themeColor,
+                                                                        ),
                                                                       ),
-                                                                    ),
-                                                                    onTap: () async {
-                                                                      final destinationBuilder =
-                                                                      editActivityRoutes[activity
-                                                                          .name];
-                                                                      if (destinationBuilder !=
-                                                                          null) {
-                                                                        final nextScreen =
-                                                                        destinationBuilder(
-                                                                          activity,
-                                                                        );
-                                                                        await Navigator.of(
-                                                                          context,
-                                                                        ).push(
-                                                                          MaterialPageRoute(
-                                                                            builder: (_) =>
-                                                                            nextScreen,
-                                                                          ),
-                                                                        );
-                                                                        if (mounted) {
-                                                                          await _loadDailyFeed(refresh: true);
-                                                                        }
-                                                                      }
-                                                                    },
-                                                                  ),
-                                                                  PopupMenuItem<String>(
-                                                                    value: 'delete',
-                                                                    child: PopupItem(
-                                                                      title: 'Delete',
-                                                                      icon: Icon(
-                                                                        Icons.delete,
-                                                                        color: AppColors
-                                                                            .themeColor,
-                                                                      ),
-                                                                    ),
-                                                                    onTap: ()  {
-                                                                      showModalBottomSheet(
-                                                                        context: context,
-                                                                        isScrollControlled: true,
-                                                                        backgroundColor: Colors.transparent,
-                                                                        builder: (ctx) {
-                                                                          return DeleteConfirmationBottomSheet(
-                                                                            name: activity.name,
-                                                                            type: 'Activity',
-                                                                            onDelete: () =>
-                                                                                _deleteActivityFromSheet(ctx, activity),
-                                                                            onCancel: () {
-                                                                              Navigator.of(ctx).pop();
-                                                                            },
+                                                                      onTap: () async {
+                                                                        final destinationBuilder =
+                                                                        editActivityRoutes[activity
+                                                                            .name];
+                                                                        if (destinationBuilder !=
+                                                                            null) {
+                                                                          final nextScreen =
+                                                                          destinationBuilder(
+                                                                            activity,
                                                                           );
-                                                                        },
-                                                                      );
-                                                                    },
-                                                                  ),
+                                                                          await Navigator.of(
+                                                                            context,
+                                                                          ).push(
+                                                                            MaterialPageRoute(
+                                                                              builder: (_) =>
+                                                                              nextScreen,
+                                                                            ),
+                                                                          );
+                                                                          if (mounted) {
+                                                                            await _loadDailyFeed(refresh: true);
+                                                                          }
+                                                                        }
+                                                                      },
+                                                                    ),
+                                                                    PopupMenuItem<String>(
+                                                                      value: 'delete',
+                                                                      child: PopupItem(
+                                                                        title: 'Delete',
+                                                                        icon: Icon(
+                                                                          Icons.delete,
+                                                                          color: AppColors
+                                                                              .themeColor,
+                                                                        ),
+                                                                      ),
+                                                                      onTap: ()  {
+                                                                        showModalBottomSheet(
+                                                                          context: context,
+                                                                          isScrollControlled: true,
+                                                                          backgroundColor: Colors.transparent,
+                                                                          builder: (ctx) {
+                                                                            return DeleteConfirmationBottomSheet(
+                                                                              name: activity.name,
+                                                                              type: 'Activity',
+                                                                              onDelete: () =>
+                                                                                  _deleteActivityFromSheet(ctx, activity),
+                                                                              onCancel: () {
+                                                                                Navigator.of(ctx).pop();
+                                                                              },
+                                                                            );
+                                                                          },
+                                                                        );
+                                                                      },
+                                                                    ),
+                                                                  ],
                                                                 ],
                                                               ),
                                                             ],
@@ -2563,10 +2835,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         ),
                       ],
                     )
-                        : Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
+                        : SizedBox(
                             height: 40,
                             child: _datePickerFilter(
                               selectedDate: _selectedDate,
@@ -2578,33 +2847,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               },
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SizedBox(
-                            height: 40,
-                            child: _buildCustomDropdown(
-                              'Activity Type',
-                              activityType,
-                              _selectedActivityType,
-                              (v) {
-                                setState(() {
-                                  _selectedActivityType = v;
-                                });
-                                _loadDailyFeed();
-                              },
-                              height: 40,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
 
                 const SizedBox(height: 12),
 
-                if (_loadingFeed && _activities.isEmpty)
+                if ((_loadingFeed || _loadingParentContext) &&
+                    _activities.isEmpty)
                   Expanded(
                     child: _dailyFeedLoadingSheet(
                       context,
@@ -2612,7 +2861,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                     ),
                   ),
 
-                if (!_loadingFeed && _activities.length == 0)
+                if (!_loadingFeed &&
+                    !_loadingParentContext &&
+                    _activities.length == 0)
                   Expanded(
                     child: Padding(
                       padding: ResponsiveSizing.contentPadding(context),
@@ -2955,69 +3206,71 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                         }
                                                                       },
                                                                     ),
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'edit',
-                                                                      child: PopupItem(
-                                                                        title: 'Edit',
-                                                                        icon: Icon(
-                                                                          Icons.edit,
-                                                                          color: AppColors
-                                                                              .themeColor,
+                                                                    if (widget.allowActivityWrite) ...[
+                                                                      PopupMenuItem<String>(
+                                                                        value: 'edit',
+                                                                        child: PopupItem(
+                                                                          title: 'Edit',
+                                                                          icon: Icon(
+                                                                            Icons.edit,
+                                                                            color: AppColors
+                                                                                .themeColor,
+                                                                          ),
                                                                         ),
-                                                                      ),
-                                                                      onTap: () async {
-                                                                        final destinationBuilder =
-                                                                        editActivityRoutes[activity
-                                                                            .name];
-                                                                        if (destinationBuilder !=
-                                                                            null) {
-                                                                          final nextScreen =
-                                                                          destinationBuilder(
-                                                                            activity,
-                                                                          );
-                                                                          await Navigator.of(
-                                                                            context,
-                                                                          ).push(
-                                                                            MaterialPageRoute(
-                                                                              builder: (_) =>
-                                                                              nextScreen,
-                                                                            ),
-                                                                          );
-                                                                          if (mounted) {
-                                                                            await _loadDailyFeed(refresh: true);
-                                                                          }
-                                                                        }
-                                                                      },
-                                                                    ),
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'delete',
-                                                                      onTap: ()  {
-                                                                        showModalBottomSheet(
-                                                                          context: context,
-                                                                          isScrollControlled: true,
-                                                                          backgroundColor: Colors.transparent,
-                                                                          builder: (ctx) {
-                                                                            return DeleteConfirmationBottomSheet(
-                                                                              name: activity.name,
-                                                                              type: 'Activity',
-                                                                              onDelete: () =>
-                                                                                  _deleteActivityFromSheet(ctx, activity),
-                                                                              onCancel: () {
-                                                                                Navigator.of(ctx).pop();
-                                                                              },
+                                                                        onTap: () async {
+                                                                          final destinationBuilder =
+                                                                          editActivityRoutes[activity
+                                                                              .name];
+                                                                          if (destinationBuilder !=
+                                                                              null) {
+                                                                            final nextScreen =
+                                                                            destinationBuilder(
+                                                                              activity,
                                                                             );
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                      child: PopupItem(
-                                                                        title: 'Delete',
-                                                                        icon: Icon(
-                                                                          Icons.delete,
-                                                                          color: AppColors
-                                                                              .themeColor,
+                                                                            await Navigator.of(
+                                                                              context,
+                                                                            ).push(
+                                                                              MaterialPageRoute(
+                                                                                builder: (_) =>
+                                                                                nextScreen,
+                                                                              ),
+                                                                            );
+                                                                            if (mounted) {
+                                                                              await _loadDailyFeed(refresh: true);
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                      ),
+                                                                      PopupMenuItem<String>(
+                                                                        value: 'delete',
+                                                                        onTap: ()  {
+                                                                          showModalBottomSheet(
+                                                                            context: context,
+                                                                            isScrollControlled: true,
+                                                                            backgroundColor: Colors.transparent,
+                                                                            builder: (ctx) {
+                                                                              return DeleteConfirmationBottomSheet(
+                                                                                name: activity.name,
+                                                                                type: 'Activity',
+                                                                                onDelete: () =>
+                                                                                    _deleteActivityFromSheet(ctx, activity),
+                                                                                onCancel: () {
+                                                                                  Navigator.of(ctx).pop();
+                                                                                },
+                                                                              );
+                                                                            },
+                                                                          );
+                                                                        },
+                                                                        child: PopupItem(
+                                                                          title: 'Delete',
+                                                                          icon: Icon(
+                                                                            Icons.delete,
+                                                                            color: AppColors
+                                                                                .themeColor,
+                                                                          ),
                                                                         ),
                                                                       ),
-                                                                    ),
+                                                                    ],
                                                                   ],
                                                                 ),
                                                               ],
