@@ -9,7 +9,6 @@ import 'package:wowcare/presentation/features/billing/view/parent_billing_screen
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 
@@ -146,11 +145,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case ForgotPasswordScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const ForgotPasswordScreen(),
-        settings: settings,
-      );
-    case RoleSelectionScreen.routeName:
-      return MaterialPageRoute(
-        builder: (_) => const RoleSelectionScreen(),
         settings: settings,
       );
     case FutureAvailabilityScreen.routeName:

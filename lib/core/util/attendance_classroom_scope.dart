@@ -1,13 +1,12 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 import '../storage/storage_service.dart';
 import 'storage_keys.dart';
-
-/// Must stay aligned with [RoleProvider] persona persistence (`selected_role`).
-const String kSelectedPersonaRoleKey = 'selected_role';
 
 /// Encode list query params (e.g. `allowedClassroomCodes`) like the attendance datasource.
 final Options attendanceListQueryOptions = Options(
@@ -21,10 +20,10 @@ final Options attendanceListQueryOptions = Options(
 Future<List<String>> resolveAttendanceAllowedClassroomCodes({
   required StorageService storage,
 }) async {
-  final prefs = await SharedPreferences.getInstance();
-  final role =
-      (prefs.getString(kSelectedPersonaRoleKey) ?? 'admin').trim().toLowerCase();
-  if (role != 'staff') {
+  final roleJson =
+      (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+  // Parent/guardian persona must never send scoped classroom codes.
+  if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
     return <String>[];
   }
 
@@ -34,22 +33,64 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
     return <String>[];
   }
 
+  List<String> _decodeCodes(String raw) {
+    if (raw.trim().isEmpty) return <String>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return <String>[];
+  }
+
   final raw =
       (await storage.getString(StorageKeys.staffAllowedClassroomCodes) ?? '')
           .trim();
-  if (raw.isEmpty) {
+  final cachedCodes = _decodeCodes(raw);
+  if (cachedCodes.isNotEmpty) {
+    return cachedCodes;
+  }
+
+  // Self-heal path:
+  // If cache is empty/stale, resolve logged-in staffCode and fetch profile once
+  // so attendance APIs can still be scoped correctly.
+  try {
+    final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+    if (staffCode.isEmpty) return <String>[];
+
+    final repo = serviceLocator<StaffRepository>();
+    // Use staff/{code}/profile (not my-profile), because my-profile payload
+    // may not include allowedClassroomCodes required for attendance scoping.
+    final profile = await repo.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+
+    final profileStaffType = profile.staffType.trim().toUpperCase();
+    if (profileStaffType.isNotEmpty) {
+      await storage.saveString(StorageKeys.staffType, profile.staffType);
+    }
+    await storage.saveString(
+      StorageKeys.staffAllowedClassroomCodes,
+      jsonEncode(profile.allowedClassroomCodes),
+    );
+
+    if (profileStaffType == 'SCHOOL_ADMIN' ||
+        profileStaffType == 'ORGANIZATION_ADMIN') {
+      return <String>[];
+    }
+
+    return profile.allowedClassroomCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  } catch (_) {
     return <String>[];
   }
-  try {
-    final decoded = jsonDecode(raw);
-    if (decoded is List) {
-      return decoded
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-    }
-  } catch (_) {}
-  return <String>[];
 }
 
 /// Adds [allowedClassroomCodes] to a JSON request body for attendance mutations.

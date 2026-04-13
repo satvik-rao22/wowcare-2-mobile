@@ -73,7 +73,6 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
   @override
   void dispose() {
-    _classroomCubit.close();
     super.dispose();
   }
 

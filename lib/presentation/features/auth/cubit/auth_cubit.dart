@@ -283,6 +283,7 @@ class AuthCubit extends Cubit<AuthState> {
                 try {
                   final profile = await staffRepository.getStaffProfile(
                     staffCode: trimmed,
+                    forEditStaff: true,
                   );
                   await storage.saveString(
                     StorageKeys.staffType,
@@ -523,7 +524,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Uses cached staffCode and prefetches the staff profile for the given
-  /// organization/school combination using the my-profile controller.
+  /// organization/school combination using the staff profile controller.
   ///
   /// This is used when switching organisations/schools so that
   /// `UserProfileScreen` can render immediately from cache without
@@ -540,22 +541,48 @@ class AuthCubit extends Cubit<AuthState> {
         login = await _localDataSource.getCachedLoginResponse();
       }
       if (login == null) return;
+      final org = organizationCode.trim();
+      final school = schoolCode.trim();
+      if (org.isEmpty || school.isEmpty) return;
 
+      // Only run for staff personas in the current org/school context.
       final storage = serviceLocator<StorageService>();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      if (shouldSkipStaffCodeResolutionForContext(
+        rolesJson: rolesJson,
+        organizationCode: org,
+        schoolCode: school,
+      )) {
+        return;
+      }
+
       final cachedStaffCode =
           (await storage.getString(StorageKeys.staffCode) ?? '').trim();
       final cachedStaffUser =
           (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-      final trimmed = (cachedStaffUser == login.userCode) ? cachedStaffCode : '';
-      if (trimmed.isEmpty) return;
+      String trimmed = (cachedStaffUser == login.userCode) ? cachedStaffCode : '';
 
       final staffRepository = serviceLocator<StaffRepository>();
+      if (trimmed.isEmpty) {
+        final resolved = await staffRepository.getStaffCodeForUser(
+          userCode: login.userCode,
+          organizationCode: org,
+          schoolCode: school,
+        );
+        trimmed = (resolved ?? '').trim();
+        if (trimmed.isEmpty) return;
+        await storage.saveString(StorageKeys.staffCode, trimmed);
+        await storage.saveString(StorageKeys.staffCodeUser, login.userCode);
+        await storage.saveString(StorageKeys.staffCodeOrganization, org);
+        await storage.saveString(StorageKeys.staffCodeSchool, school);
+      }
 
-      // Prefetch staff profile once using the my-profile controller so
+      // Prefetch staff profile using staff/{code}/profile so
       // profile screens can render from cache.
       try {
         final profile = await staffRepository.getStaffProfile(
           staffCode: trimmed,
+          forEditStaff: true,
         );
         await storage.saveString(
           StorageKeys.staffType,

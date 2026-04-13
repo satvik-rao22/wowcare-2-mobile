@@ -5,10 +5,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class RoleProvider extends ChangeNotifier {
-  static const String _roleKey = 'selected_role';
   String _role = 'admin'; // Default to admin
   final Set<String> _modulesWithRead = <String>{};
   final Set<String> _modulesWithWrite = <String>{};
@@ -29,14 +27,8 @@ class RoleProvider extends ChangeNotifier {
   bool get hasResolvedAccess => _initialized;
 
   Future<void> _bootstrap() async {
-    await _loadRole();
+    await _fallbackFromRole(serviceLocator<StorageService>());
     await refreshAccessFromServer();
-  }
-
-  Future<void> _loadRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    _role = prefs.getString(_roleKey) ?? 'admin';
-    notifyListeners();
   }
 
   Future<void> setRole(String role) async {
@@ -44,8 +36,6 @@ class RoleProvider extends ChangeNotifier {
       return;
     }
     _role = role;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_roleKey, role);
     notifyListeners();
   }
 
@@ -54,8 +44,6 @@ class RoleProvider extends ChangeNotifier {
     _modulesWithRead.clear();
     _modulesWithWrite.clear();
     _granularModuleAccess = false;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_roleKey);
     notifyListeners();
   }
 
@@ -131,13 +119,7 @@ class RoleProvider extends ChangeNotifier {
   }
 
   Future<void> _fallbackFromRole(StorageService storage) async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = (prefs.getString(_roleKey) ?? '').toLowerCase().trim();
-    if (stored == 'parent' || stored == 'staff' || stored == 'admin') {
-      _role = stored;
-      return;
-    }
-
+    // Fallback derives role from API-provided roles only.
     final roleJson = (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
     if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
       _role = 'parent';

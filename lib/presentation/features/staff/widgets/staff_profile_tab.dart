@@ -13,6 +13,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
@@ -39,6 +40,8 @@ class StaffProfileTab extends StatefulWidget {
 
 class _StaffProfileTabState extends State<StaffProfileTab> {
   late final StaffProfileCubit _profileCubit;
+  final Map<String, String> _resolvedClassroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = <String>{};
 
   @override
   void initState() {
@@ -115,6 +118,46 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
     if (local10.length != 10) return number;
     return '(${local10.substring(0, 3)}) ${local10.substring(3, 6)}-${local10.substring(6, 10)}';
+  }
+
+  String _displayClassroomName(String code) {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return '-';
+
+    final cachedFromParent = widget.classroomNameByCode?[trimmed]?.trim();
+    if (cachedFromParent != null && cachedFromParent.isNotEmpty) {
+      return cachedFromParent;
+    }
+
+    final local = _resolvedClassroomNameByCode[trimmed]?.trim();
+    if (local != null && local.isNotEmpty) {
+      return local;
+    }
+
+    if (!_classroomFetchInFlight.contains(trimmed)) {
+      _classroomFetchInFlight.add(trimmed);
+      // ignore: discarded_futures
+      _fetchClassroomNameByCode(trimmed);
+    }
+
+    return trimmed;
+  }
+
+  Future<void> _fetchClassroomNameByCode(String code) async {
+    try {
+      final details = await serviceLocator<GetClassroomByCodeUseCase>()(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _resolvedClassroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep showing code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
   }
 
   String _getStatusLabel(String? status) {
@@ -219,9 +262,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                 final primaryClassroomName =
                     profile.primaryClassroomCode.isEmpty
                         ? '-'
-                        : (widget.classroomNameByCode?[
-                                profile.primaryClassroomCode] ??
-                            profile.primaryClassroomCode);
+                        : _displayClassroomName(profile.primaryClassroomCode);
                 final designation = _formatEnumLabel(profile.designation);
                 widget.onProfileSummaryChanged!(
                   displayName,
@@ -284,14 +325,12 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                 GestureDetector(
                   onTap: () async {
                     // Map allowed/primary classroom codes to display names using cached metadata.
-                    final codeToName = widget.classroomNameByCode ?? const {};
                     final allowedClassroomNames = profile.allowedClassroomCodes
-                        .map((code) => codeToName[code] ?? code)
+                        .map(_displayClassroomName)
                         .toList();
                     final primaryClassroomName = profile.primaryClassroomCode.isEmpty
                         ? null
-                        : (codeToName[profile.primaryClassroomCode] ??
-                            profile.primaryClassroomCode);
+                        : _displayClassroomName(profile.primaryClassroomCode);
 
                     final result = await Navigator.push(
                       context,
@@ -409,8 +448,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                         profile.allowedClassroomCodes.length,
                         (index) {
                           final code = profile.allowedClassroomCodes[index];
-                          final name =
-                              widget.classroomNameByCode?[code] ?? code;
+                          final name = _displayClassroomName(code);
                           return _Chip(
                             label: name,
                             labelColor: const Color.fromRGBO(27, 35, 126, 1),
@@ -435,9 +473,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                       ),
                     )
                   : _Chip(
-                      label: widget.classroomNameByCode?[
-                              profile.primaryClassroomCode] ??
-                          profile.primaryClassroomCode,
+                      label: _displayClassroomName(profile.primaryClassroomCode),
                       labelColor: const Color.fromRGBO(27, 35, 126, 1),
                       color: chipColors.first,
                     ),

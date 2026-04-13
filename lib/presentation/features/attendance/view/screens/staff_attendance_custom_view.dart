@@ -19,6 +19,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
   const StaffAttendanceCustomView({
@@ -47,6 +48,10 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
 
   late final StaffAttendanceCustomCubit _cubit;
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _classroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -92,8 +97,57 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _customSearchController.removeListener(_onSearchChanged);
     _customSearchController.dispose();
     _scrollController.dispose();
-    _classroomCubit.close();
     super.dispose();
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null) return null;
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    final classrooms = _classroomCubit.state.classrooms;
+    for (final c in classrooms) {
+      if (c.code.trim() == trimmed) return c.name;
+    }
+    final cached = _classroomNameByCode[trimmed]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return null;
+  }
+
+  Future<void> _fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _classroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
+  }
+
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    final code = classroomCode.trim();
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+    if (code.isEmpty) return '';
+    final fromCubit = _resolveClassroomNameByCode(code);
+    if (fromCubit != null && fromCubit.trim().isNotEmpty) return fromCubit.trim();
+    if (!_classroomFetchInFlight.contains(code)) {
+      _classroomFetchInFlight.add(code);
+      // ignore: discarded_futures
+      _fetchClassroomName(code);
+    }
+    return code;
   }
 
   void _initializeDefaultRange() {
@@ -169,7 +223,11 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     // Apply classroom filter
     if (_selectedClassroomNames.isNotEmpty) {
       filtered = filtered.where((attendance) {
-        return _selectedClassroomNames.contains(attendance.roomName);
+        final display = _classroomDisplay(
+          classroomCode: attendance.classroomCode,
+          classroomName: attendance.classroomName,
+        );
+        return _selectedClassroomNames.contains(display);
       }).toList();
     }
 
@@ -225,7 +283,12 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                   designationName: _formatDesignation(
                       item.designation.isNotEmpty ? item.designation.first : null),
                   staffPhotoUuid: '',
-                  roomName: item.classroomName,
+                  classroomCode: item.classroomCode,
+                  classroomName: item.classroomName,
+                  roomName: _classroomDisplay(
+                    classroomCode: item.classroomCode,
+                    classroomName: item.classroomName,
+                  ),
                   daysAttended: item.attendedDays.toString(),
                   totalHours: item.attendedTime ?? '',
                   expectedToday: item.isExpectedToday,
@@ -622,6 +685,8 @@ class _CustomStaffAttendanceRow {
   final String staffName;
   final String? designationName;
   final String staffPhotoUuid;
+  final String classroomCode;
+  final String classroomName;
   final String roomName;
   final String daysAttended;
   final String totalHours;
@@ -636,6 +701,8 @@ class _CustomStaffAttendanceRow {
     required this.staffName,
     this.designationName,
     required this.staffPhotoUuid,
+    required this.classroomCode,
+    required this.classroomName,
     required this.roomName,
     required this.daysAttended,
     required this.totalHours,

@@ -25,6 +25,7 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_c
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -58,6 +59,10 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
 
   late final StudentAttendanceCustomCubit _cubit;
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _classroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -90,7 +95,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   Future<void> _loadClassroomData() async {
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      onlyTypeClassroom: true,
+      // Transfers / historical attendance can reference non-CLASSROOM locations.
+      // Load all types so classroomCode → name resolution and filters work reliably.
+      onlyTypeClassroom: false,
     );
 
     // Mark ready immediately if data already exists.
@@ -121,8 +128,56 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _customSearchController.dispose();
     _scrollController.dispose();
     _cubit.close();
-    _classroomCubit.close();
     super.dispose();
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null) return null;
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    for (final c in _classroomCubit.state.classrooms) {
+      if (c.code.trim() == trimmed) return c.name;
+    }
+    final cached = _classroomNameByCode[trimmed]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return null;
+  }
+
+  Future<void> _fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _classroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
+  }
+
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    final code = classroomCode.trim();
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+    if (code.isEmpty) return '';
+    final resolved = _resolveClassroomNameByCode(code);
+    if (resolved != null && resolved.trim().isNotEmpty) return resolved.trim();
+    if (!_classroomFetchInFlight.contains(code)) {
+      _classroomFetchInFlight.add(code);
+      // ignore: discarded_futures
+      _fetchClassroomName(code);
+    }
+    return code;
   }
 
   @override
@@ -279,9 +334,13 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       final matchesSearch =
           q.isEmpty || item.studentName.toLowerCase().contains(q);
 
+      final classroomDisplay = _classroomDisplay(
+        classroomCode: item.classroomCode,
+        classroomName: item.classroomName,
+      );
       final matchesClassroom =
           _selectedClassroomNames.isEmpty ||
-              _selectedClassroomNames.contains(item.classroomName);
+              _selectedClassroomNames.contains(classroomDisplay);
 
       if (matchesSearch && matchesClassroom) {
         filtered.add(
@@ -311,7 +370,10 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     studentCode: item.studentCode,
       studentId: index,
       studentName: item.studentName,
-      roomName: item.classroomName,
+      roomName: _classroomDisplay(
+        classroomCode: item.classroomCode,
+        classroomName: item.classroomName,
+      ),
       daysAttended: daysAttended,
       totalHours: totalHours,
       expectedToday: item.isExpectedToday,
@@ -587,11 +649,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final totalHours = attendance.totalHours.isNotEmpty ? attendance.totalHours : '0 Hrs 0 Mins';
 
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final dotSize = responsive.isTablet ? 14.0 : 12.0;
-
-    final bool showGreenDot =
-        attendance.hasSignIn && (attendance.signOutTime == null || attendance.signOutTime!.isEmpty);
-    final bool showRedDot = !attendance.hasSignIn && attendance.expectedToday == true;
 
     return GestureDetector(
       onTap: () {

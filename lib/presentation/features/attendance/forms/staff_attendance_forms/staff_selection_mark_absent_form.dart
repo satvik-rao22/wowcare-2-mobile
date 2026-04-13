@@ -72,13 +72,10 @@ class _StaffSelectionMarkAbsentFormState
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
-    _classroomCubit.close();
     super.dispose();
   }
 
   void _onSearchChanged() => _loadStaff();
-
-  void _filterStaff() {}
 
   void _toggleSelectAll(bool? value) {
     if (value == null) return;

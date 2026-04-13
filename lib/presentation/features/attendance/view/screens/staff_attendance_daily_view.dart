@@ -160,7 +160,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   }
 
   Future<void> _loadClassroomData() async {
-    _classroomCubit.loadActiveClassrooms();
+    // Transfers can involve non-CLASSROOM locations; load all types to maximize
+    // classroomCode → name resolution across the app.
+    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -201,7 +203,6 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     _searchController.dispose();
     _scrollController.dispose();
     _absentToggleCubit.close();
-    _classroomCubit.close();
     super.dispose();
   }
 
@@ -314,21 +315,54 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   }
 
   String? _resolveClassroomNameByCode(String? code) {
-    if (code == null || code.isEmpty) return null;
+    final target = (code ?? '').trim();
+    if (target.isEmpty) return null;
     final classrooms = _classroomCubit.state.classrooms;
     if (classrooms.isEmpty) return null;
     for (final c in classrooms) {
-      if (c.code == code) {
-        return c.name;
+      if (c.code.trim() == target) {
+        final name = c.name.trim();
+        return name.isNotEmpty ? name : target;
       }
     }
     return null;
   }
 
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    final code = classroomCode.trim();
+
+    // Some backend rows incorrectly return classroomName as the code (e.g. "CLS_...").
+    // Treat that as "missing name" so we can resolve via cubit / fallback fetch.
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+
+    if (code.isEmpty) return '';
+
+    final fromCubit = _resolveClassroomNameByCode(code);
+    if (fromCubit != null && fromCubit.trim().isNotEmpty) return fromCubit.trim();
+
+    final cached = _absentToggleClassroomNameByCode[code]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+
+    // Fallback: fetch by code once and update UI when it arrives.
+    if (!_absentToggleClassroomFetchInFlight.contains(code)) {
+      _absentToggleClassroomFetchInFlight.add(code);
+      unawaited(_fetchStaffAbsentToggleClassroomName(code));
+    }
+    return code;
+  }
+
   String _staffAbsentToggleClassroomDisplay(StaffAttendanceAbsentItem item) {
     final apiName = item.classroomName.trim();
-    if (apiName.isNotEmpty) return apiName;
     final code = item.classroomCode.trim();
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
     if (code.isEmpty) return '';
     final fromCubit = _resolveClassroomNameByCode(code);
     if (fromCubit != null) return fromCubit;
@@ -751,8 +785,17 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           staffName: item.staffName,
           staffPhotoUuid: null,
           designationName: formattedDesignation,
-          roomName:
-              _resolveClassroomNameByCode(item.classroomCode) ?? item.classroomCode,
+          roomName: _classroomDisplay(
+            // Transfer rows may populate `toClassroom*` instead of `classroom*`.
+            classroomCode: (item.isTransfer == true &&
+                    (item.toClassroomCode ?? '').trim().isNotEmpty)
+                ? item.toClassroomCode!
+                : item.classroomCode,
+            classroomName: (item.isTransfer == true &&
+                    (item.toClassroomName ?? '').trim().isNotEmpty)
+                ? item.toClassroomName!
+                : item.classroomName,
+          ),
           expectedToday: item.isExpectedToday,
           hasSignIn: item.hasSignIn,
           signInTime: effectiveSignIn ?? item.formattedSignInTime,

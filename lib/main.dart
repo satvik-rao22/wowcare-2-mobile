@@ -282,6 +282,16 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         // If we have a cached login, navigation always follows login-context:
         if (hasCachedLogin) {
           await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+          final orgCode =
+              (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+          final schoolCode =
+              (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+          if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
+            await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
+                  organizationCode: orgCode,
+                  schoolCode: schoolCode,
+                );
+          }
           if (redirectUrl != null && redirectUrl.isNotEmpty) {
             final url = redirectUrl.toLowerCase();
             if (url.contains('select-school')) {

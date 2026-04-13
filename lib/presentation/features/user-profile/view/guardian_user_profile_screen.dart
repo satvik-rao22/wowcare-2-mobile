@@ -13,7 +13,7 @@ import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
-import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -190,11 +190,9 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
   }
 
   void _switchProfile() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => const RoleSelectionScreen(),
-      ),
-    );
+    // Role/persona is now API-driven. Refresh access context and return to dashboard.
+    context.read<RoleProvider>().refreshAccessFromServer(force: true);
+    Navigator.of(context).pushReplacementNamed(DashboardScreen.routeName);
   }
 
   void _showMediaSourceDialog() {

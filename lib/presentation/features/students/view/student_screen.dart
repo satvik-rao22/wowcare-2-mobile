@@ -77,7 +77,6 @@ class _StudentScreenState extends State<StudentScreen> {
   int _expectedAbsent = 0;
   int _expectedSignedOut = 0;
   int _expectedNotMarked = 0;
-  bool _expectedStudentsSummaryLoading = true;
   bool _isAttendanceActionLoading = false;
   final Map<String, String> _attendanceStatusByStudentCode =
       <String, String>{};
@@ -179,9 +178,6 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _loadExpectedStudentsSummary() async {
     if (!mounted) return;
-    setState(() {
-      _expectedStudentsSummaryLoading = true;
-    });
     try {
       final useCase = serviceLocator<GetStudentAttendanceExpectedSummaryUseCase>();
       final summary = await useCase();
@@ -192,7 +188,6 @@ class _StudentScreenState extends State<StudentScreen> {
         _expectedAbsent = summary.absent;
         _expectedSignedOut = summary.signOut;
         _expectedNotMarked = summary.notMarked;
-        _expectedStudentsSummaryLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
@@ -202,7 +197,6 @@ class _StudentScreenState extends State<StudentScreen> {
         _expectedAbsent = 0;
         _expectedSignedOut = 0;
         _expectedNotMarked = 0;
-        _expectedStudentsSummaryLoading = false;
       });
     }
   }
@@ -430,7 +424,7 @@ class _StudentScreenState extends State<StudentScreen> {
   Map<String, dynamic> _studentToMap(Student student) {
     return {
       'name': student.fullName,
-      'Classroom': student.classroom,
+      'Classroom': _classroomDisplayName(student.classroom),
       'Tags': student.tags,
       // Use schedule derived from regularSchedules if available; otherwise empty.
       'schedule': student.schedule,
@@ -462,6 +456,23 @@ class _StudentScreenState extends State<StudentScreen> {
   }
 
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
+
+  String _classroomDisplayName(String rawCodeOrName) {
+    final value = rawCodeOrName.trim();
+    if (value.isEmpty) return value;
+    try {
+      final classrooms = context.read<ClassroomCubit>().state.classrooms;
+      for (final c in classrooms) {
+        if (c.code.trim() == value) {
+          final name = c.name.trim();
+          return name.isNotEmpty ? name : value;
+        }
+      }
+    } catch (_) {
+      // Fall back to raw value when ClassroomCubit isn't available.
+    }
+    return value;
+  }
 
   List<Student> _getSelectedStudents(List<Student> students) {
     final selected = <Student>[];
@@ -1163,45 +1174,26 @@ class _StudentScreenState extends State<StudentScreen> {
                       ];
                       return Container(
                         margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
-                        child: Stack(
-                          children: [
-                            CustomStatBarCard(
-                              title: 'Expected\nStudents',
-                              number: '$_expectedStudentsTotal',
-                              items: items,
-                              fullWidthBar: false,
-                              onLegendTap: (String label, String? filterValue) {
-                                final status = label.split(' ').first;
-                                if (status == 'Signed-In' ||
-                                    status == 'Absent' ||
-                                    status == 'Signed' ||
-                                    status == 'Not') {
-                                  if (status == 'Signed') {
-                                    _openStudentAttendanceWithLegendFilter('Signed Out');
-                                  } else if (status == 'Not') {
-                                    _openStudentAttendanceWithLegendFilter('Not Marked');
-                                  } else {
-                                    _openStudentAttendanceWithLegendFilter(status);
-                                  }
-                                }
-                              },
-                            ),
-                            if (_expectedStudentsSummaryLoading)
-                              Positioned.fill(
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.65),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const SizedBox(
-                                    width: 28,
-                                    height: 28,
-                                    child: PrimaryCircularLoader(),
-                                  ),
-                                ),
-                              ),
-                          ],
+                        child: CustomStatBarCard(
+                          title: 'Expected\nStudents',
+                          number: '$_expectedStudentsTotal',
+                          items: items,
+                          fullWidthBar: false,
+                          onLegendTap: (String label, String? filterValue) {
+                            final status = label.split(' ').first;
+                            if (status == 'Signed-In' ||
+                                status == 'Absent' ||
+                                status == 'Signed' ||
+                                status == 'Not') {
+                              if (status == 'Signed') {
+                                _openStudentAttendanceWithLegendFilter('Signed Out');
+                              } else if (status == 'Not') {
+                                _openStudentAttendanceWithLegendFilter('Not Marked');
+                              } else {
+                                _openStudentAttendanceWithLegendFilter(status);
+                              }
+                            }
+                          },
                         ),
                       );
                     },

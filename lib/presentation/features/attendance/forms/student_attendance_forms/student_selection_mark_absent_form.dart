@@ -67,7 +67,6 @@ class _StudentSelectionMarkAbsentFormState
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
-    _classroomCubit.close();
     super.dispose();
   }
 

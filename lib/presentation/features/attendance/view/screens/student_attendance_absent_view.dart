@@ -32,6 +32,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -110,6 +111,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   // Loading state for individual buttons
   final Map<int, bool> _loadingButtons = {};
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _classroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -205,8 +210,54 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchDebounceTimer?.cancel();
-    _classroomCubit.close();
     super.dispose();
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null) return null;
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    for (final c in _classroomCubit.state.classrooms) {
+      if (c.code.trim() == trimmed) return c.name;
+    }
+    final cached = _classroomNameByCode[trimmed]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return null;
+  }
+
+  Future<void> _fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _classroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
+  }
+
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    if (apiName.isNotEmpty) return apiName;
+    final code = classroomCode.trim();
+    if (code.isEmpty) return '';
+    final resolved = _resolveClassroomNameByCode(code);
+    if (resolved != null && resolved.trim().isNotEmpty) return resolved.trim();
+    if (!_classroomFetchInFlight.contains(code)) {
+      _classroomFetchInFlight.add(code);
+      // ignore: discarded_futures
+      _fetchClassroomName(code);
+    }
+    return code;
   }
 
   void _initializeDefaultRange() {
@@ -527,8 +578,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
       final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
       final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
-      final roomDisplay =
-          classroomName.isNotEmpty ? classroomName : classroomCode;
+      final roomDisplay = _classroomDisplay(
+        classroomCode: classroomCode,
+        classroomName: classroomName,
+      );
 
       return _AbsentStudentModel(
         id: (m['studentCode'] as String?) ?? '',

@@ -72,7 +72,6 @@ class _StaffSelectionTransferFormState
   @override
   void dispose() {
     _searchController.dispose();
-    _classroomCubit.close();
     super.dispose();
   }
 

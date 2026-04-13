@@ -288,17 +288,27 @@ class CustomStatBarCard extends StatelessWidget {
                                     child: Container(color: Colors.grey[300]))
                               ]
                             : [
-                                ...barItems.map((item) => Expanded(
-                                      flex: hasValidTotal
-                                          ? (item.value * 100 ~/ total)
-                                          : 1,
-                                      child: Container(color: item.color),
-                                    )),
+                                // Use a higher-resolution flex so small values don't round to 0.
+                                // If a segment has value > 0, it must have at least 1 flex.
+                                ...barItems
+                                    .where((item) => item.value > 0)
+                                    .map((item) {
+                                  final computed =
+                                      ((item.value / total) * 1000).round();
+                                  final flex = computed <= 0 ? 1 : computed;
+                                  return Expanded(
+                                    flex: flex,
+                                    child: Container(color: item.color),
+                                  );
+                                }),
                                 if (sumValues < total)
                                   Expanded(
-                                    flex: hasValidTotal
-                                        ? ((total - sumValues) * 100 ~/ total)
-                                        : 1,
+                                    flex: (() {
+                                      final remaining = total - sumValues;
+                                      final computed =
+                                          ((remaining / total) * 1000).round();
+                                      return computed <= 0 ? 1 : computed;
+                                    })(),
                                     child: Container(color: Colors.grey[300]),
                                   ),
                               ],

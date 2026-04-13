@@ -88,7 +88,6 @@ class _StudentSelectionSignOutFormState
   @override
   void dispose() {
     _searchController.dispose();
-    _classroomCubit.close();
     super.dispose();
   }
 
