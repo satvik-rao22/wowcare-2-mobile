@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -132,6 +134,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   final Set<String> _parentAllowedStudentCodes = {};
   final Map<String, String> _parentStudentClassroomByCode = {};
   bool _loadingParentContext = false;
+  String? _lastGlobalSelectedStudentCode;
 
   late final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
@@ -530,6 +533,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _parentStudentClassroomByCode[code] = cc;
       }
 
+      // Parent UX: use the child currently selected in the global dropdown.
+      final globalSelectedCode =
+          (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+      if (globalSelectedCode.isNotEmpty) {
+        final selectedClassroom = _parentStudentClassroomByCode[globalSelectedCode];
+        _parentAllowedStudentCodes
+          ..clear()
+          ..add(globalSelectedCode);
+        _parentStudentClassroomByCode
+          ..clear();
+        if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
+          _parentStudentClassroomByCode[globalSelectedCode] =
+              selectedClassroom.trim();
+        }
+        _lastGlobalSelectedStudentCode = globalSelectedCode;
+      }
+
       if (_parentAllowedStudentCodes.isEmpty) {
         if (mounted) {
           setState(() {
@@ -560,6 +580,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
     }
+  }
+
+  void _syncWithGlobalChildSelection() {
+    if (!_parentHome) return;
+    final globalSelectedCode =
+        (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+    if (globalSelectedCode.isEmpty) return;
+    if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
+
+    _lastGlobalSelectedStudentCode = globalSelectedCode;
+
+    // If we don't have parent context yet (or classroom mapping for this child),
+    // bootstrap first, then the feed load will be scoped to the selected child.
+    if (_parentStudentClassroomByCode[globalSelectedCode] == null) {
+      _bootstrapParentHome();
+      return;
+    }
+
+    _parentAllowedStudentCodes
+      ..clear()
+      ..add(globalSelectedCode);
+
+    _loadDailyFeed(refresh: true);
   }
 
   Future<void> _reloadStudentsAndSettings() async {
@@ -1304,12 +1347,24 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // Listen to global child dropdown. When ParentChildProvider notifies,
+    // this widget rebuilds and we can refresh the feed for the selected child.
+    if (_parentHome) {
+      context.watch<ParentChildProvider>().selectedChild?.code;
+    }
+    if (_parentHome) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncWithGlobalChildSelection();
+      });
+    }
     return OrientationBuilder(
         builder: (context, orientation){
           if(orientation == Orientation.landscape){
             return CustomRefreshIndicator(
               onRefresh: _onRefresh,
               child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 controller: _feedScrollController,
                 slivers: [
                 SliverToBoxAdapter(child: Padding(
@@ -1466,7 +1521,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                           ),
                   ),
                 ),),
-                SliverToBoxAdapter(child: SizedBox(height: 12,),),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: _parentHome ? 0 : 12),
+                ),
                 if ((_loadingFeed || _loadingParentContext) &&
                     _activities.isEmpty)
                   SliverToBoxAdapter(child: _dailyFeedLoadingSheet(context)),
@@ -1781,13 +1838,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                   ),
                                                                 ),
                                                               ),
-                                                              PopupMenuButton<String>(
-                                                                icon: const Icon(
-                                                                  Icons.more_horiz,
-                                                                  size: 20,
-                                                                ),
-                                                                onSelected: null,
-                                                                itemBuilder: (context) => [
+                                                              if (isNotParent)
+                                                                PopupMenuButton<String>(
+                                                                  icon: const Icon(
+                                                                    Icons.more_horiz,
+                                                                    size: 20,
+                                                                  ),
+                                                                  onSelected: null,
+                                                                  itemBuilder: (context) => [
                                                                   PopupMenuItem<String>(
                                                                     value: 'view',
                                                                     child: PopupItem(
@@ -1888,8 +1946,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                       },
                                                                     ),
                                                                   ],
-                                                                ],
-                                                              ),
+                                                                  ],
+                                                                ),
                                                             ],
                                                           ),
                                                           const SizedBox(height: 10),
@@ -2893,6 +2951,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                           const SizedBox(height: 10),
                           Expanded(
                             child: ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
                               controller: _feedScrollController,
                               padding: EdgeInsets.zero,
                               itemCount: _activities.length +
@@ -3164,13 +3223,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                PopupMenuButton<String>(
-                                                                  icon: const Icon(
-                                                                    Icons.more_horiz,
-                                                                    size: 20,
-                                                                  ),
-                                                                  onSelected: null,
-                                                                  itemBuilder: (context) => [
+                                                                if (isNotParent)
+                                                                  PopupMenuButton<String>(
+                                                                    icon: const Icon(
+                                                                      Icons.more_horiz,
+                                                                      size: 20,
+                                                                    ),
+                                                                    onSelected: null,
+                                                                    itemBuilder: (context) => [
                                                                     PopupMenuItem<String>(
                                                                       value: 'view',
                                                                       child: PopupItem(
@@ -3271,8 +3331,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                         ),
                                                                       ),
                                                                     ],
-                                                                  ],
-                                                                ),
+                                                                    ],
+                                                                  ),
                                                               ],
                                                             ),
                                                             const SizedBox(height: 10),
@@ -3414,7 +3474,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(

@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -107,6 +109,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   bool _loadingParentContext = false;
   bool _isFeedRequestInFlight = false;
   String? _lastFeedRequestKey;
+  String? _lastGlobalSelectedStudentCode;
   DateTime? _lastFeedCompletedAt;
   bool _lastFeedCompletedWithError = false;
   String? _lastResolvedClassroomCode;
@@ -895,6 +898,23 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         _parentStudentClassroomByCode[code] = cc;
       }
 
+      // Parent UX: use the child currently selected in the global dropdown.
+      final globalSelectedCode =
+          (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+      if (globalSelectedCode.isNotEmpty) {
+        final selectedClassroom =
+            _parentStudentClassroomByCode[globalSelectedCode];
+        _parentAllowedStudentCodes
+          ..clear()
+          ..add(globalSelectedCode);
+        _parentStudentClassroomByCode..clear();
+        if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
+          _parentStudentClassroomByCode[globalSelectedCode] =
+              selectedClassroom.trim();
+        }
+        _lastGlobalSelectedStudentCode = globalSelectedCode;
+      }
+
       if (_parentAllowedStudentCodes.isEmpty) {
         if (mounted) {
           setState(() {
@@ -1252,13 +1272,47 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     }
   }
 
+  void _syncWithGlobalChildSelection() {
+    if (!_parentHome) return;
+    final globalSelectedCode =
+        (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+    if (globalSelectedCode.isEmpty) return;
+    if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
+
+    _lastGlobalSelectedStudentCode = globalSelectedCode;
+
+    // If we don't yet have classroom mapping for this child, bootstrap first.
+    if (_parentStudentClassroomByCode[globalSelectedCode] == null) {
+      _bootstrapParentHome();
+      return;
+    }
+
+    _parentAllowedStudentCodes
+      ..clear()
+      ..add(globalSelectedCode);
+
+    _loadRangeFeed(refresh: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // Listen to global child dropdown. When ParentChildProvider notifies,
+    // this widget rebuilds and we can refresh the feed for the selected child.
+    if (_parentHome) {
+      context.watch<ParentChildProvider>().selectedChild?.code;
+    }
+    if (_parentHome) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncWithGlobalChildSelection();
+      });
+    }
     return OrientationBuilder(
         builder: (context, orientation){
           if(orientation == Orientation.landscape){
             return CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               controller: _feedScrollController,
               slivers: [
                 SliverToBoxAdapter(child:  Padding(
@@ -1406,7 +1460,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                           ),
                   ),
                 ),),
-                SliverToBoxAdapter(child: SizedBox(height: 12,),),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: _parentHome ? 0 : 12),
+                ),
                 if (_loadingParentContext && activities.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -1725,13 +1781,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                   ),
                                                                 ),
                                                               ),
-                                                              PopupMenuButton<String>(
-                                                                icon: const Icon(
-                                                                  Icons.more_horiz,
-                                                                  size: 20,
-                                                                ),
-                                                                onSelected: null,
-                                                                itemBuilder: (context) => [
+                                                              if (isNotParent)
+                                                                PopupMenuButton<String>(
+                                                                  icon: const Icon(
+                                                                    Icons.more_horiz,
+                                                                    size: 20,
+                                                                  ),
+                                                                  onSelected: null,
+                                                                  itemBuilder: (context) => [
                                                                   PopupMenuItem<String>(
                                                                     value: 'view',
                                                                     child: PopupItem(
@@ -1832,8 +1889,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                       },
                                                                     ),
                                                                   ],
-                                                                ],
-                                                              ),
+                                                                  ],
+                                                                ),
                                                             ],
                                                           ),
                                                           const SizedBox(height: 10),
@@ -2368,13 +2425,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                               ),
                                                             ),
                                                           ),
-                                                          PopupMenuButton<String>(
-                                                            icon: const Icon(
-                                                              Icons.more_horiz,
-                                                              size: 20,
-                                                            ),
-                                                            onSelected: null,
-                                                            itemBuilder: (context) => [
+                                                          if (isNotParent)
+                                                            PopupMenuButton<String>(
+                                                              icon: const Icon(
+                                                                Icons.more_horiz,
+                                                                size: 20,
+                                                              ),
+                                                              onSelected: null,
+                                                              itemBuilder: (context) => [
                                                               PopupMenuItem<String>(
                                                                 value: 'view',
                                                                 child: PopupItem(
@@ -2475,8 +2533,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                   },
                                                                 ),
                                                               ],
-                                                            ],
-                                                          ),
+                                                              ],
+                                                            ),
                                                         ],
                                                       ),
                                                       const SizedBox(height: 10),
@@ -2794,6 +2852,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                           const SizedBox(height: 10),
                           Expanded(
                             child: ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
                               controller: _feedScrollController,
                               padding: EdgeInsets.zero,
                               itemCount: activities.length +
@@ -3044,13 +3103,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                PopupMenuButton<String>(
-                                                                  icon: const Icon(
-                                                                    Icons.more_horiz,
-                                                                    size: 20,
-                                                                  ),
-                                                                  onSelected: null,
-                                                                  itemBuilder: (context) => [
+                                                                if (isNotParent)
+                                                                  PopupMenuButton<String>(
+                                                                    icon: const Icon(
+                                                                      Icons.more_horiz,
+                                                                      size: 20,
+                                                                    ),
+                                                                    onSelected: null,
+                                                                    itemBuilder: (context) => [
                                                                     PopupMenuItem<String>(
                                                                       value: 'view',
                                                                       child: PopupItem(
@@ -3151,8 +3211,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                         },
                                                                       ),
                                                                     ],
-                                                                  ],
-                                                                ),
+                                                                    ],
+                                                                  ),
                                                               ],
                                                             ),
                                                             const SizedBox(height: 10),
@@ -3948,7 +4008,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
