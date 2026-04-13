@@ -10,12 +10,13 @@ plugins {
 
 android {
     namespace = "com.wiseowl.wowcareapp"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+
         isCoreLibraryDesugaringEnabled = true
     }
 
@@ -26,7 +27,7 @@ android {
     defaultConfig {
         applicationId = "com.wiseowl.wowcareapp"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 

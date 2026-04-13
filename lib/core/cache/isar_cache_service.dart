@@ -24,7 +24,7 @@ class IsarCacheService implements CacheService {
   Future<void> putAll<T>(List<T> items) async {
     await _isar.writeTxn(() async {
       if (items is List<MessageCollection>) {
-        await _isar.messageCollections.putAll(items);
+        await _isar.messageCollections.putAll(items.cast<MessageCollection>());
       }
     });
   }
@@ -49,9 +49,10 @@ class IsarCacheService implements CacheService {
   Future<List<T>> getByField<T>(String fieldName, dynamic value) async {
     if (T == MessageCollection && fieldName == 'threadId') {
       return await _isar.messageCollections
-          .filter()
-          .threadIdEqualTo(value as String)
-          .findAll() as List<T>;
+              .filter()
+              .threadIdEqualTo(value as String)
+              .findAll()
+          as List<T>;
     }
     return [];
   }
