@@ -302,4 +302,6 @@ class MediaRes {
   static const String gpsMethodIcon = '$_baseIcons/Gps_fixed.svg';
   static const String pinMethodIcon = '$_baseIcons/pin.svg';
   static const String qrAttendanceIcon = '$_baseIcons/qr_attendance.svg';
+  static const String webMethodIcon = '$_baseIcons/desktop-icon.svg';
+  static const String appMethodIcon = '$_baseIcons/mobile-icon.svg';
 }

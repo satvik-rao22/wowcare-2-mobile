@@ -12,6 +12,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -349,9 +350,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     };
 
     try {
+      final body = Map<String, dynamic>.from(payload);
+      await applyAllowedClassroomCodesToAttendanceBody(
+        body,
+        serviceLocator<StorageService>(),
+      );
       final response = await client.post<dynamic>(
         endpoint,
-        data: payload,
+        data: body,
       );
 
       final data = response.data;

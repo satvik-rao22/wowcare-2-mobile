@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -16,13 +15,16 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 // Student entity for Sign-Out UI & API payload
@@ -329,6 +331,10 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           queryParameters = {'guardianCode': g.toString().trim()};
         }
       }
+      await applyAllowedClassroomCodesToAttendanceBody(
+        body,
+        serviceLocator<StorageService>(),
+      );
       final response = await client.post<dynamic>(
         endpoint,
         queryParameters: queryParameters,
@@ -359,12 +365,36 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       );
 
       if (success) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const StudentAttendanceTabbedView(),
-          ),
-          (route) => false,
-        );
+        if (isParent) {
+          final s = currentStudents.first;
+          if (context.mounted) {
+            context.read<ParentChildProvider>().selectByCode(s.studentCode);
+          }
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(
+                name: StudentAttendanceProfile.routeName,
+              ),
+              builder: (_) => StudentAttendanceProfile(
+                studentCode: s.studentCode,
+                studentId: s.id,
+                studentName: s.fullName,
+                studentPhotoUuid: s.photoUuid,
+                roomName: s.roomName,
+                isSignedIn: false,
+                syncWithParentChildSelection: true,
+              ),
+            ),
+            (route) => false,
+          );
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const StudentAttendanceTabbedView(),
+            ),
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;

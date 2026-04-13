@@ -6,6 +6,8 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -191,9 +193,14 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
         ApiConstants.attendanceBaseUrl,
       );
 
+      final body = Map<String, dynamic>.from(payload);
+      await applyAllowedClassroomCodesToAttendanceBody(
+        body,
+        serviceLocator<StorageService>(),
+      );
       final response = await client.patch<Map<String, dynamic>>(
         endpoint,
-        data: payload,
+        data: body,
       );
 
       final message =

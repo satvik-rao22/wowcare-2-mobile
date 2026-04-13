@@ -13,6 +13,12 @@ class DocumentImageWidget extends StatefulWidget {
   /// Optional staff code for attendance status dot.
   final String? staffCode;
 
+  /// Employment/list status (e.g. `UPCOMING`) — shows amber dot, takes precedence over attendance API.
+  final String? staffEmploymentStatus;
+
+  /// Enrollment/list status (e.g. `UPCOMING`) — amber dot, takes precedence over attendance API.
+  final String? studentEnrollmentStatus;
+
   /// Optional student code for attendance status dot.
   final String? studentCode;
   final double size;
@@ -35,6 +41,8 @@ class DocumentImageWidget extends StatefulWidget {
     required this.fileUuid,
     this.name,
     this.staffCode,
+    this.staffEmploymentStatus,
+    this.studentEnrollmentStatus,
     this.studentCode,
     this.size = 50.0,
     this.placeholderAsset,
@@ -78,12 +86,34 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     }
 
     if (oldWidget.staffCode != widget.staffCode ||
+        oldWidget.staffEmploymentStatus != widget.staffEmploymentStatus ||
+        oldWidget.studentEnrollmentStatus != widget.studentEnrollmentStatus ||
         oldWidget.studentCode != widget.studentCode) {
       _loadAttendanceStatusIfNeeded();
     }
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
+    final employment = widget.staffEmploymentStatus?.trim().toUpperCase() ?? '';
+    if (employment == 'UPCOMING') {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = AppColors.mustardProgressBar;
+        _statusLabel = 'Upcoming';
+      });
+      return;
+    }
+
+    final enrollment = widget.studentEnrollmentStatus?.trim().toUpperCase() ?? '';
+    if (enrollment == 'UPCOMING') {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = AppColors.mustardProgressBar;
+        _statusLabel = 'Upcoming';
+      });
+      return;
+    }
+
     // Only one of staffCode / studentCode is expected; if both null, do nothing.
     final staffCode = widget.staffCode;
     final studentCode = widget.studentCode;
@@ -206,8 +236,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               fontWeight: FontWeight.w600,
             ),
             child: Container(
-              width: widget.size * 0.3,
-              height: widget.size * 0.3,
+              width: widget.size * 0.27,
+              height: widget.size * 0.27,
               decoration: BoxDecoration(
                 color: dotColor,
                 shape: BoxShape.circle,
@@ -222,6 +252,16 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   String _statusTooltipMessage() {
     if (_statusLabel != null) {
+      if (_statusLabel == 'Upcoming' &&
+          widget.staffCode != null &&
+          widget.staffCode!.isNotEmpty) {
+        return 'Upcoming staff';
+      }
+      if (_statusLabel == 'Upcoming' &&
+          widget.studentCode != null &&
+          widget.studentCode!.isNotEmpty) {
+        return 'Upcoming student';
+      }
       // Prefix with "Staff"/"Student" when we know which one it is.
       if (widget.staffCode != null && widget.staffCode!.isNotEmpty) {
         return 'Staff is ${_statusLabel!.toLowerCase()}';

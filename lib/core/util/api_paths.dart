@@ -377,6 +377,10 @@ class ApiPaths {
 
   static const String studentAbsenceRecordsMarkAbsent =
       '/api/v1/student-absence-records/mark-absent';
+
+  /// DELETE a student absence record by record code (override sign-in).
+  static String studentAbsenceRecordByCode(String absenceRecordCode) =>
+      '/api/v1/student-absence-records/$absenceRecordCode';
   static const String studentAttendanceRecords = '/api/v1/student-attendance-records';
   static const String studentAttendanceRecordsSignIn =
       '/api/v1/student-attendance-records/sign-in';

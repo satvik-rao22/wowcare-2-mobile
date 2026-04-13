@@ -76,10 +76,10 @@ class StaffAttendanceSummary extends StatelessWidget {
           number: expected.toString(),
           items: [
             ProgressItemHelper(
-              label: 'Present ($present)',
+              label: 'Signed-In ($present)',
               value: present.toDouble(),
               color: AppColors.lightGreenProgressBar,
-              filterValue: 'Present',
+              filterValue: 'Signed-In',
             ),
             ProgressItemHelper(
               label: 'Absent ($absent)',
@@ -103,7 +103,10 @@ class StaffAttendanceSummary extends StatelessWidget {
           onLegendTap: onLegendTap != null
               ? (label, filterValue) {
                   final status = label.split(' ').first;
-                  if (status == 'Present' || status == 'Absent' || status == 'Signed' || status == 'Not') {
+                  if (status == 'Signed-In' ||
+                      status == 'Absent' ||
+                      status == 'Signed' ||
+                      status == 'Not') {
                     if (status == 'Signed') {
                       onLegendTap!('Signed Out');
                     } else if (status == 'Not') {

@@ -378,6 +378,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           roomName: item.classroomName,
           classroomCode: item.classroomCode,
           photoUuid: null,
+          isExpectedToday: item.isExpectedToday,
         );
       }
 
@@ -1038,6 +1039,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                       'status': []
                                     },
                                     studentCode: student.studentCode,
+                                    initialEnrollmentStatus: student.status,
                                   ),
                                 ),
                               );

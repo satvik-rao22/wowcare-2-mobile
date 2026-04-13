@@ -419,6 +419,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             studentPhotoUuid: null,
             roomName: roomName,
             isSignedIn: isSignedIn,
+            syncWithParentChildSelection: true,
           ),
         ),
       );
@@ -427,33 +428,57 @@ class _CustomDrawerState extends State<CustomDrawer> {
     }
   }
 
-  Future<void> _openParentStudentProfile(ParentChildRef? selectedChild) async {
-    if (selectedChild == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No child selected. Please select a child first.'),
-          backgroundColor: AppColors.warningColor,
+  /// Opens [StudentProfileScreen] for the child selected in the global app bar
+  /// dropdown.
+  ///
+  /// [navigator] and [parentChild] must be captured **before** closing the drawer.
+  /// After [Navigator.pop], this [State] is often disposed while awaiting
+  /// [refreshAccessFromServer], so we must not rely on [mounted] or this widget's
+  /// [context] (same pattern as [_openParentAttendanceProfile]).
+  Future<void> _openParentStudentProfile(
+    NavigatorState navigator,
+    ParentChildProvider parentChild,
+  ) async {
+    try {
+      await parentChild.ensureLoaded();
+
+      final selectedChild = parentChild.selectedChild;
+      if (selectedChild == null || selectedChild.code.trim().isEmpty) {
+        _showSnackOnRoot(
+          'No child selected. Choose a child from the menu at the top first.',
+        );
+        return;
+      }
+
+      if (!navigator.context.mounted) return;
+      await navigator.context.read<RoleProvider>().refreshAccessFromServer(
+            force: true,
+          );
+
+      if (!navigator.context.mounted) return;
+      await navigator.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => StudentProfileScreen(
+            name: selectedChild.name,
+            classroom: selectedChild.classroom,
+            tags: selectedChild.tags,
+            schedule: selectedChild.schedule,
+            sibling: const <String, dynamic>{
+              'name': [],
+              'relation': [],
+              'status': [],
+            },
+            studentCode: selectedChild.code,
+            syncWithParentChildSelection: true,
+          ),
         ),
       );
-      return;
+    } catch (_) {
+      _showSnackOnRoot(
+        'Unable to open student profile right now.',
+        isError: true,
+      );
     }
-
-    if (!mounted) return;
-    await context.read<RoleProvider>().refreshAccessFromServer(force: true);
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => StudentProfileScreen(
-          name: selectedChild.name,
-          classroom: selectedChild.classroom,
-          tags: selectedChild.tags,
-          schedule: selectedChild.schedule,
-          sibling: const <String, dynamic>{'name': [], 'relation': [], 'status': []},
-          studentCode: selectedChild.code,
-        ),
-      ),
-    );
   }
 
   Future<void> _openLoggedInStaffProfile(NavigatorState navigator) async {
@@ -489,6 +514,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             classroom: classroom,
             designation: profile.designation,
             phoneNumber: profile.phoneNumber,
+            employmentStatus: profile.status,
           ),
         ),
       );
@@ -668,14 +694,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           },
                         ),
                       if (isParent) ...[
-                        // Parent-specific menu items
-                        if (canViewStudents)
-                          _CustomExpansionTile(
+                        // Parent-specific menu items (not gated on STUDENT module read:
+                        // [canViewStudents] is false for many parents with legacy/empty
+                        // permissions, but they must still open their linked child's profile.)
+                        _CustomExpansionTile(
                           title: 'My Child',
                           icon: MediaRes.students_drawer_icon,
                           onTap: () {
+                            final nav = Navigator.of(context);
+                            final parentChild =
+                                context.read<ParentChildProvider>();
                             Navigator.pop(context);
-                            _openParentStudentProfile(parentChildProvider.selectedChild);
+                            _openParentStudentProfile(nav, parentChild);
                           },
                         ),
                         if (showStudentAttendance)

@@ -982,6 +982,7 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
     this.markedAbsentByName,
     this.absenceNote,
     this.absentDays = 0,
+    this.absenceRecordCode,
   });
 
   final String studentCode;
@@ -993,6 +994,21 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
   final String? markedAbsentByName;
   final String? absenceNote;
   final int absentDays;
+  final String? absenceRecordCode;
+
+  static String? _parseAbsenceRecordCode(Map<String, dynamic> json) {
+    for (final key in ['absenceRecordCode', 'recordCode', 'absenceCode']) {
+      final v = json[key];
+      if (v != null && v.toString().trim().isNotEmpty) {
+        return v.toString().trim();
+      }
+    }
+    final code = json['code']?.toString().trim();
+    if (code != null && code.isNotEmpty) {
+      return code;
+    }
+    return null;
+  }
 
   factory StudentAttendanceAbsentFormItemModel.fromJson(
     Map<String, dynamic> json,
@@ -1009,6 +1025,7 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
       markedAbsentByName: json['markedAbsentByName'] as String?,
       absenceNote: json['absenceNote'] as String?,
       absentDays: json['absentDays'] as int? ?? 0,
+      absenceRecordCode: _parseAbsenceRecordCode(json),
     );
   }
 
@@ -1023,6 +1040,7 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
       'markedAbsentByName': markedAbsentByName,
       'absenceNote': absenceNote,
       'absentDays': absentDays,
+      if (absenceRecordCode != null) 'absenceRecordCode': absenceRecordCode,
     };
   }
 
@@ -1037,6 +1055,7 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
         markedAbsentByName,
         absenceNote,
         absentDays,
+        absenceRecordCode,
       ];
 }
 

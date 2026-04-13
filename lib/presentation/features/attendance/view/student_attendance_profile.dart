@@ -16,10 +16,15 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
@@ -204,6 +209,7 @@ class StudentAttendanceProfile extends StatefulWidget {
     this.isExpectedToday = true,
     this.isPresentToday = false,
     this.profileStatus = 'A',
+    this.syncWithParentChildSelection = false,
   });
 
   final int studentId;
@@ -216,6 +222,9 @@ class StudentAttendanceProfile extends StatefulWidget {
   final bool isExpectedToday;
   final bool isPresentToday;
   final String profileStatus;
+
+  /// When true (e.g. parent drawer / popup), reloads when the global child dropdown changes.
+  final bool syncWithParentChildSelection;
 
   @override
   State<StudentAttendanceProfile> createState() => _StudentAttendanceProfileState();
@@ -235,6 +244,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   _StudentModel? student;
   _AttendanceReportModel? attendanceReport;
 
+  late String _activeStudentCode;
+  ParentChildProvider? _parentChildProvider;
+
   String _resolveClassroomNameByCode(
     String? classroomCode,
     Map<String, String> codeToNameMap,
@@ -243,6 +255,39 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final code = (classroomCode ?? '').trim();
     if (code.isEmpty) return fallback;
     return codeToNameMap[code] ?? fallback;
+  }
+
+  /// Resolves [student] header classroom when it holds a **code** (common for
+  /// guardian flows: [ParentChildRef.classroom] / [Student.classroom]) using
+  /// active classrooms from the API ([_loadClassroomCodeToNameMap]).
+  void _applyResolvedClassroomHeaderName(Map<String, String> codeToNameMap) {
+    final current = student;
+    if (current == null || !mounted) return;
+    final raw = current.roomName.trim();
+    final resolved = _resolveClassroomNameByCode(
+      raw.isEmpty ? null : raw,
+      codeToNameMap,
+      raw.isEmpty ? '—' : raw,
+    );
+    if (resolved == current.roomName) return;
+    setState(() {
+      student = _StudentModel(
+        id: current.id,
+        name: current.name,
+        photoUuid: current.photoUuid,
+        roomName: resolved,
+        isSignedIn: current.isSignedIn,
+        isAbsent: current.isAbsent,
+        isExpectedToday: current.isExpectedToday,
+        isPresentToday: current.isPresentToday,
+        profileStatus: current.profileStatus,
+        isPhotoPermission: current.isPhotoPermission,
+        medications: current.medications,
+        note: current.note,
+        allergies: current.allergies,
+        dietRestriction: current.dietRestriction,
+      );
+    });
   }
 
   /// Helper to format API time (either a string or {hour, minute, ...} map)
@@ -314,18 +359,23 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   String _formatAttendedTimeForCard(_AttendanceModel attendance) {
-    final raw = attendance.attendedTime.trim();
-    if (raw.isNotEmpty) return raw;
+    final inStr = attendance.signInTime.trim();
+    final outStr = attendance.signOutTime.trim();
 
-    final h = attendance.attendedHours;
-    final m = attendance.attendedMinutes;
-    if (h > 0 && m > 0) return '${h} hours ${m} minutes';
-    if (h > 0) return '${h} hours';
-    if (m > 0) return '${m} minutes';
-
-    if (attendance.signInTime.trim().isNotEmpty &&
-        attendance.signOutTime.trim().isEmpty) {
+    if (inStr.isNotEmpty && outStr.isEmpty) {
       return 'Not Yet Signed Out';
+    }
+
+    final day = DateTime(
+      attendance.date.year,
+      attendance.date.month,
+      attendance.date.day,
+    );
+    final start = parseFlexibleAttendanceMoment(day, inStr);
+    final end = parseFlexibleAttendanceMoment(day, outStr);
+    final label = attendedLabelFromMoments(start, end);
+    if (label != null && label.isNotEmpty) {
+      return label;
     }
     return '';
   }
@@ -333,6 +383,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   @override
   void initState() {
     super.initState();
+    _activeStudentCode = widget.studentCode.trim();
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, 1);
      _endDate = now;
@@ -359,8 +410,87 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     _loadData();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
+      return;
+    }
+    final p = context.read<ParentChildProvider>();
+    _parentChildProvider = p;
+    p.addListener(_onParentChildSelectionChanged);
+  }
+
+  @override
+  void dispose() {
+    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
+    super.dispose();
+  }
+
+  void _onParentChildSelectionChanged() {
+    if (!widget.syncWithParentChildSelection) return;
+    final child = _parentChildProvider?.selectedChild;
+    final code = child?.code.trim() ?? '';
+    if (code.isEmpty || code == _activeStudentCode) return;
+    _applyParentChildSelection(child!);
+  }
+
+  Future<void> _applyParentChildSelection(ParentChildRef child) async {
+    String roomName =
+        child.classroom.trim().isNotEmpty ? child.classroom : '—';
+    var isSignedIn = false;
+
+    try {
+      final signOutFormList =
+          serviceLocator<GetStudentSignOutFormListUseCase>();
+      final now = DateTime.now();
+      final date =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final signedInPage = await signOutFormList(
+        fromAttendanceDate: date,
+        toAttendanceDate: date,
+        page: 0,
+        size: 100,
+      );
+      final selected = signedInPage.items.where(
+        (i) => i.studentCode.trim() == child.code.trim(),
+      );
+      if (selected.isNotEmpty) {
+        final row = selected.first;
+        roomName = row.classroomName.trim().isNotEmpty
+            ? row.classroomName
+            : roomName;
+        isSignedIn = row.hasSignIn && !row.hasSignOut;
+      }
+    } catch (_) {
+      // Parents may not have sign-out form list access; keep classroom from child ref.
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _activeStudentCode = child.code.trim();
+      student = _StudentModel(
+        id: widget.studentId,
+        name: child.name,
+        photoUuid: null,
+        roomName: roomName,
+        isSignedIn: isSignedIn,
+        isAbsent: student?.isAbsent ?? false,
+        isExpectedToday: student?.isExpectedToday ?? true,
+        isPresentToday: student?.isPresentToday ?? false,
+        profileStatus: student?.profileStatus ?? widget.profileStatus,
+        isPhotoPermission: student?.isPhotoPermission ?? true,
+        medications: student?.medications ?? '',
+        note: student?.note ?? '',
+        allergies: student?.allergies ?? '',
+        dietRestriction: student?.dietRestriction ?? '',
+      );
+    });
+    await _loadData();
+  }
+
   Future<void> _loadData() async {
-    if (widget.studentCode.isEmpty) {
+    if (_activeStudentCode.isEmpty) {
       setState(() {
         isAttendancesLoading = false;
         isAbsentDaysLoading = false;
@@ -388,7 +518,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     );
 
     final queryParameters = <String, dynamic>{
-      'studentCode': widget.studentCode,
+      'studentCode': _activeStudentCode,
       'fromAttendanceDate': fromStr,
       'toAttendanceDate': toStr,
       'page': 0,
@@ -396,12 +526,21 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       'sort': <String>['attendanceDate,desc'],
     };
 
+    final allowedClassroomCodes =
+        await resolveAttendanceAllowedClassroomCodes(
+      storage: serviceLocator<StorageService>(),
+    );
+    queryParameters['allowedClassroomCodes'] =
+        List<String>.from(allowedClassroomCodes);
+
     try {
       final codeToNameMap = await _loadClassroomCodeToNameMap();
+      _applyResolvedClassroomHeaderName(codeToNameMap);
       // --------- Load attendance (present days / summary) ----------
       final profileResponse = await client.get<dynamic>(
         profileEndpoint,
         queryParameters: queryParameters,
+        options: attendanceListQueryOptions,
       );
 
       final profileData = profileResponse.data;
@@ -503,7 +642,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       );
 
       final absentQueryParameters = <String, dynamic>{
-        'studentCode': widget.studentCode,
+        'studentCode': _activeStudentCode,
         'fromAbsenceDate': fromStr,
         'toAbsenceDate': toStr,
         'page': 0,
@@ -511,9 +650,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         'sort': <String>['absenceDate,desc'],
       };
 
+      absentQueryParameters['allowedClassroomCodes'] =
+          List<String>.from(allowedClassroomCodes);
+
       final absentResponse = await client.get<dynamic>(
         absentEndpoint,
         queryParameters: absentQueryParameters,
+        options: attendanceListQueryOptions,
       );
 
       final absentData = absentResponse.data;
@@ -662,7 +805,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final classroomCode = (classroomMap[current.roomName] ?? '').trim();
     final commonArgs = (
       id: current.id,
-      code: widget.studentCode,
+      code: _activeStudentCode,
       name: current.name,
       roomName: current.roomName,
       photoUuid: current.photoUuid ?? '',
@@ -681,6 +824,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             roomName: commonArgs.roomName,
             classroomCode: commonArgs.classroomCode,
             photoUuid: commonArgs.photoUuid,
+            isExpectedToday: current.isExpectedToday,
           ),
         ],
         refreshCallback: refreshData,
@@ -876,7 +1020,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                   name: currentStudent.name,
                   fontSize: 24,
                   // Drive status dot purely from attendance API using studentCode.
-                  studentCode: widget.studentCode,
+                  studentCode: _activeStudentCode,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -1301,31 +1445,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         },
       ),
     );
-  }
-
-  String calculateAttendedTime(String signInTime, String signOutTime) {
-    if (signInTime.isEmpty || signOutTime.isEmpty) {
-      return 'Not Yet Signed Out';
-    }
-
-    try {
-      final format = DateFormat("hh:mm:ss a");
-      final signIn = format.parse(signInTime);
-      final signOut = format.parse(signOutTime);
-
-      final duration = signOut.difference(signIn);
-
-      final hours = duration.inHours;
-      final minutes = duration.inMinutes % 60;
-
-      if (hours < 1) {
-        return "$minutes minutes";
-      } else {
-        return "$hours hours $minutes minutes";
-      }
-    } catch (e) {
-      return 'Not Yet Signed Out';
-    }
   }
 
   String getFirstName(String name) {

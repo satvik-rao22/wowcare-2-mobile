@@ -79,22 +79,22 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (_currentPanel != StudentPanelType.none) ...[
-          _StudentSidePanel(
-            panel: _currentPanel,
-            onSignInTap: widget.onSignInTap,
-            onSignOutTap: widget.onSignOutTap,
-            onTransferTap: widget.onTransferTap,
-            onMarkAbsentTap: widget.onMarkAbsentTap,
-            isLoading: widget.isAttendanceActionLoading,
-            availability: widget.attendanceAvailability,
-            activityIcons: _activityIcons,
-            onAnyActivityTap: widget.onActivitiesTap,
+        if (_currentPanel != StudentPanelType.none)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _StudentSidePanel(
+              panel: _currentPanel,
+              onSignInTap: widget.onSignInTap,
+              onSignOutTap: widget.onSignOutTap,
+              onTransferTap: widget.onTransferTap,
+              onMarkAbsentTap: widget.onMarkAbsentTap,
+              isLoading: widget.isAttendanceActionLoading,
+              availability: widget.attendanceAvailability,
+              activityIcons: _activityIcons,
+              onAnyActivityTap: widget.onActivitiesTap,
+            ),
           ),
-          const SizedBox(width: 10),
-        ],
         Stack(
           alignment: Alignment.bottomCenter,
           children: [
@@ -309,31 +309,23 @@ class _StudentSidePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (panel == StudentPanelType.attendance) {
-      return Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        elevation: 0,
-        child: Container(
-          width: 50,
-          constraints: const BoxConstraints(maxHeight: 400),
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.classroomStudentTabColor,
-              width: 2,
+      return Container(
+        width: 70,
+        constraints: const BoxConstraints(maxHeight: 400),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: _buildAttendanceColumn(),
+          ],
         ),
+        child: _buildAttendanceColumn(),
       );
     }
     return Material(
@@ -353,43 +345,42 @@ class _StudentSidePanel extends StatelessWidget {
 
   Widget _buildAttendanceColumn() {
     final a = availability;
-    bool blocked(bool allowed) => isLoading || !allowed;
-    String tooltip(bool allowed) =>
-        isLoading ? '' : (!allowed ? _validationTooltip : '');
+    bool enabled(bool allowed) => !isLoading && allowed;
+    final disabledTip = isLoading ? '' : _validationTooltip;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _StudentAttendanceMenuItem(
+        _StudentAttendanceActionItem(
           svgPath: MediaRes.Sign_in,
-          label: 'Sign-in',
-          onTap: blocked(a.signInEnabled) ? null : onSignInTap,
-          isDisabled: blocked(a.signInEnabled),
-          disabledTooltip: tooltip(a.signInEnabled),
+          label: 'Sign-In',
+          onTap: enabled(a.signInEnabled) ? onSignInTap : null,
+          isEnabled: enabled(a.signInEnabled),
+          disabledTooltip: disabledTip,
         ),
         const SizedBox(height: 5),
-        _StudentAttendanceMenuItem(
+        _StudentAttendanceActionItem(
           svgPath: MediaRes.Sign_out,
           label: 'Sign-Out',
-          onTap: blocked(a.signOutEnabled) ? null : onSignOutTap,
-          isDisabled: blocked(a.signOutEnabled),
-          disabledTooltip: tooltip(a.signOutEnabled),
+          onTap: enabled(a.signOutEnabled) ? onSignOutTap : null,
+          isEnabled: enabled(a.signOutEnabled),
+          disabledTooltip: disabledTip,
         ),
         const SizedBox(height: 5),
-        _StudentAttendanceMenuItem(
+        _StudentAttendanceActionItem(
           svgPath: MediaRes.transfer,
           label: 'Transfer',
-          onTap: blocked(a.transferEnabled) ? null : onTransferTap,
-          isDisabled: blocked(a.transferEnabled),
-          disabledTooltip: tooltip(a.transferEnabled),
+          onTap: enabled(a.transferEnabled) ? onTransferTap : null,
+          isEnabled: enabled(a.transferEnabled),
+          disabledTooltip: disabledTip,
         ),
         const SizedBox(height: 5),
-        _StudentAttendanceMenuItem(
+        _StudentAttendanceActionItem(
           svgPath: MediaRes.Mark_absent,
           label: 'Absent',
-          onTap: blocked(a.absentEnabled) ? null : onMarkAbsentTap,
-          isDisabled: blocked(a.absentEnabled),
-          disabledTooltip: tooltip(a.absentEnabled),
+          onTap: enabled(a.absentEnabled) ? onMarkAbsentTap : null,
+          isEnabled: enabled(a.absentEnabled),
+          disabledTooltip: disabledTip,
         ),
       ],
     );
@@ -422,64 +413,64 @@ class _StudentSidePanel extends StatelessWidget {
       upper.substring(0, 1) + upper.substring(1).toLowerCase();
 }
 
-/// Matches [StudentAttendanceVerticalPopUp] menu row styling.
-class _StudentAttendanceMenuItem extends StatelessWidget {
-  const _StudentAttendanceMenuItem({
+/// Matches staff [_AttendanceActionItem] in [StaffActionPanel].
+class _StudentAttendanceActionItem extends StatelessWidget {
+  const _StudentAttendanceActionItem({
     required this.svgPath,
     required this.label,
     this.onTap,
-    this.isDisabled = false,
+    this.isEnabled = true,
     this.disabledTooltip = '',
   });
 
   final String svgPath;
   final String label;
   final VoidCallback? onTap;
-  final bool isDisabled;
+  final bool isEnabled;
   final String disabledTooltip;
 
   @override
   Widget build(BuildContext context) {
-    final showTip = isDisabled && disabledTooltip.isNotEmpty;
+    final double opacity = isEnabled ? 1.0 : 0.45;
     return Tooltip(
-      message: showTip ? disabledTooltip : '',
+      message: !isEnabled ? disabledTooltip : '',
       preferBelow: false,
       triggerMode: TooltipTriggerMode.tap,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       showDuration: const Duration(seconds: 5),
       child: InkWell(
-        onTap: isDisabled ? null : onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Opacity(
-              opacity: isDisabled ? 0.45 : 1,
-              child: Container(
+        onTap: isEnabled ? onTap : null,
+        child: Opacity(
+          opacity: opacity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.blue.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(svgPath, height: 24, width: 24),
+                child: SvgPicture.asset(
+                  svgPath,
+                  height: 24,
+                  width: 24,
+                ),
               ),
-            ),
-            const SizedBox(height: 5),
-            Opacity(
-              opacity: isDisabled ? 0.5 : 1,
-              child: Text(
+              const SizedBox(height: 5),
+              Text(
                 label,
                 maxLines: 1,
-                textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                   fontFamily: 'Manrope',
                   color: AppColors.primaryColor,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

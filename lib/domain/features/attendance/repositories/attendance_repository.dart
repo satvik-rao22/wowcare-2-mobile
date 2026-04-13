@@ -73,6 +73,14 @@ abstract class AttendanceRepository {
     int size,
   });
 
+  /// Removes a student absence record (e.g. before override sign-in).
+  ///
+  /// Backend: `DELETE /api/v1/student-absence-records/{absenceRecordCode}`.
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+  });
+
   /// Creates student absence records (Mark Absent).
   Future<String> markStudentsAbsent({
     required String staffCode,

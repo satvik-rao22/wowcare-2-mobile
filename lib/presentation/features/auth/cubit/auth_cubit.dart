@@ -288,6 +288,10 @@ class AuthCubit extends Cubit<AuthState> {
                     StorageKeys.staffType,
                     profile.staffType,
                   );
+                  await storage.saveString(
+                    StorageKeys.staffAllowedClassroomCodes,
+                    jsonEncode(profile.allowedClassroomCodes),
+                  );
                 } catch (_) {}
 
                 try {
@@ -556,6 +560,10 @@ class AuthCubit extends Cubit<AuthState> {
         await storage.saveString(
           StorageKeys.staffType,
           profile.staffType,
+        );
+        await storage.saveString(
+          StorageKeys.staffAllowedClassroomCodes,
+          jsonEncode(profile.allowedClassroomCodes),
         );
         // Also prefetch PIN whenever we prefetch profile for a new org/school.
         try {

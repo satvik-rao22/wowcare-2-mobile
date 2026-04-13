@@ -26,6 +26,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -362,6 +363,13 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       queryParameters['search'] = trimmedSearch;
     }
 
+    final allowedClassroomCodes =
+        await resolveAttendanceAllowedClassroomCodes(
+      storage: serviceLocator<StorageService>(),
+    );
+    queryParameters['allowedClassroomCodes'] =
+        List<String>.from(allowedClassroomCodes);
+
     debugPrint(
       'StudentAbsent API → GET $endpoint query=$queryParameters',
     );
@@ -370,6 +378,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       final response = await apiClient.get<dynamic>(
         endpoint,
         queryParameters: queryParameters,
+        options: attendanceListQueryOptions,
       );
 
       debugPrint(
@@ -460,6 +469,15 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     );
   }
 
+  /// Formats 24-hour clock components as 12-hour with AM/PM (e.g. `2:05:03 PM`).
+  String _timeComponentsTo12h(int hour, int minute, int second) {
+    final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final mm = minute.toString().padLeft(2, '0');
+    final ss = second.toString().padLeft(2, '0');
+    return '$h12:$mm:$ss $period';
+  }
+
   /// Applies a paged API/cache payload to local state and list.
   void _applyPagePayload(
     Map<String, dynamic> root, {
@@ -471,15 +489,28 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
     String parseTime(dynamic value) {
       if (value == null) return '';
-      if (value is String) return value;
       if (value is Map<String, dynamic>) {
         final hour = value['hour'] as int? ?? 0;
         final minute = value['minute'] as int? ?? 0;
         final second = value['second'] as int? ?? 0;
-        final h = hour.toString().padLeft(2, '0');
-        final mStr = minute.toString().padLeft(2, '0');
-        final sStr = second.toString().padLeft(2, '0');
-        return '$h:$mStr:$sStr';
+        return _timeComponentsTo12h(hour, minute, second);
+      }
+      if (value is String) {
+        final s = value.trim();
+        if (s.isEmpty) return '';
+        final parts = s.split(':');
+        if (parts.length >= 2) {
+          final h = int.tryParse(parts[0]) ?? 0;
+          final m = int.tryParse(parts[1]) ?? 0;
+          final secPart = parts.length >= 3 ? parts[2] : '0';
+          final sec = int.tryParse(secPart.split('.').first) ?? 0;
+          return _timeComponentsTo12h(h, m, sec);
+        }
+        final dt = DateTime.tryParse(s);
+        if (dt != null) {
+          return _timeComponentsTo12h(dt.hour, dt.minute, dt.second);
+        }
+        return s;
       }
       return value.toString();
     }

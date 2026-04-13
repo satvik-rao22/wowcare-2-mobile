@@ -13,6 +13,7 @@ abstract class AttendanceRemoteDataSource {
     String? search,
     int page = 0,
     int size = 10,
+    required List<String> allowedClassroomCodes,
   });
 
   Future<StudentAttendanceCustomPageModel> getStudentAttendanceCustom({
@@ -24,6 +25,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Student Sign-In form list - students that can be signed in for a date range.
@@ -39,6 +41,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Student Sign-Out form list - students that can be signed out for a date range.
@@ -53,6 +56,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Student Transfer form list - students that can be transferred for a date range.
@@ -67,6 +71,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Student Absent form list - students that are absent for a date range.
@@ -81,6 +86,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Student Absent toggle view - absent students for a date (used in Daily -> Show Absent toggle).
@@ -95,6 +101,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   Future<StaffAttendanceDailyPageModel> getStaffAttendanceDaily({
@@ -106,6 +113,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   Future<StaffAttendanceDailyPageModel> getStaffAttendanceCustom({
@@ -117,6 +125,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   Future<StaffAttendanceDailyPageModel> getStaffSignInFormList({
@@ -128,6 +137,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   Future<StaffAttendanceDailyPageModel> getStaffSignOutFormList({
@@ -139,6 +149,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   Future<StaffAttendanceDailyPageModel> getStaffTransferFormList({
@@ -150,6 +161,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Staff Absent form list - staff that can be marked absent for a date range.
@@ -167,6 +179,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   Future<StaffAttendanceAbsentPageModel> getStaffAttendanceAbsent({
@@ -178,6 +191,7 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Staff Absent toggle view - absent staff for a date (used in Daily -> Show Absent toggle).
@@ -192,31 +206,46 @@ abstract class AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Delete a single student attendance record (sign-in/sign-out entry).
   Future<void> deleteStudentAttendanceRecord({
     required String attendanceRecordCode,
     required String staffCode,
+    required List<String> allowedClassroomCodes,
+  });
+
+  /// Delete a single student absence record (marked absent).
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Marks students absent for a date range.
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Marks staff absent for a date range.
   Future<StaffMarkAbsentResponseModel> markStaffAbsent({
     required StaffMarkAbsentRequestModel request,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Expected attendance summary used for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummaryModel>
-      getStudentAttendanceExpectedSummaryCard();
+      getStudentAttendanceExpectedSummaryCard({
+    required List<String> allowedClassroomCodes,
+  });
 
   /// Staff expected attendance summary used for the daily "Expected Staff" card.
   Future<StaffAttendanceExpectedSummaryModel>
-      getStaffAttendanceExpectedSummaryCard();
+      getStaffAttendanceExpectedSummaryCard({
+    required List<String> allowedClassroomCodes,
+  });
 
   /// Current-day sign-in status for one or more staff members.
   ///
@@ -224,6 +253,7 @@ abstract class AttendanceRemoteDataSource {
   /// `SIGNED_IN` or `ABSENT`.
   Future<Map<String, String>> getStaffSignInStatus({
     required List<String> staffCodes,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Current-day sign-in status for one or more students.
@@ -232,12 +262,14 @@ abstract class AttendanceRemoteDataSource {
   /// `SIGNED_IN` or `ABSENT`.
   Future<Map<String, String>> getStudentSignInStatus({
     required List<String> studentCodes,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Updates a single student attendance record (sign-in/sign-out entry).
   Future<String> updateStudentAttendanceRecord({
     required String attendanceRecordCode,
     required Map<String, dynamic> payload,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Creates student sign-in records.
@@ -246,6 +278,7 @@ abstract class AttendanceRemoteDataSource {
   /// Returns a human-friendly success message from the API.
   Future<String> createStudentSignInRecords({
     required Map<String, dynamic> payload,
+    required List<String> allowedClassroomCodes,
   });
 }
 
@@ -253,6 +286,18 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   AttendanceRemoteDataSourceImpl(this._client);
 
   final Dio _client;
+
+  static final Options _attendanceListOptions = Options(
+    listFormat: ListFormat.multiCompatible,
+  );
+
+  void _mergeAllowedClassroomCodes(
+    Map<String, dynamic> queryParameters,
+    List<String> allowedClassroomCodes,
+  ) {
+    queryParameters['allowedClassroomCodes'] =
+        List<String>.from(allowedClassroomCodes);
+  }
 
   @override
   Future<StudentAttendanceDailyPageModel> getStudentAttendanceDaily({
@@ -262,6 +307,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     String? search,
     int page = 0,
     int size = 10,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       // New backend contract expects from/to date range.
@@ -293,6 +339,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['search'] = search;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceDailyView,
       ApiConstants.attendanceBaseUrl,
@@ -301,6 +349,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -321,6 +370,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -345,6 +395,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceCustomView,
       ApiConstants.attendanceBaseUrl,
@@ -353,6 +405,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -374,6 +427,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -398,6 +452,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceSignInFormList,
       ApiConstants.attendanceBaseUrl,
@@ -406,6 +462,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -427,6 +484,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -451,6 +509,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceSignOutFormList,
       ApiConstants.attendanceBaseUrl,
@@ -459,6 +519,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -480,6 +541,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -504,6 +566,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceTransferFormList,
       ApiConstants.attendanceBaseUrl,
@@ -512,6 +576,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -533,6 +598,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,
@@ -557,6 +623,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceAbsentFormList,
       ApiConstants.attendanceBaseUrl,
@@ -565,6 +633,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -586,6 +655,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,
@@ -610,6 +680,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceAbsentToggleView,
       ApiConstants.attendanceBaseUrl,
@@ -618,6 +690,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -639,6 +712,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -663,6 +737,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceDailyView,
       ApiConstants.attendanceBaseUrl,
@@ -671,6 +747,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -692,6 +769,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -716,6 +794,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceSignInFormList,
       ApiConstants.attendanceBaseUrl,
@@ -724,6 +804,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -745,6 +826,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -769,6 +851,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceSignOutFormList,
       ApiConstants.attendanceBaseUrl,
@@ -777,6 +861,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -798,6 +883,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
@@ -822,6 +908,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceCustomView,
       ApiConstants.attendanceBaseUrl,
@@ -830,6 +918,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -851,6 +940,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,
@@ -875,6 +965,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceTransferFormList,
       ApiConstants.attendanceBaseUrl,
@@ -883,6 +975,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -904,6 +997,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,
@@ -928,6 +1022,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceAbsentFormList,
       ApiConstants.attendanceBaseUrl,
@@ -936,6 +1032,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -957,6 +1054,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,
@@ -981,6 +1079,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceAbsentView,
       ApiConstants.attendanceBaseUrl,
@@ -989,6 +1089,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1010,6 +1111,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     int page = 0,
     int size = 10,
     List<String>? sort,
+    required List<String> allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,
@@ -1034,6 +1136,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       queryParameters['sort'] = sort;
     }
 
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceAbsentToggleView,
       ApiConstants.attendanceBaseUrl,
@@ -1042,6 +1146,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1057,23 +1162,52 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<void> deleteStudentAttendanceRecord({
     required String attendanceRecordCode,
     required String staffCode,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
       ApiConstants.attendanceBaseUrl,
     );
 
+    final queryParameters = <String, dynamic>{
+      'staffCode': staffCode,
+    };
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
     await _client.delete<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{
-        'staffCode': staffCode,
-      },
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
+    );
+  }
+
+  @override
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+    required List<String> allowedClassroomCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAbsenceRecordByCode(absenceRecordCode),
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final queryParameters = <String, dynamic>{
+      'staffCode': staffCode,
+    };
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
+    await _client.delete<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
     );
   }
 
   @override
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAbsenceRecordsMarkAbsent,
@@ -1082,7 +1216,10 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     final response = await _client.post<dynamic>(
       endpoint,
-      data: request.toJson(),
+      data: <String, dynamic>{
+        ...request.toJson(),
+        'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
+      },
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1097,6 +1234,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<StaffMarkAbsentResponseModel> markStaffAbsent({
     required StaffMarkAbsentRequestModel request,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAbsenceRecordsMarkAbsent,
@@ -1105,7 +1243,10 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     final response = await _client.post<dynamic>(
       endpoint,
-      data: request.toJson(),
+      data: <String, dynamic>{
+        ...request.toJson(),
+        'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
+      },
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1119,13 +1260,22 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
   @override
   Future<StudentAttendanceExpectedSummaryModel>
-      getStudentAttendanceExpectedSummaryCard() async {
+      getStudentAttendanceExpectedSummaryCard({
+    required List<String> allowedClassroomCodes,
+  }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceExpectedSummaryCard,
       ApiConstants.attendanceBaseUrl,
     );
 
-    final response = await _client.get<dynamic>(endpoint);
+    final queryParameters = <String, dynamic>{};
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
@@ -1140,13 +1290,22 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
   @override
   Future<StaffAttendanceExpectedSummaryModel>
-      getStaffAttendanceExpectedSummaryCard() async {
+      getStaffAttendanceExpectedSummaryCard({
+    required List<String> allowedClassroomCodes,
+  }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceExpectedSummaryCard,
       ApiConstants.attendanceBaseUrl,
     );
 
-    final response = await _client.get<dynamic>(endpoint);
+    final queryParameters = <String, dynamic>{};
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
@@ -1162,6 +1321,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, String>> getStaffSignInStatus({
     required List<String> staffCodes,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceSignInStatus,
@@ -1172,6 +1332,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       endpoint,
       data: <String, dynamic>{
         'staffCodes': staffCodes,
+        'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
       },
     );
 
@@ -1187,6 +1348,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, String>> getStudentSignInStatus({
     required List<String> studentCodes,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceSignInStatus,
@@ -1197,6 +1359,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       endpoint,
       data: <String, dynamic>{
         'studentCodes': studentCodes,
+        'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
       },
     );
 
@@ -1213,15 +1376,19 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<String> updateStudentAttendanceRecord({
     required String attendanceRecordCode,
     required Map<String, dynamic> payload,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
       ApiConstants.attendanceBaseUrl,
     );
 
+    final body = Map<String, dynamic>.from(payload)
+      ..['allowedClassroomCodes'] = List<String>.from(allowedClassroomCodes);
+
     final response = await _client.patch<Map<String, dynamic>>(
       endpoint,
-      data: payload,
+      data: body,
     );
 
     final data = response.data;
@@ -1236,15 +1403,19 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<String> createStudentSignInRecords({
     required Map<String, dynamic> payload,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceRecordsSignIn,
       ApiConstants.attendanceBaseUrl,
     );
 
+    final body = Map<String, dynamic>.from(payload)
+      ..['allowedClassroomCodes'] = List<String>.from(allowedClassroomCodes);
+
     final response = await _client.post<Map<String, dynamic>>(
       endpoint,
-      data: payload,
+      data: body,
     );
 
     final data = response.data;

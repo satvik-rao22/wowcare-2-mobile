@@ -150,12 +150,12 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     }
 
     if (form != null) {
-      Navigator.push(
+      Navigator.push<void>(
         context,
         MaterialPageRoute(builder: (_) => form!),
-      );
+      ).then((_) {
+        refreshCallback();
+      });
     }
-    
-    refreshCallback();
   }
 }

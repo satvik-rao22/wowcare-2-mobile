@@ -17,7 +17,10 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
@@ -293,18 +296,23 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   String _formatAttendedTimeForCard(_AttendanceModel attendance) {
-    final raw = attendance.attendedTime.trim();
-    if (raw.isNotEmpty) return raw;
+    final inStr = attendance.signInTime.trim();
+    final outStr = attendance.signOutTime.trim();
 
-    final h = attendance.attendedHours;
-    final m = attendance.attendedMinutes;
-    if (h > 0 && m > 0) return '${h} hours ${m} minutes';
-    if (h > 0) return '${h} hours';
-    if (m > 0) return '${m} minutes';
-
-    if (attendance.signInTime.trim().isNotEmpty &&
-        attendance.signOutTime.trim().isEmpty) {
+    if (inStr.isNotEmpty && outStr.isEmpty) {
       return 'Not Yet Signed Out';
+    }
+
+    final day = DateTime(
+      attendance.date.year,
+      attendance.date.month,
+      attendance.date.day,
+    );
+    final start = parseFlexibleAttendanceMoment(day, inStr);
+    final end = parseFlexibleAttendanceMoment(day, outStr);
+    final label = attendedLabelFromMoments(start, end);
+    if (label != null && label.isNotEmpty) {
+      return label;
     }
     return '';
   }
@@ -374,6 +382,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       'sort': <String>['attendanceDate,desc'],
     };
 
+    final allowedClassroomCodes =
+        await resolveAttendanceAllowedClassroomCodes(
+      storage: serviceLocator<StorageService>(),
+    );
+    queryParameters['allowedClassroomCodes'] =
+        List<String>.from(allowedClassroomCodes);
+
     debugPrint(
       'StaffAttendanceProfile API → GET $profileEndpoint '
       'query=$queryParameters',
@@ -384,6 +399,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       final profileResponse = await apiClient.get<dynamic>(
         profileEndpoint,
         queryParameters: queryParameters,
+        options: attendanceListQueryOptions,
       );
 
       debugPrint(
@@ -491,6 +507,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         'sort': <String>['absenceDate,desc'],
       };
 
+      absentQueryParameters['allowedClassroomCodes'] =
+          List<String>.from(allowedClassroomCodes);
+
       debugPrint(
         'StaffAttendanceProfileAbsentToggle API → GET $absentEndpoint '
         'query=$absentQueryParameters',
@@ -499,6 +518,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       final absentResponse = await apiClient.get<dynamic>(
         absentEndpoint,
         queryParameters: absentQueryParameters,
+        options: attendanceListQueryOptions,
       );
 
       debugPrint(
@@ -1075,31 +1095,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         },
       ),
     );
-  }
-
-  String calculateAttendedTime(String signInTime, String signOutTime) {
-    if (signInTime.isEmpty || signOutTime.isEmpty) {
-      return 'Not Yet Signed Out';
-    }
-
-    try {
-      final format = DateFormat("hh:mm:ss a");
-      final signIn = format.parse(signInTime);
-      final signOut = format.parse(signOutTime);
-
-      final duration = signOut.difference(signIn);
-
-      final hours = duration.inHours;
-      final minutes = duration.inMinutes % 60;
-
-      if (hours < 1) {
-        return "$minutes minutes";
-      } else {
-        return "$hours hours $minutes minutes";
-      }
-    } catch (e) {
-      return 'Not Yet Signed Out';
-    }
   }
 
   String getFirstName(String name) {

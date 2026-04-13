@@ -28,6 +28,8 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_f
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
@@ -62,6 +64,13 @@ class _StaffScreenState extends State<StaffScreen> {
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
 
+  int _expectedStaffTotal = 0;
+  int _expectedSignedIn = 0;
+  int _expectedAbsent = 0;
+  int _expectedSignedOut = 0;
+  int _expectedNotMarked = 0;
+  bool _expectedStaffSummaryLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +78,11 @@ class _StaffScreenState extends State<StaffScreen> {
     // so that Office and other non-classroom locations are also available.
     context.read<ClassroomCubit>().loadActiveClassrooms(onlyTypeClassroom: false);
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadExpectedStaffSummary();
+      }
+    });
   }
 
   void _onScroll() {
@@ -140,6 +154,48 @@ class _StaffScreenState extends State<StaffScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadExpectedStaffSummary() async {
+    if (!mounted) return;
+    setState(() {
+      _expectedStaffSummaryLoading = true;
+    });
+    try {
+      final useCase = serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
+      final summary = await useCase();
+      if (!mounted) return;
+      setState(() {
+        _expectedStaffTotal = summary.expected;
+        _expectedSignedIn = summary.present;
+        _expectedAbsent = summary.absent;
+        _expectedSignedOut = summary.signOut;
+        _expectedNotMarked = summary.notMarked;
+        _expectedStaffSummaryLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _expectedStaffTotal = 0;
+        _expectedSignedIn = 0;
+        _expectedAbsent = 0;
+        _expectedSignedOut = 0;
+        _expectedNotMarked = 0;
+        _expectedStaffSummaryLoading = false;
+      });
+    }
+  }
+
+  void _openStaffAttendanceWithLegendFilter(String status) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => StaffAttendanceTabbedView(
+          initialTabIndex: 0,
+          dailyIncomingFilter: status,
+        ),
+      ),
+    );
   }
 
   Future<void> _refreshAttendanceStatusForSelection() async {
@@ -412,6 +468,7 @@ class _StaffScreenState extends State<StaffScreen> {
                 context
                     .read<ClassroomCubit>()
                     .loadActiveClassrooms(force: true, onlyTypeClassroom: false),
+                _loadExpectedStaffSummary(),
               ]);
               if (mounted && _selectedStaffCodes.isNotEmpty) {
                 await _refreshAttendanceStatusForSelection();
@@ -562,50 +619,81 @@ class _StaffScreenState extends State<StaffScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              // Expected Students stat card
+              // Expected Staff (same breakdown as Staff Attendance daily summary)
               LayoutBuilder(
                 builder: (context, constraints) {
                   final bool isTablet = constraints.maxWidth >= 600;
-                  // Demo values for present/absent
-                  final double present = 18.0;
-                  final double absent = 3.0;
-                  // These are currently demo values; replace with real attendance
-                  // counts when wiring up the backend.
-                  final double signedOut = 0.0;
-                  final double notMarked = 0.0;
-
-                  final int expectedTotal =
-                      (present + absent + signedOut + notMarked).toInt();
-                  final String total = '$expectedTotal';
+                  final present = _expectedSignedIn.toDouble();
+                  final absent = _expectedAbsent.toDouble();
+                  final signedOut = _expectedSignedOut.toDouble();
+                  final notMarked = _expectedNotMarked.toDouble();
                   final items = [
                     ProgressItemHelper(
-                      label: 'Signed In (${present.toInt()})',
+                      label: 'Signed-In (${present.toInt()})',
                       value: present,
                       color: AppColors.lightGreenProgressBar,
+                      filterValue: 'Signed-In',
                     ),
                     ProgressItemHelper(
                       label: 'Absent (${absent.toInt()})',
                       value: absent,
                       color: AppColors.redProgressBar,
+                      filterValue: 'Absent',
                     ),
                     ProgressItemHelper(
                       label: 'Signed Out (${signedOut.toInt()})',
                       value: signedOut,
                       color: AppColors.lightBlueProgressBar,
+                      filterValue: 'Signed Out',
                     ),
                     ProgressItemHelper(
                       label: 'Not Marked (${notMarked.toInt()})',
                       value: notMarked,
                       color: AppColors.mustardProgressBar,
+                      filterValue: 'Not Marked',
                     ),
                   ];
                   return Container(
                     margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
-                    child: CustomStatBarCard(
-                      title: 'Expected\nStaff',
-                      number: total,
-                      items: items,
-                      fullWidthBar: false,
+                    child: Stack(
+                      children: [
+                        CustomStatBarCard(
+                          title: 'Expected\nStaff',
+                          number: '$_expectedStaffTotal',
+                          items: items,
+                          fullWidthBar: false,
+                          onLegendTap: (String label, String? filterValue) {
+                            final status = label.split(' ').first;
+                            if (status == 'Signed-In' ||
+                                status == 'Absent' ||
+                                status == 'Signed' ||
+                                status == 'Not') {
+                              if (status == 'Signed') {
+                                _openStaffAttendanceWithLegendFilter('Signed Out');
+                              } else if (status == 'Not') {
+                                _openStaffAttendanceWithLegendFilter('Not Marked');
+                              } else {
+                                _openStaffAttendanceWithLegendFilter(status);
+                              }
+                            }
+                          },
+                        ),
+                        if (_expectedStaffSummaryLoading)
+                          Positioned.fill(
+                            child: Container(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: PrimaryCircularLoader(),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   );
                 },
@@ -1116,6 +1204,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 classroom: classroomName,
                                 designation: staff.designation,
                                 phoneNumber: staff.phoneNumber,
+                                employmentStatus: staff.status,
                                 classroomNames: classroomNames,
                                 classroomNameByCode: classroomNameByCode,
                               ),

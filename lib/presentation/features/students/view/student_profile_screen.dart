@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
@@ -32,6 +33,9 @@ class StudentProfileScreen extends StatefulWidget {
     required this.schedule,
     required this.sibling,
     this.studentCode,
+    /// Raw API status (e.g. ACTIVE, UPCOMING) so the header dot is correct before the profile tab loads.
+    this.initialEnrollmentStatus,
+    this.syncWithParentChildSelection = false,
   });
 
   final String name;
@@ -40,6 +44,11 @@ class StudentProfileScreen extends StatefulWidget {
   final List<String> schedule;
   final Map<String, dynamic> sibling;
   final String? studentCode;
+
+  final String? initialEnrollmentStatus;
+
+  /// When true (e.g. parent opens My Child from drawer), child dropdown updates this screen.
+  final bool syncWithParentChildSelection;
 
   @override
   State<StudentProfileScreen> createState() => _StudentProfileScreenState();
@@ -58,14 +67,25 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late String _displayClassroom;
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
+  String? _activeStudentCode;
+  late List<String> _profileTags;
+  late List<String> _profileSchedule;
+  late Map<String, dynamic> _profileSibling;
+  ParentChildProvider? _parentChildProvider;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _activeStudentCode = widget.studentCode;
+    _profileTags = List<String>.from(widget.tags);
+    _profileSchedule = List<String>.from(widget.schedule);
+    _profileSibling = Map<String, dynamic>.from(widget.sibling);
     _healthFuture = _buildHealthFuture();
     _displayName = widget.name;
     _displayClassroom = widget.classroom;
+    _profileStatusUpper =
+        widget.initialEnrollmentStatus?.trim().toUpperCase();
 
     // Cache-first classroom load (won't refetch if already loaded).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -211,7 +231,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Future<StudentHealthModel?> _buildHealthFuture() async {
-    final code = widget.studentCode;
+    final code = _activeStudentCode;
     if (code == null || code.isEmpty) {
       return null;
     }
@@ -232,7 +252,40 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
+      return;
+    }
+    final p = context.read<ParentChildProvider>();
+    _parentChildProvider = p;
+    p.addListener(_onParentChildSelectionChanged);
+  }
+
+  void _onParentChildSelectionChanged() {
+    if (!widget.syncWithParentChildSelection) return;
+    final child = _parentChildProvider?.selectedChild;
+    final code = child?.code.trim() ?? '';
+    if (code.isEmpty || code == (_activeStudentCode ?? '').trim()) return;
+    setState(() {
+      _activeStudentCode = code;
+      _displayName = child!.name;
+      _displayClassroom = child.classroom;
+      _profileTags = List<String>.from(child.tags);
+      _profileSchedule = List<String>.from(child.schedule);
+      _profileSibling = <String, dynamic>{
+        'name': <dynamic>[],
+        'relation': <dynamic>[],
+        'status': <dynamic>[],
+      };
+      _profileStatusUpper = null;
+      _healthFuture = _buildHealthFuture();
+    });
+  }
+
+  @override
   void dispose() {
+    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -343,33 +396,45 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               controller: _tabController,
               children: [
                 StudentProfileTab(
+                  key: ValueKey<String>(
+                    'profile_tab_${_activeStudentCode ?? 'none'}',
+                  ),
                   scrollController: _profileScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,
-                  tags: widget.tags,
-                  schedule: widget.schedule,
-                  sibling: widget.sibling,
-                  studentCode: widget.studentCode,
+                  tags: _profileTags,
+                  schedule: _profileSchedule,
+                  sibling: _profileSibling,
+                  studentCode: _activeStudentCode,
                   onProfileChanged: _onProfileChanged,
                 ),
                 StudentHealthTab(
+                  key: ValueKey<String>(
+                    'health_tab_${_activeStudentCode ?? 'none'}',
+                  ),
                   scrollController: _healthScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,
-                  studentCode: widget.studentCode,
+                  studentCode: _activeStudentCode,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
+                  key: ValueKey<String>(
+                    'dates_tab_${_activeStudentCode ?? 'none'}',
+                  ),
                   scrollController: _importantDatesScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,
-                  studentCode: widget.studentCode,
+                  studentCode: _activeStudentCode,
                 ),
                 StudentDocumentsTab(
+                  key: ValueKey<String>(
+                    'docs_tab_${_activeStudentCode ?? 'none'}',
+                  ),
                   scrollController: _documentsScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,
-                  studentCode: widget.studentCode,
+                  studentCode: _activeStudentCode,
                 )
 
               ],
@@ -385,7 +450,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     RoleProvider role,
     bool canChangePhoto,
   ) {
-    final isUpcoming = (_profileStatusUpper ?? '') == 'UPCOMING';
     return Card(
       margin: EdgeInsets.zero,
       color: Colors.white,
@@ -403,15 +467,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                       clipBehavior: Clip.none,
                       children: [
                         DocumentImageWidget(
-                          fileUuid: _displayName, // seed for stable color when no image
+                          fileUuid: _activeStudentCode ?? _displayName,
                           name: _displayName,
+                          studentCode: _activeStudentCode,
+                          studentEnrollmentStatus: _profileStatusUpper,
                           size: 90,
                           fontSize: 24,
-                          statusColor: isUpcoming
-                              ? const Color(0xFFFFC107)
-                              : const Color(0xFF00B115),
-                          statusTooltip:
-                              isUpcoming ? 'Upcoming student' : 'Active',
                         ),
                         if (canChangePhoto)
                           Positioned(
@@ -583,7 +644,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 role,
                 AppAccessModules.studentAttendance,
                 () {
-                  final code = widget.studentCode?.trim() ?? '';
+                  final code = (_activeStudentCode ?? '').trim();
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
                       context: context,
@@ -604,6 +665,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         studentPhotoUuid: null,
                         roomName: _displayClassroom,
                         isSignedIn: false,
+                        syncWithParentChildSelection:
+                            widget.syncWithParentChildSelection,
                       ),
                     ),
                   );
@@ -632,11 +695,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         ),
                         studentName: {
                           'name': _displayName,
-                          if (widget.studentCode != null &&
-                              widget.studentCode!.trim().isNotEmpty)
-                            'studentCode': widget.studentCode!.trim(),
+                          if (_activeStudentCode != null &&
+                              _activeStudentCode!.trim().isNotEmpty)
+                            'studentCode': _activeStudentCode!.trim(),
                           'classroom': _displayClassroom,
-                          'tags': widget.tags,
+                          'tags': _profileTags,
                           'nappingStatus': false,
                         },
                       ),

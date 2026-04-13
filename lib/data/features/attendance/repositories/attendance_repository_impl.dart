@@ -1,4 +1,5 @@
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
@@ -17,10 +18,15 @@ import '../models/staff_absence_record_models.dart';
 class AttendanceRepositoryImpl
     implements AttendanceRepository, AttendanceRepositoryWithCache {
   AttendanceRepositoryImpl(this._remoteDataSource, StorageService storageService)
-      : _cacheManager = CacheManager(storageService);
+      : _storage = storageService,
+        _cacheManager = CacheManager(storageService);
 
   final AttendanceRemoteDataSource _remoteDataSource;
+  final StorageService _storage;
   final CacheManager _cacheManager;
+
+  Future<List<String>> _attendanceAllowedClassroomCodes() =>
+      resolveAttendanceAllowedClassroomCodes(storage: _storage);
 
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
   static String _studentAttendanceDailyCacheKey(
@@ -108,6 +114,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     // 1. Call remote datasource
     final pageModel = await _remoteDataSource.getStudentAttendanceDaily(
       attendanceDate: attendanceDate,
@@ -116,10 +123,11 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
-    // 2. Cache only first page
-    if (page == 0) {
+    // 2. Cache only first page (never store classroom-scoped staff payloads here).
+    if (page == 0 && allowed.isEmpty) {
       await _cacheManager.saveCache(
         _studentAttendanceDailyCacheKey(
           attendanceDate,
@@ -142,6 +150,10 @@ class AttendanceRepositoryImpl
     List<String>? tagCodes,
     String? search,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    if (allowed.isNotEmpty) {
+      return null;
+    }
     final payload = await _cacheManager.loadCache(
       _studentAttendanceDailyCacheKey(
         attendanceDate,
@@ -244,6 +256,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStudentAttendanceCustom(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -252,9 +265,10 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
-    if (page == 0) {
+    if (page == 0 && allowed.isEmpty) {
       await _cacheManager.saveCache(
         _studentAttendanceCustomCacheKey(
           fromAttendanceDate,
@@ -278,6 +292,10 @@ class AttendanceRepositoryImpl
     List<String>? tagCodes,
     String? search,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    if (allowed.isNotEmpty) {
+      return null;
+    }
     final payload = await _cacheManager.loadCache(
       _studentAttendanceCustomCacheKey(
         fromAttendanceDate,
@@ -338,6 +356,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStudentSignInFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -346,6 +365,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     // For now we don't cache this list; it's a transient sign-in selection.
@@ -362,6 +382,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStudentSignOutFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -370,6 +391,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     // No caching for this transient selection list.
@@ -386,6 +408,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStudentTransferFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -394,6 +417,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     // No caching for this transient selection list.
@@ -410,6 +434,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffAttendanceDaily(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -418,6 +443,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     return _mapStaffDailyPageModelToEntity(pageModel);
@@ -511,6 +537,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffAttendanceCustom(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -519,6 +546,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     return _mapStaffDailyPageModelToEntity(pageModel);
@@ -534,6 +562,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffAttendanceAbsent(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -542,6 +571,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     return _mapStaffAbsentPageModelToEntity(pageModel);
@@ -557,6 +587,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffAbsentFormList(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -565,6 +596,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     return _mapStaffAbsentPageModelToEntity(pageModel);
@@ -581,6 +613,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffAttendanceAbsentToggleView(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -589,6 +622,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     return _mapStaffAbsentPageModelToEntity(pageModel);
@@ -617,6 +651,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffSignInFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -625,6 +660,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     // No caching for this transient selection list.
@@ -641,6 +677,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffSignOutFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -649,6 +686,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     // No caching for this transient selection list.
@@ -665,6 +703,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStaffTransferFormList(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -673,6 +712,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     // No caching for this transient selection list.
@@ -737,6 +777,7 @@ class AttendanceRepositoryImpl
       markedAbsentByName: model.markedAbsentByName,
       absenceNote: model.absenceNote,
       absentDays: model.absentDays,
+      absenceRecordCode: model.absenceRecordCode,
     );
   }
 
@@ -751,6 +792,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel = await _remoteDataSource.getStudentAbsentFormList(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -759,9 +801,23 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     return _mapStudentAbsentFormPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    await _remoteDataSource.deleteStudentAbsenceRecord(
+      absenceRecordCode: absenceRecordCode,
+      staffCode: staffCode,
+      allowedClassroomCodes: allowed,
+    );
   }
 
   @override
@@ -774,6 +830,7 @@ class AttendanceRepositoryImpl
     required Map<String, String> absenceNotes,
     required String classroomCode,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final response = await _remoteDataSource.markStudentsAbsent(
       request: MarkAbsentRequestModel(
         staffCode: staffCode,
@@ -784,6 +841,7 @@ class AttendanceRepositoryImpl
         absenceNotes: absenceNotes,
         classroomCode: classroomCode,
       ),
+      allowedClassroomCodes: allowed,
     );
 
     return response.message.isNotEmpty
@@ -801,6 +859,7 @@ class AttendanceRepositoryImpl
     required String absenceType,
     required Map<String, String> absenceNotes,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final response = await _remoteDataSource.markStaffAbsent(
       request: StaffMarkAbsentRequestModel(
         staffCode: staffCode,
@@ -811,6 +870,7 @@ class AttendanceRepositoryImpl
         absenceType: absenceType,
         absenceNotes: absenceNotes,
       ),
+      allowedClassroomCodes: allowed,
     );
 
     return response.message.isNotEmpty
@@ -829,6 +889,7 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final pageModel =
         await _remoteDataSource.getStudentAttendanceAbsentToggleView(
       fromAbsenceDate: fromAbsenceDate,
@@ -838,6 +899,7 @@ class AttendanceRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowed,
     );
 
     return _mapStudentAbsentFormPageModelToEntity(pageModel);
@@ -846,34 +908,41 @@ class AttendanceRepositoryImpl
   @override
   Future<StudentAttendanceExpectedSummary>
       getStudentAttendanceExpectedSummary() async {
-    // 1. Try cache first (summary is lightweight and global for "today").
-    final cached = await _cacheManager.loadCache(
-      _studentAttendanceSummaryCacheKey(),
-    );
-    if (cached != null) {
-      return StudentAttendanceExpectedSummary(
-        expected: cached['expected'] as int? ?? 0,
-        present: cached['present'] as int? ?? 0,
-        absent: cached['absent'] as int? ?? 0,
-        signOut: cached['signOut'] as int? ?? 0,
-        notMarked: cached['notMarked'] as int? ?? 0,
+    final allowed = await _attendanceAllowedClassroomCodes();
+    // 1. Try cache only when not classroom-scoped (empty allowed list).
+    if (allowed.isEmpty) {
+      final cached = await _cacheManager.loadCache(
+        _studentAttendanceSummaryCacheKey(),
       );
+      if (cached != null) {
+        return StudentAttendanceExpectedSummary(
+          expected: cached['expected'] as int? ?? 0,
+          present: cached['present'] as int? ?? 0,
+          absent: cached['absent'] as int? ?? 0,
+          signOut: cached['signOut'] as int? ?? 0,
+          notMarked: cached['notMarked'] as int? ?? 0,
+        );
+      }
     }
 
     // 2. Fallback to API and cache the result.
     final model =
-        await _remoteDataSource.getStudentAttendanceExpectedSummaryCard();
-
-    await _cacheManager.saveCache(
-      _studentAttendanceSummaryCacheKey(),
-      {
-        'expected': model.expected,
-        'present': model.present,
-        'absent': model.absent,
-        'signOut': model.signOut,
-        'notMarked': model.notMarked,
-      },
+        await _remoteDataSource.getStudentAttendanceExpectedSummaryCard(
+      allowedClassroomCodes: allowed,
     );
+
+    if (allowed.isEmpty) {
+      await _cacheManager.saveCache(
+        _studentAttendanceSummaryCacheKey(),
+        {
+          'expected': model.expected,
+          'present': model.present,
+          'absent': model.absent,
+          'signOut': model.signOut,
+          'notMarked': model.notMarked,
+        },
+      );
+    }
 
     return StudentAttendanceExpectedSummary(
       expected: model.expected,
@@ -887,34 +956,40 @@ class AttendanceRepositoryImpl
   @override
   Future<StudentAttendanceExpectedSummary>
       getStaffAttendanceExpectedSummary() async {
-    // 1. Try cache first (summary is lightweight and global for "today").
-    final cached = await _cacheManager.loadCache(
-      _staffAttendanceSummaryCacheKey(),
-    );
-    if (cached != null) {
-      return StudentAttendanceExpectedSummary(
-        expected: cached['expected'] as int? ?? 0,
-        present: cached['present'] as int? ?? 0,
-        absent: cached['absent'] as int? ?? 0,
-        signOut: cached['signOut'] as int? ?? 0,
-        notMarked: cached['notMarked'] as int? ?? 0,
+    final allowed = await _attendanceAllowedClassroomCodes();
+    if (allowed.isEmpty) {
+      final cached = await _cacheManager.loadCache(
+        _staffAttendanceSummaryCacheKey(),
       );
+      if (cached != null) {
+        return StudentAttendanceExpectedSummary(
+          expected: cached['expected'] as int? ?? 0,
+          present: cached['present'] as int? ?? 0,
+          absent: cached['absent'] as int? ?? 0,
+          signOut: cached['signOut'] as int? ?? 0,
+          notMarked: cached['notMarked'] as int? ?? 0,
+        );
+      }
     }
 
     // 2. Fallback to API and cache the result.
     final model =
-        await _remoteDataSource.getStaffAttendanceExpectedSummaryCard();
-
-    await _cacheManager.saveCache(
-      _staffAttendanceSummaryCacheKey(),
-      {
-        'expected': model.expected,
-        'present': model.present,
-        'absent': model.absent,
-        'signOut': model.signOut,
-        'notMarked': model.notMarked,
-      },
+        await _remoteDataSource.getStaffAttendanceExpectedSummaryCard(
+      allowedClassroomCodes: allowed,
     );
+
+    if (allowed.isEmpty) {
+      await _cacheManager.saveCache(
+        _staffAttendanceSummaryCacheKey(),
+        {
+          'expected': model.expected,
+          'present': model.present,
+          'absent': model.absent,
+          'signOut': model.signOut,
+          'notMarked': model.notMarked,
+        },
+      );
+    }
 
     return StudentAttendanceExpectedSummary(
       expected: model.expected,
@@ -927,8 +1002,10 @@ class AttendanceRepositoryImpl
 
   @override
   Future<String?> getStaffTodaySignInStatus(String staffCode) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final map = await _remoteDataSource.getStaffSignInStatus(
       staffCodes: <String>[staffCode],
+      allowedClassroomCodes: allowed,
     );
     return map[staffCode];
   }
@@ -936,16 +1013,22 @@ class AttendanceRepositoryImpl
   @override
   Future<Map<String, String>> getStaffTodaySignInStatusMap(
     List<String> staffCodes,
-  ) {
+  ) async {
     final codes = staffCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    if (codes.isEmpty) return Future.value(<String, String>{});
-    return _remoteDataSource.getStaffSignInStatus(staffCodes: codes);
+    if (codes.isEmpty) return <String, String>{};
+    final allowed = await _attendanceAllowedClassroomCodes();
+    return _remoteDataSource.getStaffSignInStatus(
+      staffCodes: codes,
+      allowedClassroomCodes: allowed,
+    );
   }
 
   @override
   Future<String?> getStudentTodaySignInStatus(String studentCode) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
     final map = await _remoteDataSource.getStudentSignInStatus(
       studentCodes: <String>[studentCode],
+      allowedClassroomCodes: allowed,
     );
     return map[studentCode];
   }
@@ -953,11 +1036,15 @@ class AttendanceRepositoryImpl
   @override
   Future<Map<String, String>> getStudentTodaySignInStatusMap(
     List<String> studentCodes,
-  ) {
+  ) async {
     final codes =
         studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    if (codes.isEmpty) return Future.value(<String, String>{});
-    return _remoteDataSource.getStudentSignInStatus(studentCodes: codes);
+    if (codes.isEmpty) return <String, String>{};
+    final allowed = await _attendanceAllowedClassroomCodes();
+    return _remoteDataSource.getStudentSignInStatus(
+      studentCodes: codes,
+      allowedClassroomCodes: allowed,
+    );
   }
 
   @override
@@ -992,9 +1079,11 @@ class AttendanceRepositoryImpl
       'timeZone': timeZone,
     };
 
+    final allowed = await _attendanceAllowedClassroomCodes();
     return _remoteDataSource.updateStudentAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
       payload: payload,
+      allowedClassroomCodes: allowed,
     );
   }
 
@@ -1030,6 +1119,10 @@ class AttendanceRepositoryImpl
       'occurredAt': occurredAt?.toIso8601String(),
     };
 
-    return _remoteDataSource.createStudentSignInRecords(payload: payload);
+    final allowed = await _attendanceAllowedClassroomCodes();
+    return _remoteDataSource.createStudentSignInRecords(
+      payload: payload,
+      allowedClassroomCodes: allowed,
+    );
   }
 }

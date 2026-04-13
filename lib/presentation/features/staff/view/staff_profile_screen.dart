@@ -20,12 +20,15 @@ class StaffProfileScreen extends StatefulWidget {
     required this.classroom,
     required this.designation,
     required this.phoneNumber,
+    this.employmentStatus,
     this.classroomNames,
     this.classroomNameByCode,
   });
 
   final String staffCode;
   final String name;
+  /// API employment status (e.g. ACTIVE, UPCOMING) for avatar status dot.
+  final String? employmentStatus;
   final String classroom;
   final String designation;
   final String phoneNumber;
@@ -187,11 +190,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                     clipBehavior: Clip.none,
                     children: [
                       DocumentImageWidget(
-                        fileUuid: widget.name, // seed for stable color when no image
+                        fileUuid: widget.staffCode,
                         name: widget.name,
+                        staffCode: widget.staffCode,
+                        staffEmploymentStatus: widget.employmentStatus,
                         size: 90,
                         fontSize: 24,
-                        statusColor: const Color(0xFF00B115),
                       ),
                       Positioned(
                         right: -2,

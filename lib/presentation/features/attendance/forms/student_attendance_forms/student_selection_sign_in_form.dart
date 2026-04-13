@@ -253,6 +253,7 @@ class _StudentSelectionSignInFormState
           roomName: item.classroomName,
           classroomCode: item.classroomCode,
           photoUuid: null,
+          isExpectedToday: item.isExpectedToday,
         );
       }).toList();
 

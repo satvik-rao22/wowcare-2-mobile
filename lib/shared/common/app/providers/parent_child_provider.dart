@@ -190,4 +190,21 @@ class ParentChildProvider extends ChangeNotifier {
     _selectedChild = next;
     notifyListeners();
   }
+
+  /// Selects the child matching [code] (e.g. after parent sign-in/out for a specific student).
+  void selectByCode(String? code) {
+    final trimmed = (code ?? '').trim();
+    if (trimmed.isEmpty) return;
+    ParentChildRef? next;
+    for (final child in _children) {
+      if (child.code.trim() == trimmed) {
+        next = child;
+        break;
+      }
+    }
+    if (next == null) return;
+    if (_selectedChild?.code == next.code) return;
+    _selectedChild = next;
+    notifyListeners();
+  }
 }

@@ -289,7 +289,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                     ? DateTime.tryParse(it.absenceDate) ?? DateTime.now()
                     : DateTime.now();
 
-                final absentTime = it.markedAbsentTime?.formattedHms ?? '';
+                final absentTime = it.markedAbsentTime?.formatted12h ?? '';
 
                 return _AbsentStaffModel(
                   id: it.staffCode,

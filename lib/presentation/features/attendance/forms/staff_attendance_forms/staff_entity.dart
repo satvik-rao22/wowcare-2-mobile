@@ -24,4 +24,23 @@ class StaffEntity {
     this.staffCode,
     this.isExpectedToday = true,
   });
+
+  /// Matches [StudentEntity]: same [staffCode] is the same person in sets/lists
+  /// even when the list is rebuilt after search/filter.
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! StaffEntity) return false;
+    final a = (staffCode ?? '').trim();
+    final b = (other.staffCode ?? '').trim();
+    if (a.isNotEmpty && b.isNotEmpty) return a == b;
+    return id == other.id && name == other.name;
+  }
+
+  @override
+  int get hashCode {
+    final c = (staffCode ?? '').trim();
+    if (c.isNotEmpty) return c.hashCode;
+    return Object.hash(id, name);
+  }
 }
