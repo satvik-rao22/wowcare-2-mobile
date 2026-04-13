@@ -6,6 +6,8 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 import '../../../../../../app/theme/media_res.dart';
@@ -370,6 +372,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<ClassroomCubit>().loadActiveClassrooms();
+        context.read<StaffCubit>().loadInitial();
+      }
+    });
     _applyFilters();
     _searchController.addListener(_applyFilters);
   }
@@ -387,6 +395,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
       providers: [
         BlocProvider<CommunicationCubit>(
           create: (_) => serviceLocator<CommunicationCubit>(),
+        ),
+        BlocProvider<StaffCubit>(
+          create: (_) => serviceLocator<StaffCubit>(),
+        ),
+        BlocProvider<ClassroomCubit>(
+          create: (_) => serviceLocator<ClassroomCubit>(),
         ),
       ],
       child: CustomScrollView(
@@ -430,11 +444,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                                         FilerSection(
                                           label: 'Classroom',
                                           hintText: 'Select classroom',
-                                          items: [
-                                            '1-Blue D',
-                                            '3-Orange-D',
-                                            '2-Red A',
-                                          ],
+                                          items: context
+                                              .read<ClassroomCubit>()
+                                              .state
+                                              .classrooms
+                                              .map((e) => e.name)
+                                              .toList(),
                                           initialSelected:
                                               _currentFilters['Classroom'] ??
                                               [],
@@ -480,11 +495,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab> {
                                         FilerSection(
                                           label: 'Classroom',
                                           hintText: 'Select classroom',
-                                          items: [
-                                            '1-Blue D',
-                                            '3-Orange-D',
-                                            '2-Red A',
-                                          ],
+                                          items: context
+                                              .read<ClassroomCubit>()
+                                              .state
+                                              .classrooms
+                                              .map((e) => e.name)
+                                              .toList(),
                                           initialSelected:
                                               _currentFilters['Classroom'] ??
                                               [],

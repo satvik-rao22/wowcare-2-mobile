@@ -79,7 +79,15 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   ) async {
     try {
       await remoteDataSource.markAsRead(threadId, messageId);
-      // TODO: Update cache status if needed
+      
+      // Update cache status
+      final results = await cacheService.getByField<MessageCollection>('id', messageId);
+      if (results.isNotEmpty) {
+        final message = results.first;
+        message.readAt = DateTime.now();
+        await cacheService.put(message);
+      }
+
       return const Right(null);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

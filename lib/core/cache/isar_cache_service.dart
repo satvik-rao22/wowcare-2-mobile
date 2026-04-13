@@ -8,51 +8,53 @@ class IsarCacheService implements CacheService {
 
   Future<void> init() async {
     final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open([MessageCollectionSchema], directory: dir.path);
+    _isar = await Isar.open(
+      [MessageCollectionSchema],
+      directory: dir.path,
+    );
   }
 
   @override
   Future<void> put<T>(T item) async {
     await _isar.writeTxn(() async {
-      if (item is MessageCollection) {
-        await _isar.messageCollections.put(item);
-      }
+      await _isar.collection<T>().put(item);
     });
   }
 
   @override
   Future<void> putAll<T>(List<T> items) async {
     await _isar.writeTxn(() async {
-      if (items is List<MessageCollection>) {
-        await _isar.messageCollections.putAll(items.cast<MessageCollection>());
-      }
+      await _isar.collection<T>().putAll(items);
     });
   }
 
   @override
   Future<T?> get<T>(dynamic id) async {
-    if (T == MessageCollection) {
-      return await _isar.messageCollections.get(id) as T?;
-    }
-    return null;
+    return await _isar.collection<T>().get(id as Id);
   }
 
   @override
   Future<List<T>> getAll<T>() async {
-    if (T == MessageCollection) {
-      return await _isar.messageCollections.where().findAll() as List<T>;
-    }
-    return [];
+    return await _isar.collection<T>().where().findAll();
   }
 
   @override
   Future<List<T>> getByField<T>(String fieldName, dynamic value) async {
-    if (T == MessageCollection && fieldName == 'threadId') {
-      return await _isar.messageCollections
-              .filter()
-              .threadIdEqualTo(value as String)
-              .findAll()
-          as List<T>;
+    // Isar requires specific generated filters for each field.
+    // For a centralized system, we map the fields for each collection here.
+    if (T == MessageCollection) {
+      if (fieldName == 'threadId') {
+        return await _isar.messageCollections
+            .filter()
+            .threadIdEqualTo(value as String)
+            .findAll() as List<T>;
+      }
+      if (fieldName == 'id') {
+         return await _isar.messageCollections
+            .filter()
+            .idEqualTo(value as String)
+            .findAll() as List<T>;
+      }
     }
     return [];
   }
@@ -60,18 +62,14 @@ class IsarCacheService implements CacheService {
   @override
   Future<void> delete<T>(dynamic id) async {
     await _isar.writeTxn(() async {
-      if (T == MessageCollection) {
-        await _isar.messageCollections.delete(id);
-      }
+      await _isar.collection<T>().delete(id as Id);
     });
   }
 
   @override
   Future<void> clear<T>() async {
     await _isar.writeTxn(() async {
-      if (T == MessageCollection) {
-        await _isar.messageCollections.clear();
-      }
+      await _isar.collection<T>().clear();
     });
   }
 }

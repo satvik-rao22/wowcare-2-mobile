@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
@@ -121,9 +126,23 @@ class _MessagingTabState extends State<MessagingTab> with SingleTickerProviderSt
               GradientAddButton(
                 onTap: () {
                   if(isStaffTab){
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffOrStudentSelectionBulkMessaging()));
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => MultiBlocProvider(
+                      providers: [
+                        BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
+                        BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
+                        BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
+                      ],
+                      child: StaffOrStudentSelectionBulkMessaging(),
+                    )));
                   }else {
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => StaffOrStudentSelectionBulkMessaging(isStaffSelection: false,)));
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => MultiBlocProvider(
+                      providers: [
+                        BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
+                        BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
+                        BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
+                      ],
+                      child: StaffOrStudentSelectionBulkMessaging(isStaffSelection: false,),
+                    )));
                   }
                 },
                 //isTablet: MediaQuery.of(context).size.width >= 600,

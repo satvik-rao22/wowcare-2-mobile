@@ -11,6 +11,7 @@ environment:
   sdk: ^3.9.2
 
 dependencies:
+  flutter_skill: ^0.2.6
   flutter:
     sdk: flutter
   any_link_preview: ^3.0.3

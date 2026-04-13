@@ -10,6 +10,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
   final List<String> selectedItems;
   final ValueChanged<List<String>> onChanged;
   final bool isField;
+  final bool showSelectAll;
   final double? width;
   final double gapHeight;
   final double maxDropdownHeight;
@@ -23,6 +24,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.label,
     this.suffix,
     this.isField = false,
+    this.showSelectAll = true,
     this.width,
     /// Extra spacing between the field and dropdown (in addition to field height).
     this.gapHeight = 6,
@@ -149,20 +151,36 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                   ),
                   child: StatefulBuilder(
                     builder: (BuildContext context, StateSetter setOverlayState) {
+                      final List<String> effectiveItems = widget.showSelectAll 
+                          ? ['Select All', ...widget.items] 
+                          : widget.items;
+                      
                       return ListView.builder(
                         padding: EdgeInsets.zero,
                         shrinkWrap: true,
-                        itemCount: widget.items.length,
+                        itemCount: effectiveItems.length,
                         itemBuilder: (context, index) {
-                          final item = widget.items[index];
-                          final isSelected = _localSelectedItems.contains(item);
+                          final item = effectiveItems[index];
+                          final bool isSelectAllItem = widget.showSelectAll && index == 0;
+                          final bool isSelected = isSelectAllItem 
+                              ? _localSelectedItems.length == widget.items.length 
+                              : _localSelectedItems.contains(item);
+                          
                           return InkWell(
                             onTap: () {
                               setOverlayState(() {
-                                if (isSelected) {
-                                  _localSelectedItems.remove(item);
+                                if (isSelectAllItem) {
+                                  if (isSelected) {
+                                    _localSelectedItems.clear();
+                                  } else {
+                                    _localSelectedItems = List.from(widget.items);
+                                  }
                                 } else {
-                                  _localSelectedItems.add(item);
+                                  if (isSelected) {
+                                    _localSelectedItems.remove(item);
+                                  } else {
+                                    _localSelectedItems.add(item);
+                                  }
                                 }
                               });
                               setState(() {}); // Update main widget
