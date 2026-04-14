@@ -10,6 +10,7 @@ class StudentAttendanceAbsentFormItem extends Equatable {
     this.markedAbsentTime,
     this.markedAbsentByName,
     this.absenceNote,
+    this.markAbsentMethod,
     this.absentDays = 0,
     this.absenceRecordCode,
   });
@@ -22,6 +23,7 @@ class StudentAttendanceAbsentFormItem extends Equatable {
   final StudentAttendanceTime? markedAbsentTime;
   final String? markedAbsentByName;
   final String? absenceNote;
+  final String? markAbsentMethod;
   final int absentDays;
 
   /// Server identifier for DELETE `/api/v1/student-absence-records/{code}`.
@@ -37,6 +39,7 @@ class StudentAttendanceAbsentFormItem extends Equatable {
         markedAbsentTime,
         markedAbsentByName,
         absenceNote,
+        markAbsentMethod,
         absentDays,
         absenceRecordCode,
       ];

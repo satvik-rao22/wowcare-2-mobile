@@ -35,16 +35,20 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
     as student_absent;
 
+enum ProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
+
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
   final String label;
   final String text;
   final bool showTransferIcon;
+  final ProfileAbsentMarkMethod? markMethod;
 
   const _AttendanceField({
     required this.label,
     required this.text,
     this.showTransferIcon = false,
+    this.markMethod,
   });
 
   @override
@@ -85,6 +89,10 @@ class _AttendanceField extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
               ],
+              if (markMethod != null) ...[
+                _methodIcon(markMethod!),
+                const SizedBox(width: 6),
+              ],
               Flexible(
                 child: AppText.value(
                   text,
@@ -100,6 +108,31 @@ class _AttendanceField extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _methodIcon(ProfileAbsentMarkMethod method) {
+    switch (method) {
+      case ProfileAbsentMarkMethod.gps:
+        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: 16, height: 16);
+      case ProfileAbsentMarkMethod.qr:
+        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: 16, height: 16);
+      case ProfileAbsentMarkMethod.kiosk:
+        return SvgPicture.asset(MediaRes.pinMethodIcon, width: 16, height: 16);
+      case ProfileAbsentMarkMethod.app:
+        return SvgPicture.asset(
+          MediaRes.appMethodIcon,
+          width: 16,
+          height: 16,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+      case ProfileAbsentMarkMethod.web:
+        return SvgPicture.asset(
+          MediaRes.webMethodIcon,
+          width: 16,
+          height: 16,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+    }
   }
 }
 
@@ -138,6 +171,7 @@ class _AbsentDayModel {
   final String absentTime;
   final String absentBy;
   final String note;
+  final ProfileAbsentMarkMethod? markAbsentMethod;
 
   _AbsentDayModel({
     required this.startDate,
@@ -145,6 +179,7 @@ class _AbsentDayModel {
     required this.absentTime,
     required this.absentBy,
     required this.note,
+    this.markAbsentMethod,
   });
 }
 
@@ -231,6 +266,29 @@ class StudentAttendanceProfile extends StatefulWidget {
 }
 
 class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
+  DateTime _startOfMonth(DateTime date) => DateTime(date.year, date.month, 1);
+
+  DateTime _endOfMonth(DateTime date) => DateTime(date.year, date.month + 1, 0);
+
+  ProfileAbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
+    if (method == null) return null;
+    switch (method.trim().toUpperCase()) {
+      case 'GPS':
+        return ProfileAbsentMarkMethod.gps;
+      case 'PIN':
+      case 'KIOSK':
+        return ProfileAbsentMarkMethod.kiosk;
+      case 'QR':
+        return ProfileAbsentMarkMethod.qr;
+      case 'APP':
+        return ProfileAbsentMarkMethod.app;
+      case 'WEB':
+        return ProfileAbsentMarkMethod.web;
+      default:
+        return null;
+    }
+  }
+
   DateTime? _startDate;
   DateTime? _endDate;
   bool isAttendancesLoading = false;
@@ -385,8 +443,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     super.initState();
     _activeStudentCode = widget.studentCode.trim();
     final now = DateTime.now();
-    _startDate = DateTime(now.year, now.month, 1);
-     _endDate = now;
+    _startDate = _startOfMonth(now);
+    _endDate = _endOfMonth(now);
 
     // Initialize student model
     student = _StudentModel(
@@ -648,6 +706,11 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         'page': 0,
         'size': 100,
         'sort': <String>['absenceDate,desc'],
+        // Swagger lists pageable as required for this endpoint.
+        // Keep both styles to remain backward compatible across environments.
+        'pageable.page': 0,
+        'pageable.size': 100,
+        'pageable.sort': <String>['absenceDate,desc'],
       };
 
       absentQueryParameters['allowedClassroomCodes'] =
@@ -683,8 +746,11 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               startDate: date,
               endDate: date,
               absentTime: _formatApiTime(m['markedAbsentTime']),
-              absentBy: m['markedAbsentBy'] as String? ?? '',
+              absentBy:
+                  (m['markedAbsentByName'] ?? m['markedAbsentBy'] ?? '').toString(),
               note: m['absenceNote'] as String? ?? '',
+              markAbsentMethod:
+                  _mapAbsentMethodStringToEnum(m['markAbsentMethod'] as String?),
             ),
           );
         }
@@ -887,9 +953,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
+    final effectiveEnd = endDate ?? startDate;
     setState(() {
-      _startDate = startDate;
-      _endDate = endDate ?? startDate;
+      _startDate = _startOfMonth(startDate);
+      _endDate = _endOfMonth(effectiveEnd);
     });
     _loadData();
   }
@@ -1595,6 +1662,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           _AttendanceField(
             label: 'Marked Absent Time',
             text: formatTime(absentDay.absentTime),
+            markMethod: absentDay.markAbsentMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(

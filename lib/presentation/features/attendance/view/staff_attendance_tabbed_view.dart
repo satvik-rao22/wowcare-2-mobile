@@ -206,6 +206,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                     color: AppColors.themeColor,
                   ),
                 ),
+                dividerColor: Colors.transparent,
                 indicatorPadding: EdgeInsets.only(
                   bottom: responsive.isTablet ? 10 : 8,
                 ),

@@ -28,16 +28,20 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 
+enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
+
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
   final String label;
   final String text;
   final bool showTransferIcon;
+  final StaffProfileAbsentMarkMethod? markMethod;
 
   const _AttendanceField({
     required this.label,
     required this.text,
     this.showTransferIcon = false,
+    this.markMethod,
   });
 
   @override
@@ -78,6 +82,10 @@ class _AttendanceField extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
               ],
+              if (markMethod != null) ...[
+                _methodIcon(markMethod!),
+                const SizedBox(width: 6),
+              ],
               Flexible(
                 child: AppText.value(
                   text,
@@ -93,6 +101,31 @@ class _AttendanceField extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _methodIcon(StaffProfileAbsentMarkMethod method) {
+    switch (method) {
+      case StaffProfileAbsentMarkMethod.gps:
+        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: 16, height: 16);
+      case StaffProfileAbsentMarkMethod.qr:
+        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: 16, height: 16);
+      case StaffProfileAbsentMarkMethod.kiosk:
+        return SvgPicture.asset(MediaRes.pinMethodIcon, width: 16, height: 16);
+      case StaffProfileAbsentMarkMethod.app:
+        return SvgPicture.asset(
+          MediaRes.appMethodIcon,
+          width: 16,
+          height: 16,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+      case StaffProfileAbsentMarkMethod.web:
+        return SvgPicture.asset(
+          MediaRes.webMethodIcon,
+          width: 16,
+          height: 16,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+    }
   }
 }
 
@@ -131,6 +164,7 @@ class _AbsentDayModel {
   final String absentTime;
   final String absentBy;
   final String note;
+  final StaffProfileAbsentMarkMethod? markAbsentMethod;
 
   _AbsentDayModel({
     required this.startDate,
@@ -138,6 +172,7 @@ class _AbsentDayModel {
     required this.absentTime,
     required this.absentBy,
     required this.note,
+    this.markAbsentMethod,
   });
 }
 
@@ -214,6 +249,29 @@ class StaffAttendanceProfile extends StatefulWidget {
 }
 
 class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
+  DateTime _startOfMonth(DateTime date) => DateTime(date.year, date.month, 1);
+
+  DateTime _endOfMonth(DateTime date) => DateTime(date.year, date.month + 1, 0);
+
+  StaffProfileAbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
+    if (method == null) return null;
+    switch (method.trim().toUpperCase()) {
+      case 'GPS':
+        return StaffProfileAbsentMarkMethod.gps;
+      case 'PIN':
+      case 'KIOSK':
+        return StaffProfileAbsentMarkMethod.kiosk;
+      case 'QR':
+        return StaffProfileAbsentMarkMethod.qr;
+      case 'APP':
+        return StaffProfileAbsentMarkMethod.app;
+      case 'WEB':
+        return StaffProfileAbsentMarkMethod.web;
+      default:
+        return null;
+    }
+  }
+
   DateTime? _startDate;
   DateTime? _endDate;
   bool isAttendancesLoading = false;
@@ -321,8 +379,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _startDate = DateTime(now.year, now.month, 1);
-    _endDate = DateTime(now.year, now.month, now.day);
+    _startDate = _startOfMonth(now);
+    _endDate = _endOfMonth(now);
 
     // Initialize staff model
     staff = _StaffModel(
@@ -505,6 +563,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         'page': 0,
         'size': 10,
         'sort': <String>['absenceDate,desc'],
+        // Swagger lists pageable as required for this endpoint.
+        // Keep both styles to remain backward compatible across environments.
+        'pageable.page': 0,
+        'pageable.size': 10,
+        'pageable.sort': <String>['absenceDate,desc'],
       };
 
       absentQueryParameters['allowedClassroomCodes'] =
@@ -546,8 +609,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             startDate: date,
             endDate: date,
             absentTime: _formatApiTime(m['markedAbsentTime']),
-            absentBy: m['markedAbsentBy'] as String? ?? '',
+            absentBy:
+                (m['markedAbsentByName'] ?? m['markedAbsentBy'] ?? '').toString(),
             note: m['absenceNote'] as String? ?? '',
+            markAbsentMethod:
+                _mapAbsentMethodStringToEnum(m['markAbsentMethod'] as String?),
           );
         }).toList();
 
@@ -671,9 +737,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
+    final effectiveEnd = endDate ?? startDate;
     setState(() {
-      _startDate = startDate;
-      _endDate = endDate ?? startDate;
+      _startDate = _startOfMonth(startDate);
+      _endDate = _endOfMonth(effectiveEnd);
     });
     _loadData();
   }
@@ -902,13 +969,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             valueColor: const Color(0xFF4CAF50),
           ),
           const SizedBox(height: 16),
-          _buildStatItem(
-            icon: MediaRes.timerIcon,
-            iconColor: const Color(0xFF4285F4),
-            label: 'Attended Hours',
-            value: 'h',
-            valueColor: const Color(0xFF4285F4),
-          ),
+          _buildAttendedHoursStat(report: null),
           const SizedBox(height: 16),
           _buildStatItem(
             icon: MediaRes.calenderClockIcon,
@@ -931,15 +992,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           valueColor: const Color(0xFF4CAF50),
         ),
         const SizedBox(height: 16),
-        _buildStatItem(
-          icon: MediaRes.timerIcon,
-          iconColor: const Color(0xFF4285F4),
-          label: 'Attended Hours',
-          value: attendanceReport!.totalAttendedHours.isNotEmpty
-              ? '${attendanceReport!.totalAttendedHours.split(' ').first}h'
-              : '0h',
-          valueColor: const Color(0xFF4285F4),
-        ),
+        _buildAttendedHoursStat(report: attendanceReport),
         const SizedBox(height: 16),
         _buildStatItem(
           icon: MediaRes.calenderClockIcon,
@@ -949,6 +1002,89 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           valueColor: Colors.red,
         ),
       ],
+    );
+  }
+
+  Widget _buildAttendedHoursStat({
+    required _AttendanceReportModel? report,
+  }) {
+    int hours = 0;
+    int minutes = 0;
+
+    // Parse strings like "5 Hrs 30 Mins".
+    if (report != null && report.totalAttendedHours.isNotEmpty) {
+      final parts = report.totalAttendedHours.split(' ');
+      if (parts.length >= 4) {
+        hours = int.tryParse(parts[0]) ?? 0;
+        minutes = int.tryParse(parts[2]) ?? 0;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black12, width: 1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            MediaRes.timerIcon,
+            height: 22,
+            colorFilter:
+                const ColorFilter.mode(Color(0xFF4285F4), BlendMode.srcIn),
+          ),
+          const SizedBox(width: 8),
+          const AppText.body(
+            'Attended Hours',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              _buildValueCircle(
+                text: '${hours}h',
+                color: const Color(0xFF4285F4),
+              ),
+              const SizedBox(width: 8),
+              _buildValueCircle(
+                text: '${minutes}m',
+                color: const Color(0xFF4285F4),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValueCircle({
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: color,
+          width: 1.5,
+        ),
+      ),
+      child: Center(
+        child: AppText.body(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1244,6 +1380,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           _AttendanceField(
             label: 'Marked Absent Time',
             text: formatTime(absentDay.absentTime),
+            markMethod: absentDay.markAbsentMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(

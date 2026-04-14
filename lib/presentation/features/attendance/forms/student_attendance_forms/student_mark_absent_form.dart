@@ -221,6 +221,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         absenceNotes[code] = note;
       }
     }
+    final isExpectedTodayByStudentCode = <String, bool>{
+      for (final code in studentCodes) code: true,
+    };
 
     setState(() {
       _isSubmitting = true;
@@ -235,6 +238,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         absenceReason: absenceReason,
         absenceNotes: absenceNotes,
         classroomCode: classroomCode,
+        isExpectedTodayByStudentCode: isExpectedTodayByStudentCode,
+        markAbsentMethod: 'APP',
       );
 
       if (!mounted) return;

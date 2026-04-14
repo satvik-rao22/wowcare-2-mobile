@@ -319,12 +319,12 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.symmetric(
           horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 2,
+          vertical: responsive.verticalSpacing / 4,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             // Filters Section
             CustomSectionCard(
               child: Column(

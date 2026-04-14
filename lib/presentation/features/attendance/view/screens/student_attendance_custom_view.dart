@@ -229,12 +229,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.symmetric(
                 horizontal: contentPadding.left,
-                vertical: responsive.verticalSpacing / 2,
+                vertical: responsive.verticalSpacing / 4,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: responsive.verticalSpacing),
+                  SizedBox(height: responsive.verticalSpacing / 4),
                   if (!widget.contentOnly) ...[
                     _buildHeaderTabsRow(),
                     const SizedBox(height: 10),

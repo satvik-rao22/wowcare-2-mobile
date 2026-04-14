@@ -10,6 +10,7 @@ class StaffAttendanceAbsentItem extends Equatable {
     this.markedAbsentTime,
     required this.markedAbsentByName,
     this.absenceNote,
+    this.markAbsentMethod,
     required this.absentDays,
   });
 
@@ -21,6 +22,7 @@ class StaffAttendanceAbsentItem extends Equatable {
   final StaffAttendanceTime? markedAbsentTime;
   final String markedAbsentByName;
   final String? absenceNote;
+  final String? markAbsentMethod;
   final int absentDays;
 
   @override
@@ -33,6 +35,7 @@ class StaffAttendanceAbsentItem extends Equatable {
         markedAbsentTime,
         markedAbsentByName,
         absenceNote,
+        markAbsentMethod,
         absentDays,
       ];
 }

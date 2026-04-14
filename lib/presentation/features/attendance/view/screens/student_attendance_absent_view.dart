@@ -642,12 +642,12 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.symmetric(
           horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 2,
+          vertical: responsive.verticalSpacing / 4,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: responsive.verticalSpacing),
+            SizedBox(height: responsive.verticalSpacing / 4),
             // Filter section
             CustomSectionCard(
               padding: const EdgeInsets.all(12),

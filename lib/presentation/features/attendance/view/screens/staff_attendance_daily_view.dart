@@ -484,12 +484,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                     controller: _scrollController,
                     padding: EdgeInsets.symmetric(
                       horizontal: contentPadding.left,
-                      vertical: responsive.verticalSpacing / 2,
+                      vertical: responsive.verticalSpacing / 4,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
                         StaffAttendanceSummary(
                           totalStaff: totalStaff,
@@ -1035,6 +1035,25 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     }
   }
 
+  StaffAbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
+    if (method == null) return null;
+    switch (method.trim().toUpperCase()) {
+      case 'GPS':
+        return StaffAbsentMarkMethod.gps;
+      case 'PIN':
+      case 'KIOSK':
+        return StaffAbsentMarkMethod.kiosk;
+      case 'QR':
+        return StaffAbsentMarkMethod.qr;
+      case 'APP':
+        return StaffAbsentMarkMethod.app;
+      case 'WEB':
+        return StaffAbsentMarkMethod.web;
+      default:
+        return null;
+    }
+  }
+
   String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
     final trimmed = rawCode.trim();
     if (trimmed.isEmpty) return trimmed;
@@ -1083,6 +1102,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         final absentTime = it.markedAbsentTime?.formattedHms ?? '';
         final staff = StaffAbsentCardData(
           id: it.staffCode,
+          staffCode: it.staffCode,
           name: it.staffName,
           photoUuid: null,
           roomName: roomName,
@@ -1098,6 +1118,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           expectedToday: true,
           signInTime: null,
           signOutTime: null,
+          markAbsentMethod: _mapAbsentMethodStringToEnum(it.markAbsentMethod),
         );
         return StaffAbsentCard(
           staff: staff,

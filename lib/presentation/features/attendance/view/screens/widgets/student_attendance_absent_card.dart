@@ -4,9 +4,14 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+enum AbsentMarkMethod { gps, qr, kiosk, app, web }
 
 class StudentAbsentCardData {
   final String id;
+  final String? studentCode;
   final String name;
   final String? photoUuid;
   final String roomName;
@@ -22,9 +27,11 @@ class StudentAbsentCardData {
   final bool expectedToday;
   final String? signInTime;
   final String? signOutTime;
+  final AbsentMarkMethod? markAbsentMethod;
 
   StudentAbsentCardData({
     required this.id,
+    this.studentCode,
     required this.name,
     this.photoUuid,
     required this.roomName,
@@ -40,6 +47,7 @@ class StudentAbsentCardData {
     this.expectedToday = true,
     this.signInTime,
     this.signOutTime,
+    this.markAbsentMethod,
   });
 }
 
@@ -103,6 +111,10 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                     DocumentImageWidget(
                       fileUuid: student.photoUuid ?? '',
                       name: student.name,
+                      studentCode:
+                          (student.studentCode ?? '').trim().isNotEmpty
+                              ? student.studentCode
+                              : student.id,
                       size: avatarSize,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
@@ -145,7 +157,13 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
               SizedBox(height: responsive.verticalSpacing / 2),
               _buildDetailRow(context, responsive, 'Room', student.roomName),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(context, responsive, 'Absent Time', student.absentTime),
+              _buildDetailRow(
+                context,
+                responsive,
+                'Absent Time',
+                student.absentTime,
+                method: student.markAbsentMethod,
+              ),
               if (student.absentBy.isNotEmpty && student.absentBy != 'Unknown') ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
                 _buildDetailRow(context, responsive, 'Marked by', student.absentBy),
@@ -216,7 +234,13 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, ResponsiveHelper responsive, String label, String value) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    String label,
+    String value, {
+    AbsentMarkMethod? method,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -233,17 +257,54 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
-          child: AppText.value(
-            value,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 16 : 14,
-            ),
-            textAlign: TextAlign.end,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (method != null) ...[
+                _buildMethodIcon(method, responsive),
+                SizedBox(width: responsive.horizontalSpacing / 4),
+              ],
+              Flexible(
+                child: AppText.value(
+                  value,
+                  style: TextStyle(
+                    fontSize: responsive.isTablet ? 16 : 14,
+                  ),
+                  textAlign: TextAlign.end,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildMethodIcon(AbsentMarkMethod method, ResponsiveHelper responsive) {
+    final size = responsive.isTablet ? 20.0 : 18.0;
+    switch (method) {
+      case AbsentMarkMethod.gps:
+        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+      case AbsentMarkMethod.qr:
+        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+      case AbsentMarkMethod.kiosk:
+        return SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size);
+      case AbsentMarkMethod.app:
+        return SvgPicture.asset(
+          MediaRes.appMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+      case AbsentMarkMethod.web:
+        return SvgPicture.asset(
+          MediaRes.webMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+    }
   }
 }

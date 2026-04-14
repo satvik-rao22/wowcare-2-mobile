@@ -29,6 +29,7 @@ class TabBarStyle {
   final TabAlignment? tabAlignment;
   final Decoration? indicator;
   final EdgeInsetsGeometry? indicatorPadding;
+  final Color? dividerColor;
   final TextStyle? labelStyle;
   final TextStyle? unselectedLabelStyle;
   final Color? labelColor;
@@ -41,6 +42,7 @@ class TabBarStyle {
     this.tabAlignment,
     this.indicator,
     this.indicatorPadding,
+    this.dividerColor,
     this.labelStyle,
     this.unselectedLabelStyle,
     this.labelColor,
@@ -458,6 +460,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     tabAlignment:
                         tabBarStyle?.tabAlignment ?? TabAlignment.center,
                     indicator: tabBarStyle?.indicator,
+                    dividerColor: tabBarStyle?.dividerColor,
                     indicatorPadding:
                         tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
                     isScrollable: tabBarStyle?.isScrollable ?? false,

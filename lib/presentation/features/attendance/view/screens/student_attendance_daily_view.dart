@@ -517,6 +517,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
     return StudentAbsentCardData(
       id: item.studentCode,
+      studentCode: item.studentCode,
       name: item.studentName,
       photoUuid: null,
       roomName: roomName,
@@ -532,6 +533,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       expectedToday: true,
       signInTime: null,
       signOutTime: null,
+      markAbsentMethod: _mapAbsentMethodStringToEnum(item.markAbsentMethod),
     );
   }
 
@@ -666,6 +668,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       case 'GPS':
         return SignMethod.gps;
       case 'PIN':
+      case 'KIOSK':
         // PIN entry is effectively via kiosk device.
         return SignMethod.kiosk;
       case 'QR':
@@ -674,6 +677,25 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         return SignMethod.direct;
       case 'WEB':
         return SignMethod.web;
+      default:
+        return null;
+    }
+  }
+
+  AbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
+    if (method == null) return null;
+    switch (method.trim().toUpperCase()) {
+      case 'GPS':
+        return AbsentMarkMethod.gps;
+      case 'PIN':
+      case 'KIOSK':
+        return AbsentMarkMethod.kiosk;
+      case 'QR':
+        return AbsentMarkMethod.qr;
+      case 'APP':
+        return AbsentMarkMethod.app;
+      case 'WEB':
+        return AbsentMarkMethod.web;
       default:
         return null;
     }
@@ -773,12 +795,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.symmetric(
                 horizontal: contentPadding.left,
-                vertical: responsive.verticalSpacing / 2,
+                vertical: responsive.verticalSpacing / 4,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: responsive.verticalSpacing),
+                  SizedBox(height: responsive.verticalSpacing / 4),
                   // Summary cards (only show for admin/director - for now show for all)
                   StudentAttendanceSummary(
                     enrolled: enrolled,

@@ -165,6 +165,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         absenceNotes[code] = notes;
       }
     }
+    final isExpectedTodayByStaffCode = <String, bool>{
+      for (final code in targetStaffCodes) code: true,
+    };
 
     setState(() {
       _isSubmitting = true;
@@ -179,6 +182,8 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         absenceReason: absenceReason,
         absenceType: absenceType,
         absenceNotes: absenceNotes,
+        isExpectedTodayByStaffCode: isExpectedTodayByStaffCode,
+        markAbsentMethod: 'APP',
       );
 
       if (!mounted) return;

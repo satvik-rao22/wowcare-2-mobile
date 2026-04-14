@@ -85,18 +85,11 @@ DateTime? parseFlexibleAttendanceMoment(DateTime localDay, String s) {
 }
 
 String formatAttendedDurationLabel(Duration d) {
-  if (d.isNegative || d.inSeconds <= 0) return '';
+  if (d.isNegative) return '';
 
   final totalMinutes = d.inMinutes;
   final hours = totalMinutes ~/ 60;
   final minutes = totalMinutes % 60;
-
-  if (hours < 1) {
-    if (minutes == 0 && d.inSeconds > 0) {
-      return '${d.inSeconds} seconds';
-    }
-    return '$minutes minutes';
-  }
   return '$hours hours $minutes minutes';
 }
 
@@ -106,19 +99,20 @@ bool _onSameLocalCalendarDate(DateTime a, DateTime b) {
 
 /// Computes attended-time label from two instants.
 ///
-/// When both moments fall on the same local calendar date and [end] is not
-/// after [start], [end] is advanced by one day (overnight session on same
-/// displayed date).
+/// When both moments fall on the same local calendar date and [end] is
+/// strictly before [start], [end] is advanced by one day (overnight session
+/// on same displayed date). If both times are equal, returns 0 minutes.
 String? attendedLabelFromMoments(DateTime? start, DateTime? end) {
   if (start == null || end == null) return null;
 
   var e = end;
-  if (_onSameLocalCalendarDate(start, e) && !e.isAfter(start)) {
+  if (_onSameLocalCalendarDate(start, e) && e.isBefore(start)) {
     e = e.add(const Duration(days: 1));
   }
 
   final delta = e.difference(start);
-  if (delta.inSeconds <= 0) return null;
+  if (delta.inSeconds < 0) return null;
+  if (delta.inSeconds == 0) return '0 hours 0 minutes';
 
   return formatAttendedDurationLabel(delta);
 }

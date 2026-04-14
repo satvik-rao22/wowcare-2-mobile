@@ -738,6 +738,7 @@ class AttendanceRepositoryImpl
           : null,
       markedAbsentByName: model.markedAbsentByName,
       absenceNote: model.absenceNote,
+      markAbsentMethod: model.markAbsentMethod,
       absentDays: model.absentDays,
     );
   }
@@ -776,6 +777,7 @@ class AttendanceRepositoryImpl
           : null,
       markedAbsentByName: model.markedAbsentByName,
       absenceNote: model.absenceNote,
+      markAbsentMethod: model.markAbsentMethod,
       absentDays: model.absentDays,
       absenceRecordCode: model.absenceRecordCode,
     );
@@ -829,6 +831,8 @@ class AttendanceRepositoryImpl
     required String absenceReason,
     required Map<String, String> absenceNotes,
     required String classroomCode,
+    required Map<String, bool> isExpectedTodayByStudentCode,
+    String markAbsentMethod = 'APP',
   }) async {
     final allowed = await _attendanceAllowedClassroomCodes();
     final response = await _remoteDataSource.markStudentsAbsent(
@@ -840,6 +844,8 @@ class AttendanceRepositoryImpl
         absenceReason: absenceReason,
         absenceNotes: absenceNotes,
         classroomCode: classroomCode,
+        isExpectedTodayByStudentCode: isExpectedTodayByStudentCode,
+        markAbsentMethod: markAbsentMethod,
       ),
       allowedClassroomCodes: allowed,
     );
@@ -858,6 +864,8 @@ class AttendanceRepositoryImpl
     required String absenceReason,
     required String absenceType,
     required Map<String, String> absenceNotes,
+    required Map<String, bool> isExpectedTodayByStaffCode,
+    String markAbsentMethod = 'APP',
   }) async {
     final allowed = await _attendanceAllowedClassroomCodes();
     final response = await _remoteDataSource.markStaffAbsent(
@@ -869,6 +877,8 @@ class AttendanceRepositoryImpl
         absenceReason: absenceReason,
         absenceType: absenceType,
         absenceNotes: absenceNotes,
+        isExpectedTodayByStaffCode: isExpectedTodayByStaffCode,
+        markAbsentMethod: markAbsentMethod,
       ),
       allowedClassroomCodes: allowed,
     );

@@ -110,6 +110,7 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                     color: AppColors.themeColor,
                   ),
                 ),
+                dividerColor: Colors.transparent,
                 indicatorPadding: EdgeInsets.only(
                   bottom: responsive.isTablet ? 10 : 8,
                 ),

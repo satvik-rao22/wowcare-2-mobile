@@ -90,6 +90,8 @@ abstract class AttendanceRepository {
     required String absenceReason,
     required Map<String, String> absenceNotes,
     required String classroomCode,
+    required Map<String, bool> isExpectedTodayByStudentCode,
+    String markAbsentMethod = 'APP',
   });
 
   /// Creates staff absence records (Mark Absent).
@@ -101,6 +103,8 @@ abstract class AttendanceRepository {
     required String absenceReason,
     required String absenceType,
     required Map<String, String> absenceNotes,
+    required Map<String, bool> isExpectedTodayByStaffCode,
+    String markAbsentMethod = 'APP',
   });
 
   /// Student Absent toggle view - absent students for daily screen toggle.

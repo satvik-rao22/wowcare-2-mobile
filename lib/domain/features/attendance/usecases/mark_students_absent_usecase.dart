@@ -18,6 +18,8 @@ class MarkStudentsAbsentUseCase {
     required String absenceReason,
     required Map<String, String> absenceNotes,
     required String classroomCode,
+    required Map<String, bool> isExpectedTodayByStudentCode,
+    String markAbsentMethod = 'APP',
   }) async {
     try {
       final parsedFrom = DateTime.parse(absenceFromDate);
@@ -40,6 +42,8 @@ class MarkStudentsAbsentUseCase {
             absenceReason: absenceReason,
             absenceNotes: absenceNotes,
             classroomCode: classroomCode,
+            isExpectedTodayByStudentCode: isExpectedTodayByStudentCode,
+            markAbsentMethod: markAbsentMethod,
           );
         } catch (e) {
           final msg = ApiErrorHandler.extractErrorMessage(e);

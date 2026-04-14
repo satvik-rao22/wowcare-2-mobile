@@ -117,20 +117,16 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         final signInTime = _parseTimeString(student.signInTime!);
         final signOutTime = _parseTimeString(student.signOutTime!);
         var end = signOutTime;
-        if (!end.isAfter(signInTime)) {
+        if (end.isBefore(signInTime)) {
           end = end.add(const Duration(days: 1));
         }
         final difference = end.difference(signInTime);
-        if (difference.inSeconds > 0) {
+        if (difference.inSeconds == 0) {
+          duration = '0 hours 0 minutes';
+        } else if (difference.inSeconds > 0) {
           final hours = difference.inHours;
           final minutes = difference.inMinutes % 60;
-          if (hours < 1) {
-            duration = minutes == 0 && difference.inSeconds > 0
-                ? '${difference.inSeconds} seconds'
-                : '$minutes minutes';
-          } else {
-            duration = '$hours hours $minutes minutes';
-          }
+          duration = '$hours hours $minutes minutes';
         }
       } catch (e) {
         duration = '';
