@@ -12,6 +12,7 @@ abstract final class ApiMicroservicesUat {
   static const String attendance = 'attendance';
   static const String activity = 'activity';
   static const String document = 'document';
+  static const String communication = 'communication';
 }
 
 class ApiConstantsUat {
@@ -30,6 +31,7 @@ class ApiConstantsUat {
   static const String attendanceBaseUrl = _host;
   static const String activityBaseUrl = _host;
   static const String documentMsBaseUrl = _host;
+  static const String communicationBaseUrl = _host;
 
   static String baseUrlForMicroservice(String microserviceKey) {
     // In UAT we default to a single host; keep the switch for flexibility.
@@ -50,9 +52,10 @@ class ApiConstantsUat {
       case ApiMicroservicesUat.document:
         return documentMsBaseUrl;
       case ApiMicroservicesUat.user:
+      case ApiMicroservicesUat.communication:
+        return communicationBaseUrl;
       default:
         return baseUrl;
     }
   }
 }
-

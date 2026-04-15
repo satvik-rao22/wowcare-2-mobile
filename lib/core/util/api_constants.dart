@@ -60,6 +60,7 @@ abstract final class ApiMicroservices {
   static const String attendance = 'attendance';
   static const String activity = 'activity';
   static const String document = 'document';
+  static const String communication = 'communication';
 }
 
 // UAT (single host for all REST) — swap back in when pointing at production/UAT.
@@ -144,6 +145,10 @@ class ApiConstants {
       ? ApiConstantsUat.baseUrl
       : 'https://qs176zl8-8086.inc1.devtunnels.ms';
 
+  static String get baseUrl1 => isUat
+      ? ApiConstantsUat.classroomBaseUrl
+      : 'https://qs176zl8-8089.inc1.devtunnels.ms';
+
   /// Student MS (LOCAL devtunnel) or UAT base host.
   static String get studentBaseUrl => isUat
       ? ApiConstantsUat.studentBaseUrl
@@ -181,6 +186,9 @@ class ApiConstants {
   static String get documentMsBaseUrl => isUat
       ? ApiConstantsUat.documentMsBaseUrl
       : 'https://qs176zl8-8000.inc1.devtunnels.ms';
+  static String get communicationBaseUrl => isUat
+      ? ApiConstantsUat.communicationBaseUrl
+      : 'https://qs176zl8-8089.inc1.devtunnels.ms';
 
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {
@@ -201,6 +209,8 @@ class ApiConstants {
         return activityBaseUrl;
       case ApiMicroservices.document:
         return documentMsBaseUrl;
+      case ApiMicroservices.communication:
+        return communicationBaseUrl;
       case ApiMicroservices.user:
       default:
         return baseUrl;

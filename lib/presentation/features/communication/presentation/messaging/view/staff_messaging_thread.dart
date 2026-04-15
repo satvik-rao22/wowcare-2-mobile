@@ -1,23 +1,25 @@
 import 'dart:io';
-
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:thumbnailer/thumbnailer.dart';
-import 'package:uuid/uuid.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import '../widgets/message_bubble_widget.dart';
 
 class StaffMessagingThread extends StatefulWidget {
@@ -33,260 +35,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   final AutoScrollController _scrollController = AutoScrollController();
   final TextEditingController _controller = TextEditingController();
 
-  final List<Message> _messages = [
-    Message(
-      id: const Uuid().v4(),
-      text: "Hello! I want to take day off tomorrow ?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 14, 45),
-      reactions: {
-        'natasha': '😂',
-        'eddie': '😂',
-        'john': '😂',
-        'manager': '👍',
-      },
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Okay Natasha!",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 13, 16, 45),
-      attachments: [
-        ChatAttachment(
-          name: 'Vacation Request.pdf',
-          type: 'document',
-          sizeBytes: 1240000,
-          mimeType: 'application/pdf',
-          remoteUrl:
-              'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Great to know that! Thanks!",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 16, 50),
-      reactions: {'manager': '🙏', 'hr': '🙏', 'john': '🙏'},
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text:
-          "Also, is it possible to make it half day instead? I have doctor appointment in morning",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 9, 12),
-      deliveredAt: DateTime(2025, 1, 14, 9, 12),
-      reactions: {
-        'natasha': '👍',
-        'eddie': '👍',
-        'john': '❤️',
-        'manager': '🙏',
-        'hr': '🙏',
-      },
-      attachments: [
-        ChatAttachment(
-          name: 'Doctor Appointment Letter.jpg',
-          type: 'image',
-          sizeBytes: 3200000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Medical Certificate.pdf',
-          type: 'document',
-          sizeBytes: 1450000,
-          mimeType: 'application/pdf',
-          remoteUrl:
-              'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text:
-          "Sure, half day is fine. Just mark it in the attendance sheet when you come back",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 14, 9, 18),
-      readAt: DateTime(2025, 1, 14, 9, 18),
-      reactions: {
-        'natasha': '😂',
-        'eddie': '😂',
-        'john': '😂',
-        'manager': '👍',
-        'natashi': '👍',
-        'eddiey': '👍',
-        'johny': '❤️',
-        'managery': '🙏',
-        'hr': '🙏',
-      },
-      attachments: [
-        ChatAttachment(
-          name: 'Team Meeting Notes.pdf',
-          type: 'document',
-          sizeBytes: 980000,
-          mimeType: 'application/pdf',
-          remoteUrl:
-              'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Thank you so much! ❤️ Will do",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 9, 20),
-      attachments: [
-        ChatAttachment(
-          name: 'Thank You Card.jpg',
-          type: 'image',
-          sizeBytes: 2100000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text:
-          "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 14, 11, 5),
-      readAt: DateTime(2025, 1, 14, 11, 5),
-      attachments: [
-        ChatAttachment(
-          name: 'New Leave Policy 2025.pdf',
-          type: 'document',
-          sizeBytes: 2800000,
-          mimeType: 'application/pdf',
-          remoteUrl:
-              'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "No I didn't! Where can I find it? HR portal?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 11, 8),
-      attachments: [
-        ChatAttachment(
-          name: 'HR Portal Screenshot.jpg',
-          type: 'image',
-          sizeBytes: 1800000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&q=80',
-        ),
-        ChatAttachment(
-          name: 'Policies Folder.jpg',
-          type: 'image',
-          sizeBytes: 1450000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text:
-          "Yes, under Policies → Leave & Attendance → 2025 updates. It's the pinned document",
-      isSentByMe: true,
-      time: DateTime(2026, 1, 21, 11, 11),
-      deliveredTo: [
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 12),
-        ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 13),
-        ),
-        RecipientStatus(
-          name: "John Doe",
-          timestamp: DateTime(2026, 1, 21, 11, 15),
-        ),
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 12),
-        ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 13),
-        ),
-        RecipientStatus(
-          name: "John Doe",
-          timestamp: DateTime(2026, 1, 21, 11, 15),
-        ),
-      ],
-      readBy: [
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 14),
-        ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 16),
-        ),
-        RecipientStatus(
-          name: "Natasha White",
-          timestamp: DateTime(2026, 1, 21, 11, 12),
-        ),
-        RecipientStatus(
-          name: "Eddie Barns",
-          timestamp: DateTime(2026, 1, 21, 11, 13),
-        ),
-        RecipientStatus(
-          name: "John Doe",
-          timestamp: DateTime(2026, 1, 21, 11, 15),
-        ),
-      ],
-      attachments: [
-        ChatAttachment(
-          name: 'Policy Update Screenshot 1.jpg',
-          type: 'image',
-          sizeBytes: 2400000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 2.jpg',
-          type: 'image',
-          sizeBytes: 2100000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              'https://images.unsplash.com/photo-1554224154-22dec7ec8818?w=800&q=80',
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 3.jpg',
-          type: 'image',
-          sizeBytes: 1950000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 4.jpg',
-          type: 'image',
-          sizeBytes: 2300000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 5.jpg',
-          type: 'image',
-          sizeBytes: 2050000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-      ],
-    ),
-  ];
+  List<Message> get _messages {
+    final state = context.read<CommunicationCubit>().state;
+    if (state is CommunicationLoaded) {
+      final threadId = widget.staffInfo['code'] as String;
+      return state.threads[threadId] ?? [];
+    }
+    return [];
+  }
+
   late final ReactionsController _reactionsController;
 
   Message? _quotedMessage = null;
@@ -297,6 +54,19 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   void initState() {
     super.initState();
     _reactionsController = ReactionsController(currentUserId: 'me'); // for now
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final authState = context.read<AuthCubit>().state;
+        final userCode = authState is AuthLoaded
+            ? authState.loginResponse.userCode
+            : null;
+        context.read<CommunicationCubit>().loadMessages(
+          widget.staffInfo['code'] as String,
+          currentUserId: userCode,
+        );
+      }
+    });
   }
 
   @override
@@ -306,81 +76,38 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   }
 
   void _sendMessage() {
-    //if (_controller.text.trim().isEmpty) return;
     final text = _controller.text.trim();
     final hasText = text.isNotEmpty;
     final hasAttachments = _pendingAttachments.isNotEmpty;
 
     if (!hasText && !hasAttachments) return;
 
-    final now = DateTime.now();
-    final newMessage = Message(
-      id: const Uuid().v4(),
-      text: _controller.text.trim(),
-      isSentByMe: true,
-      time: now,
-      deliveredAt: null,
-      readAt: null,
+    final authState = context.read<AuthCubit>().state;
+    final senderName = authState is AuthLoaded
+        ? authState.loginResponse.displayName
+        : 'Me';
+
+    context.read<CommunicationCubit>().sendMessage(
+      widget.staffInfo['code'] as String,
+      text,
       attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageId,
-      // For group simulation
-      // deliveredTo: {},
-      // readBy: {},
+      senderName: senderName,
     );
+
     setState(() {
-      _messages.add(newMessage);
       _controller.clear();
       _pendingAttachments.clear();
       _quotedMessage = null;
       _quotedMessageId = null;
     });
 
-    //_controller.clear();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollController.scrollToIndex(
         0,
         preferPosition: AutoScrollPosition.begin,
         duration: const Duration(milliseconds: 300),
       );
-    });
-
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        final idx = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (idx == -1) return;
-
-        _messages[idx] = Message(
-          id: newMessage.id,
-          text: newMessage.text,
-          isSentByMe: true,
-          time: newMessage.time,
-          deliveredAt: DateTime.now(),
-          readAt: newMessage.readAt,
-          attachments: newMessage.attachments,
-          quotedMessageId: newMessage.quotedMessageId,
-          // deliveredTo: newMessage.deliveredTo,
-        );
-      });
-    });
-
-    Future.delayed(const Duration(seconds: 7), () {
-      setState(() {
-        final idx = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (idx == -1) return;
-
-        _messages[idx] = Message(
-          id: newMessage.id,
-          text: newMessage.text,
-          isSentByMe: true,
-          time: newMessage.time,
-          deliveredAt: _messages[idx].deliveredAt,
-          readAt: DateTime.now(),
-          attachments: newMessage.attachments,
-          quotedMessageId: newMessage.quotedMessageId,
-          // readBy: {'user123': DateTime.now()},
-        );
-        //_quotedMessageId = null;
-      });
     });
   }
 
@@ -393,7 +120,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   void _scrollToMessage(String messageId) {
     final index = _getReversedIndex(messageId);
     if (index == null) {
-      print("Message $messageId not found");
+      AppLogger.d("Message $messageId not found");
       return;
     }
 
@@ -506,7 +233,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
     ).then((value) {
-      if (value == null) return;
+      if (!mounted || value == null) return;
 
       switch (value) {
         case 'reply':
@@ -588,6 +315,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   }
 
   void _onReactionAdded(Message message, String emoji) {
+    if (!mounted) return;
     final currentUserId = 'me'; // dummy for now
     setState(() {
       final index = _messages.indexWhere((m) => m.id == message.id);
@@ -718,6 +446,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
               onPressed: () {
                 final newText = editingController.text.trim();
                 if (newText.isNotEmpty && newText != message.text) {
+                  if (!mounted) return;
                   setState(() {
                     final idx = _messages.indexWhere((m) => m.id == message.id);
                     if (idx != -1) {
@@ -762,110 +491,318 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: !isLandscape,
-      body: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: isLandscape
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Flexible(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFF4F7FD),
-                      ),
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        reverse: true,
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message =
-                              _messages[_messages.length - 1 - index];
-                          final messageId = message.id;
-                          //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                          // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                          // final key = keyMap.putIfAbsent(
-                          //   messageId,
-                          //   () => GlobalKey(),
-                          // );
-                          Message? quotedMessage;
-                          if (message.quotedMessageId != null) {
-                            quotedMessage = _messages.firstWhere(
-                              (m) => m.id == message.quotedMessageId,
-                            ); // ?? null;
-                          }
-                          bool showDateHeader = false;
-                          final prevListIndex = _messages.length - 2 - index;
-
-                          if (prevListIndex >= 0) {
-                            final prevMessage = _messages[prevListIndex];
-
-                            showDateHeader =
-                                message.time.year != prevMessage.time.year ||
-                                message.time.month != prevMessage.time.month ||
-                                message.time.day != prevMessage.time.day;
-                          } else {
-                            showDateHeader = true;
-                          }
-
-                          return AutoScrollTag(
-                            key: ValueKey(messageId),
+    return BlocBuilder<CommunicationCubit, CommunicationState>(
+      builder: (context, state) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        final bool isLandscape =
+            MediaQuery.of(context).orientation == Orientation.landscape;
+        return GlobalScaffold(
+          hasBackButton: true,
+          showCustomNavigationBar: !isLandscape,
+          body: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: isLandscape
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFFF4F7FD),
+                          ),
+                          child: ListView.builder(
                             controller: _scrollController,
-                            index: index,
-                            highlightColor: Colors.green.withValues(alpha: 0.7),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (showDateHeader)
-                                  Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 8.0),
-                                      child: _buildDateChip(message.time),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            reverse: true,
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final message =
+                                  _messages[_messages.length - 1 - index];
+                              final messageId = message.id;
+                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                              // final key = keyMap.putIfAbsent(
+                              //   messageId,
+                              //   () => GlobalKey(),
+                              // );
+                              Message? quotedMessage;
+                              if (message.quotedMessageId != null) {
+                                quotedMessage = _messages.firstWhere(
+                                  (m) => m.id == message.quotedMessageId,
+                                ); // ?? null;
+                              }
+                              bool showDateHeader = false;
+                              final prevListIndex =
+                                  _messages.length - 2 - index;
+
+                              if (prevListIndex >= 0) {
+                                final prevMessage = _messages[prevListIndex];
+
+                                showDateHeader =
+                                    message.time.year !=
+                                        prevMessage.time.year ||
+                                    message.time.month !=
+                                        prevMessage.time.month ||
+                                    message.time.day != prevMessage.time.day;
+                              } else {
+                                showDateHeader = true;
+                              }
+
+                              return AutoScrollTag(
+                                key: ValueKey(messageId),
+                                controller: _scrollController,
+                                index: index,
+                                highlightColor: Colors.green.withValues(
+                                  alpha: 0.7,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (showDateHeader)
+                                      Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 8.0,
+                                          ),
+                                          child: _buildDateChip(message.time),
+                                        ),
+                                      ),
+                                    if (showDateHeader)
+                                      const SizedBox(height: 10),
+                                    MessageBubble(
+                                      //key: key,
+                                      //scrollKey: scrollKey,
+                                      message: message,
+                                      quotedMessage: quotedMessage,
+                                      onLongPress:
+                                          (LongPressStartDetails details) {
+                                            _showMessageOptions(
+                                              context,
+                                              message,
+                                              details,
+                                            );
+                                          },
+                                      onScrollToQuoted: (quoteId) {
+                                        _scrollToMessage(quoteId);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.35,
+                        child: SingleChildScrollView(
+                          reverse: true, // new messages appear at bottom
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
+                              ),
+                              child: _buildMessageInput(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextWidget(text: 'Messaging', fontSize: 16),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFFF4F7FD),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.transparent,
+                                  border: const Border(
+                                    bottom: BorderSide(
+                                      color: Color(0xFFE9ECEF),
+                                      width: 1,
                                     ),
                                   ),
-                                if (showDateHeader) const SizedBox(height: 10),
-                                MessageBubble(
-                                  //key: key,
-                                  //scrollKey: scrollKey,
-                                  message: message,
-                                  quotedMessage: quotedMessage,
-                                  onLongPress: (LongPressStartDetails details) {
-                                    _showMessageOptions(
-                                      context,
-                                      message,
-                                      details,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24.0,
+                                    vertical: 16,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Stack(
+                                        children: [
+                                          DocumentImageWidget(
+                                            fileUuid:
+                                                widget.staffInfo['avatar'],
+                                            name: widget.staffInfo['name'],
+                                            size: 45,
+                                          ),
+                                          Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            child: Container(
+                                              width: 12,
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    widget.staffInfo['isSigned']
+                                                    ? const Color.fromRGBO(
+                                                        0,
+                                                        177,
+                                                        21,
+                                                        1,
+                                                      )
+                                                    : Colors.transparent,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color:
+                                                      widget
+                                                          .staffInfo['isSigned']
+                                                      ? Colors.white
+                                                      : Colors.transparent,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: CustomTextWidget(
+                                          text: widget.staffInfo['name'],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Flexible(
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 12,
+                                  ),
+                                  reverse: true,
+                                  itemCount: _messages.length,
+                                  itemBuilder: (context, index) {
+                                    final message =
+                                        _messages[_messages.length - 1 - index];
+                                    final messageId = message.id;
+                                    //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                    // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                    // final key = keyMap.putIfAbsent(
+                                    //   messageId,
+                                    //   () => GlobalKey(),
+                                    // );
+                                    Message? quotedMessage;
+                                    if (message.quotedMessageId != null) {
+                                      quotedMessage = _messages.firstWhere(
+                                        (m) => m.id == message.quotedMessageId,
+                                      ); // ?? null;
+                                    }
+                                    bool showDateHeader = false;
+                                    final prevListIndex =
+                                        _messages.length - 2 - index;
+
+                                    if (prevListIndex >= 0) {
+                                      final prevMessage =
+                                          _messages[prevListIndex];
+
+                                      showDateHeader =
+                                          message.time.year !=
+                                              prevMessage.time.year ||
+                                          message.time.month !=
+                                              prevMessage.time.month ||
+                                          message.time.day !=
+                                              prevMessage.time.day;
+                                    } else {
+                                      showDateHeader = true;
+                                    }
+
+                                    return AutoScrollTag(
+                                      key: ValueKey(messageId),
+                                      controller: _scrollController,
+                                      index: index,
+                                      highlightColor: Colors.green.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (showDateHeader)
+                                            Center(
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 8.0,
+                                                ),
+                                                child: _buildDateChip(
+                                                  message.time,
+                                                ),
+                                              ),
+                                            ),
+                                          if (showDateHeader)
+                                            const SizedBox(height: 10),
+
+                                          MessageBubble(
+                                            //key: key,
+                                            //scrollKey: scrollKey,
+                                            message: message,
+                                            quotedMessage: quotedMessage,
+                                            onLongPress:
+                                                (
+                                                  LongPressStartDetails details,
+                                                ) {
+                                                  _showMessageOptions(
+                                                    context,
+                                                    message,
+                                                    details,
+                                                  );
+                                                },
+                                            onScrollToQuoted: (quoteId) {
+                                              _scrollToMessage(quoteId);
+                                            },
+                                          ),
+                                        ],
+                                      ),
                                     );
                                   },
-                                  onScrollToQuoted: (quoteId) {
-                                    _scrollToMessage(quoteId);
-                                  },
                                 ),
-                              ],
-                            ),
-                          );
-                        },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.35,
-                    child: SingleChildScrollView(
-                      reverse: true, // new messages appear at bottom
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: Container(
+                      const SizedBox(height: 10),
+                      Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           color: Colors.white,
@@ -878,197 +815,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                           child: _buildMessageInput(),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomTextWidget(text: 'Messaging', fontSize: 16),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFF4F7FD),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              border: const Border(
-                                bottom: BorderSide(
-                                  color: Color(0xFFE9ECEF),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                                vertical: 16,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Stack(
-                                    children: [
-                                      DocumentImageWidget(
-                                        fileUuid: widget.staffInfo['avatar'],
-                                        name: widget.staffInfo['name'],
-                                        size: 45,
-                                      ),
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: widget.staffInfo['isSigned']
-                                                ? const Color.fromRGBO(
-                                                    0,
-                                                    177,
-                                                    21,
-                                                    1,
-                                                  )
-                                                : Colors.transparent,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color:
-                                                  widget.staffInfo['isSigned']
-                                                  ? Colors.white
-                                                  : Colors.transparent,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: CustomTextWidget(
-                                      text: widget.staffInfo['name'],
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Flexible(
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 12,
-                              ),
-                              reverse: true,
-                              itemCount: _messages.length,
-                              itemBuilder: (context, index) {
-                                final message =
-                                    _messages[_messages.length - 1 - index];
-                                final messageId = message.id;
-                                //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                // final key = keyMap.putIfAbsent(
-                                //   messageId,
-                                //   () => GlobalKey(),
-                                // );
-                                Message? quotedMessage;
-                                if (message.quotedMessageId != null) {
-                                  quotedMessage = _messages.firstWhere(
-                                    (m) => m.id == message.quotedMessageId,
-                                  ); // ?? null;
-                                }
-                                bool showDateHeader = false;
-                                final prevListIndex =
-                                    _messages.length - 2 - index;
-
-                                if (prevListIndex >= 0) {
-                                  final prevMessage = _messages[prevListIndex];
-
-                                  showDateHeader =
-                                      message.time.year !=
-                                          prevMessage.time.year ||
-                                      message.time.month !=
-                                          prevMessage.time.month ||
-                                      message.time.day != prevMessage.time.day;
-                                } else {
-                                  showDateHeader = true;
-                                }
-
-                                return AutoScrollTag(
-                                  key: ValueKey(messageId),
-                                  controller: _scrollController,
-                                  index: index,
-                                  highlightColor: Colors.green.withValues(
-                                    alpha: 0.7,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (showDateHeader)
-                                        Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 8.0,
-                                            ),
-                                            child: _buildDateChip(message.time),
-                                          ),
-                                        ),
-                                      if (showDateHeader)
-                                        const SizedBox(height: 10),
-
-                                      MessageBubble(
-                                        //key: key,
-                                        //scrollKey: scrollKey,
-                                        message: message,
-                                        quotedMessage: quotedMessage,
-                                        onLongPress:
-                                            (LongPressStartDetails details) {
-                                              _showMessageOptions(
-                                                context,
-                                                message,
-                                                details,
-                                              );
-                                            },
-                                        onScrollToQuoted: (quoteId) {
-                                          _scrollToMessage(quoteId);
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 16,
-                      ),
-                      child: _buildMessageInput(),
-                    ),
-                  ),
-                ],
-              ),
-      ),
+          ),
+        );
+      },
     );
   }
 

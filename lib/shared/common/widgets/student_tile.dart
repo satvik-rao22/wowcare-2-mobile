@@ -35,7 +35,7 @@ class StudentTile extends StatelessWidget {
           color: isSelected
               ? const Color(0xFFB1AFE9).withOpacity(0.102)
               : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: isSelected ? Colors.transparent : AppColors.themeColor,
             width: 1,

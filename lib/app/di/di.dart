@@ -2,7 +2,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -123,13 +122,16 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_tog
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
-import '../../domain/features/communication/entities/message.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
 import '../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_usecase.dart';
+import '../../domain/features/communication/usecases/create_conversation_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversations_usecase.dart';
+import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
+import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -155,9 +157,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Cache
   final isarCacheService = IsarCacheService();
   await isarCacheService.init();
-  serviceLocator.registerLazySingleton<CacheService>(
-    () => isarCacheService,
-  );
+  serviceLocator.registerLazySingleton<CacheService>(() => isarCacheService);
 
   serviceLocator.registerLazySingleton<ApiClient>(
     () => ApiClient(
@@ -455,6 +455,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SendMessageUseCase>(
     () => SendMessageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<CreateConversationUseCase>(
+    () => CreateConversationUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationsUseCase>(
+    () => GetConversationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedConversationsUseCase>(
+    () => GetCachedConversationsUseCase(serviceLocator()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -593,6 +602,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => CommunicationCubit(
       getMessagesUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
+      getConversationsUseCase: serviceLocator(),
+      getCachedConversationsUseCase: serviceLocator(),
     ),
+  );
+  serviceLocator.registerFactory<CreateConversationCubit>(
+    () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
   );
 }

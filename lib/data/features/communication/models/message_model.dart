@@ -1,11 +1,18 @@
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 class MessageModel extends Message {
+  final String code;
+  final String? conversationCode;
+  final String senderUserCode;
+
   const MessageModel({
     required super.id,
     required super.text,
     required super.isSentByMe,
     required super.time,
+    required this.code,
+    this.conversationCode,
+    required this.senderUserCode,
     super.deliveredAt,
     super.readAt,
     super.deliveredTo,
@@ -17,48 +24,49 @@ class MessageModel extends Message {
     super.receivers,
   });
 
-  factory MessageModel.fromJson(Map<String, dynamic> json) {
+  factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
+    final senderCode = json['senderUserCode'] as String? ?? '';
     return MessageModel(
-      id: json['id'] as String,
-      text: json['text'] as String,
-      isSentByMe: json['is_sent_by_me'] as bool,
-      time: DateTime.parse(json['time'] as String),
-      deliveredAt: json['delivered_at'] != null ? DateTime.parse(json['delivered_at'] as String) : null,
-      readAt: json['read_at'] != null ? DateTime.parse(json['read_at'] as String) : null,
-      deliveredTo: (json['delivered_to'] as List<dynamic>?)
-              ?.map((e) => RecipientStatusModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      readBy: (json['read_by'] as List<dynamic>?)
-              ?.map((e) => RecipientStatusModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      reactions: Map<String, String>.from(json['reactions'] ?? {}),
-      quotedMessageId: json['quoted_message_id'] as String?,
+      id: (json['id'] ?? '').toString(),
+      code: json['code'] as String? ?? '',
+      conversationCode: json['conversationCode'] as String?,
+      senderUserCode: senderCode,
+      text: json['content'] as String? ?? '',
+      isSentByMe: currentUserId != null && senderCode == currentUserId,
+      time: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+      deliveredAt: json['status'] == 'DELIVERED' || json['status'] == 'READ'
+          ? DateTime.now()
+          : null,
+      readAt: json['status'] == 'READ' ? DateTime.now() : null,
+      deliveredTo: const [], // API doesn't seem to provide these in a list yet
+      readBy: const [],
+      reactions: const {}, // API snippet doesn't show reactions
+      quotedMessageId: (json['replyToMessageId'] ?? '').toString().isEmpty
+          ? null
+          : json['replyToMessageId'].toString(),
       attachments: (json['attachments'] as List<dynamic>?)
               ?.map((e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
-      senderName: json['sender_name'] as String?,
-      receivers: (json['receivers'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
+      senderName: json['senderName'] as String?,
+      receivers: const [],
     );
   }
 
+  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'text': text,
-      'is_sent_by_me': isSentByMe,
+      'code': code,
+      'conversationCode': conversationCode,
+      'senderUserCode': senderUserCode,
+      'content': text,
       'time': time.toIso8601String(),
-      'delivered_at': deliveredAt?.toIso8601String(),
-      'read_at': readAt?.toIso8601String(),
-      'delivered_to': deliveredTo.map((e) => (e as RecipientStatusModel).toJson()).toList(),
-      'read_by': readBy.map((e) => (e as RecipientStatusModel).toJson()).toList(),
-      'reactions': reactions,
-      'quoted_message_id': quotedMessageId,
+      'replyToMessageId': quotedMessageId,
       'attachments': attachments.map((e) => (e as ChatAttachmentModel).toJson()).toList(),
-      'sender_name': senderName,
-      'receivers': receivers,
+      'senderName': senderName,
     };
   }
 }

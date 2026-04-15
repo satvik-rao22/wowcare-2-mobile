@@ -27,6 +27,7 @@ class _EditShiftScheduleScreenState extends State<EditShiftScheduleScreen> {
     // TODO: Add your actual publish logic here
     await Future.delayed(const Duration(seconds: 2));
 
+    if (!mounted) return;
     setState(() => _isSubmitting = false);
 
     if (mounted) {

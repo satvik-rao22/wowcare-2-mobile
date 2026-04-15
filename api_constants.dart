@@ -1,5 +1,3 @@
-
-
 /// Logical id for [ApiConstants.baseUrlForMicroservice] (not a path segment).
 /// Host is chosen from the first resource segment after `/api/v1/` via [ApiPaths.microserviceKeyFromPath].
 abstract final class ApiMicroservices {
@@ -79,6 +77,10 @@ class ApiConstants {
   static const String classroomBaseUrl =
       'https://qs176zl8-8082.inc1.devtunnels.ms';
 
+  /// Communication MS (8089)
+  static const String communicationBaseUrl =
+      'https://qs176zl8-8089.inc1.devtunnels.ms';
+
   /// Staff MS (8083)
   static const String staffBaseUrl = 'https://qs176zl8-8083.inc1.devtunnels.ms';
 
@@ -114,6 +116,7 @@ class ApiConstants {
         return baseUrl;
     }
   }
+
   // static const String baseUrlDev = 'https://242sq05v-8080.inc1.devtunnels.ms';
   // static const String Prathmesh = 'https://qs176zl8-8080.inc1.devtunnels.ms';
   // static const String Sairam = 'https://qs176zl8-8086.inc1.devtunnels.ms/wowcare-school-ms';

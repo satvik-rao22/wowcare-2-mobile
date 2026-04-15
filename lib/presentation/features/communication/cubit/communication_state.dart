@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
+import '../../../../domain/features/communication/entities/conversation.dart';
+
 abstract class CommunicationState extends Equatable {
   const CommunicationState();
 
@@ -44,6 +46,29 @@ class CommunicationError extends CommunicationState {
 
   @override
   List<Object?> get props => [message];
+}
+
+class CommunicationConversationsLoading extends CommunicationState {}
+
+class CommunicationConversationsLoaded extends CommunicationState {
+  final Map<String?, List<Conversation>> conversationsByType;
+
+  const CommunicationConversationsLoaded(this.conversationsByType);
+
+  List<Conversation> get conversations => conversationsByType[null] ?? [];
+  List<Conversation> getConversations(String? type) =>
+      conversationsByType[type] ?? [];
+
+  @override
+  List<Object?> get props => [conversationsByType];
+
+  CommunicationConversationsLoaded copyWith({
+    Map<String?, List<Conversation>>? conversationsByType,
+  }) {
+    return CommunicationConversationsLoaded(
+      conversationsByType ?? this.conversationsByType,
+    );
+  }
 }
 
 class CommunicationSending extends CommunicationLoaded {

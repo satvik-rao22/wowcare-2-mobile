@@ -35,8 +35,10 @@ class LoginResponseModel {
     }
 
     return LoginResponseModel(
-      accessToken: (json['accessToken'] ?? json['access_token']) as String? ?? '',
-      refreshToken: (json['refreshToken'] ?? json['refresh_token']) as String? ?? '',
+      accessToken:
+          (json['accessToken'] ?? json['access_token']) as String? ?? '',
+      refreshToken:
+          (json['refreshToken'] ?? json['refresh_token']) as String? ?? '',
       expiresIn: _toInt(json['expiresIn']),
       refreshExpiresIn: _toInt(json['refreshExpiresIn']),
       tokenType: json['tokenType'] as String? ?? 'Bearer',
@@ -44,7 +46,8 @@ class LoginResponseModel {
       email: json['email'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',
       firstLogin: json['firstLogin'] as bool? ?? false,
-      roles: (json['roles'] as List<dynamic>?)
+      roles:
+          (json['roles'] as List<dynamic>?)
               ?.map((role) => RoleModel.fromJson(role as Map<String, dynamic>))
               .toList() ??
           [],

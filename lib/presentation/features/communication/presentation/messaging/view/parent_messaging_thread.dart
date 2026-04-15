@@ -9,12 +9,17 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import '../widgets/message_bubble_widget.dart';
 
 class ParentMessagingThread extends StatefulWidget {
@@ -36,120 +41,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   final AutoScrollController _parent2Controller = AutoScrollController();
   TabController? _tabController;
 
-  // final List<Message> _messages = [
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     senderName: "Radha Sundaram",
-  //     text: "How is Ajay Doing Today?",
-  //     isSentByMe: false,
-  //     time: DateTime(2025, 1, 13, 14, 45),
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     senderName: "Eddie Barnes",
-  //     text: "He is doing Great!",
-  //     isSentByMe: true,
-  //     time: DateTime(2025, 1, 13, 16, 45),
-  //     attachments: [
-  //       ChatAttachment(
-  //         name: 'Ajay Photo.jpg',
-  //         type: 'image',
-  //         sizeBytes: 3200000,
-  //         mimeType: 'image/jpeg',
-  //         remoteUrl: 'https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=800',
-  //       ),
-  //     ],
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     senderName: "Radha Sundaram",
-  //     text: "Thanks!",
-  //     isSentByMe: false,
-  //     time: DateTime(2025, 1, 13, 16, 50),
-  //   ),
-  // ];
-
-  List<Message> _groupMessages = [
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Eddie Barnes",
-      text: "Good morning everyone! Ajay attended school today.",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 13, 8, 30),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Radha Sundaram",
-      text: "Thank you for the update!",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 8, 45),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Nitin Sundaram",
-      text: "Yes, thanks Eddie. How was his math class?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 9, 00),
-    ),
-  ];
-
-  List<Message> _parent1Messages = [
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Radha Sundaram",
-      text: "How is Ajay Doing Today?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 14, 45),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Eddie Barnes",
-      text: "He is doing Great! Here's a photo from today's activity.",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 13, 16, 45),
-      attachments: [
-        ChatAttachment(
-          name: 'Ajay Photo.jpg',
-          type: 'image',
-          sizeBytes: 3200000,
-          mimeType: 'image/jpeg',
-          remoteUrl:
-              'https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=800',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Radha Sundaram",
-      text: "Thanks! He looks happy 😊",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 16, 50),
-    ),
-  ];
-
-  List<Message> _parent2Messages = [
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Nitin Sundaram",
-      text: "Ajay forgot his water bottle again today?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 10, 15),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Eddie Barnes",
-      text: "Yes, but we gave him one from school stock. No worries.",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 14, 10, 20),
-    ),
-    Message(
-      id: const Uuid().v4(),
-      senderName: "Nitin Sundaram",
-      text: "Thank you so much!",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 10, 25),
-    ),
-  ];
   //late final ReactionsController _reactionsController;
   Message? _quotedMessage = null;
   String? _quotedMessageId;
@@ -176,10 +67,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   void initState() {
     super.initState();
     //_reactionsController = ReactionsController(currentUserId: 'me');
-    final parents = (widget.parentInfo['parents'] as List<dynamic>)
-        .cast<String>();
-    parent1Name = parents[0];
-    parent2Name = parents[1];
+    final parents =
+        (widget.parentInfo['parents'] as List<dynamic>?)?.cast<String>() ?? [];
+    parent1Name = parents.isNotEmpty ? parents[0] : 'Parent 1';
+    parent2Name = parents.length > 1 ? parents[1] : 'Parent 2';
 
     _tabController = TabController(
       length: _privateModeEnabled ? 2 : 1,
@@ -188,6 +79,19 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     _tabController?.addListener(() {
       if (mounted) setState(() {});
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final authState = context.read<AuthCubit>().state;
+        final userCode = authState is AuthLoaded
+            ? authState.loginResponse.userCode
+            : null;
+        context.read<CommunicationCubit>().loadMessages(
+          widget.parentInfo['code'] as String,
+          currentUserId: userCode,
+        );
+      }
     });
   }
 
@@ -213,10 +117,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   List<Message> get _activeMessages {
-    if (!_privateModeEnabled) {
-      return _groupMessages;
+    final state = context.read<CommunicationCubit>().state;
+    if (state is CommunicationLoaded) {
+      final threadId = widget.parentInfo['code'] as String;
+      return state.threads[threadId] ?? [];
     }
-    return _tabController?.index == 0 ? _parent1Messages : _parent2Messages;
+    return [];
   }
 
   void _sendMessage() {
@@ -243,29 +149,21 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     }
 
     final now = DateTime.now();
-    final newMessage = Message(
-      id: const Uuid().v4(),
-      text: _controller.text.trim(),
-      senderName: widget.currentSender,
-      isSentByMe: true,
-      time: now,
-      deliveredAt: null,
-      readAt: null,
+    final authState = context.read<AuthCubit>().state;
+    final senderName = authState is AuthLoaded
+        ? authState.loginResponse.displayName
+        : widget.currentSender;
+
+    context.read<CommunicationCubit>().sendMessage(
+      widget.parentInfo['code'] as String,
+      text,
       attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageId,
+      senderName: senderName,
       receivers: receivers,
-      // For group simulation
-      // deliveredTo: {},
-      // readBy: {},
     );
+
     setState(() {
-      if (!_privateModeEnabled) {
-        _groupMessages.add(newMessage);
-      } else if (_tabController?.index == 0) {
-        _parent1Messages.add(newMessage);
-      } else {
-        _parent2Messages.add(newMessage);
-      }
       _controller.clear();
       _pendingAttachments.clear();
       _quotedMessage = null;
@@ -304,7 +202,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   void _scrollToMessage(String messageId) {
     final index = _getReversedIndex(messageId);
     if (index == null) {
-      print("Message $messageId not found");
+      AppLogger.d("Message $messageId not found");
       return;
     }
     final scrollController = _getActiveScrollController();
@@ -417,7 +315,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
     ).then((value) {
-      if (value == null) return;
+      if (!mounted || value == null) return;
 
       switch (value) {
         case 'reply':
@@ -499,6 +397,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   void _onReactionAdded(Message message, String emoji) {
+    if (!mounted) return;
     final currentUserId = 'me'; // dummy for now
     setState(() {
       final _messages = _activeMessages;
@@ -631,6 +530,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
               onPressed: () {
                 final newText = editingController.text.trim();
                 if (newText.isNotEmpty && newText != message.text) {
+                  if (!mounted) return;
                   setState(() {
                     final _messages = _activeMessages;
                     final idx = _messages.indexWhere((m) => m.id == message.id);
@@ -683,488 +583,51 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     final tabNames = _privateModeEnabled
         ? [parent1Name, parent2Name]
         : ['${parent1Name}, ${parent2Name} and Staff'];
-    final _messages = _activeMessages;
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: !isLandscape,
-      body: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: isLandscape
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Flexible(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFF4F7FD),
-                      ),
-                      child: NestedScrollView(
-                        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                          SliverToBoxAdapter(
-                            child: TabBar(
-                              controller: _tabController,
-                              isScrollable: true,
-                              tabAlignment: TabAlignment.start,
-                              padding: EdgeInsets.all(0),
-                              labelColor: AppColors.primaryColor,
-                              unselectedLabelColor: Colors.grey,
-                              indicatorColor: AppColors.themeColor,
-                              dividerColor: Colors.transparent,
-                              //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
-                              tabs: tabNames
-                                  .map((name) => _buildTab(name))
-                                  .toList(),
-                            ),
+
+    return BlocBuilder<CommunicationCubit, CommunicationState>(
+      builder: (context, state) {
+        final _messages = _activeMessages;
+        if (state is CommunicationLoading && _messages.isEmpty) {
+          return const GlobalScaffold(
+            hasBackButton: true,
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return GlobalScaffold(
+          hasBackButton: true,
+          showCustomNavigationBar: !isLandscape,
+          body: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: isLandscape
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFFF4F7FD),
                           ),
-                        ],
-                        body: TabBarView(
-                          controller: _tabController,
-                          children: _privateModeEnabled
-                              ? [
-                                  ListView.builder(
-                                    controller: _getActiveScrollController(),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 12,
-                                    ),
-                                    reverse: true,
-                                    itemCount: _messages.length,
-                                    itemBuilder: (context, index) {
-                                      final message =
-                                          _messages[_messages.length -
-                                              1 -
-                                              index];
-                                      final messageId = message.id;
-                                      //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                      // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                      // final key = keyMap.putIfAbsent(
-                                      //   messageId,
-                                      //   () => GlobalKey(),
-                                      // );
-                                      Message? quotedMessage;
-                                      if (message.quotedMessageId != null) {
-                                        quotedMessage = _messages.firstWhere(
-                                          (m) =>
-                                              m.id == message.quotedMessageId,
-                                        ); // ?? null;
-                                      }
-                                      bool showDateHeader = false;
-                                      final prevListIndex =
-                                          _messages.length - 2 - index;
-
-                                      if (prevListIndex >= 0) {
-                                        final prevMessage =
-                                            _messages[prevListIndex];
-
-                                        showDateHeader =
-                                            message.time.year !=
-                                                prevMessage.time.year ||
-                                            message.time.month !=
-                                                prevMessage.time.month ||
-                                            message.time.day !=
-                                                prevMessage.time.day;
-                                      } else {
-                                        showDateHeader = true;
-                                      }
-
-                                      return AutoScrollTag(
-                                        key: ValueKey(messageId),
-                                        controller:
-                                            _getActiveScrollController(),
-                                        index: index,
-                                        highlightColor: Colors.green.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (showDateHeader)
-                                              Center(
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 8.0,
-                                                      ),
-                                                  child: _buildDateChip(
-                                                    message.time,
-                                                  ),
-                                                ),
-                                              ),
-                                            if (showDateHeader)
-                                              const SizedBox(height: 10),
-                                            MessageBubble(
-                                              //key: key,
-                                              //scrollKey: scrollKey,
-                                              message: message,
-                                              isParentMessaging: true,
-                                              quotedMessage: quotedMessage,
-                                              onLongPress:
-                                                  (
-                                                    LongPressStartDetails
-                                                    details,
-                                                  ) {
-                                                    _showMessageOptions(
-                                                      context,
-                                                      message,
-                                                      details,
-                                                    );
-                                                  },
-                                              onScrollToQuoted: (quoteId) {
-                                                _scrollToMessage(quoteId);
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  ListView.builder(
-                                    controller: _getActiveScrollController(),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 12,
-                                    ),
-                                    reverse: true,
-                                    itemCount: _messages.length,
-                                    itemBuilder: (context, index) {
-                                      final message =
-                                          _messages[_messages.length -
-                                              1 -
-                                              index];
-                                      final messageId = message.id;
-
-                                      Message? quotedMessage;
-                                      if (message.quotedMessageId != null) {
-                                        quotedMessage = _messages.firstWhere(
-                                          (m) =>
-                                              m.id == message.quotedMessageId,
-                                        ); // ?? null;
-                                      }
-                                      bool showDateHeader = false;
-                                      final prevListIndex =
-                                          _messages.length - 2 - index;
-
-                                      if (prevListIndex >= 0) {
-                                        final prevMessage =
-                                            _messages[prevListIndex];
-
-                                        showDateHeader =
-                                            message.time.year !=
-                                                prevMessage.time.year ||
-                                            message.time.month !=
-                                                prevMessage.time.month ||
-                                            message.time.day !=
-                                                prevMessage.time.day;
-                                      } else {
-                                        showDateHeader = true;
-                                      }
-
-                                      return AutoScrollTag(
-                                        key: ValueKey(messageId),
-                                        controller:
-                                            _getActiveScrollController(),
-                                        index: index,
-                                        highlightColor: Colors.green.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (showDateHeader)
-                                              Center(
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 8.0,
-                                                      ),
-                                                  child: _buildDateChip(
-                                                    message.time,
-                                                  ),
-                                                ),
-                                              ),
-                                            if (showDateHeader)
-                                              const SizedBox(height: 10),
-                                            MessageBubble(
-                                              //key: key,
-                                              //scrollKey: scrollKey,
-                                              message: message,
-                                              isParentMessaging: true,
-                                              quotedMessage: quotedMessage,
-                                              onLongPress:
-                                                  (
-                                                    LongPressStartDetails
-                                                    details,
-                                                  ) {
-                                                    _showMessageOptions(
-                                                      context,
-                                                      message,
-                                                      details,
-                                                    );
-                                                  },
-                                              onScrollToQuoted: (quoteId) {
-                                                _scrollToMessage(quoteId);
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ]
-                              : [
-                                  ListView.builder(
-                                    controller: _getActiveScrollController(),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 12,
-                                    ),
-                                    reverse: true,
-                                    itemCount: _messages.length,
-                                    itemBuilder: (context, index) {
-                                      final message =
-                                          _messages[_messages.length -
-                                              1 -
-                                              index];
-                                      final messageId = message.id;
-                                      //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                      // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                      // final key = keyMap.putIfAbsent(
-                                      //   messageId,
-                                      //   () => GlobalKey(),
-                                      // );
-                                      Message? quotedMessage;
-                                      if (message.quotedMessageId != null) {
-                                        quotedMessage = _messages.firstWhere(
-                                          (m) =>
-                                              m.id == message.quotedMessageId,
-                                        ); // ?? null;
-                                      }
-                                      bool showDateHeader = false;
-                                      final prevListIndex =
-                                          _messages.length - 2 - index;
-
-                                      if (prevListIndex >= 0) {
-                                        final prevMessage =
-                                            _messages[prevListIndex];
-
-                                        showDateHeader =
-                                            message.time.year !=
-                                                prevMessage.time.year ||
-                                            message.time.month !=
-                                                prevMessage.time.month ||
-                                            message.time.day !=
-                                                prevMessage.time.day;
-                                      } else {
-                                        showDateHeader = true;
-                                      }
-
-                                      return AutoScrollTag(
-                                        key: ValueKey(messageId),
-                                        controller:
-                                            _getActiveScrollController(),
-                                        index: index,
-                                        highlightColor: Colors.green.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (showDateHeader)
-                                              Center(
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 8.0,
-                                                      ),
-                                                  child: _buildDateChip(
-                                                    message.time,
-                                                  ),
-                                                ),
-                                              ),
-                                            if (showDateHeader)
-                                              const SizedBox(height: 10),
-                                            MessageBubble(
-                                              //key: key,
-                                              //scrollKey: scrollKey,
-                                              message: message,
-                                              isParentMessaging: true,
-                                              quotedMessage: quotedMessage,
-                                              onLongPress:
-                                                  (
-                                                    LongPressStartDetails
-                                                    details,
-                                                  ) {
-                                                    _showMessageOptions(
-                                                      context,
-                                                      message,
-                                                      details,
-                                                    );
-                                                  },
-                                              onScrollToQuoted: (quoteId) {
-                                                _scrollToMessage(quoteId);
-                                              },
-                                              // onHeightMeasured: (id, height) {
-                                              //   if (_bubbleHeights[id] != height) {
-                                              //     setState(() {
-                                              //       _bubbleHeights[id] = height;
-                                              //     });
-                                              //   }
-                                              // },
-                                              //onHeightMeasured:
-                                              // onContextReady: (id, ctx) {
-                                              //   if (_messageContexts[id] != ctx) {
-                                              //     setState(() {
-                                              //       _messageContexts[id] = ctx;
-                                              //     });
-                                              //   }
-                                              // },
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.35,
-                    child: SingleChildScrollView(
-                      reverse: true, // new messages appear at bottom
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 16,
-                          ),
-                          child: _buildMessageInput(),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // SizedBox(
-                  //   width: MediaQuery.of(context).size.width * 0.35,
-                  //   child: Container(
-                  //     decoration: BoxDecoration(
-                  //       borderRadius: BorderRadius.circular(12),
-                  //       color: Colors.white,
-                  //     ),
-                  //     child: Padding(
-                  //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                  //       child: _buildMessageInput(),
-                  //     ),
-                  //   ),// 35% is usually good balance
-                  // )
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomTextWidget(text: 'Messaging', fontSize: 16),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFF4F7FD),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              border: const Border(
-                                bottom: BorderSide(
-                                  color: Color(0xFFE9ECEF),
-                                  width: 1,
+                          child: NestedScrollView(
+                            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                              SliverToBoxAdapter(
+                                child: TabBar(
+                                  controller: _tabController,
+                                  isScrollable: true,
+                                  tabAlignment: TabAlignment.start,
+                                  padding: EdgeInsets.all(0),
+                                  labelColor: AppColors.primaryColor,
+                                  unselectedLabelColor: Colors.grey,
+                                  indicatorColor: AppColors.themeColor,
+                                  dividerColor: Colors.transparent,
+                                  //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                                  tabs: tabNames
+                                      .map((name) => _buildTab(name))
+                                      .toList(),
                                 ),
                               ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Stack(
-                                    children: [
-                                      DocumentImageWidget(
-                                        fileUuid: widget.parentInfo['avatar'],
-                                        name: widget.parentInfo['name'],
-                                        size: 45,
-                                      ),
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: widget.parentInfo['isSigned']
-                                                ? const Color.fromRGBO(
-                                                    0,
-                                                    177,
-                                                    21,
-                                                    1,
-                                                  )
-                                                : Colors.transparent,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color:
-                                                  widget.parentInfo['isSigned']
-                                                  ? Colors.white
-                                                  : Colors.transparent,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: CustomTextWidget(
-                                      text: widget.parentInfo['name'],
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          //const SizedBox(height: 10,),
-                          TabBar(
-                            controller: _tabController,
-                            isScrollable: true,
-                            tabAlignment: TabAlignment.start,
-                            padding: EdgeInsets.all(0),
-                            labelColor: AppColors.primaryColor,
-                            unselectedLabelColor: Colors.grey,
-                            indicatorColor: AppColors.themeColor,
-                            dividerColor: Colors.transparent,
-                            //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
-                            tabs: tabNames
-                                .map((name) => _buildTab(name))
-                                .toList(),
-                          ),
-                          Expanded(
-                            child: TabBarView(
+                            ],
+                            body: TabBarView(
                               controller: _tabController,
                               children: _privateModeEnabled
                                   ? [
@@ -1282,12 +745,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   1 -
                                                   index];
                                           final messageId = message.id;
-                                          //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                          // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                          // final key = keyMap.putIfAbsent(
-                                          //   messageId,
-                                          //   () => GlobalKey(),
-                                          // );
+
                                           Message? quotedMessage;
                                           if (message.quotedMessageId != null) {
                                             quotedMessage = _messages
@@ -1461,6 +919,21 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   onScrollToQuoted: (quoteId) {
                                                     _scrollToMessage(quoteId);
                                                   },
+                                                  // onHeightMeasured: (id, height) {
+                                                  //   if (_bubbleHeights[id] != height) {
+                                                  //     setState(() {
+                                                  //       _bubbleHeights[id] = height;
+                                                  //     });
+                                                  //   }
+                                                  // },
+                                                  //onHeightMeasured:
+                                                  // onContextReady: (id, ctx) {
+                                                  //   if (_messageContexts[id] != ctx) {
+                                                  //     setState(() {
+                                                  //       _messageContexts[id] = ctx;
+                                                  //     });
+                                                  //   }
+                                                  // },
                                                 ),
                                               ],
                                             ),
@@ -1470,27 +943,508 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                     ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 16,
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.35,
+                        child: SingleChildScrollView(
+                          reverse: true, // new messages appear at bottom
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
+                              ),
+                              child: _buildMessageInput(),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: _buildMessageInput(),
-                    ),
+
+                      // SizedBox(
+                      //   width: MediaQuery.of(context).size.width * 0.35,
+                      //   child: Container(
+                      //     decoration: BoxDecoration(
+                      //       borderRadius: BorderRadius.circular(12),
+                      //       color: Colors.white,
+                      //     ),
+                      //     child: Padding(
+                      //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                      //       child: _buildMessageInput(),
+                      //     ),
+                      //   ),// 35% is usually good balance
+                      // )
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextWidget(text: 'Messaging', fontSize: 16),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFFF4F7FD),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.transparent,
+                                  border: const Border(
+                                    bottom: BorderSide(
+                                      color: Color(0xFFE9ECEF),
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24.0,
+                                    vertical: 10,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Stack(
+                                        children: [
+                                          DocumentImageWidget(
+                                            fileUuid:
+                                                widget.parentInfo['avatar'],
+                                            name: widget.parentInfo['name'],
+                                            size: 45,
+                                          ),
+                                          Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            child: Container(
+                                              width: 12,
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    widget
+                                                        .parentInfo['isSigned']
+                                                    ? const Color.fromRGBO(
+                                                        0,
+                                                        177,
+                                                        21,
+                                                        1,
+                                                      )
+                                                    : Colors.transparent,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color:
+                                                      widget
+                                                          .parentInfo['isSigned']
+                                                      ? Colors.white
+                                                      : Colors.transparent,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: CustomTextWidget(
+                                          text: widget.parentInfo['name'],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              //const SizedBox(height: 10,),
+                              TabBar(
+                                controller: _tabController,
+                                isScrollable: true,
+                                tabAlignment: TabAlignment.start,
+                                padding: EdgeInsets.all(0),
+                                labelColor: AppColors.primaryColor,
+                                unselectedLabelColor: Colors.grey,
+                                indicatorColor: AppColors.themeColor,
+                                dividerColor: Colors.transparent,
+                                //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                                tabs: tabNames
+                                    .map((name) => _buildTab(name))
+                                    .toList(),
+                              ),
+                              Expanded(
+                                child: TabBarView(
+                                  controller: _tabController,
+                                  children: _privateModeEnabled
+                                      ? [
+                                          ListView.builder(
+                                            controller:
+                                                _getActiveScrollController(),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 12,
+                                            ),
+                                            reverse: true,
+                                            itemCount: _messages.length,
+                                            itemBuilder: (context, index) {
+                                              final message =
+                                                  _messages[_messages.length -
+                                                      1 -
+                                                      index];
+                                              final messageId = message.id;
+                                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                              // final key = keyMap.putIfAbsent(
+                                              //   messageId,
+                                              //   () => GlobalKey(),
+                                              // );
+                                              Message? quotedMessage;
+                                              if (message.quotedMessageId !=
+                                                  null) {
+                                                quotedMessage = _messages
+                                                    .firstWhere(
+                                                      (m) =>
+                                                          m.id ==
+                                                          message
+                                                              .quotedMessageId,
+                                                    ); // ?? null;
+                                              }
+                                              bool showDateHeader = false;
+                                              final prevListIndex =
+                                                  _messages.length - 2 - index;
+
+                                              if (prevListIndex >= 0) {
+                                                final prevMessage =
+                                                    _messages[prevListIndex];
+
+                                                showDateHeader =
+                                                    message.time.year !=
+                                                        prevMessage.time.year ||
+                                                    message.time.month !=
+                                                        prevMessage
+                                                            .time
+                                                            .month ||
+                                                    message.time.day !=
+                                                        prevMessage.time.day;
+                                              } else {
+                                                showDateHeader = true;
+                                              }
+
+                                              return AutoScrollTag(
+                                                key: ValueKey(messageId),
+                                                controller:
+                                                    _getActiveScrollController(),
+                                                index: index,
+                                                highlightColor: Colors.green
+                                                    .withValues(alpha: 0.7),
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (showDateHeader)
+                                                      Center(
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                top: 8.0,
+                                                              ),
+                                                          child: _buildDateChip(
+                                                            message.time,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (showDateHeader)
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
+                                                    MessageBubble(
+                                                      //key: key,
+                                                      //scrollKey: scrollKey,
+                                                      message: message,
+                                                      isParentMessaging: true,
+                                                      quotedMessage:
+                                                          quotedMessage,
+                                                      onLongPress:
+                                                          (
+                                                            LongPressStartDetails
+                                                            details,
+                                                          ) {
+                                                            _showMessageOptions(
+                                                              context,
+                                                              message,
+                                                              details,
+                                                            );
+                                                          },
+                                                      onScrollToQuoted:
+                                                          (quoteId) {
+                                                            _scrollToMessage(
+                                                              quoteId,
+                                                            );
+                                                          },
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          ListView.builder(
+                                            controller:
+                                                _getActiveScrollController(),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 12,
+                                            ),
+                                            reverse: true,
+                                            itemCount: _messages.length,
+                                            itemBuilder: (context, index) {
+                                              final message =
+                                                  _messages[_messages.length -
+                                                      1 -
+                                                      index];
+                                              final messageId = message.id;
+                                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                              // final key = keyMap.putIfAbsent(
+                                              //   messageId,
+                                              //   () => GlobalKey(),
+                                              // );
+                                              Message? quotedMessage;
+                                              if (message.quotedMessageId !=
+                                                  null) {
+                                                quotedMessage = _messages
+                                                    .firstWhere(
+                                                      (m) =>
+                                                          m.id ==
+                                                          message
+                                                              .quotedMessageId,
+                                                    ); // ?? null;
+                                              }
+                                              bool showDateHeader = false;
+                                              final prevListIndex =
+                                                  _messages.length - 2 - index;
+
+                                              if (prevListIndex >= 0) {
+                                                final prevMessage =
+                                                    _messages[prevListIndex];
+
+                                                showDateHeader =
+                                                    message.time.year !=
+                                                        prevMessage.time.year ||
+                                                    message.time.month !=
+                                                        prevMessage
+                                                            .time
+                                                            .month ||
+                                                    message.time.day !=
+                                                        prevMessage.time.day;
+                                              } else {
+                                                showDateHeader = true;
+                                              }
+
+                                              return AutoScrollTag(
+                                                key: ValueKey(messageId),
+                                                controller:
+                                                    _getActiveScrollController(),
+                                                index: index,
+                                                highlightColor: Colors.green
+                                                    .withValues(alpha: 0.7),
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (showDateHeader)
+                                                      Center(
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                top: 8.0,
+                                                              ),
+                                                          child: _buildDateChip(
+                                                            message.time,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (showDateHeader)
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
+                                                    MessageBubble(
+                                                      //key: key,
+                                                      //scrollKey: scrollKey,
+                                                      message: message,
+                                                      isParentMessaging: true,
+                                                      quotedMessage:
+                                                          quotedMessage,
+                                                      onLongPress:
+                                                          (
+                                                            LongPressStartDetails
+                                                            details,
+                                                          ) {
+                                                            _showMessageOptions(
+                                                              context,
+                                                              message,
+                                                              details,
+                                                            );
+                                                          },
+                                                      onScrollToQuoted:
+                                                          (quoteId) {
+                                                            _scrollToMessage(
+                                                              quoteId,
+                                                            );
+                                                          },
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ]
+                                      : [
+                                          ListView.builder(
+                                            controller:
+                                                _getActiveScrollController(),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 12,
+                                            ),
+                                            reverse: true,
+                                            itemCount: _messages.length,
+                                            itemBuilder: (context, index) {
+                                              final message =
+                                                  _messages[_messages.length -
+                                                      1 -
+                                                      index];
+                                              final messageId = message.id;
+                                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                              // final key = keyMap.putIfAbsent(
+                                              //   messageId,
+                                              //   () => GlobalKey(),
+                                              // );
+                                              Message? quotedMessage;
+                                              if (message.quotedMessageId !=
+                                                  null) {
+                                                quotedMessage = _messages
+                                                    .firstWhere(
+                                                      (m) =>
+                                                          m.id ==
+                                                          message
+                                                              .quotedMessageId,
+                                                    ); // ?? null;
+                                              }
+                                              bool showDateHeader = false;
+                                              final prevListIndex =
+                                                  _messages.length - 2 - index;
+
+                                              if (prevListIndex >= 0) {
+                                                final prevMessage =
+                                                    _messages[prevListIndex];
+
+                                                showDateHeader =
+                                                    message.time.year !=
+                                                        prevMessage.time.year ||
+                                                    message.time.month !=
+                                                        prevMessage
+                                                            .time
+                                                            .month ||
+                                                    message.time.day !=
+                                                        prevMessage.time.day;
+                                              } else {
+                                                showDateHeader = true;
+                                              }
+
+                                              return AutoScrollTag(
+                                                key: ValueKey(messageId),
+                                                controller:
+                                                    _getActiveScrollController(),
+                                                index: index,
+                                                highlightColor: Colors.green
+                                                    .withValues(alpha: 0.7),
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (showDateHeader)
+                                                      Center(
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                top: 8.0,
+                                                              ),
+                                                          child: _buildDateChip(
+                                                            message.time,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (showDateHeader)
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
+                                                    MessageBubble(
+                                                      //key: key,
+                                                      //scrollKey: scrollKey,
+                                                      message: message,
+                                                      isParentMessaging: true,
+                                                      quotedMessage:
+                                                          quotedMessage,
+                                                      onLongPress:
+                                                          (
+                                                            LongPressStartDetails
+                                                            details,
+                                                          ) {
+                                                            _showMessageOptions(
+                                                              context,
+                                                              message,
+                                                              details,
+                                                            );
+                                                          },
+                                                      onScrollToQuoted:
+                                                          (quoteId) {
+                                                            _scrollToMessage(
+                                                              quoteId,
+                                                            );
+                                                          },
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 16,
+                          ),
+                          child: _buildMessageInput(),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-      ),
+          ),
+        );
+      },
     );
   }
 

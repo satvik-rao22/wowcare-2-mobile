@@ -46,21 +46,21 @@ class StudentCubit extends Cubit<StudentState> {
   Future<void> loadInitial() async {
     final schoolCode = await _resolveSchoolCode();
 
-    // Try cache first
-    final cached =
-        await (_repository is StudentRepositoryWithCache
-            ? (_repository as StudentRepositoryWithCache).loadCachedStudentPage(
-                schoolCode,
-                status: state.statusFilter,
-                classroomCodes: state.classroomCodesFilter,
-                tagCodes: state.tagCodesFilter,
-                guardianCodes: state.guardianCodesFilter,
-                search: state.searchQuery,
-                code: state.codeFilter,
-                firstName: state.firstNameFilter,
-                lastName: state.lastNameFilter,
-              )
-            : Future.value(null));
+    // 1. Try cache first for immediate UI update
+    final cached = await (_repository is StudentRepositoryWithCache
+        ? (_repository as StudentRepositoryWithCache).loadCachedStudentPage(
+            schoolCode,
+            status: state.statusFilter,
+            classroomCodes: state.classroomCodesFilter,
+            tagCodes: state.tagCodesFilter,
+            guardianCodes: state.guardianCodesFilter,
+            search: state.searchQuery,
+            code: state.codeFilter,
+            firstName: state.firstNameFilter,
+            lastName: state.lastNameFilter,
+          )
+        : Future.value(null));
+
     if (cached != null && !isClosed) {
       emit(
         state.copyWith(
@@ -72,10 +72,10 @@ class StudentCubit extends Cubit<StudentState> {
           isFromCache: true,
         ),
       );
-      return;
+      // We don't return here anymore; we trigger a background refresh
     }
 
-    // No cache (or expired) – load from API.
+    // 2. Load from API (background refresh if cache was present, or full load if not)
     await refresh();
   }
 

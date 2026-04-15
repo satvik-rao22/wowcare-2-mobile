@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
+import '../../../../domain/features/communication/entities/message.dart';
+import '../../../../domain/features/communication/repositories/communication_repository.dart';
 
 class SendMessageUseCase {
   final CommunicationRepository repository;

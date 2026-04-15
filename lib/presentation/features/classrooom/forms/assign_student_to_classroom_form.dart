@@ -14,6 +14,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../../../core/util/safe_state_mixin.dart';
+
 
 // UI-only lightweight types
 typedef DataMap = Map<String, dynamic>;
@@ -148,9 +150,9 @@ class _AssignStudentToClassroomFormState
       bool matchesTag = true;
 
       if (_searchController.text.isNotEmpty) {
-        matchesSearch = student.fullName
-            .toLowerCase()
-            .contains(_searchController.text.toLowerCase());
+        matchesSearch = student.fullName.toLowerCase().contains(
+          _searchController.text.toLowerCase(),
+        );
       }
 
       if (_selectedClassroom != null && _selectedClassroom != '') {
@@ -254,14 +256,18 @@ class _AssignStudentToClassroomFormState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-                color: const Color(0xFFF8F7FA),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.grey)),
+              color: const Color(0xFFF8F7FA),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.grey),
+            ),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search Students',
-                hintStyle: TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
+                hintStyle: TextStyle(
+                  fontFamily: 'Manrope',
+                  color: Colors.grey[700],
+                ),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
@@ -315,10 +321,7 @@ class _AssignStudentToClassroomFormState
                   onChanged: _toggleSelectAll, // Add the handler here
                 ),
               ),
-              const Text(
-                'Select All',
-                style: TextStyle(fontFamily: 'Manrope'),
-              ),
+              const Text('Select All', style: TextStyle(fontFamily: 'Manrope')),
             ],
           ),
           const SizedBox(height: 12),
@@ -353,7 +356,9 @@ class _AssignStudentToClassroomFormState
               if (selectedStudents.isEmpty) {
                 // UI-only: no backend, show inline SnackBar
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please select at least one student')),
+                  const SnackBar(
+                    content: Text('Please select at least one student'),
+                  ),
                 );
                 return;
               } else {
@@ -400,9 +405,11 @@ class StudentConfirmationForm extends StatefulWidget {
       _StudentConfirmationFormState();
 }
 
-class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
+class _StudentConfirmationFormState extends State<StudentConfirmationForm>
+    with SafeStateMixin {
   late Set<StudentEntity> currentSelectedStudents;
   bool _isSubmitting = false;
+
 
   @override
   void initState() {
@@ -422,9 +429,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -478,9 +483,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(
-                        color: AppColors.themeColor,
-                      ),
+                      border: Border.all(color: AppColors.themeColor),
                       borderRadius: BorderRadius.circular(10),
                       color: const Color.fromRGBO(249, 245, 250, 1),
                     ),
@@ -506,7 +509,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                         GestureDetector(
                           onTap: () => removeStudent(student),
                           child: SvgPicture.asset(MediaRes.delete_icon),
-                        )
+                        ),
                       ],
                     ),
                   );
@@ -521,52 +524,62 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
             onPressedConfirm: _isSubmitting
                 ? () {}
                 : () async {
-              if (currentSelectedStudents.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please select at least one student')),
-                );
-                return;
-              }
+                    if (currentSelectedStudents.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please select at least one student'),
+                        ),
+                      );
+                      return;
+                    }
 
-              setState(() => _isSubmitting = true);
-              try {
-                final storage = serviceLocator<StorageService>();
-                final schoolCode = await storage.getString(StorageKeys.schoolCode);
-                if (schoolCode == null || schoolCode.trim().isEmpty) {
-                  throw 'Missing schoolCode. Please sign in / select a school again.';
-                }
+                    setState(() => _isSubmitting = true);
+                    try {
+                      final storage = serviceLocator<StorageService>();
+                      final schoolCode = await storage.getString(
+                        StorageKeys.schoolCode,
+                      );
+                      if (schoolCode == null || schoolCode.trim().isEmpty) {
+                        throw 'Missing schoolCode. Please sign in / select a school again.';
+                      }
 
-                // NOTE: In this UI module we only have the selected room name.
-                // The backend expects classroomCode; we pass the selectedRoomName
-                // as the code until the classroom code is wired into this form.
-                final classroomCode = widget.classroomCode.trim();
-                final studentCodes = currentSelectedStudents
-                    .map((s) => s.id.toString())
-                    .toList();
+                      // NOTE: In this UI module we only have the selected room name.
+                      // The backend expects classroomCode; we pass the selectedRoomName
+                      // as the code until the classroom code is wired into this form.
+                      final classroomCode = widget.classroomCode.trim();
+                      final studentCodes = currentSelectedStudents
+                          .map((s) => s.id.toString())
+                          .toList();
 
-                final message =
-                    await serviceLocator<AssignStudentsToClassroomUseCase>()(
-                  schoolCode: schoolCode,
-                  classroomCode: classroomCode,
-                  studentCodes: studentCodes,
-                );
+                      final message =
+                          await serviceLocator<
+                            AssignStudentsToClassroomUseCase
+                          >()(
+                            schoolCode: schoolCode,
+                            classroomCode: classroomCode,
+                            studentCodes: studentCodes,
+                          );
 
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(message.isEmpty ? 'Assigned successfully' : message)),
-                );
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            message.isEmpty ? 'Assigned successfully' : message,
+                          ),
+                        ),
+                      );
 
-                widget.onStudentsAssigned();
-                Navigator.pop(context);
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString())),
-                );
-              } finally {
-                if (mounted) setState(() => _isSubmitting = false);
-              }
-            },
+                      widget.onStudentsAssigned();
+                      Navigator.pop(context);
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(e.toString())));
+                    } finally {
+                      if (mounted) setState(() => _isSubmitting = false);
+                    }
+                  },
           ),
         ],
       ),
@@ -594,9 +607,7 @@ class StudentListItem extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
@@ -655,8 +666,10 @@ class StudentProfileImage extends StatefulWidget {
   State<StudentProfileImage> createState() => _StudentProfileImageState();
 }
 
-class _StudentProfileImageState extends State<StudentProfileImage> {
+class _StudentProfileImageState extends State<StudentProfileImage>
+    with SafeStateMixin {
   // UI-only: remove backend image fetching; keep shimmer to preserve UI feel
+
   StreamSubscription? _subscription; // not used in UI-only
   Uint8List? _currentImage;
   bool _isLoading = false;
@@ -882,8 +895,9 @@ class _CustomMultiSelectDropdownAssignStudentState
           displayText,
           style: TextStyle(
             fontFamily: 'Manrope',
-            color:
-                _localSelectedItems.isEmpty ? Colors.grey[600] : const Color(0xff573353),
+            color: _localSelectedItems.isEmpty
+                ? Colors.grey[600]
+                : const Color(0xff573353),
             fontSize: 15,
           ),
         ),

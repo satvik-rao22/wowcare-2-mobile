@@ -198,6 +198,8 @@ class _StudentSelectionSignOutFormState
         size: 100,
       );
 
+      if (!mounted) return;
+
       final students = page.items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;

@@ -134,7 +134,12 @@ class ApiPaths {
   static String microserviceKeyFromPath(String path) {
     if (ApiConstants.isUat) return ApiPathsUat.microserviceKeyFromPath(path);
     final p = path.startsWith('/') ? path : '/$path';
-    final parts = p.split('/').where((s) => s.isNotEmpty).toList();
+    // Remove query parameters before splitting to ensure segments match correctly
+    final pathWithoutQuery = p.split('?').first;
+    final parts = pathWithoutQuery
+        .split('/')
+        .where((s) => s.isNotEmpty)
+        .toList();
     if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
       return ApiMicroservices.user;
     }
@@ -180,6 +185,8 @@ class ApiPaths {
       case 'activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      case 'conversations':
+        return ApiMicroservices.communication;
       default:
         return ApiMicroservices.user;
     }
@@ -391,4 +398,8 @@ class ApiPaths {
 
   static String documentUploadSessionPath(String sessionCode) =>
       '$documentUploadSessionsRoot/$sessionCode';
+
+  static const String messagingCreateMessage = '/api/v1/conversations';
+  static String messagingMessages(String conversationCode) =>
+      '/api/v1/messages/conversation/$conversationCode';
 }

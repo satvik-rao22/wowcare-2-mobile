@@ -26,10 +26,10 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.isField = false,
     this.showSelectAll = true,
     this.width,
+
     /// Extra spacing between the field and dropdown (in addition to field height).
     this.gapHeight = 6,
     this.maxDropdownHeight = 250,
-
   }) : super(key: key);
 
   @override
@@ -43,7 +43,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   final LayerLink _layerLink = LayerLink();
   final GlobalKey _fieldKey = GlobalKey();
   OverlayEntry? _overlayEntry;
-
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -94,17 +94,17 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   void _closeDropdown() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         isDropdownOpen = false;
       });
     }
-
   }
 
   OverlayEntry _createOverlayEntry() {
     final renderObject =
-        _fieldKey.currentContext?.findRenderObject() ?? context.findRenderObject();
+        _fieldKey.currentContext?.findRenderObject() ??
+        context.findRenderObject();
     final renderBox = renderObject as RenderBox;
     final size = renderBox.size;
 
@@ -114,17 +114,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           // Barrier to close dropdown when tapping outside
           Positioned.fill(
             child: GestureDetector(
-              onTap: (){
-                if(mounted){
-                  setState(() {
-                    isDropdownOpen = false;
-                  });
-                }
-                _closeDropdown();
-              },
-              child: Container(
-                color: Colors.transparent,
-              ),
+              onTap: _closeDropdown,
+              child: Container(color: Colors.transparent),
             ),
           ),
           // Dropdown content
@@ -150,93 +141,104 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                     border: Border.all(color: Colors.grey.shade300, width: 1),
                   ),
                   child: StatefulBuilder(
-                    builder: (BuildContext context, StateSetter setOverlayState) {
-                      final List<String> effectiveItems = widget.showSelectAll 
-                          ? ['Select All', ...widget.items] 
-                          : widget.items;
-                      
-                      return ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: effectiveItems.length,
-                        itemBuilder: (context, index) {
-                          final item = effectiveItems[index];
-                          final bool isSelectAllItem = widget.showSelectAll && index == 0;
-                          final bool isSelected = isSelectAllItem 
-                              ? _localSelectedItems.length == widget.items.length 
-                              : _localSelectedItems.contains(item);
-                          
-                          return InkWell(
-                            onTap: () {
-                              setOverlayState(() {
-                                if (isSelectAllItem) {
-                                  if (isSelected) {
-                                    _localSelectedItems.clear();
-                                  } else {
-                                    _localSelectedItems = List.from(widget.items);
-                                  }
-                                } else {
-                                  if (isSelected) {
-                                    _localSelectedItems.remove(item);
-                                  } else {
-                                    _localSelectedItems.add(item);
-                                  }
-                                }
-                              });
-                              setState(() {}); // Update main widget
-                              widget.onChanged(_localSelectedItems);
+                    builder:
+                        (BuildContext context, StateSetter setOverlayState) {
+                          final List<String> effectiveItems =
+                              widget.showSelectAll
+                              ? ['Select All', ...widget.items]
+                              : widget.items;
+
+                          return ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: effectiveItems.length,
+                            itemBuilder: (context, index) {
+                              final item = effectiveItems[index];
+                              final bool isSelectAllItem =
+                                  widget.showSelectAll && index == 0;
+                              final bool isSelected = isSelectAllItem
+                                  ? _localSelectedItems.length ==
+                                        widget.items.length
+                                  : _localSelectedItems.contains(item);
+
+                              return InkWell(
+                                onTap: () {
+                                  setOverlayState(() {
+                                    if (isSelectAllItem) {
+                                      if (isSelected) {
+                                        _localSelectedItems.clear();
+                                      } else {
+                                        _localSelectedItems = List.from(
+                                          widget.items,
+                                        );
+                                      }
+                                    } else {
+                                      if (isSelected) {
+                                        _localSelectedItems.remove(item);
+                                      } else {
+                                        _localSelectedItems.add(item);
+                                      }
+                                    }
+                                  });
+                                  setState(() {}); // Update main widget
+                                  widget.onChanged(_localSelectedItems);
+                                },
+                                hoverColor: Colors.grey.shade100,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? AppColors.themeColor
+                                                : Colors.grey.shade400,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          color: isSelected
+                                              ? AppColors.themeColor
+                                              : Colors.transparent,
+                                        ),
+                                        child: isSelected
+                                            ? const Icon(
+                                                Icons.check,
+                                                size: 14,
+                                                color: Colors.white,
+                                              )
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          item,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black87,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
                             },
-                            hoverColor: Colors.grey.shade100,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: isSelected 
-                                            ? AppColors.themeColor 
-                                            : Colors.grey.shade400,
-                                        width: 2,
-                                      ),
-                                      borderRadius: BorderRadius.circular(4),
-                                      color: isSelected 
-                                          ? AppColors.themeColor 
-                                          : Colors.transparent,
-                                    ),
-                                    child: isSelected
-                                        ? const Icon(
-                                            Icons.check,
-                                            size: 14,
-                                            color: Colors.white,
-                                          )
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      item,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           );
                         },
-                      );
-                    },
                   ),
                 ),
               ),
@@ -249,6 +251,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _closeDropdown();
     super.dispose();
   }

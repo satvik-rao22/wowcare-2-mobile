@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
+import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
 
 class IsarCacheService implements CacheService {
@@ -8,10 +9,10 @@ class IsarCacheService implements CacheService {
 
   Future<void> init() async {
     final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open(
-      [MessageCollectionSchema],
-      directory: dir.path,
-    );
+    _isar = await Isar.open([
+      MessageCollectionSchema,
+      ConversationCollectionSchema,
+    ], directory: dir.path);
   }
 
   @override
@@ -45,15 +46,17 @@ class IsarCacheService implements CacheService {
     if (T == MessageCollection) {
       if (fieldName == 'threadId') {
         return await _isar.messageCollections
-            .filter()
-            .threadIdEqualTo(value as String)
-            .findAll() as List<T>;
+                .filter()
+                .threadIdEqualTo(value as String)
+                .findAll()
+            as List<T>;
       }
       if (fieldName == 'id') {
-         return await _isar.messageCollections
-            .filter()
-            .idEqualTo(value as String)
-            .findAll() as List<T>;
+        return await _isar.messageCollections
+                .filter()
+                .idEqualTo(value as String)
+                .findAll()
+            as List<T>;
       }
     }
     return [];

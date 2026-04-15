@@ -114,6 +114,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     // Simulate API delay
     await Future.delayed(const Duration(milliseconds: 500));
 
+    if (!mounted) return;
+
     // Load dummy data
     setState(() {
       _startDate = null;
@@ -215,6 +217,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     // Simulate API delay
     await Future.delayed(const Duration(milliseconds: 800));
 
+    if (!mounted) return;
+
     setState(() {
       if (refresh) {
         _siblingTransactions = _generateDummyTransactions();
@@ -248,6 +252,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
 
     // Simulate API delay
     await Future.delayed(const Duration(milliseconds: 500));
+
+    if (!mounted) return;
 
     setState(() {
       _isLoadingMore = false;
