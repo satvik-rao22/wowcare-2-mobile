@@ -306,3 +306,88 @@ Before release:
 * CI enforced quality
 
 Breaking this system will reintroduce instability and release risks.
+
+---
+
+# 🧩 Technology-Specific Guidelines
+
+## ⚛️ React (Frontend)
+
+### Build & CI Requirements
+
+* npm install
+* npm run build
+* eslint checks
+* unit tests (jest)
+
+### Environment Setup
+
+* .env.development
+* .env.staging
+* .env.production
+
+### Rules
+
+* API URLs must switch based on environment
+* Do not hardcode endpoints
+* Ensure UI works with staging APIs before release
+
+---
+
+## ☕ Java (Backend - Spring Boot)
+
+### Build & CI Requirements
+
+* mvn clean install / gradle build
+* unit tests must pass
+* code quality checks (checkstyle/spotbugs)
+
+### Environment Setup
+
+* application-dev.yml
+* application-stage.yml
+* application-prod.yml
+
+### Rules
+
+* Never break existing APIs without versioning
+* Use API versioning (/v1, /v2)
+* Maintain Swagger/OpenAPI documentation
+
+---
+
+## 📱 Flutter (Mobile App)
+
+### Build & CI Requirements
+
+* flutter pub get
+* flutter analyze
+* flutter build apk / ipa
+* unit/widget tests
+
+### Environment Setup
+
+* Use --dart-define or env-based configs
+* अलग configs for staging and production
+
+### Rules
+
+* Ensure app connects to staging backend before release
+* No debug logs in production builds
+* Validate permissions and platform configs
+
+---
+
+## 🔗 Cross-Team Coordination Rules
+
+* Backend changes must be deployed to staging before frontend/mobile testing
+* Breaking API changes must be communicated in advance
+* QA testing is always done against staging environment
+* All platforms must be aligned before production release
+
+---
+
+## 🏁 Final Note
+
+This workflow is shared across React, Java, and Flutter projects.
+Consistency across all repositories is mandatory for stability and scalable development.
