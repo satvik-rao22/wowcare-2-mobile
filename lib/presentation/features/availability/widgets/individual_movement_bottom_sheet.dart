@@ -3,9 +3,12 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 
-enum IndividualMovementAction { edit, confirm, reject, delete }
+enum IndividualMovementAction { edit, confirm, reject, moveToPending, delete }
 
-/// PRD-aligned actions: pending → edit/confirm/reject; confirmed → edit/reject; rejected → delete.
+/// API-aligned actions:
+/// pending -> confirm/reject
+/// rejected -> move to pending
+/// confirmed -> no transition actions
 Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
   BuildContext context, {
   required MovementItem item,
@@ -13,19 +16,17 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
   final List<IndividualMovementAction> actions = <IndividualMovementAction>[];
   switch (item.workflowStatus) {
     case MovementWorkflowStatus.pending:
+      actions.add(IndividualMovementAction.edit);
       actions.addAll(<IndividualMovementAction>[
-        IndividualMovementAction.edit,
         IndividualMovementAction.confirm,
         IndividualMovementAction.reject,
       ]);
       break;
     case MovementWorkflowStatus.confirmed:
-      actions.addAll(<IndividualMovementAction>[
-        IndividualMovementAction.edit,
-        IndividualMovementAction.reject,
-      ]);
-      break;
+      return Future<IndividualMovementAction?>.value(null);
     case MovementWorkflowStatus.rejected:
+      actions.add(IndividualMovementAction.edit);
+      actions.add(IndividualMovementAction.moveToPending);
       actions.add(IndividualMovementAction.delete);
       break;
   }
@@ -83,6 +84,8 @@ String _actionLabel(IndividualMovementAction a) {
       return 'Confirm';
     case IndividualMovementAction.reject:
       return 'Reject';
+    case IndividualMovementAction.moveToPending:
+      return 'Move to Pending';
     case IndividualMovementAction.delete:
       return 'Delete';
   }

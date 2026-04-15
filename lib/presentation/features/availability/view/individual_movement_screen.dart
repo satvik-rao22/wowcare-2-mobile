@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 import 'package:wowcare/presentation/features/availability/view/add_edit_individual_movement_screen.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/confirm_individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
@@ -32,127 +36,26 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   DateTime? _filterRangeEnd;
 
   late final PageController _sectionPageController;
+  late final IndividualMovementsCubit _individualMovementsCubit;
   int _currentSectionIndex = 0;
-  late final List<MovementItem> _allMovements;
-
-  final List<String> _students = const <String>[
-    'Arvind Joshi',
-    'Chaitanya Bhave',
-    'Kimberly Dixon',
-    'Aria KC',
-    'Devi Vampati',
-  ];
-
-  final List<String> _classrooms = const <String>[
-    '1-Blue D',
-    '2-Green D',
-    '3-Purple D',
-    '4-Yellow D',
-  ];
 
   @override
   void initState() {
     super.initState();
     _sectionPageController = PageController(viewportFraction: 0.98);
-
-    final DateTime now = DateTime.now();
-    final DateTime today = DateTime(now.year, now.month, now.day);
-    final DateTime yesterday = today.subtract(const Duration(days: 1));
-    final DateTime tomorrow = today.add(const Duration(days: 1));
-
-    _allMovements = <MovementItem>[
-      MovementItem(
-        id: 1,
-        name: 'Arvind Joshi',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: yesterday,
-        workflowStatus: MovementWorkflowStatus.pending,
-      ),
-      MovementItem(
-        id: 2,
-        name: 'Chaitanya Bhave',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: yesterday,
-        workflowStatus: MovementWorkflowStatus.pending,
-      ),
-      MovementItem(
-        id: 3,
-        name: 'Kimberly Dixon',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: tomorrow,
-        workflowStatus: MovementWorkflowStatus.pending,
-      ),
-      MovementItem(
-        id: 4,
-        name: 'Aria KC',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: tomorrow,
-        workflowStatus: MovementWorkflowStatus.pending,
-      ),
-      MovementItem(
-        id: 5,
-        name: 'Devi Vampati',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: tomorrow,
-        workflowStatus: MovementWorkflowStatus.pending,
-      ),
-      MovementItem(
-        id: 6,
-        name: 'Nichole Adams',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: yesterday,
-        workflowStatus: MovementWorkflowStatus.confirmed,
-      ),
-      MovementItem(
-        id: 7,
-        name: 'Brindar Goraya',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: tomorrow,
-        workflowStatus: MovementWorkflowStatus.confirmed,
-      ),
-      MovementItem(
-        id: 8,
-        name: 'Jessica Lima',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: tomorrow,
-        workflowStatus: MovementWorkflowStatus.confirmed,
-      ),
-      MovementItem(
-        id: 9,
-        name: 'Atraye Rawal',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: yesterday,
-        workflowStatus: MovementWorkflowStatus.rejected,
-      ),
-      MovementItem(
-        id: 10,
-        name: 'Aparna Bhiwakar',
-        fromClassroom: '1-Blue D',
-        toClassroom: '2-Green D',
-        movementDate: tomorrow,
-        workflowStatus: MovementWorkflowStatus.rejected,
-      ),
-    ];
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPersistedFilters());
+    _individualMovementsCubit = serviceLocator<IndividualMovementsCubit>();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadPersistedFilters();
+      await _fetchMovements(initialLoad: true);
+    });
   }
 
   @override
   void dispose() {
     _sectionPageController.dispose();
+    _individualMovementsCubit.close();
     super.dispose();
   }
-
-  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   bool _canMutateMovements(RoleProvider roles) {
     if (roles.isParent) return false;
@@ -205,60 +108,31 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     } catch (_) {}
   }
 
-  List<MovementItem> _filteredMovements() {
-    final DateTime? rs = _filterRangeStart != null ? _dateOnly(_filterRangeStart!) : null;
-    final DateTime? re = _filterRangeEnd != null ? _dateOnly(_filterRangeEnd!) : null;
-
-    return _allMovements.where((MovementItem m) {
-      if (_selectedStudent != null && _selectedStudent!.trim().isNotEmpty) {
-        if (m.name != _selectedStudent) return false;
-      }
-      if (_fromClassroom != null && _fromClassroom!.trim().isNotEmpty) {
-        if (m.fromClassroom != _fromClassroom) return false;
-      }
-      if (_toClassroom != null && _toClassroom!.trim().isNotEmpty) {
-        if (m.toClassroom != _toClassroom) return false;
-      }
-      if (rs != null && re != null) {
-        final DateTime d = _dateOnly(m.movementDate);
-        if (d.isBefore(rs) || d.isAfter(re)) return false;
-      }
-      return true;
-    }).toList();
-  }
-
-  List<MovementSection> _buildSections() {
-    final DateTime now = DateTime.now();
-    final List<MovementItem> base = _filteredMovements();
-
-    List<MovementItem> inBucket(MovementBucket bucket) {
-      return base.where((MovementItem e) => e.bucketFor(now) == bucket).toList();
-    }
-
+  List<MovementSection> _buildSections(IndividualMovementBoard? board) {
     return <MovementSection>[
       MovementSection(
         title: 'Overdue',
         backgroundColor: const Color(0xFFF8F6FF),
         bucket: MovementBucket.overdue,
-        items: inBucket(MovementBucket.overdue),
+        items: (board?.overdue ?? const []).map(MovementItem.fromEntity).toList(),
       ),
       MovementSection(
         title: 'Upcoming',
         backgroundColor: const Color(0xFFFFFBEE),
         bucket: MovementBucket.upcoming,
-        items: inBucket(MovementBucket.upcoming),
+        items: (board?.upcoming ?? const []).map(MovementItem.fromEntity).toList(),
       ),
       MovementSection(
         title: 'Confirmed',
         backgroundColor: const Color(0xFFEFFFF4),
         bucket: MovementBucket.confirmed,
-        items: inBucket(MovementBucket.confirmed),
+        items: (board?.confirmed ?? const []).map(MovementItem.fromEntity).toList(),
       ),
       MovementSection(
         title: 'Rejected',
         backgroundColor: const Color(0xFFFFF0F0),
         bucket: MovementBucket.rejected,
-        items: inBucket(MovementBucket.rejected),
+        items: (board?.rejected ?? const []).map(MovementItem.fromEntity).toList(),
       ),
     ];
   }
@@ -274,6 +148,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     try {
       await serviceLocator<StorageService>().remove(StorageKeys.individualMovementFilters);
     } catch (_) {}
+    await _fetchMovements();
   }
 
   Future<void> _openAddMovementScreen() async {
@@ -282,51 +157,271 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       _toastViewOnly(context);
       return;
     }
+    final board = _individualMovementsCubit.state.board;
+    final students = _uniqueStudents(board);
+    final classrooms = _uniqueClassrooms(board);
+    final existing = board == null
+        ? const <MovementItem>[]
+        : board.all.map(MovementItem.fromEntity).toList();
 
     final MovementFormResult? result = await Navigator.of(context).push<MovementFormResult>(
       MaterialPageRoute(
-        builder: (_) => AddEditIndividualMovementScreen(
-          students: _students,
-          classrooms: _classrooms,
-          existingMovements: List<MovementItem>.from(_allMovements),
+        builder: (_) => _buildAddEditMovementScreen(
+          students: students,
+          classrooms: classrooms,
+          existingMovements: existing,
         ),
       ),
     );
     if (result == null || !mounted) return;
 
-    final String? formError = IndividualMovementValidators.validateMoveToNextClassroomForm(
+    final String? error = IndividualMovementValidators.validateMoveToNextClassroomForm(
       student: result.student,
       fromClassroom: result.currentClassroom,
       toClassroom: result.nextClassroom,
       movementDate: result.movementDate,
-      existing: _allMovements,
+      existing: existing,
     );
-    if (formError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(formError)));
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
 
-    setState(() {
-      final int maxId = _allMovements.isEmpty
-          ? 0
-          : _allMovements.map((MovementItem e) => e.id).reduce((int a, int b) => a > b ? a : b);
-      _allMovements.insert(
-        0,
-        MovementItem(
-          id: maxId + 1,
-          name: result.student,
-          fromClassroom: result.currentClassroom,
-          toClassroom: result.nextClassroom,
-          movementDate: result.movementDate,
-          comment: result.comment,
-          workflowStatus: MovementWorkflowStatus.pending,
-        ),
+    try {
+      final message = await _individualMovementsCubit.createMovement(
+        studentCode: result.student,
+        fromClassroomCode: result.currentClassroom,
+        toClassroomCode: result.nextClassroom,
+        movementDate: result.movementDate,
+        comment: result.comment.isEmpty ? null : result.comment,
       );
-    });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg.isEmpty ? 'Failed to create movement.' : msg)),
+      );
+    }
+  }
+
+  Future<void> _showMovementOptions(MovementItem item) async {
+    final RoleProvider roles = context.read<RoleProvider>();
+    if (!_canMutateMovements(roles)) {
+      _toastViewOnly(context);
+      return;
+    }
+    if (item.workflowStatus == MovementWorkflowStatus.confirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No status transition actions available for confirmed items.')),
+      );
+      return;
+    }
+    final action = await showIndividualMovementOptionsBottomSheet(context, item: item);
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case IndividualMovementAction.edit:
+        await _openEditMovementScreen(item);
+        break;
+      case IndividualMovementAction.confirm:
+        final bool? confirmed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => ConfirmIndividualMovementScreen(item: item)),
+        );
+        if (confirmed != true || !mounted) return;
+        await _transitionMovementStatus(
+          id: item.id,
+          status: IndividualMovementWorkflowStatus.confirmed,
+          comment: item.comment.isEmpty ? null : item.comment,
+        );
+        break;
+      case IndividualMovementAction.reject:
+        final String? rejectNote = await _showRejectCommentDialog();
+        if (rejectNote == null || !mounted) return;
+        await _transitionMovementStatus(
+          id: item.id,
+          status: IndividualMovementWorkflowStatus.rejected,
+          comment: rejectNote,
+        );
+        break;
+      case IndividualMovementAction.moveToPending:
+        await _transitionMovementStatus(
+          id: item.id,
+          status: IndividualMovementWorkflowStatus.pending,
+          comment: item.comment.isEmpty ? null : item.comment,
+          newMovementDate: item.movementDate,
+        );
+        break;
+      case IndividualMovementAction.delete:
+        await _deleteRejectedMovement(item);
+        break;
+    }
+  }
+
+  Future<void> _deleteRejectedMovement(MovementItem item) async {
+    final RoleProvider roles = context.read<RoleProvider>();
+    if (!_canMutateMovements(roles)) {
+      _toastViewOnly(context);
+      return;
+    }
+    if (item.workflowStatus != MovementWorkflowStatus.rejected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only rejected movements can be deleted.')),
+      );
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Delete movement'),
+          content: const Text('This will delete the rejected movement. Continue?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final message = await _individualMovementsCubit.deleteMovement(id: item.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg.isEmpty ? 'Failed to delete movement.' : msg)),
+      );
+    }
+  }
+
+  Future<void> _openEditMovementScreen(MovementItem item) async {
+    final RoleProvider roles = context.read<RoleProvider>();
+    if (!_canMutateMovements(roles)) {
+      _toastViewOnly(context);
+      return;
+    }
+
+    final board = _individualMovementsCubit.state.board;
+    if (board == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Movements are not loaded yet.')),
+      );
+      return;
+    }
+
+    IndividualMovement? movement;
+    for (final m in board.all) {
+      if (m.id == item.id) {
+        movement = m;
+        break;
+      }
+    }
+
+    if (movement == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to find this movement for editing.')),
+      );
+      return;
+    }
+    final resolvedMovement = movement;
+
+    final students = _uniqueStudents(board);
+    final classrooms = _uniqueClassrooms(board);
+    final existing = board.all.map(MovementItem.fromEntity).toList();
+
+    final MovementFormResult? result = await Navigator.of(context).push<MovementFormResult>(
+      MaterialPageRoute(
+        builder: (_) => AddEditIndividualMovementScreen(
+          students: students,
+          classrooms: classrooms,
+          existingMovements: existing,
+          isEditing: true,
+          editingMovementId: resolvedMovement.id,
+          initialData: MovementFormResult(
+            student: resolvedMovement.studentCode,
+            currentClassroom: resolvedMovement.fromClassroomCode,
+            nextClassroom: resolvedMovement.toClassroomCode,
+            movementDate: resolvedMovement.movementDate,
+            comment: resolvedMovement.comment,
+          ),
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    final String? error = IndividualMovementValidators.validateMoveToNextClassroomForm(
+      student: result.student,
+      fromClassroom: result.currentClassroom,
+      toClassroom: result.nextClassroom,
+      movementDate: result.movementDate,
+      existing: existing,
+      excludeId: resolvedMovement.id,
+    );
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+
+    try {
+      final message = await _individualMovementsCubit.updateMovement(
+        id: resolvedMovement.id,
+        movementType: resolvedMovement.movementType,
+        fromClassroomCode: result.currentClassroom,
+        toClassroomCode: result.nextClassroom,
+        movementDate: result.movementDate,
+        comment: result.comment.isEmpty ? null : result.comment,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg.isEmpty ? 'Failed to update movement.' : msg)),
+      );
+    }
+  }
+
+  Future<void> _transitionMovementStatus({
+    required int id,
+    required IndividualMovementWorkflowStatus status,
+    String? comment,
+    DateTime? newMovementDate,
+  }) async {
+    try {
+      final message = await _individualMovementsCubit.transitionStatus(
+        id: id,
+        status: status,
+        comment: comment,
+        newMovementDate: newMovementDate,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg.isEmpty ? 'Failed to update movement status.' : msg)),
+      );
+    }
   }
 
   Future<String?> _showRejectCommentDialog() async {
-    final TextEditingController controller = TextEditingController();
+    final controller = TextEditingController();
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext ctx) {
@@ -334,9 +429,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           title: const Text('Reject movement'),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
-              hintText: 'Comment (optional)',
-            ),
+            decoration: const InputDecoration(hintText: 'Comment (optional)'),
             maxLines: 3,
           ),
           actions: <Widget>[
@@ -352,119 +445,13 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         );
       },
     );
-    final String note = controller.text.trim();
+    if (confirmed != true) {
+      controller.dispose();
+      return null;
+    }
+    final note = controller.text.trim();
     controller.dispose();
-    if (confirmed != true) return null;
     return note;
-  }
-
-  String _mergeRejectComment(String existing, String rejectNote) {
-    if (rejectNote.isEmpty) return existing;
-    if (existing.trim().isEmpty) return 'Reject: $rejectNote';
-    return '$existing\nReject: $rejectNote';
-  }
-
-  Future<void> _showMovementOptions(MovementItem item) async {
-    final RoleProvider roles = context.read<RoleProvider>();
-    if (!_canMutateMovements(roles)) {
-      _toastViewOnly(context);
-      return;
-    }
-
-    final IndividualMovementAction? action =
-        await showIndividualMovementOptionsBottomSheet(context, item: item);
-    if (action == null || !mounted) return;
-
-    switch (action) {
-      case IndividualMovementAction.edit:
-        final MovementFormResult? result = await Navigator.of(context).push<MovementFormResult>(
-          MaterialPageRoute(
-            builder: (_) => AddEditIndividualMovementScreen(
-              students: _students,
-              classrooms: _classrooms,
-              existingMovements: List<MovementItem>.from(_allMovements),
-              initialData: MovementFormResult(
-                student: item.name,
-                currentClassroom: item.fromClassroom,
-                nextClassroom: item.toClassroom,
-                movementDate: item.movementDate,
-                comment: item.comment,
-              ),
-              isEditing: true,
-              editingMovementId: item.id,
-            ),
-          ),
-        );
-        if (result == null || !mounted) return;
-        setState(() {
-          final int idx = _allMovements.indexWhere((MovementItem e) => e.id == item.id);
-          if (idx >= 0) {
-            final MovementWorkflowStatus nextStatus =
-                item.workflowStatus == MovementWorkflowStatus.rejected
-                    ? MovementWorkflowStatus.pending
-                    : item.workflowStatus;
-            _allMovements[idx] = _allMovements[idx].copyWith(
-              name: result.student,
-              fromClassroom: result.currentClassroom,
-              toClassroom: result.nextClassroom,
-              movementDate: result.movementDate,
-              comment: result.comment,
-              workflowStatus: nextStatus,
-            );
-          }
-        });
-        break;
-      case IndividualMovementAction.confirm:
-        if (item.workflowStatus != MovementWorkflowStatus.pending) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Only pending movements can be confirmed. Edit the movement first.'),
-            ),
-          );
-          return;
-        }
-        if (IndividualMovementValidators.hasIdenticalFromAndTo(
-          item.fromClassroom,
-          item.toClassroom,
-        )) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('From and to classroom cannot be the same.')),
-          );
-          return;
-        }
-        final bool? confirmed = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => ConfirmIndividualMovementScreen(item: item),
-          ),
-        );
-        if (confirmed != true || !mounted) return;
-        setState(() {
-          final int idx = _allMovements.indexWhere((MovementItem e) => e.id == item.id);
-          if (idx >= 0) {
-            _allMovements[idx] =
-                _allMovements[idx].copyWith(workflowStatus: MovementWorkflowStatus.confirmed);
-          }
-        });
-        break;
-      case IndividualMovementAction.reject:
-        final String? rejectNote = await _showRejectCommentDialog();
-        if (rejectNote == null || !mounted) return;
-        setState(() {
-          final int idx = _allMovements.indexWhere((MovementItem e) => e.id == item.id);
-          if (idx >= 0) {
-            _allMovements[idx] = _allMovements[idx].copyWith(
-              workflowStatus: MovementWorkflowStatus.rejected,
-              comment: _mergeRejectComment(_allMovements[idx].comment, rejectNote),
-            );
-          }
-        });
-        break;
-      case IndividualMovementAction.delete:
-        setState(() {
-          _allMovements.removeWhere((MovementItem e) => e.id == item.id);
-        });
-        break;
-    }
   }
 
   void _goToPreviousSection() {
@@ -487,81 +474,182 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<MovementSection> sections = _buildSections();
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
+    return BlocProvider<IndividualMovementsCubit>.value(
+      value: _individualMovementsCubit,
+      child: BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
+        builder: (BuildContext context, IndividualMovementsState state) {
+          final sections = _buildSections(state.board);
+          final students = _uniqueStudents(state.board);
+          final classrooms = _uniqueClassrooms(state.board);
+
+          return GlobalScaffold(
+            hasBackButton: true,
+            showCustomNavigationBar: true,
+            body: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Expanded(
-                    child: Text(
-                      'Overview',
-                      style: TextStyle(
-                        fontFamily: Fonts.manrope,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primaryColor,
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: <Widget>[
+                        const Expanded(
+                          child: Text(
+                            'Overview',
+                            style: TextStyle(
+                              fontFamily: Fonts.manrope,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.primaryColor,
+                            ),
+                          ),
+                        ),
+                        GradientAddButton(
+                          wantedButtonSize: 30,
+                          iconSize: 18,
+                          borderRadius: 8,
+                          onTap: _openAddMovementScreen,
+                        ),
+                      ],
                     ),
                   ),
-                  GradientAddButton(
-                    wantedButtonSize: 30,
-                    iconSize: 18,
-                    borderRadius: 8,
-                    onTap: _openAddMovementScreen,
-                  ),
+                  _buildFilterCard(students: students, classrooms: classrooms),
+                  const SizedBox(height: 12),
+                  if (state.isLoading)
+                    const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                  else if (state.errorMessage != null && state.board == null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: Center(
+                        child: Text(
+                          state.errorMessage!,
+                          style: const TextStyle(
+                            fontFamily: Fonts.manrope,
+                            fontSize: 14,
+                            color: AppColors.primaryColor,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    IndividualMovementPager(
+                      sections: sections,
+                      currentSectionIndex: _currentSectionIndex,
+                      sectionPageController: _sectionPageController,
+                      onPageChanged: (int index) =>
+                          setState(() => _currentSectionIndex = index),
+                      onPrevious: _goToPreviousSection,
+                      onNext: _goToNextSection,
+                      onMoreTap: _showMovementOptions,
+                    ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
-            IndividualMovementFilterCard(
-              students: _students,
-              classrooms: _classrooms,
-              selectedStudent: _selectedStudent,
-              toClassroom: _toClassroom,
-              fromClassroom: _fromClassroom,
-              filterRangeStart: _filterRangeStart,
-              filterRangeEnd: _filterRangeEnd,
-              onStudentChanged: (String? value) {
-                setState(() => _selectedStudent = value);
-                _persistFilters();
-              },
-              onToClassroomChanged: (String? value) {
-                setState(() => _toClassroom = value);
-                _persistFilters();
-              },
-              onFromClassroomChanged: (String? value) {
-                setState(() => _fromClassroom = value);
-                _persistFilters();
-              },
-              onDateRangeChanged: (DateTime? start, DateTime? end) {
-                setState(() {
-                  _filterRangeStart = start;
-                  _filterRangeEnd = end;
-                });
-                _persistFilters();
-              },
-              onClearAll: _clearFilters,
-            ),
-            const SizedBox(height: 12),
-            IndividualMovementPager(
-              sections: sections,
-              currentSectionIndex: _currentSectionIndex,
-              sectionPageController: _sectionPageController,
-              onPageChanged: (int index) => setState(() => _currentSectionIndex = index),
-              onPrevious: _goToPreviousSection,
-              onNext: _goToNextSection,
-              onMoreTap: _showMovementOptions,
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _fetchMovements({bool initialLoad = false}) async {
+    final studentCodes =
+        (_selectedStudent == null || _selectedStudent!.trim().isEmpty) ? null : <String>[_selectedStudent!.trim()];
+    final fromClassroomCodes = (_fromClassroom == null || _fromClassroom!.trim().isEmpty)
+        ? null
+        : <String>[_fromClassroom!.trim()];
+    final toClassroomCodes =
+        (_toClassroom == null || _toClassroom!.trim().isEmpty) ? null : <String>[_toClassroom!.trim()];
+
+    if (initialLoad) {
+      await _individualMovementsCubit.loadInitial(
+        studentCodes: studentCodes,
+        fromClassroomCodes: fromClassroomCodes,
+        toClassroomCodes: toClassroomCodes,
+        dateFrom: _filterRangeStart,
+        dateTo: _filterRangeEnd,
+      );
+      return;
+    }
+    await _individualMovementsCubit.refresh(
+      studentCodes: studentCodes,
+      fromClassroomCodes: fromClassroomCodes,
+      toClassroomCodes: toClassroomCodes,
+      dateFrom: _filterRangeStart,
+      dateTo: _filterRangeEnd,
+    );
+  }
+
+  List<String> _uniqueStudents(IndividualMovementBoard? board) {
+    if (board == null) return const <String>[];
+    final values = board.all.map((e) => e.studentCode.trim()).where((e) => e.isNotEmpty).toSet().toList()..sort();
+    return values;
+  }
+
+  List<String> _uniqueClassrooms(IndividualMovementBoard? board) {
+    if (board == null) return const <String>[];
+    final values = <String>{};
+    for (final movement in board.all) {
+      final from = movement.fromClassroomCode.trim();
+      final to = movement.toClassroomCode.trim();
+      if (from.isNotEmpty) values.add(from);
+      if (to.isNotEmpty) values.add(to);
+    }
+    final list = values.toList()..sort();
+    return list;
+  }
+
+  Widget _buildFilterCard({
+    required List<String> students,
+    required List<String> classrooms,
+  }) {
+    final dynamic constructor = IndividualMovementFilterCard.new;
+    return Function.apply(constructor, const [], <Symbol, dynamic>{
+      #students: students,
+      #classrooms: classrooms,
+      #selectedStudent: _selectedStudent,
+      #toClassroom: _toClassroom,
+      #fromClassroom: _fromClassroom,
+      #onStudentChanged: (String? value) {
+        setState(() => _selectedStudent = value);
+        _persistFilters();
+        _fetchMovements();
+      },
+      #onToClassroomChanged: (String? value) {
+        setState(() => _toClassroom = value);
+        _persistFilters();
+        _fetchMovements();
+      },
+      #onFromClassroomChanged: (String? value) {
+        setState(() => _fromClassroom = value);
+        _persistFilters();
+        _fetchMovements();
+      },
+      #onDateRangeChanged: (DateTime? start, DateTime? end) {
+        setState(() {
+          _filterRangeStart = start;
+          _filterRangeEnd = end;
+        });
+        _persistFilters();
+        _fetchMovements();
+      },
+      #onClearAll: _clearFilters,
+      #filterRangeStart: _filterRangeStart,
+      #filterRangeEnd: _filterRangeEnd,
+    }) as Widget;
+  }
+
+  Widget _buildAddEditMovementScreen({
+    required List<String> students,
+    required List<String> classrooms,
+    required List<MovementItem> existingMovements,
+  }) {
+    final dynamic constructor = AddEditIndividualMovementScreen.new;
+    return Function.apply(constructor, const [], <Symbol, dynamic>{
+      #students: students,
+      #classrooms: classrooms,
+      #existingMovements: existingMovements,
+    }) as Widget;
   }
 }

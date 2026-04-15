@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 
 /// PRD: Pending | Approved (confirmed) | Rejected.
 enum MovementWorkflowStatus { pending, confirmed, rejected }
@@ -33,6 +34,19 @@ class MovementItem {
   final String comment;
   final MovementWorkflowStatus workflowStatus;
   final MovementType movementType;
+
+  factory MovementItem.fromEntity(IndividualMovement movement) {
+    return MovementItem(
+      id: movement.id,
+      name: movement.studentName,
+      fromClassroom: movement.fromClassroomName,
+      toClassroom: movement.toClassroomName,
+      movementDate: movement.movementDate,
+      comment: movement.comment,
+      workflowStatus: _workflowStatusFromEntity(movement.status),
+      movementType: _movementTypeFromEntity(movement.movementType),
+    );
+  }
 
   /// PRD buckets: Overdue/Upcoming = pending + date vs today; Confirmed/Rejected = workflow.
   MovementBucket bucketFor(DateTime now) {
@@ -79,6 +93,28 @@ class MovementItem {
       workflowStatus: workflowStatus ?? this.workflowStatus,
       movementType: movementType ?? this.movementType,
     );
+  }
+}
+
+MovementWorkflowStatus _workflowStatusFromEntity(IndividualMovementWorkflowStatus status) {
+  switch (status) {
+    case IndividualMovementWorkflowStatus.confirmed:
+      return MovementWorkflowStatus.confirmed;
+    case IndividualMovementWorkflowStatus.rejected:
+      return MovementWorkflowStatus.rejected;
+    case IndividualMovementWorkflowStatus.pending:
+      return MovementWorkflowStatus.pending;
+  }
+}
+
+MovementType _movementTypeFromEntity(IndividualMovementType type) {
+  switch (type) {
+    case IndividualMovementType.startSchool:
+      return MovementType.startSchool;
+    case IndividualMovementType.leaveSchool:
+      return MovementType.leaveSchool;
+    case IndividualMovementType.moveToNextClassroom:
+      return MovementType.moveToNextClassroom;
   }
 }
 
