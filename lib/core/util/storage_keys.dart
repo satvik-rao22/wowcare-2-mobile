@@ -53,6 +53,9 @@ class StorageKeys {
   static const String loginContext = 'loginContext';
   static const String userAccessDetails = 'userAccessDetails';
 
+  /// JSON map of Individual Movement filter state (multi-select + optional date range).
+  static const String individualMovementFilters = 'individual_movement_filters_v1';
+
   // Cache Duration
   static const Duration cacheValidDuration = Duration(minutes: 5);
 

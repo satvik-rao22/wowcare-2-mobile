@@ -5,7 +5,19 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
 
 class AccountingDateRangeSelector extends StatefulWidget {
-  const AccountingDateRangeSelector({super.key});
+  const AccountingDateRangeSelector({
+    super.key,
+    this.initialStartDate,
+    this.initialEndDate,
+    this.onRangeChanged,
+  });
+
+  /// When non-null, initializes / syncs the visible range (e.g. persisted filters).
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
+
+  /// Fires after the user applies a range from the calendar dialog.
+  final void Function(DateTime? start, DateTime? end)? onRangeChanged;
 
   @override
   State<AccountingDateRangeSelector> createState() =>
@@ -16,6 +28,23 @@ class _AccountingDateRangeSelectorState
     extends State<AccountingDateRangeSelector> {
   DateTime? _startDate;
   DateTime? _endDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDate = widget.initialStartDate;
+    _endDate = widget.initialEndDate;
+  }
+
+  @override
+  void didUpdateWidget(covariant AccountingDateRangeSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialStartDate != oldWidget.initialStartDate ||
+        widget.initialEndDate != oldWidget.initialEndDate) {
+      _startDate = widget.initialStartDate;
+      _endDate = widget.initialEndDate;
+    }
+  }
 
   String _formatShort(DateTime d) {
     const months = [
@@ -61,6 +90,7 @@ class _AccountingDateRangeSelectorState
         _startDate = result['startDate'] as DateTime?;
         _endDate = result['endDate'] as DateTime?;
       });
+      widget.onRangeChanged?.call(_startDate, _endDate);
     }
   }
 

@@ -1,12 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 
-enum IndividualMovementAction { edit, confirm, reject }
+enum IndividualMovementAction { edit, confirm, reject, delete }
 
+/// PRD-aligned actions: pending → edit/confirm/reject; confirmed → edit/reject; rejected → delete.
 Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
-  BuildContext context,
-) {
+  BuildContext context, {
+  required MovementItem item,
+}) {
+  final List<IndividualMovementAction> actions = <IndividualMovementAction>[];
+  switch (item.workflowStatus) {
+    case MovementWorkflowStatus.pending:
+      actions.addAll(<IndividualMovementAction>[
+        IndividualMovementAction.edit,
+        IndividualMovementAction.confirm,
+        IndividualMovementAction.reject,
+      ]);
+      break;
+    case MovementWorkflowStatus.confirmed:
+      actions.addAll(<IndividualMovementAction>[
+        IndividualMovementAction.edit,
+        IndividualMovementAction.reject,
+      ]);
+      break;
+    case MovementWorkflowStatus.rejected:
+      actions.add(IndividualMovementAction.delete);
+      break;
+  }
+
   return showModalBottomSheet<IndividualMovementAction>(
     context: context,
     backgroundColor: Colors.white,
@@ -38,17 +61,11 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
                 ),
               ),
               const Divider(height: 1),
-              _ActionTile(
-                title: 'Edit',
-                onTap: () => Navigator.pop(ctx, IndividualMovementAction.edit),
-              ),
-              _ActionTile(
-                title: 'Confirm',
-                onTap: () => Navigator.pop(ctx, IndividualMovementAction.confirm),
-              ),
-              _ActionTile(
-                title: 'Reject',
-                onTap: () => Navigator.pop(ctx, IndividualMovementAction.reject),
+              ...actions.map(
+                (IndividualMovementAction a) => _ActionTile(
+                  title: _actionLabel(a),
+                  onTap: () => Navigator.pop(ctx, a),
+                ),
               ),
             ],
           ),
@@ -56,6 +73,19 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
       );
     },
   );
+}
+
+String _actionLabel(IndividualMovementAction a) {
+  switch (a) {
+    case IndividualMovementAction.edit:
+      return 'Edit';
+    case IndividualMovementAction.confirm:
+      return 'Confirm';
+    case IndividualMovementAction.reject:
+      return 'Reject';
+    case IndividualMovementAction.delete:
+      return 'Delete';
+  }
 }
 
 class _ActionTile extends StatelessWidget {
