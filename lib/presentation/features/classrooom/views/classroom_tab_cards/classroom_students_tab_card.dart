@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -267,13 +266,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
 
     return icons;
-  }
-
-  List<String> _getCombinedOngoingActivities(
-    List<StudentClassroomItem> selectedStudents,
-  ) {
-    // Current API entity doesn't expose activity list; keep empty for now.
-    return const [];
   }
 
   bool _canShowActivitiesPanel(List<StudentClassroomItem> selectedStudents) {
@@ -1080,14 +1072,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
               bottom: 16,
               child: Row(
                 children: [
-                  if (_showActivitiesPanel &&
-                      _canShowActivitiesPanel(selectedStudents))
-                    ActivityStatusPanel(
-                      onGoingActivities:
-                          _getCombinedOngoingActivities(selectedStudents),
-                      isSignedIN: true,
-                    ),
-                  const SizedBox(width: 10),
                   StudentActionPanel(
                     currentPanel: _currentPanel,
                     activityStudentMaps: _canShowActivitiesPanel(selectedStudents)

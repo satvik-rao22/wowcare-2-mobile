@@ -1344,6 +1344,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     );
   }
 
+  /// Minimum viewport height + [AlwaysScrollableScrollPhysics] so pull-to-refresh
+  /// works when the feed is empty or loading (portrait [Column] layout).
+  Widget _portraitOverscrollFeedWrapper({required Widget child}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          controller: _feedScrollController,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -2918,9 +2935,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 if ((_loadingFeed || _loadingParentContext) &&
                     _activities.isEmpty)
                   Expanded(
-                    child: _dailyFeedLoadingSheet(
-                      context,
-                      expandToParentHeight: true,
+                    child: _portraitOverscrollFeedWrapper(
+                      child: Center(
+                        child: _dailyFeedLoadingSheet(
+                          context,
+                          expandToParentHeight: false,
+                        ),
+                      ),
                     ),
                   ),
 
@@ -2928,21 +2949,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                     !_loadingParentContext &&
                     _activities.length == 0)
                   Expanded(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.dividerColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        child: Center(
-                          child: AppText.title(
-                            _feedError ?? 'No Activities found',
-                            textAlign: TextAlign.center,
-                            style: AppTextStyles.title
-                                .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
+                    child: _portraitOverscrollFeedWrapper(
+                      child: Padding(
+                        padding: ResponsiveSizing.contentPadding(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.dividerColor),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                          ),
+                          child: Center(
+                            child: AppText.title(
+                              _feedError ?? 'No Activities found',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.title
+                                  .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
+                            ),
                           ),
                         ),
                       ),
@@ -3946,10 +3969,44 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
   /// Prefer [valueNumber] when present so fractional oz (e.g. 0.5) is not
   /// replaced by a stale [valueText] such as "0".
   String? bottleVolumeSingleParam(Map<String, dynamic> p) {
-    final vn = p['valueNumber'];
-    if (vn != null) {
-      final s = vn.toString().trim();
-      if (s.isNotEmpty) return s;
+    final vnRaw = p['valueNumber'];
+    final vnStr = vnRaw != null ? vnRaw.toString().trim() : '';
+    final vn = vnStr.isNotEmpty
+        ? double.tryParse(vnStr.replaceAll(',', ''))
+        : null;
+
+    String? textVal;
+    for (final key in <String>[
+      'selectedOptionLabel',
+      'optionLabel',
+      'valueText',
+    ]) {
+      final v = (p[key] ?? '').toString().trim();
+      if (v.isNotEmpty) {
+        textVal = v;
+        break;
+      }
+    }
+
+    double? numFromText;
+    if (textVal != null) {
+      final m = RegExp(r'(\d+(?:\.\d+)?)')
+          .firstMatch(textVal.replaceAll(',', ''));
+      if (m != null) {
+        numFromText = double.tryParse(m.group(1)!);
+      }
+    }
+
+    if (vn != null && numFromText != null && numFromText > 0) {
+      if ((vn - 2 * numFromText).abs() < 0.001) {
+        return numFromText == numFromText.roundToDouble()
+            ? numFromText.round().toString()
+            : numFromText.toString();
+      }
+    }
+
+    if (vnRaw != null && vnStr.isNotEmpty) {
+      return vnStr;
     }
     for (final key in <String>[
       'selectedOptionLabel',

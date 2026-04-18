@@ -10,6 +10,7 @@ import 'package:wowcare/domain/features/activity/usecases/get_activity_type_deta
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 enum StudentPanelType { attendance, activities, none }
 
@@ -496,11 +497,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
             ),
             if (isLoading) ...[
               const SizedBox(height: 8),
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              PrimaryCircularLoader(size: 16, strokeWidth: 2),
             ],
           ],
         ),
@@ -633,11 +630,7 @@ class _StudentSidePanel extends StatelessWidget {
         width: 100,
         height: 120,
         child: Center(
-          child: SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          child: PrimaryCircularLoader(size: 32, strokeWidth: 3),
         ),
       );
     }
@@ -790,11 +783,7 @@ class _ActivityPngItem extends StatelessWidget {
                 height: 36,
                 child: busy
                     ? const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                        child: PrimaryCircularLoader(size: 22, strokeWidth: 2),
                       )
                     : Image.asset(pngPath, scale: 3.5),
               ),

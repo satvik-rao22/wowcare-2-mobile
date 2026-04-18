@@ -35,7 +35,6 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as transfer_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
-import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -853,17 +852,6 @@ class _StudentScreenState extends State<StudentScreen> {
     return true; // Single student → allowed
   }
 
-  bool _shouldShowActivityPanel(selectedCount, List<Student> students) {
-    return _showActivitiesPanel && _canShowActivitiesButton(selectedCount, students);
-  }
-
-  List<String> _getCombinedOngoingActivities(selectedCount, List<Student> students) {
-    if (!_canShowActivitiesButton(selectedCount, students)) return [];
-
-    // API doesn't provide activities yet, return empty list
-    return [];
-  }
-
   @override
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
@@ -894,12 +882,6 @@ class _StudentScreenState extends State<StudentScreen> {
                 bottom: 16,
                 child: Row(
                   children: [
-                    if(_shouldShowActivityPanel(selectedCount, students))
-                      ActivityStatusPanel(
-                        onGoingActivities: _getCombinedOngoingActivities(selectedCount, students),
-                        isSignedIN: true,
-                      ),
-                    const SizedBox(width: 10,),
                     StudentActionPanel(
                       currentPanel: _currentPanel,
                       activityStudentMaps:

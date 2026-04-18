@@ -13,6 +13,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
@@ -206,6 +207,84 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
   String _two(int v) => v.toString().padLeft(2, '0');
 
+  /// Nap end / wake / stop style events → nap end `true`, nap start `false`.
+  /// Otherwise (start or generic "Nap") → nap start `true`, nap end `false`.
+  static bool _napEventIsEnd(String activityTypeName) {
+    final s = activityTypeName.toLowerCase().trim();
+    if (s.isEmpty) return false;
+    return s.contains('end') ||
+        s.contains('wake') ||
+        s.contains('stop') ||
+        s.contains('finished');
+  }
+
+  static String? _findBooleanParamCode(
+    ActivityTypeDetails details,
+    bool Function(String lowerName) matchName,
+  ) {
+    for (final p in details.parameters) {
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt != 'BOOLEAN' && dt != 'BOOL') continue;
+      final n = p.parameterName.toLowerCase();
+      if (!matchName(n)) continue;
+      final c = p.code.trim();
+      if (c.isNotEmpty) return c;
+    }
+    return null;
+  }
+
+  /// Sends nap start / nap end as JSON booleans on matching BOOLEAN parameters.
+  static void _appendNapStartEndBooleans(
+    ActivityTypeDetails details,
+    List<Map<String, dynamic>> parameterValues,
+    String activityLabelName,
+  ) {
+    final isEnd = _napEventIsEnd(activityLabelName);
+    final napStartFlag = !isEnd;
+    final napEndFlag = isEnd;
+
+    String? startCode = _findBooleanParamCode(
+      details,
+      (n) =>
+          n.contains('nap') &&
+          (n.contains('start') || n.contains('begin')) &&
+          !n.contains('end'),
+    );
+    startCode ??= _findBooleanParamCode(
+      details,
+      (n) => n.contains('start') && n.contains('nap'),
+    );
+
+    String? endCode = _findBooleanParamCode(
+      details,
+      (n) =>
+          n.contains('nap') &&
+          (n.contains('end') || n.contains('wake') || n.contains('stop')),
+    );
+    endCode ??= _findBooleanParamCode(
+      details,
+      (n) => n.contains('end') && n.contains('nap'),
+    );
+
+    if (startCode != null &&
+        endCode != null &&
+        startCode == endCode) {
+      return;
+    }
+    if (startCode != null && startCode.isNotEmpty) {
+      parameterValues.add({
+        'parameterCode': startCode,
+        'value': napStartFlag,
+      });
+    }
+    if (endCode != null && endCode.isNotEmpty) {
+      parameterValues.add({
+        'parameterCode': endCode,
+        'value': napEndFlag,
+      });
+    }
+  }
+
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
@@ -363,6 +442,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             description.isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
       ];
+
+      _appendNapStartEndBooleans(details, parameterValues, details.name);
 
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
@@ -531,6 +612,12 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             description.isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
       ];
+
+      _appendNapStartEndBooleans(
+        details,
+        parameterValues,
+        _effectiveActivity.name,
+      );
 
       final message = await _updateActivityUseCase(
         code: activityCode,

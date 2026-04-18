@@ -67,6 +67,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   List<Map<String, dynamic>> _detailAttachmentRows = [];
+  /// Staff label from activity parameters (API may set [ActivityItem.createdBy] to "system").
+  String? _staffPresentLabelForEdit;
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
@@ -76,6 +78,43 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+
+  /// First numeric oz value for [OunceInputWidget] (strips " OZ", labels, etc.).
+  static String _ounceFieldTextFromAmountRaw(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    final cleaned = raw.replaceAll(',', '').trim();
+    final m = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(cleaned);
+    if (m != null) return m.group(1)!;
+    return '';
+  }
+
+  static String? _staffDisplayFromParameterRows(
+    List<Map<String, dynamic>> rows,
+  ) {
+    for (final p in rows) {
+      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
+      if (!pn.contains('staff')) continue;
+      final dt = (p['dataType'] ?? '').toString().toUpperCase();
+      if (dt == 'DATE' || dt == 'TIME') continue;
+      for (final key in <String>[
+        'selectedOptionLabel',
+        'optionLabel',
+        'valueText',
+      ]) {
+        final v = (p[key] ?? '').toString().trim();
+        if (v.isNotEmpty) return v;
+      }
+    }
+    return null;
+  }
+
+  String _bottleStaffPresentDisplay() {
+    final fromParams = (_staffPresentLabelForEdit ?? '').trim();
+    if (fromParams.isNotEmpty) return fromParams;
+    final by = _effectiveActivity.createdBy.trim();
+    if (by.isNotEmpty && by.toLowerCase() != 'system') return by;
+    return 'Staff';
+  }
 
   @override
   void initState() {
@@ -98,7 +137,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
-      _amountController.text = activity.amountConsumed ?? '';
+      _amountController.text =
+          _ounceFieldTextFromAmountRaw(activity.amountConsumed);
       _activityTypeCode = activity.activityTypeCode;
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -132,7 +172,17 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         _selectedStudents = List<String>.from(item.studentList);
         _selectedStudentsData = studentDataMapsForActivityEdit(item);
         _descriptionController.text = item.description ?? '';
-        _amountController.text = item.amountConsumed ?? '';
+        _amountController.text =
+            _ounceFieldTextFromAmountRaw(item.amountConsumed);
+        var staffLabel =
+            _staffDisplayFromParameterRows(detail.parameterValues);
+        if (staffLabel == null || staffLabel.isEmpty) {
+          final cb = detail.createdBy.trim();
+          if (cb.isNotEmpty && cb.toLowerCase() != 'system') {
+            staffLabel = cb;
+          }
+        }
+        _staffPresentLabelForEdit = staffLabel;
         _activityTypeCode = item.activityTypeCode;
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
@@ -250,23 +300,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length > ActivityDescriptionLimits.maxLength) {
+    if (description.isNotEmpty &&
+        description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: ActivityDescriptionLimits.maxLengthMessage,
@@ -395,7 +430,9 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
             staffParamCode.trim().isNotEmpty &&
             staffCode.trim().isNotEmpty)
           {'parameterCode': staffParamCode, 'value': staffCode},
-        if (descParamCode != null && descParamCode.trim().isNotEmpty)
+        if (descParamCode != null &&
+            descParamCode.trim().isNotEmpty &&
+            description.isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
         if (amountParamCode != null && amountParamCode.trim().isNotEmpty)
           {'parameterCode': amountParamCode, 'value': amountOz.toString()},
@@ -476,23 +513,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length > ActivityDescriptionLimits.maxLength) {
+    if (description.isNotEmpty &&
+        description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: ActivityDescriptionLimits.maxLengthMessage,
@@ -616,7 +638,9 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
             staffParamCode.trim().isNotEmpty &&
             staffCode.trim().isNotEmpty)
           {'parameterCode': staffParamCode, 'value': staffCode},
-        if (descParamCode != null && descParamCode.trim().isNotEmpty)
+        if (descParamCode != null &&
+            descParamCode.trim().isNotEmpty &&
+            description.isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
         if (amountParamCode != null && amountParamCode.trim().isNotEmpty)
           {'parameterCode': amountParamCode, 'value': amountOz.toString()},
@@ -787,9 +811,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
               ),
             SizedBox(height: responsive.verticalSpacing,),
             StaffPresentWidget(
-              staffName: _layoutAsEdit
-                  ? (_effectiveActivity.createdBy)
-                  : _staffName,
+              staffName:
+                  _layoutAsEdit ? _bottleStaffPresentDisplay() : _staffName,
               isEditable: _canInteract,
             ),
             SizedBox(height: responsive.verticalSpacing,),

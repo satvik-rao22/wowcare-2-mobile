@@ -301,23 +301,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length > ActivityDescriptionLimits.maxLength) {
+    if (description.isNotEmpty &&
+        description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: ActivityDescriptionLimits.maxLengthMessage,
@@ -561,23 +546,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length > ActivityDescriptionLimits.maxLength) {
+    if (description.isNotEmpty &&
+        description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: ActivityDescriptionLimits.maxLengthMessage,

@@ -41,6 +41,9 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
     super.initState();
     _controller = widget.controller ?? TextEditingController();
     _controller.addListener(_validate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _validate();
+    });
   }
 
   void _validate(){
