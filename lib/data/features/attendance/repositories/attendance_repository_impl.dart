@@ -110,6 +110,8 @@ class AttendanceRepositoryImpl
     required String attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page = 0,
     int size = 10,
@@ -120,6 +122,8 @@ class AttendanceRepositoryImpl
       attendanceDate: attendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
       page: page,
       size: size,
@@ -430,6 +434,8 @@ class AttendanceRepositoryImpl
     required String toAttendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page = 0,
     int size = 10,
@@ -440,6 +446,8 @@ class AttendanceRepositoryImpl
       toAttendanceDate: toAttendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
       page: page,
       size: size,
@@ -1071,8 +1079,8 @@ class AttendanceRepositoryImpl
     final payload = <String, dynamic>{
       'staffCode': staffCode,
       // Backend expects ISO8601 with timezone (e.g., "2026-03-04T16:31:09.002Z")
-      'signedInAt': signedInAt?.toIso8601String(),
-      'signedOutAt': signedOutAt?.toIso8601String(),
+      'signedInAt': signedInAt?.toUtc().toIso8601String(),
+      'signedOutAt': signedOutAt?.toUtc().toIso8601String(),
       'signedInMethod': 'APP',
       'signedOutMethod': 'APP',
       // Location/geofence fields are currently not captured in the UI.
@@ -1086,7 +1094,7 @@ class AttendanceRepositoryImpl
       'originalClassroomCode': originalClassroomCode,
       'currentClassroomCode': currentClassroomCode,
       'notes': notes,
-      'timeZone': timeZone,
+      'timeZone': 'UTC',
     };
 
     final allowed = await _attendanceAllowedClassroomCodes();
@@ -1125,8 +1133,8 @@ class AttendanceRepositoryImpl
       'latitude': latitude,
       'longitude': longitude,
       'withinGeofence': withinGeofence,
-      'timeZone': timeZone,
-      'occurredAt': occurredAt?.toIso8601String(),
+      'timeZone': 'UTC',
+      'occurredAt': occurredAt?.toUtc().toIso8601String(),
     };
 
     final allowed = await _attendanceAllowedClassroomCodes();

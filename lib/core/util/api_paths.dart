@@ -198,6 +198,8 @@ class ApiPaths {
       case 'staff-attendance-records':
         return ApiMicroservices.attendance;
       case 'classroom':
+      case 'individual-movements':
+      case 'future-availability':
         return ApiMicroservices.classroom;
       case 'classrooms':
       case 'activities':
@@ -341,6 +343,12 @@ class ApiPaths {
   static const String guardianProfile = '/api/v1/guardian/profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
   static const String pickup = '/api/v1/pickup';
+  static const String individualMovements = '/api/v1/individual-movements';
+  static const String futureAvailability = '/api/v1/future-availability';
+  static String individualMovementById(int id) =>
+      '/api/v1/individual-movements/$id';
+  static String individualMovementStatusById(int id) =>
+      '/api/v1/individual-movements/$id/status';
 
   // —— Attendance host ——
   static const String studentAttendanceDailyView =

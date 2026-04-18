@@ -196,9 +196,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       effectiveTime = selectedTime;
     }
 
-    final attendanceDate =
-        '${effectiveDate.year.toString().padLeft(4, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
-
     final occurredAt = DateTime(
       effectiveDate.year,
       effectiveDate.month,
@@ -206,6 +203,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       effectiveTime.hour,
       effectiveTime.minute,
     ).toUtc();
+    final attendanceDate =
+        '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}-${occurredAt.day.toString().padLeft(2, '0')}';
 
     // Admin cannot sign out for future date/time.
     if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
@@ -246,7 +245,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'latitude': 0,
       'longitude': 0,
       'withinGeofence': true,
-      'timeZone': 'Asia/Kolkata',
+      'timeZone': 'UTC',
       'occurredAt': occurredAt.toIso8601String(),
     };
 

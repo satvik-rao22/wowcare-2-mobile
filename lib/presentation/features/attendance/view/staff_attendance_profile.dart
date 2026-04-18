@@ -22,6 +22,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
@@ -284,6 +286,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   List<_AbsentDayModel> absentDays = [];
   _StaffModel? staff;
   _AttendanceReportModel? attendanceReport;
+  String? _todayStatusRaw;
+  bool _isTodayStatusLoading = false;
 
   /// Helper to format API time (either a string or {hour, minute, ...} map)
   /// into 'hh:mm:ss a' which works with the existing `formatTime` helper.
@@ -417,6 +421,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       isAbsentDaysLoading = true;
       isStaffLoading = true;
     });
+
+    await _loadTodayStatus();
 
     final apiClient = serviceLocator<ApiClient>().client;
     final profileEndpoint = ApiPaths.urlWithBase(
@@ -654,28 +660,28 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     await _loadData();
   }
 
-  bool _isSameDate(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  bool _hasSignedOutToday() {
-    final now = DateTime.now();
-    for (final item in attendances) {
-      if (!_isSameDate(item.date, now)) continue;
-      if (item.signOutTime.trim().isNotEmpty) return true;
+  Future<void> _loadTodayStatus() async {
+    final code = widget.staffCode.trim();
+    if (code.isEmpty) return;
+    if (!mounted) return;
+    setState(() {
+      _isTodayStatusLoading = true;
+    });
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
+      final status = await useCase(staffCode: code);
+      if (!mounted) return;
+      setState(() {
+        _todayStatusRaw = status;
+        _isTodayStatusLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _todayStatusRaw = null;
+        _isTodayStatusLoading = false;
+      });
     }
-    return false;
-  }
-
-  bool _isCurrentlySignedIn() {
-    final now = DateTime.now();
-    for (final item in attendances) {
-      if (!_isSameDate(item.date, now)) continue;
-      final hasSignIn = item.signInTime.trim().isNotEmpty;
-      final hasSignOut = item.signOutTime.trim().isNotEmpty;
-      if (hasSignIn && !hasSignOut) return true;
-    }
-    return staff?.isSignedIn ?? widget.isSignedIn;
   }
 
   bool get _isActiveProfile {
@@ -683,10 +689,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     return status == 'A' || status == 'ACTIVE';
   }
 
-  bool get _canSignIn => _isActiveProfile && !_isCurrentlySignedIn() && !_hasSignedOutToday();
-  bool get _canSignOut => _isCurrentlySignedIn() && !_hasSignedOutToday();
-  bool get _canTransfer => _isCurrentlySignedIn() && !_hasSignedOutToday();
-  bool get _canMarkAbsent => _isActiveProfile && !_isCurrentlySignedIn();
+  StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
+        isActiveProfile: _isActiveProfile,
+        todayStatusRaw: _todayStatusRaw,
+      );
+
+  bool get _canSignIn => !_isTodayStatusLoading && _todayGate.canSignIn;
+  bool get _canSignOut => !_isTodayStatusLoading && _todayGate.canSignOut;
+  bool get _canTransfer => !_isTodayStatusLoading && _todayGate.canTransfer;
+  bool get _canMarkAbsent => !_isTodayStatusLoading && _todayGate.canMarkAbsent;
 
   Future<void> _handleStaffAction(String actionLabel) async {
     final current = staff;

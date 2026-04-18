@@ -274,8 +274,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     final today = DateTime(now.year, now.month, now.day);
     final pickedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
     final safeDate = pickedDay.isAfter(today) ? today : effectiveDate;
-    final transferDate =
-        '${safeDate.year.toString().padLeft(4, '0')}-${safeDate.month.toString().padLeft(2, '0')}-${safeDate.day.toString().padLeft(2, '0')}';
     final effectiveTime =
         (_isStaffAdminPersona ?? false) ? _selectedTransferTime : TimeOfDay.fromDateTime(now);
     final transferredAt = DateTime(
@@ -285,6 +283,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       effectiveTime.hour,
       effectiveTime.minute,
     ).toUtc();
+    final transferDate =
+        '${transferredAt.year.toString().padLeft(4, '0')}-${transferredAt.month.toString().padLeft(2, '0')}-${transferredAt.day.toString().padLeft(2, '0')}';
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -345,7 +345,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       'toClassroomCodeByStudentCode': toClassroomCodeByStudentCode,
       // No dedicated reason field in UI yet, so send a generic placeholder.
       'transferReason': 'Transferred via mobile app',
-      'timeZone': 'Asia/Kolkata',
+      'timeZone': 'UTC',
       'transferredAt': transferredAt.toIso8601String(),
     };
 

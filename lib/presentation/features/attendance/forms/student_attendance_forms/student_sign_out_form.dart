@@ -202,9 +202,6 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     final TimeOfDay effectiveTime =
         isAdmin ? selectedTime : TimeOfDay.fromDateTime(now);
 
-    final attendanceDate =
-        '${effectiveDate.year.toString().padLeft(4, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
-
     final occurredAt = DateTime(
       effectiveDate.year,
       effectiveDate.month,
@@ -212,6 +209,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       effectiveTime.hour,
       effectiveTime.minute,
     ).toUtc();
+    final attendanceDate =
+        '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}-${occurredAt.day.toString().padLeft(2, '0')}';
 
     if (isParent) {
       final selectedDay =
@@ -274,7 +273,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       'longitude': 0,
       'withinGeofence': true,
       'isGeofence': true,
-      'timeZone': 'Asia/Kolkata',
+      'timeZone': 'UTC',
     };
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();

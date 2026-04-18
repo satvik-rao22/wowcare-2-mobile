@@ -28,12 +28,16 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
   }) async {
     await refresh(
       attendanceDate: attendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
     );
   }
@@ -42,6 +46,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
   }) async {
     if (state.isRefreshing) return;
@@ -55,6 +61,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       attendanceDate: attendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
       isSummaryLoading: true,
     ));
@@ -65,6 +73,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         toAttendanceDate: dateString,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         search: search,
         page: 0,
         size: _pageSize,
@@ -82,6 +92,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         attendanceDate: attendanceDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         search: search,
         expectedCount: summary.expected,
         presentCount: summary.present,
@@ -117,6 +129,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         toAttendanceDate: dateString,
         classroomCodes: state.classroomCodes,
         tagCodes: state.tagCodes,
+        signInAtFilter: state.signInAtFilter,
+        signOutAtFilter: state.signOutAtFilter,
         search: state.search,
         page: nextPageIndex,
         size: _pageSize,

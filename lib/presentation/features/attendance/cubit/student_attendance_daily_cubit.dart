@@ -33,9 +33,26 @@ class StudentAttendanceDailyCubit
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
   }) async {
     final dateString = _formatDate(attendanceDate);
+    final hasServerTimeFilter = (signInAtFilter != null &&
+            signInAtFilter.trim().isNotEmpty) ||
+        (signOutAtFilter != null && signOutAtFilter.trim().isNotEmpty);
+
+    if (hasServerTimeFilter) {
+      await refresh(
+        attendanceDate: attendanceDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        search: search,
+      );
+      return;
+    }
 
     // Try cache first
     final cached = await (_repository is AttendanceRepositoryWithCache
@@ -89,6 +106,8 @@ class StudentAttendanceDailyCubit
       attendanceDate: attendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
     );
   }
@@ -98,6 +117,8 @@ class StudentAttendanceDailyCubit
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
   }) async {
     if (state.isRefreshing) return;
@@ -111,6 +132,8 @@ class StudentAttendanceDailyCubit
       attendanceDate: attendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
       isSummaryLoading: true,
     ));
@@ -120,6 +143,8 @@ class StudentAttendanceDailyCubit
         attendanceDate: dateString,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         search: search,
         page: 0,
         size: _pageSize,
@@ -137,6 +162,8 @@ class StudentAttendanceDailyCubit
         attendanceDate: attendanceDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         search: search,
         expectedCount: summary.expected,
         presentCount: summary.present,
@@ -172,6 +199,8 @@ class StudentAttendanceDailyCubit
         attendanceDate: dateString,
         classroomCodes: state.classroomCodes,
         tagCodes: state.tagCodes,
+        signInAtFilter: state.signInAtFilter,
+        signOutAtFilter: state.signOutAtFilter,
         search: state.search,
         page: nextPageIndex,
         size: _pageSize,

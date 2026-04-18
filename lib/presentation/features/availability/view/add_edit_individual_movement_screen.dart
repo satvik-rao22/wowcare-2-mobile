@@ -95,6 +95,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                       items: widget.students,
                       selectedItem: _selectedStudent,
                       showAsterisk: false,
+                      isEnabled: !widget.isEditing,
                       onSelect: (value) => setState(() => _selectedStudent = value),
                     ),
                     const SizedBox(height: 10),

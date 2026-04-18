@@ -178,7 +178,18 @@ class ApiPathsUat {
   static String url(String path) {
     final p = _ensureUatMicroserviceSegment(path);
     final ms = microserviceKeyFromPath(p);
-    return '${ApiConstants.baseUrlForMicroservice(ms)}$p';
+    final base = ApiConstants.baseUrlForMicroservice(ms);
+
+    // Attendance in UAT is hosted under `/api/v1/attendance` already.
+    // When [p] is `/api/v1/attendance/...`, append only the remainder.
+    if (ms == ApiMicroservices.attendance &&
+        base.endsWith('/api/v1/attendance') &&
+        p.startsWith('/api/v1/attendance/')) {
+      final rest = p.substring('/api/v1/attendance'.length);
+      return '$base$rest';
+    }
+
+    return '$base$p';
   }
 
   static String urlWithBase(String path, String baseUrl) => url(path);

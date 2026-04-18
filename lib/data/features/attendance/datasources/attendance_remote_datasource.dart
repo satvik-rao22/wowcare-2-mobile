@@ -10,6 +10,8 @@ abstract class AttendanceRemoteDataSource {
     required String attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page = 0,
     int size = 10,
@@ -109,6 +111,8 @@ abstract class AttendanceRemoteDataSource {
     required String toAttendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page = 0,
     int size = 10,
@@ -304,6 +308,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page = 0,
     int size = 10,
@@ -337,6 +343,12 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     // Add search if provided
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
+    }
+    if (signInAtFilter != null && signInAtFilter.isNotEmpty) {
+      queryParameters['signInAtFilter'] = signInAtFilter;
+    }
+    if (signOutAtFilter != null && signOutAtFilter.isNotEmpty) {
+      queryParameters['signOutAtFilter'] = signOutAtFilter;
     }
 
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
@@ -708,6 +720,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String toAttendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page = 0,
     int size = 10,
@@ -731,6 +745,12 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
+    }
+    if (signInAtFilter != null && signInAtFilter.isNotEmpty) {
+      queryParameters['signInAtFilter'] = signInAtFilter;
+    }
+    if (signOutAtFilter != null && signOutAtFilter.isNotEmpty) {
+      queryParameters['signOutAtFilter'] = signOutAtFilter;
     }
 
     if (sort != null && sort.isNotEmpty) {

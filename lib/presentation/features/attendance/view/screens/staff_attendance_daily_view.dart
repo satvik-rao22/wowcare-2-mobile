@@ -66,6 +66,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   String _searchQuery = '';
   bool _showAbsentOnly = false;
   String? _statusLegendFilter;
+  String? _signInAtFilter;
+  String? _signOutAtFilter;
   FilterData? _staffFilters;
 
   // Total staff summary: same API as StaffScreen "Total Staff" (headline = active + upcoming).
@@ -99,12 +101,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     
     // Handle incoming filter
     if (widget.incomingFilter != null) {
-      _statusLegendFilter = widget.incomingFilter == 'Present'
-          ? 'Signed-In'
-          : widget.incomingFilter;
-      if (widget.incomingFilter == 'Absent') {
-        _showAbsentOnly = true;
-      }
+      _statusLegendFilter =
+          widget.incomingFilter == 'Present' ? 'Signed-In' : widget.incomingFilter;
+      _applyLegendApiFilters(_statusLegendFilter);
     }
 
     // Handle classroom filter
@@ -247,7 +246,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
     debugPrint(
       '[StaffDaily] Loading DAILY list (non-absent) | date=$_selectedDate | '
-      'classrooms=$classroomCodes | tags=$tagCodes | search=$search | reset=$reset',
+      'classrooms=$classroomCodes | tags=$tagCodes | signInAtFilter=$_signInAtFilter | '
+      'signOutAtFilter=$_signOutAtFilter | search=$search | reset=$reset',
     );
 
     if (reset) {
@@ -255,6 +255,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         attendanceDate: _selectedDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: _signInAtFilter,
+        signOutAtFilter: _signOutAtFilter,
         search: search,
       );
     } else {
@@ -262,8 +264,39 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         attendanceDate: _selectedDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: _signInAtFilter,
+        signOutAtFilter: _signOutAtFilter,
         search: search,
       );
+    }
+  }
+
+  void _applyLegendApiFilters(String? legendStatus) {
+    final normalized = legendStatus == 'Present' ? 'Signed-In' : legendStatus;
+    switch (normalized) {
+      case 'Signed-In':
+        _signInAtFilter = 'NOT_NULL';
+        _signOutAtFilter = 'IGNORE';
+        _showAbsentOnly = false;
+        break;
+      case 'Signed Out':
+        _signInAtFilter = 'IGNORE';
+        _signOutAtFilter = 'NOT_NULL';
+        _showAbsentOnly = false;
+        break;
+      case 'Not Marked':
+        _signInAtFilter = 'NULL';
+        _signOutAtFilter = 'NULL';
+        _showAbsentOnly = false;
+        break;
+      case 'Absent':
+        _signInAtFilter = 'NULL';
+        _signOutAtFilter = 'IGNORE';
+        _showAbsentOnly = false;
+        break;
+      default:
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
     }
   }
 
@@ -277,15 +310,6 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   List<StaffAttendanceCardData> _getFilteredStaff() {
     // Start with the full list from state.
     var filtered = List<StaffAttendanceCardData>.from(_staffMembers);
-
-    // Apply legend filter first (Signed-In, etc.).
-    if (_statusLegendFilter != null) {
-      if (_statusLegendFilter == 'Signed-In' ||
-          _statusLegendFilter == 'Present') {
-        filtered = filtered.where((staff) => staff.hasSignIn).toList();
-      }
-      // Other legend statuses (Absent, etc.) are handled via _showAbsentOnly toggle.
-    }
 
     // Apply designation filter (frontend-only) when provided via StaffFilterScreen.
     final designationFilters = _staffFilters?.tags ?? const <String>[];
@@ -410,6 +434,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       _selectedDate = DateTime.now();
       _showAbsentOnly = false;
       _statusLegendFilter = null;
+      _signInAtFilter = null;
+      _signOutAtFilter = null;
       _staffFilters = null;
     });
     _loadAttendanceData(context, reset: true);
@@ -505,21 +531,17 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                               !_showAbsentOnly,
                           onLegendTap: (status) {
                             setState(() {
-                              if (status == 'Signed-In' || status == 'Present') {
-                                final normalized =
-                                    status == 'Present' ? 'Signed-In' : status;
-                                final currentLegend =
-                                    _statusLegendFilter == 'Present'
-                                        ? 'Signed-In'
-                                        : _statusLegendFilter;
-                                _statusLegendFilter =
-                                    currentLegend == normalized
-                                        ? null
-                                        : normalized;
-                                _showAbsentOnly = false;
-                              } else if (status == 'Absent') {
-                                _showAbsentOnly = !_showAbsentOnly;
+                              final normalized =
+                                  status == 'Present' ? 'Signed-In' : status;
+                              final currentLegend = _statusLegendFilter == 'Present'
+                                  ? 'Signed-In'
+                                  : _statusLegendFilter;
+                              if (currentLegend == normalized) {
                                 _statusLegendFilter = null;
+                                _applyLegendApiFilters(null);
+                              } else {
+                                _statusLegendFilter = normalized;
+                                _applyLegendApiFilters(normalized);
                               }
                             });
                             _loadAttendanceData(context, reset: false);
@@ -702,6 +724,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                   if (value) {
                     // When toggling to Absent, clear legend filters so only absent view applies.
                     _statusLegendFilter = 'Absent';
+                    _signInAtFilter = null;
+                    _signOutAtFilter = null;
                   } else if (_statusLegendFilter == 'Absent') {
                     _statusLegendFilter = null;
                   }

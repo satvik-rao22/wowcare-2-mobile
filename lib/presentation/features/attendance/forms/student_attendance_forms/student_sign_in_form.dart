@@ -102,8 +102,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     });
   }
 
-  String _attendanceDateYyyyMmDd(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _attendanceDateYyyyMmDd(DateTime d) {
+    final utc = d.toUtc();
+    return '${utc.year.toString().padLeft(4, '0')}-${utc.month.toString().padLeft(2, '0')}-${utc.day.toString().padLeft(2, '0')}';
+  }
 
   bool _hasUnexpectedAmongSelected() {
     for (final s in currentStudents) {
@@ -420,9 +422,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     final TimeOfDay effectiveTime =
         isAdmin ? selectedTime : TimeOfDay.fromDateTime(now);
 
-    final attendanceDate =
-        '${effectiveDate.year.toString().padLeft(4, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
-
     final occurredAt = DateTime(
       effectiveDate.year,
       effectiveDate.month,
@@ -430,6 +429,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       effectiveTime.hour,
       effectiveTime.minute,
     ).toUtc();
+    final attendanceDate = _attendanceDateYyyyMmDd(occurredAt);
 
     if (isParent) {
       final selectedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
@@ -492,7 +492,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       'longitude': 0,
       'withinGeofence': true,
       'isGeofence': true,
-      'timeZone': 'Asia/Kolkata',
+      'timeZone': 'UTC',
     };
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();

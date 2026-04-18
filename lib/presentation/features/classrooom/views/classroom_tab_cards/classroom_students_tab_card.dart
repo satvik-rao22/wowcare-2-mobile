@@ -19,6 +19,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_f
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
@@ -65,6 +66,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   Map<String, sign_out_form.StudentEntity> _signOutEntitiesByCode = {};
   Map<String, transfer_form.StudentEntity> _transferEntitiesByCode = {};
   Map<String, absent_form.StudentEntity> _absentEntitiesByCode = {};
+  final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
+  bool _attendanceStatusLoading = false;
+  bool _attendanceStatusError = false;
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> statuses = ['ACTIVE', 'UPCOMING'];
@@ -149,6 +153,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       }
     });
     _prefetchAttendanceEntitiesForSelection(visibleStudents);
+    _refreshAttendanceStatusForSelection(visibleStudents);
   }
 
   void _toggleStudentSelection(
@@ -171,6 +176,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       }
     });
     _prefetchAttendanceEntitiesForSelection(visibleStudents);
+    _refreshAttendanceStatusForSelection(visibleStudents);
   }
 
   bool get hasSelectedStudents {
@@ -187,6 +193,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _currentPanel = StudentPanelType.none;
     });
     _clearAttendanceEntityCaches();
+    _attendanceStatusByStudentCode.clear();
+    _attendanceStatusLoading = false;
+    _attendanceStatusError = false;
     _loadForSelectedRoom(refresh: false);
   }
 
@@ -266,18 +275,89 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
 
+  String? _todayStatusForStudentCode(String code) {
+    final t = code.trim();
+    if (t.isEmpty) return null;
+    if (_attendanceStatusByStudentCode.containsKey(t)) {
+      return _attendanceStatusByStudentCode[t];
+    }
+    final u = _normalizeStudentCode(t);
+    for (final e in _attendanceStatusByStudentCode.entries) {
+      if (_normalizeStudentCode(e.key) == u) return e.value;
+    }
+    return null;
+  }
+
+  Future<void> _refreshAttendanceStatusForSelection(
+    List<StudentClassroomItem> visibleStudents,
+  ) async {
+    final selected = _getSelectedStudents(visibleStudents);
+    if (selected.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    final codes = selected
+        .map((s) => s.studentCode.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+
+    if (codes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: codes);
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
   StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
     List<StudentClassroomItem> selected,
   ) {
     if (selected.isEmpty) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
+    if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
     final gates = selected.map((s) {
       final isActive = s.status.trim().toUpperCase() == 'ACTIVE';
-      return StudentAttendanceGate(
+      return studentAttendanceGateFromTodayStatus(
         isActiveProfile: isActive,
-        isSignedInToday: s.signedIn,
-        isAbsentToday: s.absent,
+        todayStatusRaw: _todayStatusForStudentCode(s.studentCode),
       );
     });
     return StudentAttendanceActionAvailability.fromGates(gates);
