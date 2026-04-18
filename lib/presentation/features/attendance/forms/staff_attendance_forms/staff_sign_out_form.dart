@@ -15,6 +15,7 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
@@ -235,6 +236,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ? classroomCodeByStaffCode.values.first
         : '';
 
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
       'staffCode': staffCode,
@@ -245,7 +251,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'latitude': 0,
       'longitude': 0,
       'withinGeofence': true,
-      'timeZone': 'UTC',
+      'timeZone': schoolTimeZone,
       'occurredAt': occurredAt.toIso8601String(),
     };
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:dio/dio.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -17,7 +18,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 
 class StaffEditAttendanceForm extends StatefulWidget {
   const StaffEditAttendanceForm({
@@ -105,7 +106,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   }
 
   Future<void> _submitAsync() async {
-    final attendanceCode = _normalizeAttendanceRecordCodeForMutation(
+    final attendanceCode = _normalizeAttendanceRecordCode(
       widget.staffAttendance.attendanceRecordCode,
     );
     if (attendanceCode == null || attendanceCode.isEmpty) {
@@ -134,13 +135,16 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       _isSubmitting = true;
     });
 
-    final staffCode = await resolveStaffCodeForLoggedInUser();
+    // PATCH body `staffCode` must be the staff member whose record is updated
+    // (the row being edited), not the logged-in user — otherwise the backend
+    // cannot resolve the record and may return 404.
+    final staffCode = widget.staffAttendance.id.trim();
     if (!mounted) return;
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
+          content: Text('Unable to update: missing staff code for this row.'),
           backgroundColor: AppColors.errorColor,
         ),
       );
@@ -170,6 +174,15 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
             _signOutTime!.minute,
           );
 
+    final classroomCode = widget.staffAttendance.classroomCode?.trim();
+    final classroomForPayload =
+        (classroomCode != null && classroomCode.isNotEmpty) ? classroomCode : null;
+
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+
     final payload = <String, dynamic>{
       'staffCode': staffCode,
       'signedInAt': signedInAt.toUtc().toIso8601String(),
@@ -182,25 +195,22 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       'signedOutLocationLat': 0,
       'signedOutLocationLong': 0,
       'signedOutWithinGeofence': true,
-      'notes': null,
-      'timeZone': 'UTC',
+      'primaryClassroomCode': classroomForPayload,
+      'currentClassroomCode': classroomForPayload,
+      'timeZone': schoolTimeZone,
     };
 
     try {
       final client = serviceLocator<ApiClient>().client;
-      final endpoint = ApiPaths.urlWithBase(
-        '/api/v1/staff-attendance-records/$attendanceCode',
-        ApiConstants.attendanceBaseUrl,
-      );
-
       final body = Map<String, dynamic>.from(payload);
       await applyAllowedClassroomCodesToAttendanceBody(
         body,
         serviceLocator<StorageService>(),
       );
-      final response = await client.patch<Map<String, dynamic>>(
-        endpoint,
-        data: body,
+      final response = await _patchStaffAttendanceRecord(
+        client: client,
+        attendanceCode: attendanceCode,
+        body: body,
       );
 
       final message =
@@ -233,13 +243,42 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     }
   }
 
-  String? _normalizeAttendanceRecordCodeForMutation(String? rawCode) {
+  String? _normalizeAttendanceRecordCode(String? rawCode) {
     if (rawCode == null) return null;
     final trimmed = rawCode.trim();
     if (trimmed.isEmpty) return null;
-    final tildeIndex = trimmed.indexOf('~');
-    if (tildeIndex <= 0) return trimmed;
-    return trimmed.substring(0, tildeIndex);
+    return trimmed;
+  }
+
+  Future<Response<Map<String, dynamic>>> _patchStaffAttendanceRecord({
+    required Dio client,
+    required String attendanceCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/staff-attendance-records/$attendanceCode',
+      ApiConstants.attendanceBaseUrl,
+    );
+    try {
+      return await client.patch<Map<String, dynamic>>(
+        endpoint,
+        data: body,
+      );
+    } catch (_) {
+      // Some list views expose composite identifiers with `~`.
+      // If the backend expects base record code, retry once.
+      final tildeIndex = attendanceCode.indexOf('~');
+      if (tildeIndex <= 0) rethrow;
+      final fallbackCode = attendanceCode.substring(0, tildeIndex);
+      final fallbackEndpoint = ApiPaths.urlWithBase(
+        '/api/v1/staff-attendance-records/$fallbackCode',
+        ApiConstants.attendanceBaseUrl,
+      );
+      return client.patch<Map<String, dynamic>>(
+        fallbackEndpoint,
+        data: body,
+      );
+    }
   }
 
   @override

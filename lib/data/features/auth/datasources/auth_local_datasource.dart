@@ -157,6 +157,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.remove(StorageKeys.guardianCodeUser);
     await _storage.remove(StorageKeys.guardianCodeSchool);
     await _storage.remove(StorageKeys.guardianCodeOrganization);
+    await _storage.remove(StorageKeys.schoolTimeZone);
+    await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
     await _storage.remove('selected_role');
   }
 
@@ -166,10 +168,17 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String schoolName,
     String? schoolCode,
   }) async {
+    final prevSchool =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
     if (schoolCode != null && schoolCode.isNotEmpty) {
-      await _storage.saveString(StorageKeys.schoolCode, schoolCode);
+      final next = schoolCode.trim();
+      if (prevSchool != next) {
+        await _storage.remove(StorageKeys.schoolTimeZone);
+        await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
+      }
+      await _storage.saveString(StorageKeys.schoolCode, next);
     }
     await _storage.saveBool(StorageKeys.loginCompleted, true);
   }
@@ -187,6 +196,13 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
     if (orgCode.isEmpty || schoolCode.isEmpty) {
       return false;
+    }
+
+    final prevSchool =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (prevSchool != schoolCode) {
+      await _storage.remove(StorageKeys.schoolTimeZone);
+      await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
     }
 
     // Save selected
@@ -270,11 +286,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String schoolCode,
     String? schoolName,
   }) async {
+    final prev =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final next = schoolCode.trim();
+    if (prev != next) {
+      await _storage.remove(StorageKeys.schoolTimeZone);
+      await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
+    }
     await _storage.saveString(StorageKeys.organizationCode, organizationCode);
-    await _storage.saveString(StorageKeys.schoolCode, schoolCode);
+    await _storage.saveString(StorageKeys.schoolCode, next);
     await _storage.saveString(
       StorageKeys.selectedSchoolName,
-      schoolName ?? schoolCode,
+      schoolName ?? next,
     );
   }
 

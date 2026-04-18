@@ -14,6 +14,7 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -203,16 +204,21 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   }
 
   String _deriveCurrentClassroomName() {
-    if (currentStudents.isEmpty) return '';
+    if (currentStudents.isEmpty) return 'N/A';
     final first = currentStudents.first;
-    // Prefer resolving by classroomCode using loaded map
     final code = first.classroomCode.trim();
+    final roomName = first.roomName.trim();
+    // Match daily-view logic: treat API name that equals code / looks like CLS_* as missing label.
+    final apiNameLooksLikeCode = roomName.isNotEmpty &&
+        (roomName == code || roomName.startsWith('CLS_'));
+    if (roomName.isNotEmpty && !apiNameLooksLikeCode) return roomName;
     if (code.isNotEmpty) {
       final resolved = _codeToNameMap()[code] ?? '';
       if (resolved.isNotEmpty) return resolved;
     }
-    // Fallback to provided roomName if available
-    return first.roomName;
+    if (roomName.isNotEmpty) return roomName;
+    if (code.isNotEmpty) return code;
+    return 'N/A';
   }
 
   void _removeStudent(StudentEntity student) {
@@ -337,6 +343,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       for (final s in currentStudents) s.studentCode: toClassroomCode,
     };
 
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+
     final payload = <String, dynamic>{
       'transferDate': transferDate,
       'staffCode': staffCode,
@@ -345,7 +356,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       'toClassroomCodeByStudentCode': toClassroomCodeByStudentCode,
       // No dedicated reason field in UI yet, so send a generic placeholder.
       'transferReason': 'Transferred via mobile app',
-      'timeZone': 'UTC',
+      'timeZone': schoolTimeZone,
       'transferredAt': transferredAt.toIso8601String(),
     };
 

@@ -21,13 +21,10 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
@@ -276,11 +273,11 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     switch (normalized) {
       case 'Signed-In':
         _signInAtFilter = 'NOT_NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signOutAtFilter = 'NULL';
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'IGNORE';
+        _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NOT_NULL';
         _showAbsentOnly = false;
         break;
@@ -552,6 +549,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                         _buildFilterCard(
                           responsive,
                           hasActiveFilters: _hasActiveFilters() ||
+                              _signInAtFilter != null ||
+                              _signOutAtFilter != null ||
                               _statusLegendFilter != null ||
                               _searchController.text.trim().isNotEmpty,
                         ),
@@ -802,6 +801,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           item.designation.isNotEmpty ? item.designation.first : null;
       final String? formattedDesignation = _formatDesignation(rawDesignation);
 
+      final String effectiveClassroomCode =
+          (item.isTransfer == true &&
+                  (item.toClassroomCode ?? '').trim().isNotEmpty)
+              ? item.toClassroomCode!.trim()
+              : item.classroomCode.trim();
+
       _staffMembers.add(
         StaffAttendanceCardData(
           attendanceRecordCode: item.attendanceRecordCode,
@@ -811,15 +816,16 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           designationName: formattedDesignation,
           roomName: _classroomDisplay(
             // Transfer rows may populate `toClassroom*` instead of `classroom*`.
-            classroomCode: (item.isTransfer == true &&
-                    (item.toClassroomCode ?? '').trim().isNotEmpty)
-                ? item.toClassroomCode!
+            classroomCode: effectiveClassroomCode.isNotEmpty
+                ? effectiveClassroomCode
                 : item.classroomCode,
             classroomName: (item.isTransfer == true &&
                     (item.toClassroomName ?? '').trim().isNotEmpty)
                 ? item.toClassroomName!
                 : item.classroomName,
           ),
+          classroomCode:
+              effectiveClassroomCode.isNotEmpty ? effectiveClassroomCode : null,
           expectedToday: item.isExpectedToday,
           hasSignIn: item.hasSignIn,
           signInTime: effectiveSignIn ?? item.formattedSignInTime,
@@ -923,10 +929,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
                     try {
                       final normalizedAttendanceCode =
-                          _normalizeAttendanceRecordCodeForMutation(
-                        staff.attendanceRecordCode!,
+                          _resolveStaffDeleteAttendanceRecordCode(
+                        card: staff,
+                        allItems: state.items,
                       );
-                      if (normalizedAttendanceCode.isEmpty) {
+                      if (normalizedAttendanceCode == null ||
+                          normalizedAttendanceCode.isEmpty) {
                         CoreUtils.showTopSnackBarFromSnackBar(
                           context: context,
                           snackBar: const SnackBar(
@@ -958,23 +966,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                         return;
                       }
 
-                      final apiClient = serviceLocator<ApiClient>().client;
-                      final endpoint = ApiPaths.urlWithBase(
-                        '/api/v1/staff-attendance-records/$normalizedAttendanceCode',
-                        ApiConstants.attendanceBaseUrl,
-                      );
-
-                      final allowedClassroomCodes =
-                          await resolveAttendanceAllowedClassroomCodes(
-                        storage: storageService,
-                      );
-                      await apiClient.delete<dynamic>(
-                        endpoint,
-                        queryParameters: <String, dynamic>{
-                          'staffCode': staffCode,
-                          'allowedClassroomCodes': allowedClassroomCodes,
-                        },
-                        options: attendanceListQueryOptions,
+                      await serviceLocator<AttendanceRepository>()
+                          .deleteStaffAttendanceRecord(
+                        attendanceRecordCode: normalizedAttendanceCode,
+                        staffCode: staffCode,
                       );
 
                       if (!context.mounted) return;
@@ -1086,6 +1081,54 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     return trimmed.substring(0, tildeIndex);
   }
 
+  /// DELETE expects the parent staff attendance record id, not transfer row `SFTR_*`.
+  /// If the expanded row only has a segment id, reuse another loaded row for the same staff.
+  String? _resolveStaffDeleteAttendanceRecordCode({
+    required StaffAttendanceCardData card,
+    required List<StaffAttendanceDailyItem> allItems,
+  }) {
+    bool isTransferSegment(String? c) =>
+        c != null && c.toUpperCase().startsWith('SFTR_');
+
+    String norm(String c) => _normalizeAttendanceRecordCodeForMutation(c);
+
+    final fromCard = card.attendanceRecordCode;
+    if (fromCard != null && fromCard.isNotEmpty) {
+      final n = norm(fromCard);
+      if (n.isNotEmpty && !isTransferSegment(n)) return n;
+    }
+
+    final sc = card.id.trim();
+    if (sc.isEmpty) {
+      return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
+    }
+
+    for (final item in allItems) {
+      if (item.staffCode.trim() != sc) continue;
+      final c = item.attendanceRecordCode;
+      if (c == null || c.isEmpty) continue;
+      final n = norm(c);
+      if (n.isEmpty || isTransferSegment(n)) continue;
+      return n;
+    }
+
+    StaffAttendanceDailyItem? lowestSeq;
+    for (final item in allItems) {
+      if (item.staffCode.trim() != sc) continue;
+      final c = item.attendanceRecordCode;
+      if (c == null || c.isEmpty) continue;
+      if (lowestSeq == null ||
+          (item.sequenceNumber ?? 1) < (lowestSeq.sequenceNumber ?? 1)) {
+        lowestSeq = item;
+      }
+    }
+    if (lowestSeq?.attendanceRecordCode != null) {
+      return norm(lowestSeq!.attendanceRecordCode!);
+    }
+
+    return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
+  }
+
   Widget _buildAbsentStaffList(
     StaffAttendanceAbsentToggleState absentState,
   ) {
@@ -1123,7 +1166,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         final it = entry.value;
         final roomName = _staffAbsentToggleClassroomDisplay(it);
         final absenceDate = it.absenceDate;
-        final absentTime = it.markedAbsentTime?.formattedHms ?? '';
+        final absentTime = it.markedAbsentTime?.formatted12h ?? '';
         final staff = StaffAbsentCardData(
           id: it.staffCode,
           staffCode: it.staffCode,

@@ -26,9 +26,6 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_a
     hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -36,6 +33,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
@@ -127,6 +125,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       final repo = AttendanceRepositoryImpl(
         remote,
         serviceLocator(),
+        serviceLocator<ApiClient>(),
       );
 
       _cubit = StudentAttendanceDailyCubit(
@@ -149,6 +148,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
               return AttendanceRepositoryImpl(
                 remote,
                 serviceLocator(),
+                serviceLocator<ApiClient>(),
               );
             })();
 
@@ -438,11 +438,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     switch (normalized) {
       case 'Signed-In':
         _signInAtFilter = 'NOT_NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signOutAtFilter = 'NULL';
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'IGNORE';
+        _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NOT_NULL';
         _showAbsentOnly = false;
         break;
@@ -547,7 +547,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         ? item.absenceDate
         : DateTime.now().toIso8601String();
 
-    final absentTime = item.markedAbsentTime?.formattedHms ?? '';
+    final absentTime = item.markedAbsentTime?.formatted12h ?? '';
 
     return StudentAbsentCardData(
       id: item.studentCode,
@@ -744,6 +744,54 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     final tildeIndex = trimmed.indexOf('~');
     if (tildeIndex <= 0) return trimmed;
     return trimmed.substring(0, tildeIndex);
+  }
+
+  /// DELETE expects the parent student attendance record id, not transfer row `SCTR_*`.
+  /// If the expanded row only has a segment id, reuse another loaded row for the same student.
+  String? _resolveStudentDeleteAttendanceRecordCode({
+    required StudentAttendanceCardData card,
+    required List<StudentAttendanceDailyItem> allItems,
+  }) {
+    bool isTransferSegment(String? c) =>
+        c != null && c.toUpperCase().startsWith('SCTR_');
+
+    String norm(String c) => _normalizeAttendanceRecordCodeForMutation(c);
+
+    final fromCard = card.attendanceRecordCode;
+    if (fromCard != null && fromCard.isNotEmpty) {
+      final n = norm(fromCard);
+      if (n.isNotEmpty && !isTransferSegment(n)) return n;
+    }
+
+    final sc = (card.studentCode ?? '').trim();
+    if (sc.isEmpty) {
+      return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
+    }
+
+    for (final item in allItems) {
+      if ((item.studentCode ?? '').trim() != sc) continue;
+      final c = item.attendanceRecordCode;
+      if (c == null || c.isEmpty) continue;
+      final n = norm(c);
+      if (n.isEmpty || isTransferSegment(n)) continue;
+      return n;
+    }
+
+    StudentAttendanceDailyItem? lowestSeq;
+    for (final item in allItems) {
+      if ((item.studentCode ?? '').trim() != sc) continue;
+      final c = item.attendanceRecordCode;
+      if (c == null || c.isEmpty) continue;
+      if (lowestSeq == null ||
+          (item.sequenceNumber ?? 1) < (lowestSeq.sequenceNumber ?? 1)) {
+        lowestSeq = item;
+      }
+    }
+    if (lowestSeq?.attendanceRecordCode != null) {
+      return norm(lowestSeq!.attendanceRecordCode!);
+    }
+
+    return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
   }
 
   @override
@@ -1047,10 +1095,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
                                     try {
                                       final normalizedAttendanceCode =
-                                          _normalizeAttendanceRecordCodeForMutation(
-                                        student.attendanceRecordCode!,
+                                          _resolveStudentDeleteAttendanceRecordCode(
+                                        card: student,
+                                        allItems: state.items,
                                       );
-                                      if (normalizedAttendanceCode.isEmpty) {
+                                      if (normalizedAttendanceCode == null ||
+                                          normalizedAttendanceCode.isEmpty) {
                                         CoreUtils.showTopSnackBarFromSnackBar(
                                           context: context,
                                           snackBar:
@@ -1085,25 +1135,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                         return;
                                       }
 
-                                      final apiClient =
-                                          serviceLocator<ApiClient>().client;
-                                      final endpoint = ApiPaths.urlWithBase(
-                                        '/api/v1/student-attendance-records/$normalizedAttendanceCode',
-                                        ApiConstants.attendanceBaseUrl,
-                                      );
-
-                                      final allowedClassroomCodes =
-                                          await resolveAttendanceAllowedClassroomCodes(
-                                        storage: storageService,
-                                      );
-                                      await apiClient.delete<dynamic>(
-                                        endpoint,
-                                        queryParameters: <String, dynamic>{
-                                          'staffCode': staffCode,
-                                          'allowedClassroomCodes':
-                                              allowedClassroomCodes,
-                                        },
-                                        options: attendanceListQueryOptions,
+                                      await serviceLocator<AttendanceRepository>()
+                                          .deleteStudentAttendanceRecord(
+                                        attendanceRecordCode:
+                                            normalizedAttendanceCode,
+                                        staffCode: staffCode,
                                       );
 
                                       CoreUtils.showTopSnackBarFromSnackBar(
@@ -1223,6 +1259,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
   Widget _buildFilterCard(ResponsiveHelper responsive) {
     final hasActiveFilters = _statusLegendFilter != null ||
+        _signInAtFilter != null ||
+        _signOutAtFilter != null ||
         _studentFilters != null ||
         _selectedClassroomNames.isNotEmpty ||
         _selectedTagNames.isNotEmpty ||

@@ -20,6 +20,7 @@ import 'package:wowcare/presentation/features/students/widgets/student_attendanc
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
@@ -83,6 +84,13 @@ class _StudentScreenState extends State<StudentScreen> {
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
 
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _classroomNameByDetailApi = <String, String>{};
+  final Set<String> _classroomDetailFetchInFlight = <String>{};
+  final Set<String> _classroomDetailFetchFailed = <String>{};
+  String _lastClassroomPrefetchFingerprint = '';
+
   @override
   void initState(){
     super.initState();
@@ -92,6 +100,9 @@ class _StudentScreenState extends State<StudentScreen> {
       if (mounted) {
         final cubit = context.read<StudentCubit>();
         cubit.loadInitial();
+        context.read<ClassroomCubit>().loadActiveClassrooms(
+          onlyTypeClassroom: false,
+        );
         _applyFiltersToCubit();
         _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
@@ -381,18 +392,28 @@ class _StudentScreenState extends State<StudentScreen> {
         ? _currentFilters['Status']!.first
         : 'Active';
 
-    // Map selected classroom names to codes for the API
+    // Normalize selected classroom values to classroom codes for the API.
+    // The UI may carry classroom names, but backend filters must use codes.
     final classroomState = context.read<ClassroomCubit>().state;
     final nameToCode = {
       for (final c in classroomState.classrooms) c.name: c.code,
     };
+    final validCodes = {
+      for (final c in classroomState.classrooms) c.code.trim(),
+    }..removeWhere((code) => code.isEmpty);
 
-    final selectedClassroomNames =
+    final selectedClassroomValues =
         _currentFilters['Classroom'] ?? const <String>[];
-    final classroomCodes = selectedClassroomNames
-        .map((name) => nameToCode[name])
+    final classroomCodes = selectedClassroomValues
+        .map((value) {
+          final trimmed = value.trim();
+          if (trimmed.isEmpty) return null;
+          if (validCodes.contains(trimmed)) return trimmed;
+          return nameToCode[trimmed]?.trim();
+        })
         .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
+        .where((c) => c.isNotEmpty)
+        .toSet()
         .toList();
 
     final selectedTagNames =
@@ -421,10 +442,16 @@ class _StudentScreenState extends State<StudentScreen> {
   }
 
   // Convert Student entity to map format for compatibility with existing UI
-  Map<String, dynamic> _studentToMap(Student student) {
+  Map<String, dynamic> _studentToMap(
+    Student student, {
+    required Map<String, String> classroomNameByCode,
+  }) {
     return {
       'name': student.fullName,
-      'Classroom': _classroomDisplayName(student.classroom),
+      'Classroom': _classroomDisplayName(
+        student.classroom,
+        classroomNameByCode: classroomNameByCode,
+      ),
       'Tags': student.tags,
       // Use schedule derived from regularSchedules if available; otherwise empty.
       'schedule': student.schedule,
@@ -457,21 +484,92 @@ class _StudentScreenState extends State<StudentScreen> {
 
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
 
-  String _classroomDisplayName(String rawCodeOrName) {
+  String _classroomDisplayName(
+    String rawCodeOrName, {
+    required Map<String, String> classroomNameByCode,
+  }) {
     final value = rawCodeOrName.trim();
-    if (value.isEmpty) return value;
-    try {
-      final classrooms = context.read<ClassroomCubit>().state.classrooms;
-      for (final c in classrooms) {
-        if (c.code.trim() == value) {
-          final name = c.name.trim();
-          return name.isNotEmpty ? name : value;
-        }
-      }
-    } catch (_) {
-      // Fall back to raw value when ClassroomCubit isn't available.
+    if (value.isEmpty) return '-';
+    final mappedName = classroomNameByCode[value];
+    if (mappedName != null && mappedName.trim().isNotEmpty) {
+      return mappedName.trim();
     }
-    return value;
+    // If API already sent a plain classroom name (not a code), keep showing it.
+    if (!value.toUpperCase().startsWith('CLS_')) {
+      return value;
+    }
+    // Avoid showing classroom code on cards when classroom name is unavailable.
+    return '-';
+  }
+
+  Map<String, String> _mergedClassroomDisplayNames(
+    Map<String, String> cubitNameByCode,
+  ) {
+    final merged = Map<String, String>.from(cubitNameByCode);
+    for (final e in _classroomNameByDetailApi.entries) {
+      final n = e.value.trim();
+      if (n.isNotEmpty) merged[e.key] = n;
+    }
+    return merged;
+  }
+
+  void _scheduleClassroomDetailFetchesIfNeeded(
+    List<Student> students,
+    Map<String, String> cubitNameByCode,
+  ) {
+    final parts = students.map((s) => s.classroom.trim()).toList()..sort();
+    final fp = parts.join('\u0001');
+    if (fp == _lastClassroomPrefetchFingerprint) return;
+    _lastClassroomPrefetchFingerprint = fp;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _fetchMissingClassroomNamesFromDetailApi(students, cubitNameByCode);
+    });
+  }
+
+  Future<void> _fetchMissingClassroomNamesFromDetailApi(
+    List<Student> students,
+    Map<String, String> cubitNameByCode,
+  ) async {
+    final codes = <String>{};
+    for (final s in students) {
+      final c = s.classroom.trim();
+      if (c.isEmpty) continue;
+      if (!c.toUpperCase().startsWith('CLS_')) continue;
+      if (_classroomDetailFetchFailed.contains(c)) continue;
+      if (_classroomNameByDetailApi.containsKey(c)) continue;
+      final cubitName = cubitNameByCode[c]?.trim() ?? '';
+      if (cubitName.isNotEmpty) continue;
+      if (_classroomDetailFetchInFlight.contains(c)) continue;
+      codes.add(c);
+    }
+    if (codes.isEmpty) return;
+
+    for (final code in codes) {
+      _classroomDetailFetchInFlight.add(code);
+      try {
+        final details = await _getClassroomByCode(code: code);
+        if (!mounted) return;
+        final name = details.name.trim();
+        if (name.isNotEmpty) {
+          setState(() {
+            _classroomNameByDetailApi[code] = name;
+          });
+        } else {
+          setState(() {
+            _classroomDetailFetchFailed.add(code);
+          });
+        }
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _classroomDetailFetchFailed.add(code);
+        });
+      } finally {
+        _classroomDetailFetchInFlight.remove(code);
+      }
+    }
   }
 
   List<Student> _getSelectedStudents(List<Student> students) {
@@ -855,11 +953,18 @@ class _StudentScreenState extends State<StudentScreen> {
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
+    final classroomState = context.watch<ClassroomCubit>().state;
+    final classroomNameByCode = <String, String>{
+      for (final c in classroomState.classrooms) c.code.trim(): c.name.trim(),
+    };
 
     return BlocBuilder<StudentCubit, StudentState>(
       builder: (context, state) {
         final studentCubit = context.read<StudentCubit>();
         final students = state.items;
+        final mergedClassroomNames =
+            _mergedClassroomDisplayNames(classroomNameByCode);
+        _scheduleClassroomDetailFetchesIfNeeded(students, classroomNameByCode);
         final bool anySelected = _selectedDemo.any((e) => e);
         final int selectedCount = _selectedDemo.where((e) => e).length;
 
@@ -909,7 +1014,10 @@ class _StudentScreenState extends State<StudentScreen> {
                         final idx = _selectedDemo.indexWhere((e) => e);
                         if(idx != -1 && idx < students.length){
                           final student = students[idx];
-                          final studentMap = _studentToMap(student);
+                          final studentMap = _studentToMap(
+                            student,
+                            classroomNameByCode: mergedClassroomNames,
+                          );
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -976,11 +1084,20 @@ class _StudentScreenState extends State<StudentScreen> {
         final stackChildren = <Widget>[
           CustomRefreshIndicator(
             onRefresh: () async {
+              if (mounted) {
+                setState(() {
+                  _classroomDetailFetchFailed.clear();
+                  _lastClassroomPrefetchFingerprint = '';
+                });
+              }
               await Future.wait([
                 studentCubit.refresh(),
                 context
                     .read<ClassroomCubit>()
-                    .loadActiveClassrooms(force: true),
+                    .loadActiveClassrooms(
+                      force: true,
+                      onlyTypeClassroom: false,
+                    ),
                 // Keep these in sync on refresh as well (but DO NOT call tags API).
                 _loadGuardianNameCodeMap(),
                 _loadStudentCounts(),
@@ -1179,6 +1296,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           number: '$_expectedStudentsTotal',
                           items: items,
                           fullWidthBar: false,
+                          normalizeBarByItemSum: true,
                           onLegendTap: (String label, String? filterValue) {
                             final status = label.split(' ').first;
                             if (status == 'Signed-In' ||
@@ -1459,7 +1577,10 @@ class _StudentScreenState extends State<StudentScreen> {
                       itemCount: students.length,
                       itemBuilder: (context, index) {
                         final student = students[index];
-                        final studentMap = _studentToMap(student);
+                        final studentMap = _studentToMap(
+                          student,
+                          classroomNameByCode: mergedClassroomNames,
+                        );
                         final isActive =
                             (student.status).toUpperCase() == 'ACTIVE';
 

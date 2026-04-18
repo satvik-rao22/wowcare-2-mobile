@@ -323,11 +323,25 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       lastName: _lastNameController.text.trim(),
     );
 
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final selectedClassroom = classrooms.where((c) => c.name == _selectedClassroom);
+    final selectedClassroomCode =
+        selectedClassroom.isNotEmpty ? selectedClassroom.first.code : '';
+    if (selectedClassroomCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected classroom is invalid. Please select again.',
+        isError: true,
+      );
+      return;
+    }
+
     final step1Data = {
       'status': _selectedStatus,
       'firstName': _firstNameController.text.trim(),
       'lastName': _lastNameController.text.trim(),
       'classroom': _selectedClassroom,
+      'classroomCode': selectedClassroomCode,
       'birthdate': _selectedBirthdate,
       'schoolStartDate': _selectedSchoolStartDate,
       'profilePhoto': _profilePhoto,
@@ -593,7 +607,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
       final rawStatus = (step1Data['status'] as String?) ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroom = (step1Data['classroom'] as String?) ?? '';
+      final classroomCode = (step1Data['classroomCode'] as String?)?.trim() ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
       final DateTime? schoolStartDate = step1Data['schoolStartDate'] as DateTime?;
       final siblingCodesToLink = (step1Data['siblingCodesToLink'] as List<dynamic>?)
@@ -617,7 +631,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         firstName: firstName,
         lastName: lastName,
         status: status,
-        classroom: classroom,
+        classroom: classroomCode,
         dob: birthdate,
         schoolStartDate: schoolStartDate,
         profilePhotoUrl: null,

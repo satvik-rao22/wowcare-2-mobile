@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'student_attendance_record_code.dart';
+
 class StudentAttendanceDailyItemModel extends Equatable {
   const StudentAttendanceDailyItemModel({
     this.attendanceRecordCode,
@@ -69,10 +71,8 @@ class StudentAttendanceDailyItemModel extends Equatable {
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
-      // Backend now returns the attendance record identifier as `code`.
-      // Fall back to `attendanceRecordCode` for backward compatibility.
       attendanceRecordCode:
-          (json['attendanceRecordCode'] ?? json['code']) as String?,
+          resolveStudentAttendanceRecordCodeForMutations(json),
       studentCode: json['studentCode'] as String?,
       studentName: json['studentName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
@@ -624,8 +624,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
 
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
-      attendanceRecordCode:
-          (json['attendanceRecordCode'] ?? json['code']) as String?,
+      attendanceRecordCode: resolveStaffAttendanceRecordCodeForMutations(json),
       staffCode: json['staffCode'] as String? ?? '',
       staffName: json['staffName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,

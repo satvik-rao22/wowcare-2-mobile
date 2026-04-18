@@ -15,6 +15,7 @@ import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
@@ -400,6 +401,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       expectedFromApi = Map<String, bool>.from(_expectedTodayFromApi);
     }
 
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+
     late final Map<String, dynamic> payload;
     if (!isStaffAdmin) {
       // Self sign-in for teacher persona.
@@ -413,7 +419,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'latitude': 0,
         'longitude': 0,
         'withinGeofence': true,
-        'timeZone': 'UTC',
+        'timeZone': schoolTimeZone,
         'occurredAt': occurredAt.toIso8601String(),
         'isExpectedToday':
             _isExpectedTodayForStaffCode(staffCode, expectedFromApi),
@@ -445,7 +451,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'latitude': 0,
         'longitude': 0,
         'withinGeofence': true,
-        'timeZone': 'UTC',
+        'timeZone': schoolTimeZone,
         'occurredAt': occurredAt.toIso8601String(),
       };
     }

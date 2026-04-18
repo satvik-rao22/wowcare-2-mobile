@@ -662,6 +662,7 @@ class _StaffScreenState extends State<StaffScreen> {
                           number: '$_expectedStaffTotal',
                           items: items,
                           fullWidthBar: false,
+                          normalizeBarByItemSum: true,
                           onLegendTap: (String label, String? filterValue) {
                             final status = label.split(' ').first;
                             if (status == 'Signed-In' ||

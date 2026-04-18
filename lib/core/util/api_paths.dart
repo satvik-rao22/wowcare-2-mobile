@@ -248,6 +248,9 @@ class ApiPaths {
   static const String schools = '/api/v1/schools';
   static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
 
+  /// GET /api/v1/schools/{schoolCode}/timezone
+  static String schoolTimezone(String schoolCode) => '$schools/$schoolCode/timezone';
+
   // —— Staff host ——
   static const String staffList = '/api/v1/staff';
   static const String staffClassrooms = '/api/v1/staff-classrooms';
@@ -422,6 +425,7 @@ class ApiPaths {
   static const String staffAttendanceAbsentToggleView =
       '/api/v1/staff-attendance/view/absent/toggle';
   static const String staffAttendanceCustomView = '/api/v1/staff-attendance/view/custom';
+  static const String staffAttendanceRecords = '/api/v1/staff-attendance-records';
   static const String staffAttendanceRecordsSignIn =
       '/api/v1/staff-attendance-records/sign-in';
   static const String staffAttendanceRecordsSignInSelf =

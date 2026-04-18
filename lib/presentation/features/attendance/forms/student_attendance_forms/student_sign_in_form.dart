@@ -22,6 +22,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -485,6 +486,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         ? classroomCodeByStudentCode.values.first
         : '';
 
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
       'method': isParent ? 'GPS' : 'APP',
@@ -492,7 +498,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       'longitude': 0,
       'withinGeofence': true,
       'isGeofence': true,
-      'timeZone': 'UTC',
+      'timeZone': schoolTimeZone,
     };
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();

@@ -83,6 +83,22 @@ abstract class AttendanceRepository {
     required String staffCode,
   });
 
+  /// Removes a student attendance record (sign-in / sign-out / transfer day row).
+  ///
+  /// Backend: `DELETE /api/v1/student-attendance-records/{attendanceRecordCode}`.
+  Future<void> deleteStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  });
+
+  /// Removes a staff attendance record (sign-in / sign-out / transfer day row).
+  ///
+  /// Backend: `DELETE /api/v1/staff-attendance-records/{attendanceRecordCode}`.
+  Future<void> deleteStaffAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  });
+
   /// Creates student absence records (Mark Absent).
   Future<String> markStudentsAbsent({
     required String staffCode,

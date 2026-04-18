@@ -1,6 +1,8 @@
+import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../core/util/cache_manager.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
@@ -17,16 +19,30 @@ import '../models/staff_absence_record_models.dart';
 
 class AttendanceRepositoryImpl
     implements AttendanceRepository, AttendanceRepositoryWithCache {
-  AttendanceRepositoryImpl(this._remoteDataSource, StorageService storageService)
-      : _storage = storageService,
+  AttendanceRepositoryImpl(
+    this._remoteDataSource,
+    StorageService storageService,
+    ApiClient apiClient,
+  )  : _storage = storageService,
+        _apiClient = apiClient,
         _cacheManager = CacheManager(storageService);
 
   final AttendanceRemoteDataSource _remoteDataSource;
   final StorageService _storage;
+  final ApiClient _apiClient;
   final CacheManager _cacheManager;
 
   Future<List<String>> _attendanceAllowedClassroomCodes() =>
       resolveAttendanceAllowedClassroomCodes(storage: _storage);
+
+  Future<String> _effectiveSchoolTimeZone(String? override) async {
+    final o = override?.trim() ?? '';
+    if (o.isNotEmpty) return o;
+    return SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: _storage,
+      apiClient: _apiClient,
+    );
+  }
 
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
   static String _studentAttendanceDailyCacheKey(
@@ -831,6 +847,32 @@ class AttendanceRepositoryImpl
   }
 
   @override
+  Future<void> deleteStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    await _remoteDataSource.deleteStudentAttendanceRecord(
+      attendanceRecordCode: attendanceRecordCode,
+      staffCode: staffCode,
+      allowedClassroomCodes: allowed,
+    );
+  }
+
+  @override
+  Future<void> deleteStaffAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    await _remoteDataSource.deleteStaffAttendanceRecord(
+      attendanceRecordCode: attendanceRecordCode,
+      staffCode: staffCode,
+      allowedClassroomCodes: allowed,
+    );
+  }
+
+  @override
   Future<String> markStudentsAbsent({
     required String staffCode,
     required List<String> studentCodes,
@@ -1076,6 +1118,7 @@ class AttendanceRepositoryImpl
     String? notes,
     String? timeZone,
   }) async {
+    final tz = await _effectiveSchoolTimeZone(timeZone);
     final payload = <String, dynamic>{
       'staffCode': staffCode,
       // Backend expects ISO8601 with timezone (e.g., "2026-03-04T16:31:09.002Z")
@@ -1094,7 +1137,7 @@ class AttendanceRepositoryImpl
       'originalClassroomCode': originalClassroomCode,
       'currentClassroomCode': currentClassroomCode,
       'notes': notes,
-      'timeZone': 'UTC',
+      'timeZone': tz,
     };
 
     final allowed = await _attendanceAllowedClassroomCodes();
@@ -1120,6 +1163,7 @@ class AttendanceRepositoryImpl
     String? timeZone,
     DateTime? occurredAt,
   }) async {
+    final tz = await _effectiveSchoolTimeZone(timeZone);
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
       'staffCode': staffCode,
@@ -1133,7 +1177,7 @@ class AttendanceRepositoryImpl
       'latitude': latitude,
       'longitude': longitude,
       'withinGeofence': withinGeofence,
-      'timeZone': 'UTC',
+      'timeZone': tz,
       'occurredAt': occurredAt?.toUtc().toIso8601String(),
     };
 

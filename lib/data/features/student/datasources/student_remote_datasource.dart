@@ -128,6 +128,7 @@ abstract class StudentRemoteDataSource {
   /// Deletes a physician via `DELETE /api/v1/physicians/{code}`.
   Future<String> deletePhysician(String code);
 
+  /// [classroom] must be the backend classroom **code** (e.g. `CLS_...`), not the display name.
   Future<StudentListItemModel> createStudent({
     required String schoolCode,
     required String firstName,

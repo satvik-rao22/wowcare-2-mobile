@@ -15,8 +15,10 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
@@ -110,6 +112,26 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Resolves display name from API [classroomName] / [classroomCode], matching daily attendance behavior.
+  String _resolveCurrentClassroomDisplay(StaffEntity? staff, List<Classroom> classrooms) {
+    if (staff == null) return 'N/A';
+    final apiName = (staff.classroomName ?? '').trim();
+    final code = (staff.classroomCode ?? '').trim();
+    final apiNameLooksLikeCode = apiName.isNotEmpty &&
+        (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+    if (code.isEmpty) {
+      return apiName.isNotEmpty ? apiName : 'N/A';
+    }
+    for (final c in classrooms) {
+      if (c.code.trim() == code) {
+        final n = c.name.trim();
+        return n.isNotEmpty ? n : code;
+      }
+    }
+    return code;
   }
 
   void _handleSubmit() {
@@ -241,13 +263,18 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       effectiveTime.minute,
     ).toUtc();
 
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+
     final payload = <String, dynamic>{
       'staffCode': staffCode,
       'staffCodes': staffCodes,
       'toClassroomCode': toClassroomCode,
       'toClassroomCodeByStaffCode': toClassroomCodeByStaffCode,
       'transferReason': 'Transferred via mobile app',
-      'timeZone': 'UTC',
+      'timeZone': schoolTimeZone,
       'transferredAt': transferredAt.toIso8601String(),
     };
 
@@ -319,12 +346,28 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
   @override
   Widget build(BuildContext context) {
-    final currentClassroom =
-        (_selectedStaff.isNotEmpty ? _selectedStaff.first.classroomName : null) ??
-            'N/A';
     return BlocProvider<ClassroomCubit>.value(
       value: _classroomCubit,
-      child: StaffFormLayout(
+      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+        builder: (context, classroomState) {
+          if (_classroomNameToCode.isEmpty &&
+              classroomState.classrooms.isNotEmpty) {
+            for (final c in classroomState.classrooms) {
+              _classroomNameToCode[c.name] = c.code;
+            }
+          }
+          final currentClassroom = _resolveCurrentClassroomDisplay(
+            _selectedStaff.isNotEmpty ? _selectedStaff.first : null,
+            classroomState.classrooms,
+          );
+          String? selectedToClassroomName;
+          for (final entry in _classroomNameToCode.entries) {
+            if (entry.value == _selectedToClassroomCode) {
+              selectedToClassroomName = entry.key;
+              break;
+            }
+          }
+          return StaffFormLayout(
       title: 'Transfer',
       child: SingleChildScrollView(
         child: Column(
@@ -437,37 +480,19 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                     children: [
                       const AppText.label('Transfer to Classroom'),
                       const SizedBox(height: 8),
-                      BlocBuilder<ClassroomCubit, ClassroomState>(
-                        builder: (context, state) {
-                          if (_classroomNameToCode.isEmpty &&
-                              state.classrooms.isNotEmpty) {
-                            for (final c in state.classrooms) {
-                              _classroomNameToCode[c.name] = c.code;
-                            }
-                          }
-                          final options = state.classrooms
-                              .where((c) => c.name != currentClassroom)
-                              .map((c) => c.name)
-                              .toList();
-                          String? selectedName;
-                          for (final entry in _classroomNameToCode.entries) {
-                            if (entry.value == _selectedToClassroomCode) {
-                              selectedName = entry.key;
-                              break;
-                            }
-                          }
-                          return CustomDropdown(
-                            hintText: 'Select classroom',
-                            items: options,
-                            selectedItem: selectedName,
-                            onSelect: (value) {
-                              setState(() {
-                                _selectedToClassroomCode = value == null
-                                    ? null
-                                    : _classroomNameToCode[value];
-                              });
-                            },
-                          );
+                      CustomDropdown(
+                        hintText: 'Select classroom',
+                        items: classroomState.classrooms
+                            .where((c) => c.name != currentClassroom)
+                            .map((c) => c.name)
+                            .toList(),
+                        selectedItem: selectedToClassroomName,
+                        onSelect: (value) {
+                          setState(() {
+                            _selectedToClassroomCode = value == null
+                                ? null
+                                : _classroomNameToCode[value];
+                          });
                         },
                       ),
                     ],
@@ -484,7 +509,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
       ),
-    ));
+    );
+        },
+      ),
+    );
   }
 
 }

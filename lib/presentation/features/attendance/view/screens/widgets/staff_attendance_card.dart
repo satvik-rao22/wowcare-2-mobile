@@ -22,6 +22,8 @@ class StaffAttendanceCardData {
   final String? staffPhotoUuid;
   final String? designationName;
   final String roomName;
+  /// Backend classroom code for this row (for attendance mutations).
+  final String? classroomCode;
   final bool expectedToday;
   final bool hasSignIn;
   final String? signInTime;
@@ -47,6 +49,7 @@ class StaffAttendanceCardData {
     this.staffPhotoUuid,
     this.designationName,
     required this.roomName,
+    this.classroomCode,
     required this.expectedToday,
     required this.hasSignIn,
     this.signInTime,

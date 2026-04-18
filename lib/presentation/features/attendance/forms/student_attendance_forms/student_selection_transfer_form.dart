@@ -160,6 +160,7 @@ class _StudentSelectionTransferFormState
           fullName: item.studentName,
           roomId: 0,
           roomName: item.classroomName,
+          classroomCode: item.classroomCode,
           photoUuid: '',
           tags: item.tagNames
               .map((name) => TagEntity(name: name))

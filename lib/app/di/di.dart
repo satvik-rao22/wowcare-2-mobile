@@ -255,6 +255,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => AttendanceRepositoryImpl(
       serviceLocator(),
       serviceLocator(),
+      serviceLocator(),
     ),
   );
   serviceLocator.registerLazySingleton<AvailabilityRepository>(
