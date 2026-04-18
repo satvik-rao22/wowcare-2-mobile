@@ -211,6 +211,24 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         .toList();
   }
 
+  /// Same shape as [ChooseActivity.selectedStudents] for class activity list + create flow.
+  List<Map<String, dynamic>> _activityStudentMaps(
+    List<StudentClassroomItem> selected,
+  ) {
+    final roomCode = widget.selectedRoom?.code.trim() ?? '';
+    return selected
+        .map(
+          (s) => <String, dynamic>{
+            'name': s.fullName,
+            'studentCode': s.studentCode,
+            'classroomCode': s.classroomCode.trim().isNotEmpty
+                ? s.classroomCode.trim()
+                : roomCode,
+          },
+        )
+        .toList();
+  }
+
   Map<String, dynamic> _getStudentIcons(StudentClassroomItem student) {
     final icons = <String, dynamic>{};
 
@@ -1072,6 +1090,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   const SizedBox(width: 10),
                   StudentActionPanel(
                     currentPanel: _currentPanel,
+                    activityStudentMaps: _canShowActivitiesPanel(selectedStudents)
+                        ? _activityStudentMaps(selectedStudents)
+                        : null,
                     attendanceAvailability:
                         _attendanceAvailabilityForSelection(selectedStudents),
                     onAttendanceTap: () {

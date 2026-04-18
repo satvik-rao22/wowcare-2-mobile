@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
@@ -11,7 +9,6 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
@@ -23,12 +20,10 @@ import '../../../../../domain/features/activity/usecases/get_activity_usecase.da
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_patch_attachments.dart';
-import '../../utils/activity_photo_attachment_upload.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
-import '../../widgets/upload_photo_video.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 
@@ -72,21 +67,12 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   List<Map<String, dynamic>> _detailAttachmentRows = [];
-  bool _isUploadingMedia = false;
-  List<File> _newPhotos = [];
-  List<String> _remainingExistingPhotoUrls = [];
-  final ActivityPhotoAttachmentState _photoAttachmentState =
-      ActivityPhotoAttachmentState();
-
-  int get _uploadedPhotoCount =>
-      _photoAttachmentState.uploadedCount(_newPhotos);
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
@@ -101,7 +87,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _imageUploadService = serviceLocator<ImageUploadService>();
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
       _selectedStudents =
@@ -118,13 +103,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-      _remainingExistingPhotoUrls =
-          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
-      if (_remainingExistingPhotoUrls.isEmpty &&
-          activity.photoUrl != null &&
-          activity.photoUrl!.trim().isNotEmpty) {
-        _remainingExistingPhotoUrls = [activity.photoUrl!.trim()];
-      }
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -159,13 +137,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
-        _remainingExistingPhotoUrls =
-            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
-        if (_remainingExistingPhotoUrls.isEmpty &&
-            item.photoUrl != null &&
-            item.photoUrl!.trim().isNotEmpty) {
-          _remainingExistingPhotoUrls = [item.photoUrl!.trim()];
-        }
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -254,79 +225,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     }
   }
 
-  void _onMediaChanged(
-    List<File> photos,
-    File? video,
-    List<String> remainingExistingPhotoUrls,
-    String? remainingExistingVideoUrl,
-  ) {
-    setState(() {
-      _newPhotos = photos;
-      _remainingExistingPhotoUrls =
-          List<String>.from(remainingExistingPhotoUrls);
-      _photoAttachmentState.onSelectedFilesChanged(photos);
-    });
-    _uploadPhotosOnSelection();
-  }
-
-  Future<void> _uploadPhotosOnSelection() async {
-    if (widget.readOnly || _newPhotos.isEmpty || _isUploadingMedia) return;
-
-    final activityTypeCode = _activityTypeCode;
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
-    final studentCodes = _selectedStudentsData
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (activityTypeCode == null ||
-        activityTypeCode.isEmpty ||
-        schoolCode == null ||
-        schoolCode.isEmpty ||
-        organizationCode == null ||
-        organizationCode.isEmpty ||
-        classroomCode.isEmpty ||
-        studentCodes.isEmpty) {
-      return;
-    }
-
-    try {
-      await uploadActivityPhotoAttachments(
-        uploadService: _imageUploadService,
-        state: _photoAttachmentState,
-        files: _newPhotos,
-        classroomCode: classroomCode,
-        activityTypeCode: activityTypeCode,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        studentCodes: studentCodes,
-        bindingMode: 'PER_STUDENT',
-        setState: setState,
-        mounted: () => mounted,
-        setUploading: (v) => _isUploadingMedia = v,
-      );
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Photo uploaded successfully',
-        isSuccess: true,
-      );
-    } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
-    }
-  }
-
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
@@ -364,6 +262,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -451,21 +357,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     });
 
     try {
-      final attachments = await uploadActivityPhotoAttachments(
-        uploadService: _imageUploadService,
-        state: _photoAttachmentState,
-        files: _newPhotos,
-        classroomCode: classroomCode,
-        activityTypeCode: activityTypeCode,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        studentCodes: studentCodes,
-        bindingMode: 'PER_STUDENT',
-        setState: setState,
-        mounted: () => mounted,
-        setUploading: (v) => _isUploadingMedia = v,
-      );
-
       // Build parameterValues in backend-required shape:
       // [{ "parameterCode": "...", "value": ... }, ...]
       final details =
@@ -520,7 +411,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         activityDate: activityDateIso,
         description: description,
         parameterValues: parameterValues,
-        attachments: attachments,
+        attachments: const [],
       );
 
       if (!mounted) return;
@@ -601,6 +492,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       );
       return;
     }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
 
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
@@ -670,15 +569,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       return;
     }
 
-    if (_isUploadingMedia) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for the photo upload to finish',
-        isWarning: true,
-      );
-      return;
-    }
-
     final combinedDateTime = DateTime(
       _activityDate!.year,
       _activityDate!.month,
@@ -690,21 +580,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final newAttachments = await uploadActivityPhotoAttachments(
-        uploadService: _imageUploadService,
-        state: _photoAttachmentState,
-        files: _newPhotos,
-        classroomCode: classroomCode,
-        activityTypeCode: activityTypeCode,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        studentCodes: studentCodes,
-        bindingMode: 'PER_STUDENT',
-        setState: setState,
-        mounted: () => mounted,
-        setUploading: (v) => _isUploadingMedia = v,
-      );
-
       final details =
           await _getActivityTypeDetailsUseCase(code: activityTypeCode);
 
@@ -747,15 +622,22 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
           {'parameterCode': amountParamCode, 'value': amountOz.toString()},
       ];
 
-      final remainingNorm = _remainingExistingPhotoUrls
+      final remainingNorm = imageDeliveryUrlsFromAttachmentRows(
+        _detailAttachmentRows,
+      )
           .map(normalizeActivityDeliveryUrl)
           .where((e) => e.isNotEmpty)
           .toSet();
+      final legacyPhoto = _effectiveActivity.photoUrl?.trim();
+      if (legacyPhoto != null && legacyPhoto.isNotEmpty) {
+        final n = normalizeActivityDeliveryUrl(legacyPhoto);
+        if (n.isNotEmpty) remainingNorm.add(n);
+      }
       final mergedRows = mergeAttachmentRowsForEditPatch(
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newAttachments,
+        newUploadRows: const [],
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
@@ -790,7 +672,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   }
 
   Future<void> _onSaveOrAddPressed() async {
-    if (_isSubmitting || _isUploadingMedia) return;
+    if (_isSubmitting) return;
     if (widget.readOnly) return;
 
     if (widget.isEdit) {
@@ -799,61 +681,6 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     }
 
     await _submitCreateActivity();
-  }
-
-  Widget _buildUploadStatus() {
-    if (_isUploadingMedia) {
-      return Row(
-        children: const [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: 8),
-          Text(
-            'Uploading photo...',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (_uploadedPhotoCount == _newPhotos.length) {
-      return Row(
-        children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
-          const SizedBox(width: 8),
-          Text(
-            'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
-        const SizedBox(width: 8),
-        Text(
-          'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.orange,
-          ),
-        ),
-      ],
-    );
   }
 
   @override
@@ -971,43 +798,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
               height: 100,
               hint: 'Enter Description',
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            SizedBox(height: responsive.verticalSpacing,),
-            if (_layoutAsEdit)
-              IgnorePointer(
-                ignoring: !_canInteract,
-                child: MediaUploader(
-                  isRequired: false,
-                  allowVideo: false,
-                  allowPhoto: true,
-                  isPictureBox: false,
-                  limit: 10,
-                  photoSizeLimit: 20,
-                  label: 'Upload Photo',
-                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
-                      ? List<String>.from(_remainingExistingPhotoUrls)
-                      : (_effectiveActivity.photoUrl != null &&
-                              _effectiveActivity.photoUrl!.trim().isNotEmpty
-                          ? [_effectiveActivity.photoUrl!.trim()]
-                          : const []),
-                  onMediaChanged: _onMediaChanged,
-                ),
-              )
-            else
-              MediaUploader(
-                isRequired: false,
-                allowVideo: false,
-                allowPhoto: true,
-                isPictureBox: false,
-                limit: 10,
-                photoSizeLimit: 20,
-                label: 'Upload Photo',
-                onMediaChanged: _onMediaChanged,
-              ),
-            if (_newPhotos.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _buildUploadStatus(),
-            ],
             SizedBox(height: responsive.verticalSpacing,),
           ],
         ),
@@ -1022,9 +814,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                   onPressedConfirm: _onSaveOrAddPressed,
                   showCancelButton: false,
                   isForm: false,
-                  isLoading: _isSubmitting ||
-                      _isUploadingMedia ||
-                      _loadingActivityDetail,
+                  isLoading:
+                      _isSubmitting || _loadingActivityDetail,
                 ),
               ),
             ),

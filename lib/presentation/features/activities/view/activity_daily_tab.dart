@@ -1492,6 +1492,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                             CustomClearAllChip(
                               onTap: () {
                                 setState(() {
+                                  final now = DateTime.now();
+                                  _selectedDate =
+                                      DateTime(now.year, now.month, now.day);
                                   if (_classroomOptions.isNotEmpty) {
                                     _selectdClassroom = _classroomOptions.first;
                                   }
@@ -1543,6 +1546,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         child: AppText.title(
                           _feedError ?? 'No Activities found',
                           textAlign: TextAlign.center,
+                          style: AppTextStyles.title
+                              .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
                         ),
                       ),
                     ),
@@ -2936,6 +2941,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                           child: AppText.title(
                             _feedError ?? 'No Activities found',
                             textAlign: TextAlign.center,
+                            style: AppTextStyles.title
+                                .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
                           ),
                         ),
                       ),
@@ -3600,17 +3607,21 @@ String activityFeedCardBodyLine(ActivityItem activity) {
   }
   if (activity.name == 'Bottle') {
     final desc = activity.description?.trim();
-    final oz = _formatBottleOzCompact(activity.amountConsumed);
+    final consumedLine =
+        _formatBottleOzConsumedLine(activity.amountConsumed);
     final st = activity.bottleConsumptionStatus?.trim();
     final stClean = (st == null || st.isEmpty)
         ? null
         : st.replaceAll(RegExp(r'[\s,;]+$'), '').trim();
 
     String? primary;
-    if (stClean != null && stClean.isNotEmpty && oz != null) {
-      primary = '$stClean: $oz';
-    } else if (oz != null && oz.isNotEmpty) {
-      primary = oz;
+    if (stClean != null &&
+        stClean.isNotEmpty &&
+        consumedLine != null &&
+        consumedLine.isNotEmpty) {
+      primary = '$stClean · $consumedLine';
+    } else if (consumedLine != null && consumedLine.isNotEmpty) {
+      primary = consumedLine;
     } else if (stClean != null && stClean.isNotEmpty) {
       primary = stClean;
     }
@@ -3696,28 +3707,45 @@ int activityFeedCardBodyMaxLines(ActivityItem activity) {
   return 1;
 }
 
+double? _parseBottleOzNumber(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final t = raw.trim();
+  if (t.toUpperCase().contains('OZ')) {
+    final numPart = t.replaceAll(RegExp(r'[^0-9.]'), '');
+    return double.tryParse(numPart);
+  }
+  return double.tryParse(t.replaceAll(',', ''));
+}
+
+String _formatOzAmountString(double n) {
+  if (n == n.roundToDouble()) {
+    return n.round().toString();
+  }
+  final fixed = n.toStringAsFixed(4);
+  return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
 String? _formatBottleOzCompact(String? raw) {
   if (raw == null || raw.trim().isEmpty) return null;
-  var t = raw.trim();
-  final upper = t.toUpperCase();
-  if (upper.contains('OZ')) {
-    final numPart = t.replaceAll(RegExp(r'[^0-9.]'), '');
-    final n = double.tryParse(numPart);
-    if (n != null) {
-      final s = n == n.roundToDouble() ? n.toInt().toString() : n.toString();
-      return '${s}OZ';
-    }
-    return t.replaceAll(RegExp(r'\s+'), '').toUpperCase();
-  }
-  final n = double.tryParse(t.replaceAll(',', ''));
+  final t = raw.trim();
+  final n = _parseBottleOzNumber(raw);
   if (n != null) {
-    final s = n == n.roundToDouble() ? n.toInt().toString() : n.toString();
-    return '${s} OZ';
+    return '${_formatOzAmountString(n)} OZ';
+  }
+  if (t.toUpperCase().contains('OZ')) {
+    return t.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
   return t;
 }
 
-/// Public for bottle detail view; same rules as the daily feed card (`6OZ`).
+/// Feed subtitle line, e.g. `0.5 OZ consumed`.
+String? _formatBottleOzConsumedLine(String? raw) {
+  final n = _parseBottleOzNumber(raw);
+  if (n == null) return null;
+  return '${_formatOzAmountString(n)} OZ consumed';
+}
+
+/// Public for bottle detail view; same numeric formatting as the feed (`6 OZ`).
 String? formatBottleAmountForDisplay(String? raw) => _formatBottleOzCompact(raw);
 
 class ActivityItem {
@@ -3915,6 +3943,42 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     return null;
   }
 
+  /// Prefer [valueNumber] when present so fractional oz (e.g. 0.5) is not
+  /// replaced by a stale [valueText] such as "0".
+  String? bottleVolumeSingleParam(Map<String, dynamic> p) {
+    final vn = p['valueNumber'];
+    if (vn != null) {
+      final s = vn.toString().trim();
+      if (s.isNotEmpty) return s;
+    }
+    for (final key in <String>[
+      'selectedOptionLabel',
+      'optionLabel',
+      'valueText',
+      'valueTime',
+      'valueDatetime',
+    ]) {
+      final v = (p[key] ?? '').toString().trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  String? pickParamBottleVolume() {
+    for (final p in row.parameterValues) {
+      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
+      final isVol = pn.contains('amount') ||
+          pn.contains('ounce') ||
+          pn.contains('volume') ||
+          pn.contains(' ml') ||
+          RegExp(r'\boz\b').hasMatch(pn);
+      if (!isVol || pn.contains('consumption')) continue;
+      final vol = bottleVolumeSingleParam(p);
+      if (vol != null && vol.isNotEmpty) return vol;
+    }
+    return null;
+  }
+
   String? bottleVolumeFromParams;
   String? bottleStatusFromParams;
   if (name == 'Bottle') {
@@ -3925,8 +3989,6 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
       if (dt == 'DATE' || dt == 'TIME') continue;
       if (pn == 'description' ||
           (pn.contains('description') && dt == 'TEXT')) continue;
-      final val = paramDisplay(p);
-      if (val == null || val.isEmpty) continue;
       final isConsumptionDropdown = dt == 'DROPDOWN' &&
           (pn.contains('consum') ||
               pn.contains('intake') ||
@@ -3937,6 +3999,8 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
           !pn.contains('volume') &&
           (pn.contains('consum') || pn.contains('intake'));
       if (isConsumptionDropdown || isConsumptionText) {
+        final val = paramDisplay(p);
+        if (val == null || val.isEmpty) continue;
         bottleStatusFromParams ??= val;
         continue;
       }
@@ -3946,13 +4010,17 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
           pn.contains(' ml') ||
           RegExp(r'\boz\b').hasMatch(pn);
       if (isVolume) {
-        bottleVolumeFromParams ??= val;
+        final vol = bottleVolumeSingleParam(p);
+        if (vol != null && vol.isNotEmpty) {
+          bottleVolumeFromParams ??= vol;
+        }
       }
     }
   }
 
   final amountConsumed = name == 'Bottle'
       ? (bottleVolumeFromParams ??
+          pickParamBottleVolume() ??
           pickParam(
             (n) =>
                 (n.contains('amount') ||

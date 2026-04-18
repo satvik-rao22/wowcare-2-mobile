@@ -17,7 +17,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../../../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
@@ -25,6 +25,7 @@ import '../../../../../domain/features/activity/usecases/update_activity_usecase
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
@@ -89,7 +90,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
   late final GetClassroomActivitySettingsUseCase _getSettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getDetailsUseCase;
-  late final CreateActivityUseCase _createUseCase;
+  late final CreateSharedActivitiesUseCase _createSharedUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
   late final ImageUploadService _uploadService;
@@ -102,7 +103,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     super.initState();
     _getSettingsUseCase = serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getDetailsUseCase = serviceLocator<GetActivityTypeDetailsUseCase>();
-    _createUseCase = serviceLocator<CreateActivityUseCase>();
+    _createSharedUseCase = serviceLocator<CreateSharedActivitiesUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
     _uploadService = serviceLocator<ImageUploadService>();
@@ -368,13 +369,12 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     // Asset codes are scoped to a specific upload session. Reusing a previous
     // session's cached assetCode causes polling on a new session with no assets.
     _uploadedAssetCodeByPath.clear();
-    final ownerCode = studentCodes.first;
     final uploadSession = await _uploadService.createActivityUploadSession(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       classroomCode: classroomCode,
       activityTypeCode: activityTypeCode,
-      bindingMode: 'PER_STUDENT',
+      bindingMode: 'SHARED',
       studentCodes: studentCodes,
     );
     final uploadedCodes = <String>[];
@@ -405,8 +405,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: isVideo ? 'VIDEO' : 'IMAGE',
-        ownerType: 'STUDENT',
-        ownerCode: ownerCode,
+        ownerType: 'CLASSROOM',
+        ownerCode: classroomCode,
       );
       await _uploadService.uploadFileToPresignedUrl(
         file: file,
@@ -427,13 +427,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       sessionCode: uploadSession.sessionCode,
       expectedAssetCodes: uploadedCodes,
     );
-    return uploadedCodes
-        .map((code) => <String, dynamic>{
-              'assetCode': code,
-              'studentCode': ownerCode,
-              'bindingMode': 'PER_STUDENT',
-            })
-        .toList();
+    return uploadedCodes.map((code) => <String, dynamic>{'assetCode': code}).toList();
   }
 
   Future<void> _submitCreate() async {
@@ -506,10 +500,16 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       return;
     }
 
-    final localDate =
-        '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
-    final localTime =
-        '${_activityTime!.hour.toString().padLeft(2, '0')}:${_activityTime!.minute.toString().padLeft(2, '0')}:00';
+    final descriptionTrim = _descriptionController.text.trim();
+    if (descriptionTrim.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
+
     final activityDateIso = DateTime(
       _activityDate!.year,
       _activityDate!.month,
@@ -532,22 +532,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               studentCodes: studentCodes,
             );
 
-      final details = await _getDetailsUseCase(code: activityTypeCode);
-      String? findCode(String contains) {
-        for (final p in details.parameters) {
-          if (p.parameterName.toLowerCase().contains(contains)) return p.code;
-        }
-        return null;
-      }
-      final parameterValues = <Map<String, dynamic>>[
-        if (findCode('date') != null) {'parameterCode': findCode('date'), 'value': localDate},
-        if (findCode('time') != null) {'parameterCode': findCode('time'), 'value': localTime},
-        if (findCode('staff') != null) {'parameterCode': findCode('staff'), 'value': staffCode},
-        if (findCode('description') != null)
-          {'parameterCode': findCode('description'), 'value': _descriptionController.text.trim()},
-      ];
-
-      final message = await _createUseCase(
+      // Shared media flow (photos + videos): create one shared activity per attachment.
+      await _createSharedUseCase(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -555,12 +541,15 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         schoolCode: schoolCode,
         organizationCode: organizationCode,
         activityDate: activityDateIso,
-        description: _descriptionController.text.trim(),
-        parameterValues: parameterValues,
+        description: descriptionTrim,
         attachments: attachments,
       );
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Shared activity created successfully',
+        isSuccess: true,
+      );
       Navigator.of(context).popUntil((route) => route.settings.name == ActivityFeedScreen.routeName);
     } catch (error) {
       if (!mounted) return;
@@ -693,6 +682,14 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     ).toUtc().toIso8601String();
 
     final desc = _descriptionController.text.trim();
+    if (desc.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     try {
@@ -904,6 +901,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 height: 100,
                 hint: 'Enter Description',
                 readOnly: !_canInteract,
+                maxLength: ActivityDescriptionLimits.maxLength,
               ),
             ],
           ),

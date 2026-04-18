@@ -28,6 +28,7 @@ import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../widgets/activity_dropdown_widget.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
@@ -535,6 +536,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
 
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
@@ -789,6 +798,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -1225,6 +1242,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               hint: 'Enter Description',
               isRequired: true,
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)

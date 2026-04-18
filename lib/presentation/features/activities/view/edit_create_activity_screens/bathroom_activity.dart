@@ -23,6 +23,7 @@ import '../../../../../domain/features/activity/usecases/update_activity_usecase
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
@@ -549,6 +550,14 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       );
       return;
     }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
 
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
@@ -798,6 +807,14 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -1089,6 +1106,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
               hint: 'Enter Description',
               isRequired: true,
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
             SizedBox(height: responsive.verticalSpacing),
           ],

@@ -1438,6 +1438,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             CustomClearAllChip(
                               onTap: () {
                                 setState(() {
+                                  final now = DateTime.now();
+                                  _selectedStartDate =
+                                      DateTime(now.year, now.month, 1);
+                                  _selectedEndDate =
+                                      DateTime(now.year, now.month + 1, 0);
                                   _selectdClassroom = _classroomOptions[0];
                                   _selectedStudent = null;
                                   _filterActivityTypes.clear();
@@ -1501,6 +1506,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                           child: AppText.title(
                             _feedError ?? 'No Activities found',
                             textAlign: TextAlign.center,
+                            style: AppTextStyles.title
+                                .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
                           ),
                         ),
                       ),
@@ -2188,6 +2195,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                           child: AppText.title(
                             _feedError ?? 'No Activities found',
                             textAlign: TextAlign.center,
+                            style: AppTextStyles.title
+                                .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
                           ),
                         ),
                       ),
@@ -2832,7 +2841,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                           child: Text(
                             _feedError ?? 'No Activities found',
                             style: TextStyle(
-                              color: Colors.black,
+                              color: AppColors.primaryColor.withValues(alpha: 0.55),
                               fontFamily: 'Manrope',
                               fontSize: 16,
                               fontWeight: FontWeight.w500,

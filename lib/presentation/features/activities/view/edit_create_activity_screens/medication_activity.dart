@@ -19,6 +19,7 @@ import '../../../../../domain/features/activity/usecases/get_classroom_activity_
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
@@ -233,6 +234,14 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       );
       return;
     }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
 
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
@@ -430,6 +439,14 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       );
       return;
     }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -558,7 +575,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 10,),
             if (_layoutAsEdit)
@@ -601,8 +618,9 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
               ),
             SizedBox(height: responsive.verticalSpacing,),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
+                Expanded(
                   child: _layoutAsEdit
                       ? DateWidget(
                           isEditable: _canInteract,
@@ -616,8 +634,8 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
-                const SizedBox(width: 10,),
-                Flexible(
+                const SizedBox(width: 10),
+                Expanded(
                   child: _layoutAsEdit
                       ? TimeWidget(
                           isEditable: _canInteract,
@@ -647,6 +665,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
               hint: 'Enter Description',
               isRequired: true,
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
             SizedBox(height: responsive.verticalSpacing,),
           ],

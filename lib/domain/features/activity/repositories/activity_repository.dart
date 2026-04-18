@@ -69,6 +69,21 @@ abstract class ActivityRepository {
     List<Map<String, dynamic>> attachments,
   });
 
+  /// Creates shared activity cards via `POST /api/v2/shared-activities`.
+  ///
+  /// Returns `data` list (each entry contains at least `cardCode`).
+  Future<List<Map<String, dynamic>>> createSharedActivities({
+    required String activityTypeCode,
+    required String classroomCode,
+    required List<String> studentCodes,
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+    required String activityDate,
+    required String description,
+    required List<Map<String, dynamic>> attachments,
+  });
+
   /// Creates upload sessions via `POST /api/v1/activities/upload-sessions`.
   Future<ActivityUploadSession> createActivityUploadSessions({
     required String organizationCode,

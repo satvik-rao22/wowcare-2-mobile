@@ -484,6 +484,19 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
+  /// Same shape as [ChooseActivity.selectedStudents] for class-scoped activity list + create flow.
+  List<Map<String, dynamic>> _activityStudentMaps(List<Student> students) {
+    return _getSelectedStudents(students)
+        .map(
+          (s) => <String, dynamic>{
+            'name': s.fullName,
+            'studentCode': s.code,
+            'classroomCode': s.classroom.trim(),
+          },
+        )
+        .toList();
+  }
+
   String? _todayStatusForStudentCode(String code) {
     final t = code.trim();
     if (t.isEmpty) return null;
@@ -889,6 +902,10 @@ class _StudentScreenState extends State<StudentScreen> {
                     const SizedBox(width: 10,),
                     StudentActionPanel(
                       currentPanel: _currentPanel,
+                      activityStudentMaps:
+                          _canShowActivitiesButton(selectedCount, students)
+                              ? _activityStudentMaps(students)
+                              : null,
                       attendanceAvailability:
                           _attendanceAvailabilityForSelection(students),
                       onAttendanceTap: (){

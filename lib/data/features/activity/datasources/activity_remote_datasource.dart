@@ -42,6 +42,13 @@ abstract class ActivityRemoteDataSource {
     required ActivityCreateRequestModel request,
   });
 
+  /// Creates shared activity cards via `POST /api/v2/activities`.
+  ///
+  /// Returns `data` list (each entry is a shared card payload).
+  Future<List<Map<String, dynamic>>> createSharedActivities({
+    required Map<String, dynamic> payload,
+  });
+
   /// Creates upload sessions for activity attachments.
   /// `POST /api/v1/activities/upload-sessions`
   Future<ActivityUploadSessionModel> createActivityUploadSessions({
@@ -248,6 +255,37 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
 
     return 'Activity created successfully';
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> createSharedActivities({
+    required Map<String, dynamic> payload,
+  }) async {
+    final endpoint = ApiPaths.url('/api/v2/activities');
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: payload,
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected create shared-activities API response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Create shared activities failed',
+      );
+    }
+
+    final data = body['data'];
+    if (data is! List) {
+      return const [];
+    }
+    return data
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   @override

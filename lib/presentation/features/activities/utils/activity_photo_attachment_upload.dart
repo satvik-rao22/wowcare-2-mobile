@@ -55,7 +55,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
     state.lastContextKey = uploadContextKey;
   }
 
-  final ownerCode = studentCodes.first;
+  final isShared = bindingMode.trim().toUpperCase() == 'SHARED';
+  final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
+  final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
   final missing =
       files.where((f) => !state.assetCodeByPath.containsKey(f.path)).toList();
 
@@ -84,7 +86,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           contentType: 'image/jpeg',
           contentLengthBytes: contentLengthBytes,
           mediaType: 'IMAGE',
-          ownerType: 'STUDENT',
+          ownerType: ownerType,
           ownerCode: ownerCode,
         );
         await uploadService.uploadFileToPresignedUrl(
@@ -116,11 +118,15 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   for (final photo in files) {
     final assetCode = state.assetCodeByPath[photo.path];
     if (assetCode != null && assetCode.isNotEmpty) {
-      attachments.add({
-        'assetCode': assetCode,
-        'studentCode': ownerCode,
-        'bindingMode': bindingMode,
-      });
+      if (isShared) {
+        attachments.add({'assetCode': assetCode});
+      } else {
+        attachments.add({
+          'assetCode': assetCode,
+          'studentCode': ownerCode,
+          'bindingMode': bindingMode,
+        });
+      }
     }
   }
   return attachments;
