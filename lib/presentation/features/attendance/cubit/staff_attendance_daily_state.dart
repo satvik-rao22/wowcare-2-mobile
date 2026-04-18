@@ -13,6 +13,8 @@ class StaffAttendanceDailyState extends Equatable {
     this.attendanceDate,
     this.classroomCodes,
     this.tagCodes,
+    this.signInAtFilter,
+    this.signOutAtFilter,
     this.search,
     this.expectedCount,
     this.presentCount,
@@ -34,6 +36,8 @@ class StaffAttendanceDailyState extends Equatable {
         attendanceDate = null,
         classroomCodes = null,
         tagCodes = null,
+        signInAtFilter = null,
+        signOutAtFilter = null,
         search = null,
         expectedCount = null,
         presentCount = null,
@@ -50,6 +54,8 @@ class StaffAttendanceDailyState extends Equatable {
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int? expectedCount,
     int? presentCount,
@@ -66,6 +72,8 @@ class StaffAttendanceDailyState extends Equatable {
         attendanceDate = attendanceDate,
         classroomCodes = classroomCodes,
         tagCodes = tagCodes,
+        signInAtFilter = signInAtFilter,
+        signOutAtFilter = signOutAtFilter,
         search = search,
         expectedCount = expectedCount,
         presentCount = presentCount,
@@ -85,6 +93,8 @@ class StaffAttendanceDailyState extends Equatable {
   final DateTime? attendanceDate;
   final List<String>? classroomCodes;
   final List<String>? tagCodes;
+  final String? signInAtFilter;
+  final String? signOutAtFilter;
   final String? search;
   final int? expectedCount;
   final int? presentCount;
@@ -105,6 +115,8 @@ class StaffAttendanceDailyState extends Equatable {
     DateTime? attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int? expectedCount,
     int? presentCount,
@@ -125,6 +137,8 @@ class StaffAttendanceDailyState extends Equatable {
       attendanceDate: attendanceDate ?? this.attendanceDate,
       classroomCodes: classroomCodes ?? this.classroomCodes,
       tagCodes: tagCodes ?? this.tagCodes,
+      signInAtFilter: signInAtFilter ?? this.signInAtFilter,
+      signOutAtFilter: signOutAtFilter ?? this.signOutAtFilter,
       search: search ?? this.search,
       expectedCount: expectedCount ?? this.expectedCount,
       presentCount: presentCount ?? this.presentCount,
@@ -148,6 +162,8 @@ class StaffAttendanceDailyState extends Equatable {
         attendanceDate,
         classroomCodes,
         tagCodes,
+        signInAtFilter,
+        signOutAtFilter,
         search,
         expectedCount,
         presentCount,

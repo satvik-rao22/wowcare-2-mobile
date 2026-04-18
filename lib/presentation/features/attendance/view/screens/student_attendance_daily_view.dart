@@ -77,6 +77,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   DateTime _selectedDate = DateTime.now();
   bool _showAbsentOnly = false;
   String? _statusLegendFilter;
+  String? _signInAtFilter;
+  String? _signOutAtFilter;
   FilterData? _studentFilters;
   int? _expandedStudentIndex;
   
@@ -173,12 +175,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     
     // Handle incoming filter
     if (widget.incomingFilter != null) {
-      _statusLegendFilter = widget.incomingFilter == 'Present'
-          ? 'Signed-In'
-          : widget.incomingFilter;
-      if (widget.incomingFilter == 'Absent') {
-        _showAbsentOnly = true;
-      }
+      _statusLegendFilter =
+          widget.incomingFilter == 'Present' ? 'Signed-In' : widget.incomingFilter;
+      _applyLegendApiFilters(_statusLegendFilter);
     }
 
     // Handle classroom filter
@@ -390,6 +389,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     debugPrint('  - Tag Codes: $tagCodes');
     debugPrint('  - Search: $search');
     debugPrint('  - Show Absent Only: $_showAbsentOnly');
+    debugPrint('  - signInAtFilter: $_signInAtFilter');
+    debugPrint('  - signOutAtFilter: $_signOutAtFilter');
     debugPrint('  - Reset: $reset');
 
     if (_showAbsentOnly) {
@@ -416,6 +417,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         attendanceDate: _selectedDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: _signInAtFilter,
+        signOutAtFilter: _signOutAtFilter,
         search: search,
       );
     } else {
@@ -423,8 +426,39 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         attendanceDate: _selectedDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: _signInAtFilter,
+        signOutAtFilter: _signOutAtFilter,
         search: search,
       );
+    }
+  }
+
+  void _applyLegendApiFilters(String? legendStatus) {
+    final normalized = legendStatus == 'Present' ? 'Signed-In' : legendStatus;
+    switch (normalized) {
+      case 'Signed-In':
+        _signInAtFilter = 'NOT_NULL';
+        _signOutAtFilter = 'IGNORE';
+        _showAbsentOnly = false;
+        break;
+      case 'Signed Out':
+        _signInAtFilter = 'IGNORE';
+        _signOutAtFilter = 'NOT_NULL';
+        _showAbsentOnly = false;
+        break;
+      case 'Not Marked':
+        _signInAtFilter = 'NULL';
+        _signOutAtFilter = 'NULL';
+        _showAbsentOnly = false;
+        break;
+      case 'Absent':
+        _signInAtFilter = 'NULL';
+        _signOutAtFilter = 'IGNORE';
+        _showAbsentOnly = false;
+        break;
+      default:
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
     }
   }
 
@@ -815,21 +849,16 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                         state.isRefreshing ||
                         state.isSummaryLoading,
                     onLegendTap: (status) {
-                      final normalized =
-                          status == 'Present' ? 'Signed-In' : status;
-                      final currentLegend = _statusLegendFilter == 'Present'
-                          ? 'Signed-In'
-                          : _statusLegendFilter;
+                      final normalized = status == 'Present' ? 'Signed-In' : status;
+                      final currentLegend =
+                          _statusLegendFilter == 'Present' ? 'Signed-In' : _statusLegendFilter;
                       setState(() {
                         if (currentLegend == normalized) {
                           _statusLegendFilter = null;
+                          _applyLegendApiFilters(null);
                         } else {
                           _statusLegendFilter = normalized;
-                          if (normalized == 'Absent') {
-                            _showAbsentOnly = true;
-                          } else {
-                            _showAbsentOnly = false;
-                          }
+                          _applyLegendApiFilters(normalized);
                         }
                       });
                       _loadAttendanceData();
@@ -1164,32 +1193,6 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     // Note: Search, classroom, and tag filters are handled by API
     // These filters below are for client-side filtering if needed (e.g., legend filters)
 
-    // Apply legend filter
-    if (_statusLegendFilter != null) {
-      if (_statusLegendFilter == 'Signed-In' ||
-          _statusLegendFilter == 'Present') {
-        filtered = filtered
-            .where((student) =>
-                student.expectedToday && student.hasSignIn)
-            .toList();
-      } else if (_statusLegendFilter == 'Absent') {
-        filtered = filtered
-            .where((student) =>
-                student.expectedToday && !student.hasSignIn)
-            .toList();
-      } else if (_statusLegendFilter == 'Signed Out') {
-        filtered = filtered
-            .where((student) =>
-                student.signOutTime != null && student.signOutTime!.isNotEmpty)
-            .toList();
-      } else if (_statusLegendFilter == 'Not Marked') {
-        filtered = filtered
-            .where((student) =>
-                !student.hasSignIn && student.signInTime == null)
-            .toList();
-      }
-    }
-
     // Apply sorting
     if (_sortColumn != null) {
       filtered.sort((a, b) {
@@ -1308,6 +1311,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                           _selectedClassroomNames = [];
                           _selectedTagNames = [];
                           _showAbsentOnly = false;
+                          _signInAtFilter = null;
+                          _signOutAtFilter = null;
                         });
                         _loadAttendanceData(reset: false);
                       }
@@ -1326,6 +1331,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                   _showAbsentOnly = value;
                   if (value) {
                     _statusLegendFilter = 'Absent';
+                    _signInAtFilter = null;
+                    _signOutAtFilter = null;
                   } else if (_statusLegendFilter == 'Absent') {
                     _statusLegendFilter = null;
                   }

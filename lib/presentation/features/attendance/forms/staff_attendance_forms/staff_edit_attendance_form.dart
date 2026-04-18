@@ -172,8 +172,8 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
 
     final payload = <String, dynamic>{
       'staffCode': staffCode,
-      'signedInAt': signedInAt.toIso8601String(),
-      'signedOutAt': signedOutAt?.toIso8601String(),
+      'signedInAt': signedInAt.toUtc().toIso8601String(),
+      'signedOutAt': signedOutAt?.toUtc().toIso8601String(),
       'signedInMethod': 'APP',
       'signedOutMethod': 'APP',
       'signedInLocationLat': 0,
@@ -183,7 +183,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       'signedOutLocationLong': 0,
       'signedOutWithinGeofence': true,
       'notes': null,
-      'timeZone': DateTime.now().timeZoneName,
+      'timeZone': 'UTC',
     };
 
     try {

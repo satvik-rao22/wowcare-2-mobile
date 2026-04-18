@@ -247,7 +247,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       'toClassroomCode': toClassroomCode,
       'toClassroomCodeByStaffCode': toClassroomCodeByStaffCode,
       'transferReason': 'Transferred via mobile app',
-      'timeZone': 'Asia/Kolkata',
+      'timeZone': 'UTC',
       'transferredAt': transferredAt.toIso8601String(),
     };
 

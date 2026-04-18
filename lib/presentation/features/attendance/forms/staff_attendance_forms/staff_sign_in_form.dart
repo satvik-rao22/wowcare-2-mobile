@@ -72,8 +72,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     });
   }
 
-  String _attendanceDateYyyyMmDd(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _attendanceDateYyyyMmDd(DateTime d) {
+    final utc = d.toUtc();
+    return '${utc.year.toString().padLeft(4, '0')}-${utc.month.toString().padLeft(2, '0')}-${utc.day.toString().padLeft(2, '0')}';
+  }
 
   bool _hasUnexpectedAmongSelected() {
     for (final s in _selectedStaff) {
@@ -360,9 +362,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       effectiveTime = selectedTime;
     }
 
-    final attendanceDate =
-        '${effectiveDate.year.toString().padLeft(4, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
-
     final occurredAt = DateTime(
       effectiveDate.year,
       effectiveDate.month,
@@ -370,6 +369,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       effectiveTime.hour,
       effectiveTime.minute,
     ).toUtc();
+    final attendanceDate = _attendanceDateYyyyMmDd(occurredAt);
 
     // Admin cannot sign in for future date/time.
     if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
@@ -413,7 +413,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'latitude': 0,
         'longitude': 0,
         'withinGeofence': true,
-        'timeZone': 'Asia/Kolkata',
+        'timeZone': 'UTC',
         'occurredAt': occurredAt.toIso8601String(),
         'isExpectedToday':
             _isExpectedTodayForStaffCode(staffCode, expectedFromApi),
@@ -445,7 +445,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'latitude': 0,
         'longitude': 0,
         'withinGeofence': true,
-        'timeZone': 'Asia/Kolkata',
+        'timeZone': 'UTC',
         'occurredAt': occurredAt.toIso8601String(),
       };
     }

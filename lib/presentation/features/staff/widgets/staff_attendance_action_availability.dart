@@ -15,18 +15,34 @@ class StaffAttendanceGate {
   final bool isAbsentToday;
   final bool hasSignedOutToday;
 
-  bool get canSignIn =>
-      isActiveProfile &&
-      !isSignedInToday &&
-      !isAbsentToday &&
-      !hasSignedOutToday;
+  /// Enablement rules driven by today's attendance status:
+  /// - SIGNED_IN  -> enable Sign-Out + Transfer only
+  /// - SIGNED_OUT -> disable all actions for the day
+  /// - ABSENT     -> enable Sign-In only
+  /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
+  ///   -> enable **Sign-In** + **Mark Absent** only
+  bool get canSignIn {
+    if (!isActiveProfile) return false;
+    if (hasSignedOutToday) return false;
+    if (isSignedInToday) return false;
+    // Absent can be "recovered" by signing in.
+    return true;
+  }
 
-  bool get canSignOut => isSignedInToday && !isAbsentToday;
+  bool get canSignOut {
+    if (hasSignedOutToday) return false;
+    return isSignedInToday;
+  }
 
   bool get canTransfer => canSignOut;
 
-  bool get canMarkAbsent =>
-      isActiveProfile && !isSignedInToday && !isAbsentToday;
+  bool get canMarkAbsent {
+    if (!isActiveProfile) return false;
+    if (hasSignedOutToday) return false;
+    if (isSignedInToday) return false;
+    if (isAbsentToday) return false;
+    return true;
+  }
 }
 
 class StaffAttendanceActionAvailability {
@@ -87,7 +103,9 @@ StaffAttendanceGate staffAttendanceGateFromTodayStatus({
   final hasSignedOut = su == 'SIGNED_OUT' ||
       su == 'SIGN_OUT' ||
       su == 'COMPLETED' ||
-      su == 'SIGNED_OUT_TODAY';
+      su == 'SIGNED_OUT_TODAY' ||
+      su == 'SIGNEDOUT' ||
+      su == 'SIGNED_OUT_FOR_TODAY';
   return StaffAttendanceGate(
     isActiveProfile: isActiveProfile,
     isSignedInToday: isSignedIn,

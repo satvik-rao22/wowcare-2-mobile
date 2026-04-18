@@ -26,6 +26,8 @@ import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
@@ -304,6 +306,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   late String _activeStudentCode;
   ParentChildProvider? _parentChildProvider;
+  String? _todayStatusRaw;
+  bool _isTodayStatusLoading = false;
 
   String _resolveClassroomNameByCode(
     String? classroomCode,
@@ -563,6 +567,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       isStudentLoading = true;
     });
 
+    // Load today's status first so action menu enablement is correct.
+    await _loadTodayStatus();
+
     final from = _startDate ?? DateTime.now();
     final to = _endDate ?? from;
 
@@ -787,30 +794,29 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     await _loadData();
   }
 
-  bool _isSameDate(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  bool _hasSignedOutToday() {
-    final now = DateTime.now();
-    for (final item in attendances) {
-      if (!_isSameDate(item.date, now)) continue;
-      if (item.signOutTime.trim().isNotEmpty) {
-        return true;
-      }
+  Future<void> _loadTodayStatus() async {
+    final code = _activeStudentCode.trim();
+    if (code.isEmpty) return;
+    if (!mounted) return;
+    setState(() {
+      _isTodayStatusLoading = true;
+    });
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
+      final status = await useCase(studentCode: code);
+      if (!mounted) return;
+      setState(() {
+        _todayStatusRaw = status;
+        _isTodayStatusLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // On error, disable actions to avoid allowing invalid flows.
+      setState(() {
+        _todayStatusRaw = null;
+        _isTodayStatusLoading = false;
+      });
     }
-    return false;
-  }
-
-  bool _isCurrentlySignedIn() {
-    final now = DateTime.now();
-    for (final item in attendances) {
-      if (!_isSameDate(item.date, now)) continue;
-      final hasSignIn = item.signInTime.trim().isNotEmpty;
-      final hasSignOut = item.signOutTime.trim().isNotEmpty;
-      if (hasSignIn && !hasSignOut) return true;
-    }
-    return student?.isSignedIn ?? widget.isSignedIn;
   }
 
   bool get _isActiveProfile {
@@ -818,10 +824,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return status == 'A' || status == 'ACTIVE';
   }
 
-  bool get _canSignIn => _isActiveProfile && !_isCurrentlySignedIn() && !_hasSignedOutToday();
-  bool get _canSignOut => _isCurrentlySignedIn() && !_hasSignedOutToday();
-  bool get _canTransfer => _isCurrentlySignedIn() && !_hasSignedOutToday();
-  bool get _canMarkAbsent => _isActiveProfile && !_isCurrentlySignedIn();
+  StudentAttendanceGate get _todayGate => studentAttendanceGateFromTodayStatus(
+        isActiveProfile: _isActiveProfile,
+        todayStatusRaw: _todayStatusRaw,
+      );
+
+  bool get _canSignIn => !_isTodayStatusLoading && _todayGate.canSignIn;
+  bool get _canSignOut => !_isTodayStatusLoading && _todayGate.canSignOut;
+  bool get _canTransfer => !_isTodayStatusLoading && _todayGate.canTransfer;
+  bool get _canMarkAbsent => !_isTodayStatusLoading && _todayGate.canMarkAbsent;
 
   Future<Map<String, String>> _loadClassroomNameToCodeMap() async {
     try {

@@ -17,6 +17,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_fo
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_state.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
@@ -78,6 +79,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   List<String> _selectedStatusList = [];
   List<String> _selectedAttendanceStatusList = [];
   StaffPanelType _currentPanel = StaffPanelType.none;
+  final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
+  bool _attendanceStatusLoading = false;
+  bool _attendanceStatusError = false;
 
   final List<String> designations = const [
     'Director',
@@ -224,6 +228,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         (staff) => staffSelections[staff.staffCode] == true,
       );
     });
+    _refreshAttendanceStatusForSelection();
   }
 
   List<Staff> _getVisibleStaff() {
@@ -247,9 +252,51 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _refreshAttendanceStatusForSelection() async {
+    final codes = _getSelectedStaffCodes();
+    if (codes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
+      final map = await useCase(staffCodes: codes.toList());
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
   StaffAttendanceActionAvailability _attendanceAvailabilityForSelection() {
     final codes = _getSelectedStaffCodes();
     if (codes.isEmpty) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+    if (_attendanceStatusLoading || _attendanceStatusError) {
       return StaffAttendanceActionAvailability.allDisabled;
     }
 
@@ -267,10 +314,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       }
       final isActive = found.profileStatus == 'A';
       gates.add(
-        StaffAttendanceGate(
+        staffAttendanceGateFromTodayStatus(
           isActiveProfile: isActive,
-          isSignedInToday: found.isSignedIn,
-          isAbsentToday: found.isAbsent,
+          todayStatusRaw: _attendanceStatusByStaffCode[code],
         ),
       );
     }
@@ -431,6 +477,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       _currentFilterData = null;
       _selectedStatusList = [];
       _selectedAttendanceStatusList = [];
+      _attendanceStatusByStaffCode.clear();
+      _attendanceStatusLoading = false;
+      _attendanceStatusError = false;
       _filterStaff();
     });
   }

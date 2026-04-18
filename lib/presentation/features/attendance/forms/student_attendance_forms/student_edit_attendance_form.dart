@@ -183,7 +183,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
           );
 
     final classroomCode = widget.studentAttendance.classroomCode;
-    final timeZone = DateTime.now().timeZoneName;
+    const timeZone = 'UTC';
 
     try {
       final message = await _updateUseCase(

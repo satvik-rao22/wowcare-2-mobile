@@ -26,8 +26,12 @@ class ApiConstantsUat {
   static const String classroomBaseUrl = _host;
   static const String schoolMs = _host;
 
-  /// If attendance/activity/document are served on the same host in UAT, keep them as `_host`.
-  static const String attendanceBaseUrl = _host;
+  /// Attendance service base URL (UAT).
+  ///
+  /// Attendance APIs are served under: `$_host/api/v1/attendance/...`
+  static const String attendanceBaseUrl = '$_host/api/v1/attendance';
+
+  /// If activity/document are served on the same host in UAT, keep them as `_host`.
   static const String activityBaseUrl = _host;
   static const String documentMsBaseUrl = _host;
 
