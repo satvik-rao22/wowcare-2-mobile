@@ -131,7 +131,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.description ?? '';
+      _descriptionController.text =
+          activity.studentList.length > 1 ? '' : (activity.description ?? '');
       _amountController.text =
           _ounceFieldTextFromAmountRaw(activity.amountConsumed);
       _activityTypeCode = activity.activityTypeCode;
@@ -167,9 +168,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
-        _descriptionController.text = item.description ?? '';
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
+        _descriptionController.text =
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? '');
         _amountController.text =
             _ounceFieldTextFromAmountRaw(item.amountConsumed);
         var staffLabel =
@@ -767,7 +773,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && _selectedStudents.length > 1) ...[
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
                 child: Divider(height: 24),
@@ -842,7 +848,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
             StaffPresentWidget(
               staffName: staffPresentLabelForActivity(
                 layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy: _effectiveActivity.createdBy,
+                activityCreatedBy:
+                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
                 staffLabelFromParameters: _staffPresentLabelForEdit,
               ),

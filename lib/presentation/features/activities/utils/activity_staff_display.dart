@@ -12,25 +12,47 @@ bool isPlaceholderActivityAuthor(String value) {
       t == '-';
 }
 
+bool isLikelyStaffCode(String value) {
+  final t = value.trim();
+  if (t.isEmpty) return false;
+  if (t.contains(' ')) return false;
+
+  final hasDigit = RegExp(r'\d').hasMatch(t);
+  final hasUnderscore = t.contains('_');
+  final hasDash = t.contains('-');
+  final upperLike = t.toUpperCase() == t && t.toLowerCase() != t;
+
+  if (hasUnderscore) return true;
+  if (hasDash && hasDigit) return true;
+  if (RegExp(r'^[A-Za-z]{1,4}\d+$').hasMatch(t)) return true;
+  if (hasDigit && upperLike) return true;
+  return false;
+}
+
+String _validStaffDisplayOrEmpty(String value) {
+  final t = value.trim();
+  if (t.isEmpty) return '';
+  if (isPlaceholderActivityAuthor(t)) return '';
+  if (isLikelyStaffCode(t)) return '';
+  return t;
+}
+
 String resolveActivityCreatedByForUi({
   required String rawCreatedBy,
   String? staffLabelFromParameters,
   String? viewerDisplayNameFallback,
 }) {
-  final raw = rawCreatedBy.trim();
-  if (raw.isNotEmpty && !isPlaceholderActivityAuthor(raw)) {
-    return raw;
-  }
-  final st = (staffLabelFromParameters ?? '').trim();
-  if (st.isNotEmpty && !isPlaceholderActivityAuthor(st)) {
-    return st;
-  }
-  final v = (viewerDisplayNameFallback ?? '').trim();
-  if (v.isNotEmpty) {
-    return v;
-  }
+  final raw = _validStaffDisplayOrEmpty(rawCreatedBy);
   if (raw.isNotEmpty) {
     return raw;
+  }
+  final st = _validStaffDisplayOrEmpty(staffLabelFromParameters ?? '');
+  if (st.isNotEmpty) {
+    return st;
+  }
+  final v = _validStaffDisplayOrEmpty(viewerDisplayNameFallback ?? '');
+  if (v.isNotEmpty) {
+    return v;
   }
   return 'Staff';
 }
@@ -62,14 +84,8 @@ String staffPresentLabelForActivity({
 
 /// When merging two feed cards, keep the most informative author label.
 String preferActivityAuthorLabel(String a, String b) {
-  final ta = a.trim();
-  final tb = b.trim();
-  if (ta.isNotEmpty && !isPlaceholderActivityAuthor(ta)) {
-    return ta;
-  }
-  if (tb.isNotEmpty && !isPlaceholderActivityAuthor(tb)) {
-    return tb;
-  }
+  final ta = _validStaffDisplayOrEmpty(a);
+  final tb = _validStaffDisplayOrEmpty(b);
   if (ta.isNotEmpty) {
     return ta;
   }

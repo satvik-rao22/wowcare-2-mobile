@@ -93,7 +93,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
 
-      _descriptionController.text = activity.description ?? '';
+      _descriptionController.text =
+          activity.studentList.length > 1 ? '' : (activity.description ?? '');
       _activityTypeCode = activity.activityTypeCode;
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
@@ -139,9 +140,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
-        _descriptionController.text = item.description ?? '';
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
+        _descriptionController.text =
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? '');
         _activityTypeCode = item.activityTypeCode;
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
@@ -757,7 +763,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && _selectedStudents.length > 1) ...[
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
                 child: Divider(height: 24),
@@ -831,7 +837,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             StaffPresentWidget(
               staffName: staffPresentLabelForActivity(
                 layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy: _effectiveActivity.createdBy,
+                activityCreatedBy:
+                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
               ),
               isEditable: _canInteract,

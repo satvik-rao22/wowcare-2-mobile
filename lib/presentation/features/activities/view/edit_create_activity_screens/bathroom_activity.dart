@@ -59,7 +59,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   }
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
-  late final List<String> _selectedStudents;
+  List<String> _selectedStudents = [];
   final TextEditingController _descriptionController = TextEditingController();
 
   List<ActivityTypeParameterOption> _bathroomTypeOptions = [];
@@ -88,6 +88,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   List<ActivityTypeParameter> _extraParameters = [];
   final Map<String, String?> _extraDropdownByParamCode = {};
   final Map<String, bool> _extraBoolByParamCode = {};
+  List<Map<String, dynamic>> _detailParameterRows = [];
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
@@ -120,7 +121,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.description ?? '';
+      _descriptionController.text =
+          activity.studentList.length > 1 ? '' : (activity.description ?? '');
       _selectedBathroomType = activity.bathroomType;
       _selectedSubType = activity.bathroomSubType;
       _activityTypeCode = activity.activityTypeCode;
@@ -158,12 +160,20 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
-        _descriptionController.text = item.description ?? '';
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
+        _descriptionController.text =
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? '');
         _selectedBathroomType = item.bathroomType;
         _selectedSubType = item.bathroomSubType;
         _activityTypeCode = item.activityTypeCode;
+        _detailParameterRows = detail.parameterValues
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -379,6 +389,71 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     return out;
   }
 
+  String? _labelFromOptionCode(
+    ActivityTypeParameter p,
+    String? optionCode, {
+    String? restrictParentOptionCode,
+  }) {
+    final oc = (optionCode ?? '').trim();
+    if (oc.isEmpty) return null;
+    final parentFilter = restrictParentOptionCode?.trim();
+    for (final o in p.options) {
+      if (parentFilter != null && parentFilter.isNotEmpty) {
+        final po = (o.parentOptionCode ?? '').trim();
+        if (po.isNotEmpty && po != parentFilter) continue;
+      }
+      final thisOc = (o.optionCode ?? o.code).trim();
+      if (thisOc.isNotEmpty && thisOc == oc) {
+        final label = (o.optionLabel ?? '').trim();
+        if (label.isNotEmpty) return label;
+      }
+    }
+    return null;
+  }
+
+  void _prefillExtraFieldValuesFromDetailRows() {
+    final rows = _detailParameterRows;
+    if (rows.isEmpty || _extraParameters.isEmpty) return;
+    final bathroomOc =
+        _optionCodeForBathroomTypeLabel(_selectedBathroomType ?? '');
+    for (final p in _extraParameters) {
+      final row = rows.where((r) => (r['parameterCode'] ?? '') == p.code).toList();
+      if (row.isEmpty) continue;
+      final r = row.first;
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt == 'BOOLEAN') {
+        final vb = r['valueBoolean'];
+        if (vb is bool) {
+          _extraBoolByParamCode[p.code] = vb;
+        } else {
+          final txt = (r['valueText'] ?? '').toString().trim().toLowerCase();
+          if (txt.isNotEmpty) {
+            _extraBoolByParamCode[p.code] =
+                txt == 'true' || txt == '1' || txt == 'yes';
+          }
+        }
+        continue;
+      }
+
+      if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
+        String? label = (r['selectedOptionLabel'] ?? '').toString().trim();
+        label = label.isEmpty
+            ? (r['optionLabel'] ?? '').toString().trim()
+            : label;
+        if (label.isEmpty) {
+          label = _labelFromOptionCode(
+            p,
+            (r['selectedOptionCode'] ?? r['valueText']).toString(),
+            restrictParentOptionCode: bathroomOc,
+          );
+        }
+        if (label != null && label.isNotEmpty) {
+          _extraDropdownByParamCode[p.code] = label;
+        }
+      }
+    }
+  }
+
   Future<void> _loadBathroomParameterOptions() async {
     final code = _activityTypeCode?.trim();
     if (code == null || code.isEmpty) return;
@@ -425,6 +500,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         _allSubTypeOptions = subs;
         _loadingBathroomOptions = false;
         _updateAvailableSubTypes();
+        _prefillExtraFieldValuesFromDetailRows();
       });
     } catch (e) {
       CoreUtils.logApiError('Failed to load Bathroom type options: $e');
@@ -1044,7 +1120,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && _selectedStudents.length > 1) ...[
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
                 child: Divider(height: 24),
@@ -1142,7 +1218,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
             StaffPresentWidget(
               staffName: staffPresentLabelForActivity(
                 layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy: _effectiveActivity.createdBy,
+                activityCreatedBy:
+                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
               ),
               isEditable: _canInteract,

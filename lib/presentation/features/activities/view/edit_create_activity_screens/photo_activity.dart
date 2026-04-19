@@ -121,7 +121,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.description ?? '';
+      _descriptionController.text =
+          activity.studentList.length > 1 ? '' : (activity.description ?? '');
       _activityTypeCode = activity.activityTypeCode;
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -159,9 +160,14 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
-        _descriptionController.text = item.description ?? '';
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
+        _descriptionController.text =
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? '');
         _activityTypeCode = item.activityTypeCode;
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
@@ -870,7 +876,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     );
                   },
                 ),
-              if (widget.isEdit && _selectedStudents.length > 1) ...[
+              if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 10),
                   child: Divider(height: 24),
@@ -936,7 +942,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               StaffPresentWidget(
                 staffName: staffPresentLabelForActivity(
                   layoutAsEdit: _layoutAsEdit,
-                  activityCreatedBy: _effectiveActivity.createdBy,
+                  activityCreatedBy:
+                      _layoutAsEdit ? _effectiveActivity.createdBy : '',
                   loggedInDisplayName: _staffName,
                 ),
                 isEditable: _canInteract,

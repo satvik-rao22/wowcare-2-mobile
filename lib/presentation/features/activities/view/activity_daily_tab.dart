@@ -3618,6 +3618,56 @@ bool _bathroomFeedTypeIsPeeTrack(String? typeRaw) {
   return s.contains('pee') || s.contains('potty');
 }
 
+bool _looksLikeSystemGeneratedDetailText(String activityName, String desc) {
+  final d = desc.trim().toLowerCase();
+  if (d.isEmpty) return false;
+  if (d.contains('\n')) return true;
+  switch (activityName) {
+    case 'Bathroom':
+      return d.contains('diaper') ||
+          d.contains('potty') ||
+          d.contains('pee') ||
+          d.contains('bm') ||
+          d.contains('wet') ||
+          d.contains('dry');
+    case 'Meal':
+      return d.contains('quantity') ||
+          d.contains('breakfast') ||
+          d.contains('lunch') ||
+          d.contains('snack') ||
+          d.contains('dinner');
+    case 'Bottle':
+      return d.contains('oz') ||
+          d.contains('consum') ||
+          d.contains('intake') ||
+          d.contains('left');
+    case 'Nap Start':
+    case 'Nap End':
+      return d.contains('nap') && d.contains('at');
+    case 'Learning':
+      return d.contains('category') || d.contains('activity name');
+    default:
+      return false;
+  }
+}
+
+String _joinPrimaryAndOptionalDescription({
+  required String activityName,
+  required String primary,
+  String? description,
+  String separator = '\n',
+}) {
+  final p = primary.trim();
+  final d = (description ?? '').trim();
+  if (p.isEmpty) return d;
+  if (d.isEmpty) return p;
+  final pn = p.toLowerCase();
+  final dn = d.toLowerCase();
+  if (pn == dn || pn.contains(dn) || dn.contains(pn)) return p;
+  if (_looksLikeSystemGeneratedDetailText(activityName, d)) return p;
+  return '$p$separator$d';
+}
+
 /// Feed card line under student avatars (Meal / Bottle / Nap / Learning / Bathroom + description).
 String activityFeedCardBodyLine(ActivityItem activity) {
   if (activity.name == 'Meal') {
@@ -3638,10 +3688,11 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     }
 
     if (firstLine != null && firstLine.isNotEmpty) {
-      if (desc != null && desc.isNotEmpty) {
-        return '$firstLine\n$desc';
-      }
-      return firstLine;
+      return _joinPrimaryAndOptionalDescription(
+        activityName: activity.name,
+        primary: firstLine,
+        description: desc,
+      );
     }
     if (desc != null && desc.isNotEmpty) return desc;
     return 'No description';
@@ -3668,10 +3719,12 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     }
 
     if (primary != null && primary.isNotEmpty) {
-      if (desc != null && desc.isNotEmpty) {
-        return '$primary · $desc';
-      }
-      return primary;
+      return _joinPrimaryAndOptionalDescription(
+        activityName: activity.name,
+        primary: primary,
+        description: desc,
+        separator: ' · ',
+      );
     }
     if (desc != null && desc.isNotEmpty) return desc;
     return 'No description';
@@ -3690,10 +3743,11 @@ String activityFeedCardBodyLine(ActivityItem activity) {
                 : activity.time.trim()));
     final firstLine =
         at.isNotEmpty ? 'Nap ${isStart ? 'started' : 'ended'} at $at' : 'Nap';
-    if (desc != null && desc.isNotEmpty) {
-      return '$firstLine\n$desc';
-    }
-    return firstLine;
+    return _joinPrimaryAndOptionalDescription(
+      activityName: activity.name,
+      primary: firstLine,
+      description: desc,
+    );
   }
   if (activity.name == 'Learning') {
     final at = activity.activityType?.trim();
@@ -3710,10 +3764,11 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     }
     if (parts.isNotEmpty) {
       final first = parts.join(' · ');
-      if (desc != null && desc.isNotEmpty) {
-        return '$first\n$desc';
-      }
-      return first;
+      return _joinPrimaryAndOptionalDescription(
+        activityName: activity.name,
+        primary: first,
+        description: desc,
+      );
     }
     if (desc != null && desc.isNotEmpty) return desc;
     return 'No description';
@@ -3750,10 +3805,11 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     }
 
     if (firstLine != null && firstLine.isNotEmpty) {
-      if (desc != null && desc.isNotEmpty) {
-        return '$firstLine\n$desc';
-      }
-      return firstLine;
+      return _joinPrimaryAndOptionalDescription(
+        activityName: activity.name,
+        primary: firstLine,
+        description: desc,
+      );
     }
     if (desc != null && desc.isNotEmpty) return desc;
     return 'No description';
@@ -3851,6 +3907,13 @@ bool activityItemsMergeableForFeedDisplay(ActivityItem a, ActivityItem b) {
   if (a.name == 'Bottle') {
     if (a.amountConsumed != b.amountConsumed) return false;
     if (a.bottleConsumptionStatus != b.bottleConsumptionStatus) return false;
+  }
+  if (a.name == 'Bathroom') {
+    if ((a.bathroomType ?? '') != (b.bathroomType ?? '')) return false;
+    if ((a.bathroomSubType ?? '') != (b.bathroomSubType ?? '')) return false;
+    if ((a.bathroomDiaperSize ?? '') != (b.bathroomDiaperSize ?? '')) {
+      return false;
+    }
   }
   return true;
 }

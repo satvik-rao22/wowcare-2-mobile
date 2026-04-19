@@ -138,8 +138,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text =
-          activity.description ?? activity.whatHappened ?? '';
+      _descriptionController.text = activity.studentList.length > 1
+          ? ''
+          : (activity.description ?? activity.whatHappened ?? '');
       _selectedActivityType = activity.activityType ?? '';
       final cats = activity.categoryType;
       _selectedCategory =
@@ -184,10 +185,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
         _descriptionController.text =
-            item.description ?? item.whatHappened ?? '';
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? item.whatHappened ?? '');
         _selectedActivityType = item.activityType ?? '';
         final cats = item.categoryType;
         _selectedCategory =
@@ -1182,7 +1187,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && _selectedStudents.length > 1) ...[
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
                 child: Divider(height: 24),
@@ -1272,7 +1277,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
             StaffPresentWidget(
               staffName: staffPresentLabelForActivity(
                 layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy: _effectiveActivity.createdBy,
+                activityCreatedBy:
+                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
               ),
               isEditable: _canInteract,
