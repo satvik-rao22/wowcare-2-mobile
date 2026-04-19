@@ -20,6 +20,8 @@ import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 
+import 'package:timezone/data/latest.dart' as tzdata;
+
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
 
@@ -37,6 +39,7 @@ import 'shared/common/app/providers/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tzdata.initializeTimeZones();
 
   // Initialize dependency injection
   await configureDependencies();

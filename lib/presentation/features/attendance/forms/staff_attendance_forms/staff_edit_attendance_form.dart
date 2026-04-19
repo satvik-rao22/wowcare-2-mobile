@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 class StaffEditAttendanceForm extends StatefulWidget {
   const StaffEditAttendanceForm({
@@ -157,31 +158,34 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     }
 
     final date = widget.attendanceDate;
-    final signedInAt = DateTime.utc(
-      date.year,
-      date.month,
-      date.day,
-      _signInTime!.hour,
-      _signInTime!.minute,
-    );
-    final signedOutAt = _signOutTime == null
-        ? null
-        : DateTime.utc(
-            date.year,
-            date.month,
-            date.day,
-            _signOutTime!.hour,
-            _signOutTime!.minute,
-          );
-
-    final classroomCode = widget.staffAttendance.classroomCode?.trim();
-    final classroomForPayload =
-        (classroomCode != null && classroomCode.isNotEmpty) ? classroomCode : null;
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
+
+    final signedInAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+      schoolTimeZone,
+      year: date.year,
+      month: date.month,
+      day: date.day,
+      hour: _signInTime!.hour,
+      minute: _signInTime!.minute,
+    );
+    final signedOutAt = _signOutTime == null
+        ? null
+        : SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: date.year,
+            month: date.month,
+            day: date.day,
+            hour: _signOutTime!.hour,
+            minute: _signOutTime!.minute,
+          );
+
+    final classroomCode = widget.staffAttendance.classroomCode?.trim();
+    final classroomForPayload =
+        (classroomCode != null && classroomCode.isNotEmpty) ? classroomCode : null;
 
     final payload = <String, dynamic>{
       'staffCode': staffCode,

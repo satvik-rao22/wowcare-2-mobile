@@ -6,6 +6,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
@@ -167,29 +168,32 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       return;
     }
 
-    // Send prefilled/edited sign-in and optional sign-out values to patch API.
-    final signedInAt = DateTime.utc(
-      date.year,
-      date.month,
-      date.day,
-      _signInTime!.hour,
-      _signInTime!.minute,
-    );
-    final signedOutAt = _signOutTime == null
-        ? null
-        : DateTime.utc(
-            date.year,
-            date.month,
-            date.day,
-            _signOutTime!.hour,
-            _signOutTime!.minute,
-          );
-
-    final classroomCode = widget.studentAttendance.classroomCode;
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
+
+    // Send prefilled/edited times as school-local wall clock on [attendanceDate].
+    final signedInAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+      schoolTimeZone,
+      year: date.year,
+      month: date.month,
+      day: date.day,
+      hour: _signInTime!.hour,
+      minute: _signInTime!.minute,
+    );
+    final signedOutAt = _signOutTime == null
+        ? null
+        : SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: date.year,
+            month: date.month,
+            day: date.day,
+            hour: _signOutTime!.hour,
+            minute: _signOutTime!.minute,
+          );
+
+    final classroomCode = widget.studentAttendance.classroomCode;
 
     try {
       final message = await _updateUseCase(

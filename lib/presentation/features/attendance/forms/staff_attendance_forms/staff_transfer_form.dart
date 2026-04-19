@@ -16,6 +16,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -246,27 +247,33 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       for (final code in staffCodes) code: toClassroomCode,
     };
 
-    final now = DateTime.now();
-    final effectiveDate =
-        (_isStaffAdminPersona ?? false) ? _selectedTransferDate : now;
-    final today = DateTime(now.year, now.month, now.day);
-    final pickedDay =
-        DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
-    final safeDate = pickedDay.isAfter(today) ? today : effectiveDate;
-    final effectiveTime =
-        (_isStaffAdminPersona ?? false) ? _selectedTransferTime : TimeOfDay.fromDateTime(now);
-    final transferredAt = DateTime(
-      safeDate.year,
-      safeDate.month,
-      safeDate.day,
-      effectiveTime.hour,
-      effectiveTime.minute,
-    ).toUtc();
-
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
+    final schoolToday =
+        SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+
+    final DateTime transferredAt;
+    if (isStaffAdmin) {
+      final pickedDay = DateTime(
+        _selectedTransferDate.year,
+        _selectedTransferDate.month,
+        _selectedTransferDate.day,
+      );
+      final safeDay =
+          pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
+      transferredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+        schoolTimeZone,
+        year: safeDay.year,
+        month: safeDay.month,
+        day: safeDay.day,
+        hour: _selectedTransferTime.hour,
+        minute: _selectedTransferTime.minute,
+      );
+    } else {
+      transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
+    }
 
     final payload = <String, dynamic>{
       'staffCode': staffCode,
@@ -275,7 +282,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       'toClassroomCodeByStaffCode': toClassroomCodeByStaffCode,
       'transferReason': 'Transferred via mobile app',
       'timeZone': schoolTimeZone,
-      'transferredAt': transferredAt.toIso8601String(),
+      'transferredAt': transferredAt.toUtc().toIso8601String(),
     };
 
     try {

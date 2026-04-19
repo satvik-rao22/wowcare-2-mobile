@@ -19,6 +19,7 @@ import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -78,6 +79,7 @@ class StudentSignOutForm extends StatefulWidget {
 class _StudentSignOutFormState extends State<StudentSignOutForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
+  String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
@@ -105,6 +107,14 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   Future<void> _loadPersonaFlags() async {
     try {
+      String? iana;
+      try {
+        iana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+          storage: serviceLocator<StorageService>(),
+          apiClient: serviceLocator<ApiClient>(),
+        );
+      } catch (_) {}
+
       final storage = serviceLocator<StorageService>();
       final staffType =
           (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
@@ -125,11 +135,18 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       }
       if (!mounted) return;
       setState(() {
+        _schoolIana = iana;
         _isStaffAdminPersona = isAdmin;
         if (!isAdmin) {
-          final now = DateTime.now();
-          selectedDate = now;
-          selectedTime = TimeOfDay.fromDateTime(now);
+          if (iana != null && iana.isNotEmpty) {
+            final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+            selectedDate = dt.$1;
+            selectedTime = dt.$2;
+          } else {
+            final now = DateTime.now();
+            selectedDate = now;
+            selectedTime = TimeOfDay.fromDateTime(now);
+          }
         }
       });
     } catch (_) {}
@@ -197,27 +214,34 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       ApiConstants.attendanceBaseUrl,
     );
 
-    final now = DateTime.now();
-    final isAdmin = _isStaffAdminPersona ?? false;
-    final DateTime effectiveDate = isAdmin ? selectedDate : now;
-    final TimeOfDay effectiveTime =
-        isAdmin ? selectedTime : TimeOfDay.fromDateTime(now);
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
 
-    final occurredAt = DateTime(
-      effectiveDate.year,
-      effectiveDate.month,
-      effectiveDate.day,
-      effectiveTime.hour,
-      effectiveTime.minute,
-    ).toUtc();
+    final isAdmin = _isStaffAdminPersona ?? false;
+    final nowUtc = DateTime.now().toUtc();
+
+    final DateTime occurredAt = isAdmin
+        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: selectedDate.year,
+            month: selectedDate.month,
+            day: selectedDate.day,
+            hour: selectedTime.hour,
+            minute: selectedTime.minute,
+          )
+        : SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
+
     final attendanceDate =
-        '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}-${occurredAt.day.toString().padLeft(2, '0')}';
+        SchoolZoneDateTime.yyyyMmDdFromUtcInstant(occurredAt, schoolTimeZone);
 
     if (isParent) {
       final selectedDay =
-          DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
-      final today = DateTime(now.year, now.month, now.day);
-      if (selectedDay.isAfter(today)) {
+          DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      final schoolToday =
+          SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+      if (selectedDay.isAfter(schoolToday)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
@@ -229,7 +253,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         return;
       }
     } else if (isAdmin) {
-      if (occurredAt.isAfter(now.toUtc())) {
+      if (occurredAt.isAfter(nowUtc)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
@@ -266,11 +290,6 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     final defaultClassroomCode = classroomCodeByStudentCode.values.isNotEmpty
         ? classroomCodeByStudentCode.values.first
         : '';
-
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
 
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
@@ -323,7 +342,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         'staffCode': staffCode,
         'classroomCode': defaultClassroomCode,
         'classroomCodeByStudentCode': classroomCodeByStudentCode,
-        'occurredAt': occurredAt.toIso8601String(),
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
       });
     }
 
@@ -469,10 +488,15 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final pickedDay = DateTime(date.year, date.month, date.day);
-                            selectedDate = pickedDay.isAfter(today) ? today : date;
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
+                            final pickedDay =
+                                DateTime(date.year, date.month, date.day);
+                            selectedDate =
+                                pickedDay.isAfter(today) ? today : date;
                           });
                         },
                       ),

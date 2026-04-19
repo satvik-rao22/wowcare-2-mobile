@@ -16,6 +16,7 @@ import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
@@ -37,6 +38,7 @@ class StaffSignOutForm extends StatefulWidget {
 class _StaffSignOutFormState extends State<StaffSignOutForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
+  String? _schoolIana;
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
@@ -61,14 +63,30 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   }
 
   Future<void> _loadPersonaFlags() async {
+    String? iana;
+    try {
+      iana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+    } catch (_) {}
+
     final isAdmin = await _resolveIsStaffAdminPersona();
     if (!mounted) return;
     setState(() {
+      _schoolIana = iana;
       _isStaffAdminPersona = isAdmin;
-      // Teachers cannot modify date/time.
+      // Teachers cannot modify date/time — use school-local "now".
       if (!_isStaffAdminPersona!) {
-        selectedDate = DateTime.now();
-        selectedTime = TimeOfDay.now();
+        if (iana != null && iana.isNotEmpty) {
+          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+          selectedDate = dt.$1;
+          selectedTime = dt.$2;
+        } else {
+          final n = DateTime.now();
+          selectedDate = n;
+          selectedTime = TimeOfDay.fromDateTime(n);
+        }
       }
     });
   }
@@ -167,12 +185,17 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
     final isStaffAdmin =
         _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
-    final now = DateTime.now();
-    final nowUtc = now.toUtc();
+
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    final nowUtc = DateTime.now().toUtc();
 
     // Teachers can only sign out themselves and cannot modify time.
-    final DateTime effectiveDate;
-    final TimeOfDay effectiveTime;
+    late final DateTime occurredAt;
+    late final String attendanceDate;
+
     if (!isStaffAdmin) {
       if (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -190,22 +213,21 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         }
         return;
       }
-      effectiveDate = now;
-      effectiveTime = TimeOfDay.fromDateTime(now);
+      occurredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
+      attendanceDate =
+          SchoolZoneDateTime.yyyyMmDdFromUtcInstant(occurredAt, schoolTimeZone);
     } else {
-      effectiveDate = selectedDate;
-      effectiveTime = selectedTime;
+      occurredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+        schoolTimeZone,
+        year: selectedDate.year,
+        month: selectedDate.month,
+        day: selectedDate.day,
+        hour: selectedTime.hour,
+        minute: selectedTime.minute,
+      );
+      attendanceDate =
+          SchoolZoneDateTime.yyyyMmDdFromUtcInstant(occurredAt, schoolTimeZone);
     }
-
-    final occurredAt = DateTime(
-      effectiveDate.year,
-      effectiveDate.month,
-      effectiveDate.day,
-      effectiveTime.hour,
-      effectiveTime.minute,
-    ).toUtc();
-    final attendanceDate =
-        '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}-${occurredAt.day.toString().padLeft(2, '0')}';
 
     // Admin cannot sign out for future date/time.
     if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
@@ -236,11 +258,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ? classroomCodeByStaffCode.values.first
         : '';
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
       'staffCode': staffCode,
@@ -252,7 +269,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'longitude': 0,
       'withinGeofence': true,
       'timeZone': schoolTimeZone,
-      'occurredAt': occurredAt.toIso8601String(),
+      'occurredAt': occurredAt.toUtc().toIso8601String(),
     };
 
     try {
@@ -362,10 +379,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final picked = DateTime(date.year, date.month, date.day);
-                            selectedDate = picked.isAfter(today) ? today : date;
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
+                            final picked =
+                                DateTime(date.year, date.month, date.day);
+                            selectedDate =
+                                picked.isAfter(today) ? today : date;
                           });
                         },
                       ),
