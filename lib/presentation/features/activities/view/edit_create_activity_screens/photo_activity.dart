@@ -24,8 +24,10 @@ import '../../../../../domain/features/activity/usecases/get_classroom_activity_
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
+import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
@@ -69,6 +71,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   bool _isSubmitting = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
+  final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
 
@@ -150,7 +153,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
-      final item = activityItemFromActivityDetail(detail);
+      final item = activityItemFromActivityDetail(
+        detail,
+        viewerDisplayName: _staffName,
+      );
       setState(() {
         _liveActivity = item;
         _selectedStudents = List<String>.from(item.studentList);
@@ -309,7 +315,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     final classroomCodeRaw = _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
     final classroomCode = classroomCodeRaw is String ? classroomCodeRaw.trim() : '';
-    final studentCodes = _selectedStudentsData
+    final scopeMaps = widget.isEdit
+        ? studentMapsForScopedActivityUpdate(
+            allStudentMaps: _selectedStudentsData,
+            checkedIndices: _scopedEditStudentIndices,
+          )
+        : _selectedStudentsData;
+    final studentCodes = scopeMaps
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
         .where((c) => c.isNotEmpty)
@@ -571,16 +583,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
 
-    final activityCode = _effectiveActivity.activityCode?.trim();
-    if (activityCode == null || activityCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing activity reference. Refresh the activity list and try again.',
-        isError: true,
-      );
-      return;
-    }
+    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
     if (_isUploadingMedia) {
       CoreUtils.showTopSnackBar(
@@ -635,7 +638,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       return;
     }
 
-    final studentCodes = _selectedStudentsData
+    final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
+      allStudentMaps: _selectedStudentsData,
+      checkedIndices: _scopedEditStudentIndices,
+    );
+    final studentCodes = scopeMapsForUpload
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
         .where((c) => c.isNotEmpty)
@@ -742,21 +749,40 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           {'parameterCode': findCode('description'), 'value': desc},
       ];
 
-      final message = await _updateActivityUseCase(
-        code: activityCode,
-        staffCode: staffCode,
-        activityDate: activityDateIso,
-        description: desc,
-        parameterValues: parameterValues,
-        attachments: patchAttachments,
+      final targets = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
       );
-      try {
-        await _getActivityUseCase(code: activityCode);
-      } catch (_) {}
+      String? lastMessage;
+      for (final m in targets) {
+        final code = (m['activityCode'] as String?)?.trim() ??
+            fallbackActivityCode;
+        if (code == null || code.isEmpty) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Missing activity reference for a student. Refresh the feed and try again.',
+            isError: true,
+          );
+          return;
+        }
+        lastMessage = await _updateActivityUseCase(
+          code: code,
+          staffCode: staffCode,
+          activityDate: activityDateIso,
+          description: desc,
+          parameterValues: parameterValues,
+          attachments: patchAttachments,
+        );
+        try {
+          await _getActivityUseCase(code: code);
+        } catch (_) {}
+      }
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: lastMessage ?? 'Updated',
         isSuccess: true,
       );
       Navigator.of(context).popUntil(
@@ -844,11 +870,29 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     );
                   },
                 ),
+              if (widget.isEdit && _selectedStudents.length > 1) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(height: 24),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: ActivityEditStudentScopeCheckboxes(
+                    studentNames: _selectedStudents,
+                    checkedIndices: _scopedEditStudentIndices,
+                    onChanged: (next) => setState(() {
+                      _scopedEditStudentIndices
+                        ..clear()
+                        ..addAll(next);
+                    }),
+                  ),
+                ),
+              ],
               Row(
                 children: [
                   Flexible(
                     child: DateWidget(
-                      isEditable: _layoutAsEdit ? _canInteract : true,
+                      isEditable: false,
                       isRequired: true,
                       initialDate:
                           _layoutAsEdit ? _effectiveActivity.date : null,
@@ -890,9 +934,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               ],
               SizedBox(height: responsive.verticalSpacing),
               StaffPresentWidget(
-                staffName: _layoutAsEdit
-                    ? _effectiveActivity.createdBy
-                    : _staffName,
+                staffName: staffPresentLabelForActivity(
+                  layoutAsEdit: _layoutAsEdit,
+                  activityCreatedBy: _effectiveActivity.createdBy,
+                  loggedInDisplayName: _staffName,
+                ),
                 isEditable: _canInteract,
               ),
               SizedBox(height: responsive.verticalSpacing),

@@ -9,7 +9,6 @@ import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -28,10 +27,12 @@ import '../../../../domain/features/activity/usecases/delete_activity_usecase.da
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../util/activity_filter_metadata_cache.dart';
+import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -99,6 +100,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String? _selectedActivityType;
   String? _feedError;
   String? _schoolCode;
+  String _viewerStaffDisplayName = '';
   final Map<String, String> _classroomCodeByName = {};
   final Map<String, String> _studentCodeByName = {};
   List<ActivitySetting> _classroomActivitySettings = [];
@@ -126,6 +128,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetStudentCodesForActivityTagFilterUseCase
+      _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
@@ -290,6 +294,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _getStudentCodesForActivityTagFilterUseCase =
+        serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
@@ -339,9 +345,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   List<ActivityItem> _itemsFromRangeFeedPage(ActivityFeedPage page) {
-    final raw =
-        page.content.map((row) => activityItemFromFeedRow(row)).toList();
-    return _withClientFilters(raw);
+    final raw = page.content
+        .map(
+          (row) => activityItemFromFeedRow(
+            row,
+            viewerDisplayName: _viewerStaffDisplayName,
+          ),
+        )
+        .toList();
+    return mergeAdjacentMultiStudentFeedItems(_withClientFilters(raw));
   }
 
   Future<void> _loadNextRangeFeedPage() async {
@@ -386,6 +398,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
+        final merged = mergeAdjacentMultiStudentFeedItems(
+          List<ActivityItem>.from(activities),
+        );
+        activities
+          ..clear()
+          ..addAll(merged);
         _feedHasMore = !page.last;
         _feedNextPage = page.last ? 0 : page.pageNumber + 1;
       });
@@ -570,6 +588,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
+        final combined = mergeAdjacentMultiStudentFeedItems(
+          List<ActivityItem>.from(activities),
+        );
+        activities
+          ..clear()
+          ..addAll(combined);
         _feedHasMore = !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
@@ -643,7 +667,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     await _loadRangeFeed(refresh: true);
   }
 
-  Future<void> _loadTagFilterOptions() async {
+  /// Refreshes tag map from the network, then reloads the range feed (bypassing caches).
+  Future<void> _refreshApisAfterClearAll() async {
+    await _loadTagFilterOptions(forceRefresh: true);
+    await _loadRangeFeed(refresh: true);
+  }
+
+  Future<void> _loadTagFilterOptions({bool forceRefresh = false}) async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
     try {
@@ -651,6 +681,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         cacheManager: _cacheManager,
         useCase: _getTagNameCodeMapForSchoolUseCase,
         schoolCode: school,
+        forceRefresh: forceRefresh,
       );
       if (!mounted) return;
       setState(() {
@@ -722,7 +753,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         return names.contains(a.name.trim().toLowerCase());
       }).toList();
     }
-    if (_filterTags.isNotEmpty && _studentCodesForTagFilter.isNotEmpty) {
+    if (_filterTags.isNotEmpty) {
       list = list
           .where((a) =>
               a.studentCode != null &&
@@ -736,42 +767,61 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _studentCodesForTagFilter.clear();
     if (_filterTags.isEmpty || !mounted) return;
     final school = _schoolCode;
-    final classroomName = _selectdClassroom;
-    if (school == null ||
-        school.isEmpty ||
-        classroomName == null ||
-        !_classroomCodeByName.containsKey(classroomName)) {
-      return;
-    }
-    final cc = _classroomCodeByName[classroomName]!;
+    if (school == null || school.isEmpty) return;
+
+    final tagCodes = _filterTags
+        .map((name) => _tagNameToCode[name]?.trim())
+        .whereType<String>()
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (tagCodes.isEmpty) return;
+
     try {
-      for (final tagName in _filterTags) {
-        final tagCode = _tagNameToCode[tagName];
-        if (tagCode == null || tagCode.trim().isEmpty) continue;
-        var page = 0;
-        while (true) {
-          final sp = await _getStudentPageUseCase(
+      if (_parentHome) {
+        final classroomCodes = _parentStudentClassroomByCode.values
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList();
+        for (final cc in classroomCodes) {
+          final students = await _getStudentCodesForActivityTagFilterUseCase(
             schoolCode: school,
-            classroomCodes: [cc],
-            tagCodes: [tagCode.trim()],
-            page: page,
-            size: 100,
+            classroomCode: cc,
+            tagCodes: tagCodes,
           );
           if (!mounted) return;
-          for (final s in sp.items) {
-            _studentCodesForTagFilter.add(s.code);
-          }
-          if (!sp.hasMore) break;
-          page++;
-          if (page > 100) break;
+          _studentCodesForTagFilter.addAll(students);
         }
+        return;
       }
+
+      final classroomName = _selectdClassroom;
+      if (classroomName == null ||
+          !_classroomCodeByName.containsKey(classroomName)) {
+        return;
+      }
+      final cc = _classroomCodeByName[classroomName]!;
+      final students = await _getStudentCodesForActivityTagFilterUseCase(
+        schoolCode: school,
+        classroomCode: cc,
+        tagCodes: tagCodes,
+      );
+      if (!mounted) return;
+      _studentCodesForTagFilter.addAll(students);
     } catch (_) {
       if (mounted) _studentCodesForTagFilter.clear();
     }
   }
 
   Future<void> _bootstrapRangeFeed() async {
+    final viewerName =
+        (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    if (mounted) {
+      setState(() {
+        _viewerStaffDisplayName = viewerName;
+      });
+    }
+
     _schoolCode = (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
 
     if ((_schoolCode ?? '').isEmpty) {
@@ -1467,12 +1517,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                       DateTime(now.year, now.month, 1);
                                   _selectedEndDate =
                                       DateTime(now.year, now.month + 1, 0);
-                                  _selectdClassroom = _classroomOptions[0];
+                                  if (_classroomOptions.isNotEmpty) {
+                                    _selectdClassroom = _classroomOptions.first;
+                                  }
                                   _selectedStudent = null;
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
-                                _loadRangeFeed(refresh: true);
+                                _refreshApisAfterClearAll();
                               },
                               label: 'Clear All',
                             ),
@@ -1926,48 +1978,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                           ),
                                                           const SizedBox(height: 10),
 
-                                                          SizedBox(
-                                                            height: 32,
-                                                            child: Stack(
-                                                              children: [
-                                                                for (
-                                                                int i = 0;
-                                                                i < students.length &&
-                                                                    i < 4;
-                                                                i++
-                                                                )
-                                                                  Positioned(
-                                                                    left: i * 20,
-                                                                    child:
-                                                                    DocumentImageWidget(
-                                                                      fileUuid: '',
-                                                                      name:
-                                                                      students[i],
-                                                                      size: 28,
-                                                                      fontSize: 10,
-                                                                    ),
-                                                                  ),
-
-                                                                // Extra count tooltip
-                                                                if (students.length > 4)
-                                                                  Positioned(
-                                                                    left:
-                                                                    4 *
-                                                                        20, // after 4 avatars
-                                                                    child: Tooltip(
-                                                                      message: students
-                                                                          .skip(4)
-                                                                          .join(', '),
-                                                                      child: DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        '+${students.length - 4}',
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                              ],
+                                                          activityFeedStudentAvatarStack(
+                                                            students,
+                                                            onOpenStudentList: () =>
+                                                                showActivityStudentListSheet(
+                                                              context,
+                                                              students,
                                                             ),
                                                           ),
                                                           const SizedBox(height: 10),
@@ -2160,12 +2176,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             CustomClearAllChip(
                               onTap: () {
                                 setState(() {
-                                  _selectdClassroom = _classroomOptions[0];
+                                  final now = DateTime.now();
+                                  _selectedStartDate =
+                                      DateTime(now.year, now.month, 1);
+                                  _selectedEndDate =
+                                      DateTime(now.year, now.month + 1, 0);
+                                  if (_classroomOptions.isNotEmpty) {
+                                    _selectdClassroom = _classroomOptions.first;
+                                  }
                                   _selectedStudent = null;
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
-                                _loadRangeFeed(refresh: true);
+                                _refreshApisAfterClearAll();
                               },
                               label: 'Clear All',
                             ),
@@ -2613,50 +2636,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                             ),
                                                             const SizedBox(height: 10),
 
-                                                            SizedBox(
-                                                              height: 32,
-                                                              child: Stack(
-                                                                children: [
-                                                                  for (
-                                                                  int i = 0;
-                                                                  i < students.length &&
-                                                                      i < 4;
-                                                                  i++
-                                                                  )
-                                                                    Positioned(
-                                                                      left: i * 20,
-                                                                      child:
-                                                                      DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        students[i],
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-
-                                                                  // Extra count tooltip
-                                                                  if (students.length > 4)
-                                                                    Positioned(
-                                                                      left:
-                                                                      4 *
-                                                                          20, // after 4 avatars
-                                                                      child: Tooltip(
-                                                                        message: students
-                                                                            .skip(4)
-                                                                            .join(', '),
-                                                                        child: DocumentImageWidget(
-                                                                          fileUuid: '',
-                                                                          name:
-                                                                          '+${students.length - 4}',
-                                                                          size: 28,
-                                                                          fontSize: 10,
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                ],
-                                                              ),
+                                                            activityFeedStudentAvatarStack(
+                                                            students,
+                                                            onOpenStudentList: () =>
+                                                                showActivityStudentListSheet(
+                                                              context,
+                                                              students,
                                                             ),
+                                                          ),
                                                             const SizedBox(height: 10),
 
                                                             Text(

@@ -11,7 +11,6 @@ import 'package:wowcare/presentation/features/activities/view/edit_create_activi
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -31,10 +30,12 @@ import '../../../../domain/features/activity/usecases/get_classroom_activity_set
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../util/activity_filter_metadata_cache.dart';
+import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -51,6 +52,7 @@ import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 import '../util/activity_feed_page_cache_codec.dart';
 import '../util/activity_parent_feed_merge.dart';
+import '../utils/activity_staff_display.dart';
 
 class ActivityDailyTab extends StatefulWidget {
   const ActivityDailyTab({
@@ -125,6 +127,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   bool _lastFeedCompletedWithError = false;
   String? _feedError;
   String? _schoolCode;
+  /// Logged-in user's display name; used when feed [createdBy] is "system", etc.
+  String _viewerStaffDisplayName = '';
   List<ActivitySetting> _classroomActivitySettings = [];
   List<String> _tagFilterOptions = [];
   Map<String, String> _tagNameToCode = {};
@@ -142,6 +146,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetStudentCodesForActivityTagFilterUseCase
+      _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
@@ -324,7 +330,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         return names.contains(a.name.trim().toLowerCase());
       }).toList();
     }
-    if (_filterTags.isNotEmpty && _studentCodesForTagFilter.isNotEmpty) {
+    if (_filterTags.isNotEmpty) {
       list = list
           .where((a) =>
               a.studentCode != null &&
@@ -338,36 +344,47 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _studentCodesForTagFilter.clear();
     if (_filterTags.isEmpty || !mounted) return;
     final school = _schoolCode;
-    final classroomName = _selectdClassroom;
-    if (school == null ||
-        school.isEmpty ||
-        classroomName == null ||
-        !_classroomCodeByName.containsKey(classroomName)) {
-      return;
-    }
-    final cc = _classroomCodeByName[classroomName]!;
+    if (school == null || school.isEmpty) return;
+
+    final tagCodes = _filterTags
+        .map((name) => _tagNameToCode[name]?.trim())
+        .whereType<String>()
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (tagCodes.isEmpty) return;
+
     try {
-      for (final tagName in _filterTags) {
-        final tagCode = _tagNameToCode[tagName];
-        if (tagCode == null || tagCode.trim().isEmpty) continue;
-        var page = 0;
-        while (true) {
-          final sp = await _getStudentPageUseCase(
+      if (_parentHome) {
+        final classroomCodes = _parentStudentClassroomByCode.values
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList();
+        for (final cc in classroomCodes) {
+          final students = await _getStudentCodesForActivityTagFilterUseCase(
             schoolCode: school,
-            classroomCodes: [cc],
-            tagCodes: [tagCode.trim()],
-            page: page,
-            size: 100,
+            classroomCode: cc,
+            tagCodes: tagCodes,
           );
           if (!mounted) return;
-          for (final s in sp.items) {
-            _studentCodesForTagFilter.add(s.code);
-          }
-          if (!sp.hasMore) break;
-          page++;
-          if (page > 100) break;
+          _studentCodesForTagFilter.addAll(students);
         }
+        return;
       }
+
+      final classroomName = _selectdClassroom;
+      if (classroomName == null ||
+          !_classroomCodeByName.containsKey(classroomName)) {
+        return;
+      }
+      final cc = _classroomCodeByName[classroomName]!;
+      final students = await _getStudentCodesForActivityTagFilterUseCase(
+        schoolCode: school,
+        classroomCode: cc,
+        tagCodes: tagCodes,
+      );
+      if (!mounted) return;
+      _studentCodesForTagFilter.addAll(students);
     } catch (_) {
       if (mounted) _studentCodesForTagFilter.clear();
     }
@@ -385,6 +402,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   Future<void> _bootstrap() async {
+    final viewerName =
+        (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    if (mounted) {
+      setState(() {
+        _viewerStaffDisplayName = viewerName;
+      });
+    }
+
     final school =
         (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
     if (!mounted) return;
@@ -605,7 +630,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _loadDailyFeed(refresh: true);
   }
 
-  Future<void> _reloadStudentsAndSettings() async {
+  Future<void> _reloadStudentsAndSettings({bool forceRefreshApis = false}) async {
     _studentCodeByName.clear();
     _availableStudents = [];
     _classroomActivitySettings = [];
@@ -636,6 +661,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         cacheManager: _cacheManager,
         useCase: _getClassroomActivitySettingsUseCase,
         classroomCode: code,
+        forceRefresh: forceRefreshApis,
       );
       if (!mounted) return;
       setState(() {
@@ -649,36 +675,40 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
     }
 
-    try {
-      final cachedStudents = await _cacheManager.loadCache(studentsCacheKey);
-      if (cachedStudents != null && cachedStudents['students'] is List && mounted) {
-        final list = (cachedStudents['students'] as List)
-            .whereType<Map>()
-            .map((e) => <String, String>{
-                  'fullName': (e['fullName'] ?? '').toString(),
-                  'studentCode': (e['studentCode'] ?? '').toString(),
-                })
-            .where((e) => e['fullName']!.isNotEmpty && e['studentCode']!.isNotEmpty)
-            .toList();
-        _studentCodeByName
-          ..clear()
-          ..addEntries(list.map((e) => MapEntry(e['fullName']!, e['studentCode']!)));
-        setState(() {
-          _availableStudents = list.map((e) => e['fullName']!).toList()..sort();
-          if (_selectedStudent != null &&
-              !_availableStudents.contains(_selectedStudent)) {
-            _selectedStudent = null;
-          }
-        });
-      }
-    } catch (_) {}
+    if (!forceRefreshApis) {
+      try {
+        final cachedStudents = await _cacheManager.loadCache(studentsCacheKey);
+        if (cachedStudents != null && cachedStudents['students'] is List && mounted) {
+          final list = (cachedStudents['students'] as List)
+              .whereType<Map>()
+              .map((e) => <String, String>{
+                    'fullName': (e['fullName'] ?? '').toString(),
+                    'studentCode': (e['studentCode'] ?? '').toString(),
+                  })
+              .where((e) =>
+                  e['fullName']!.isNotEmpty && e['studentCode']!.isNotEmpty)
+              .toList();
+          _studentCodeByName
+            ..clear()
+            ..addEntries(
+                list.map((e) => MapEntry(e['fullName']!, e['studentCode']!)));
+          setState(() {
+            _availableStudents = list.map((e) => e['fullName']!).toList()..sort();
+            if (_selectedStudent != null &&
+                !_availableStudents.contains(_selectedStudent)) {
+              _selectedStudent = null;
+            }
+          });
+        }
+      } catch (_) {}
+    }
 
     try {
       final students = await _getStudentClassroomListUseCase(
         schoolCode: school,
         classroomCode: code,
         status: const ['ACTIVE'],
-        refresh: false,
+        refresh: forceRefreshApis,
       );
       if (!mounted) return;
       _studentCodeByName.addEntries(
@@ -708,15 +738,26 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
   }
 
-  Future<void> _reloadStudentsAndSettingsThenFeed() async {
-    await _reloadStudentsAndSettings();
-    await _loadDailyFeed();
+  Future<void> _reloadStudentsAndSettingsThenFeed({
+    bool forceRefreshApis = false,
+  }) async {
+    await _reloadStudentsAndSettings(forceRefreshApis: forceRefreshApis);
+    if (forceRefreshApis) {
+      await _loadTagFilterOptions(forceRefresh: true);
+    }
+    await _loadDailyFeed(refresh: true);
   }
 
   List<ActivityItem> _mapDailyFeedPageToItems(ActivityFeedPage page) {
-    final raw =
-        page.content.map((row) => activityItemFromFeedRow(row)).toList();
-    return _withClientFilters(raw);
+    final raw = page.content
+        .map(
+          (row) => activityItemFromFeedRow(
+            row,
+            viewerDisplayName: _viewerStaffDisplayName,
+          ),
+        )
+        .toList();
+    return mergeAdjacentMultiStudentFeedItems(_withClientFilters(raw));
   }
 
   void _onFeedScroll() {
@@ -792,6 +833,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
+        _activities = mergeAdjacentMultiStudentFeedItems(_activities);
         _feedHasMore = !page.last;
         _feedNextPage = page.last ? 0 : page.pageNumber + 1;
       });
@@ -980,6 +1022,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
+        _activities = mergeAdjacentMultiStudentFeedItems(_activities);
         _feedHasMore = !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
@@ -1179,6 +1222,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _getStudentCodesForActivityTagFilterUseCase =
+        serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
@@ -1293,7 +1338,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
   }
 
-  Future<void> _loadTagFilterOptions() async {
+  Future<void> _loadTagFilterOptions({bool forceRefresh = false}) async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
     try {
@@ -1301,6 +1346,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         cacheManager: _cacheManager,
         useCase: _getTagNameCodeMapForSchoolUseCase,
         schoolCode: school,
+        forceRefresh: forceRefresh,
       );
       if (!mounted) return;
       setState(() {
@@ -1519,7 +1565,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
-                                _reloadStudentsAndSettingsThenFeed();
+                                _reloadStudentsAndSettingsThenFeed(
+                                  forceRefreshApis: true,
+                                );
                               },
                               label: 'Clear All',
                             ),
@@ -1546,7 +1594,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 ),
                 if ((_loadingFeed || _loadingParentContext) &&
                     _activities.isEmpty)
-                  SliverToBoxAdapter(child: _dailyFeedLoadingSheet(context)),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: SizedBox.expand(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 48,
+                            horizontal: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.dividerColor),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                          ),
+                          alignment: Alignment.center,
+                          child: const PrimaryCircularLoader(
+                            size: 40,
+                            strokeWidth: 3.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (!_loadingFeed &&
                     !_loadingParentContext &&
                     _activities.isEmpty)
@@ -1974,48 +2045,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                           ),
                                                           const SizedBox(height: 10),
 
-                                                          SizedBox(
-                                                            height: 32,
-                                                            child: Stack(
-                                                              children: [
-                                                                for (
-                                                                int i = 0;
-                                                                i < students.length &&
-                                                                    i < 4;
-                                                                i++
-                                                                )
-                                                                  Positioned(
-                                                                    left: i * 20,
-                                                                    child:
-                                                                    DocumentImageWidget(
-                                                                      fileUuid: '',
-                                                                      name:
-                                                                      students[i],
-                                                                      size: 28,
-                                                                      fontSize: 10,
-                                                                    ),
-                                                                  ),
-
-                                                                // Extra count tooltip
-                                                                if (students.length > 4)
-                                                                  Positioned(
-                                                                    left:
-                                                                    4 *
-                                                                        20, // after 4 avatars
-                                                                    child: Tooltip(
-                                                                      message: students
-                                                                          .skip(4)
-                                                                          .join(', '),
-                                                                      child: DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        '+${students.length - 4}',
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                              ],
+                                                          activityFeedStudentAvatarStack(
+                                                            students,
+                                                            onOpenStudentList: () =>
+                                                                showActivityStudentListSheet(
+                                                              context,
+                                                              students,
                                                             ),
                                                           ),
                                                           const SizedBox(height: 10),
@@ -2900,6 +2935,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                             CustomClearAllChip(
                               onTap: () {
                                 setState(() {
+                                  final now = DateTime.now();
+                                  _selectedDate =
+                                      DateTime(now.year, now.month, now.day);
                                   if (_classroomOptions.isNotEmpty) {
                                     _selectdClassroom = _classroomOptions.first;
                                   }
@@ -2907,7 +2945,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
-                                _reloadStudentsAndSettingsThenFeed();
+                                _reloadStudentsAndSettingsThenFeed(
+                                  forceRefreshApis: true,
+                                );
                               },
                               label: 'Clear All',
                             ),
@@ -2936,12 +2976,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                     _activities.isEmpty)
                   Expanded(
                     child: _portraitOverscrollFeedWrapper(
-                      child: Center(
-                        child: _dailyFeedLoadingSheet(
-                          context,
-                          expandToParentHeight: false,
-                        ),
-                      ),
+                      child: _dailyFeedLoadingSheet(context),
                     ),
                   ),
 
@@ -3367,50 +3402,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                             ),
                                                             const SizedBox(height: 10),
 
-                                                            SizedBox(
-                                                              height: 32,
-                                                              child: Stack(
-                                                                children: [
-                                                                  for (
-                                                                  int i = 0;
-                                                                  i < students.length &&
-                                                                      i < 4;
-                                                                  i++
-                                                                  )
-                                                                    Positioned(
-                                                                      left: i * 20,
-                                                                      child:
-                                                                      DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        students[i],
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-
-                                                                  // Extra count tooltip
-                                                                  if (students.length > 4)
-                                                                    Positioned(
-                                                                      left:
-                                                                      4 *
-                                                                          20, // after 4 avatars
-                                                                      child: Tooltip(
-                                                                        message: students
-                                                                            .skip(4)
-                                                                            .join(', '),
-                                                                        child: DocumentImageWidget(
-                                                                          fileUuid: '',
-                                                                          name:
-                                                                          '+${students.length - 4}',
-                                                                          size: 28,
-                                                                          fontSize: 10,
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                ],
-                                                              ),
+                                                            activityFeedStudentAvatarStack(
+                                                            students,
+                                                            onOpenStudentList: () =>
+                                                                showActivityStudentListSheet(
+                                                              context,
+                                                              students,
                                                             ),
+                                                          ),
                                                             const SizedBox(height: 10),
 
                                                             Text(
@@ -3600,6 +3599,25 @@ class PopupItem extends StatelessWidget {
   }
 }
 
+String _bathroomSubtypeDisplayForFeed(String? raw) {
+  final s = (raw ?? '').trim();
+  if (s.isEmpty) return '';
+  final lower = s.toLowerCase();
+  if (lower == 'bm') return 'BM';
+  if (lower == 'wet') return 'Wet';
+  return s;
+}
+
+bool _bathroomFeedTypeIsDiaper(String? typeRaw) {
+  return (typeRaw ?? '').toLowerCase().contains('diaper');
+}
+
+bool _bathroomFeedTypeIsPeeTrack(String? typeRaw) {
+  final s = (typeRaw ?? '').trim().toLowerCase();
+  if (s.contains('diaper')) return false;
+  return s.contains('pee') || s.contains('potty');
+}
+
 /// Feed card line under student avatars (Meal / Bottle / Nap / Learning / Bathroom + description).
 String activityFeedCardBodyLine(ActivityItem activity) {
   if (activity.name == 'Meal') {
@@ -3701,18 +3719,41 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     return 'No description';
   }
   if (activity.name == 'Bathroom') {
-    final t = activity.bathroomType?.trim();
-    final st = activity.bathroomSubType?.trim();
+    final tRaw = activity.bathroomType?.trim();
+    final stRaw = activity.bathroomSubType?.trim();
+    final sizeRaw = activity.bathroomDiaperSize?.trim();
     final desc = activity.description?.trim();
-    final parts = <String>[];
-    if (t != null && t.isNotEmpty) parts.add(t);
-    if (st != null && st.isNotEmpty) parts.add(st);
-    if (parts.isNotEmpty) {
-      final first = parts.join(' · ');
-      if (desc != null && desc.isNotEmpty) {
-        return '$first\n$desc';
+    final stDisp = _bathroomSubtypeDisplayForFeed(stRaw);
+
+    String? firstLine;
+    if (_bathroomFeedTypeIsDiaper(tRaw)) {
+      if (stDisp.isNotEmpty) {
+        firstLine = (sizeRaw != null && sizeRaw.isNotEmpty)
+            ? 'Diaper (Size : $sizeRaw) · $stDisp'
+            : 'Diaper · $stDisp';
+      } else if (sizeRaw != null && sizeRaw.isNotEmpty) {
+        firstLine = 'Diaper (Size : $sizeRaw)';
+      } else if (tRaw != null && tRaw.isNotEmpty) {
+        firstLine = tRaw;
+      } else {
+        firstLine = 'Diaper';
       }
-      return first;
+    } else if (_bathroomFeedTypeIsPeeTrack(tRaw) && stDisp.isNotEmpty) {
+      firstLine = 'Pee · $stDisp';
+    } else {
+      final parts = <String>[];
+      if (tRaw != null && tRaw.isNotEmpty) parts.add(tRaw);
+      if (stRaw != null && stRaw.isNotEmpty) parts.add(stRaw);
+      if (parts.isNotEmpty) {
+        firstLine = parts.join(' · ');
+      }
+    }
+
+    if (firstLine != null && firstLine.isNotEmpty) {
+      if (desc != null && desc.isNotEmpty) {
+        return '$firstLine\n$desc';
+      }
+      return firstLine;
     }
     if (desc != null && desc.isNotEmpty) return desc;
     return 'No description';
@@ -3771,6 +3812,163 @@ String? _formatBottleOzConsumedLine(String? raw) {
 /// Public for bottle detail view; same numeric formatting as the feed (`6 OZ`).
 String? formatBottleAmountForDisplay(String? raw) => _formatBottleOzCompact(raw);
 
+/// Activity types where the API may return one feed row per student; adjacent
+/// rows that match the same logged event are merged for display.
+const Set<String> _mergeableMultiStudentActivityNames = {
+  'Meal',
+  'Bottle',
+  'Notes',
+  'Nap Start',
+  'Nap End',
+  'Nap',
+  'Bathroom',
+  'Learning',
+  'Outdoor',
+  'Medication',
+  'Photo',
+  'Video',
+};
+
+bool activityItemsMergeableForFeedDisplay(ActivityItem a, ActivityItem b) {
+  if (!_mergeableMultiStudentActivityNames.contains(a.name)) return false;
+  if (a.name != b.name) return false;
+  if ((a.activityTypeCode ?? '') != (b.activityTypeCode ?? '')) return false;
+  if ((a.classroomCode ?? '') != (b.classroomCode ?? '')) return false;
+  if ((a.activityDateIso ?? '') != (b.activityDateIso ?? '')) return false;
+  if ((a.description ?? '') != (b.description ?? '')) return false;
+  if (a.name == 'Photo' || a.name == 'Video') {
+    final aMedia = (a.photoUrl ?? a.videoUrl ?? '').trim();
+    final bMedia = (b.photoUrl ?? b.videoUrl ?? '').trim();
+    if (aMedia.isEmpty || aMedia != bMedia) return false;
+  }
+  final scA = a.studentCode?.trim() ?? '';
+  final scB = b.studentCode?.trim() ?? '';
+  if (scA.isNotEmpty && scA == scB) return false;
+  if (a.name == 'Meal') {
+    if (a.mealType != b.mealType) return false;
+    if (a.mealQuantity != b.mealQuantity) return false;
+  }
+  if (a.name == 'Bottle') {
+    if (a.amountConsumed != b.amountConsumed) return false;
+    if (a.bottleConsumptionStatus != b.bottleConsumptionStatus) return false;
+  }
+  return true;
+}
+
+List<Map<String, String>>? _mergedStudentActivityRefsForFeed(
+  ActivityItem a,
+  ActivityItem b,
+) {
+  final out = <Map<String, String>>[];
+  void add(ActivityItem x) {
+    final r = x.studentActivityRefs;
+    if (r != null && r.isNotEmpty) {
+      for (final m in r) {
+        out.add(Map<String, String>.from(m));
+      }
+    } else {
+      for (final name in x.studentList) {
+        final nm = name.trim();
+        if (nm.isEmpty) continue;
+        out.add({
+          'name': nm,
+          'studentCode': x.studentCode?.trim() ?? '',
+          'activityCode': x.activityCode?.trim() ?? '',
+        });
+      }
+    }
+  }
+
+  add(a);
+  add(b);
+  final seen = <String>{};
+  final unique = <Map<String, String>>[];
+  for (final m in out) {
+    final ac = (m['activityCode'] ?? '').trim();
+    if (ac.isNotEmpty) {
+      if (seen.contains(ac)) continue;
+      seen.add(ac);
+      unique.add(m);
+      continue;
+    }
+    final sc = (m['studentCode'] ?? '').trim();
+    final nm = (m['name'] ?? '').trim();
+    final key = '$sc|$nm';
+    if (seen.contains(key)) continue;
+    seen.add(key);
+    unique.add(m);
+  }
+  return unique.isEmpty ? null : unique;
+}
+
+ActivityItem mergeTwoActivityItemsForFeed(ActivityItem a, ActivityItem b) {
+  final names = <String>[];
+  void addUnique(Iterable<String> list) {
+    for (final n in list) {
+      final t = n.trim();
+      if (t.isEmpty) continue;
+      if (!names.contains(t)) names.add(t);
+    }
+  }
+  addUnique(a.studentList);
+  addUnique(b.studentList);
+  if (names.isEmpty) names.add('Student');
+
+  final mergedRefs = _mergedStudentActivityRefsForFeed(a, b);
+
+  return ActivityItem(
+    time: a.time,
+    date: a.date,
+    name: a.name,
+    description: a.description,
+    photoUrl: a.photoUrl ?? b.photoUrl,
+    videoUrl: a.videoUrl ?? b.videoUrl,
+    studentList: names,
+    createdBy: preferActivityAuthorLabel(a.createdBy, b.createdBy),
+    activityType: a.activityType,
+    categoryType: a.categoryType,
+    mealType: a.mealType,
+    mealQuantity: a.mealQuantity,
+    amountConsumed: a.amountConsumed,
+    bottleConsumptionStatus: a.bottleConsumptionStatus,
+    napStartTime: a.napStartTime,
+    remainderOn: a.remainderOn,
+    napEndTime: a.napEndTime,
+    whatHappened: a.whatHappened,
+    firstAidAdministered: a.firstAidAdministered,
+    staffPresent: preferActivityAuthorLabel(
+      a.staffPresent ?? '',
+      b.staffPresent ?? '',
+    ),
+    additionalNotes: a.additionalNotes,
+    bathroomType: a.bathroomType,
+    bathroomSubType: a.bathroomSubType,
+    bathroomDiaperSize: a.bathroomDiaperSize ?? b.bathroomDiaperSize,
+    activityTypeCode: a.activityTypeCode,
+    activityCode: a.activityCode,
+    studentCode: a.studentCode,
+    classroomCode: a.classroomCode,
+    activityDateIso: a.activityDateIso,
+    snapshotAttachments: a.snapshotAttachments ?? b.snapshotAttachments,
+    studentActivityRefs: mergedRefs,
+  );
+}
+
+List<ActivityItem> mergeAdjacentMultiStudentFeedItems(List<ActivityItem> items) {
+  if (items.length < 2) return items;
+  final out = <ActivityItem>[items.first];
+  for (var i = 1; i < items.length; i++) {
+    final prev = out.last;
+    final cur = items[i];
+    if (activityItemsMergeableForFeedDisplay(prev, cur)) {
+      out[out.length - 1] = mergeTwoActivityItemsForFeed(prev, cur);
+    } else {
+      out.add(cur);
+    }
+  }
+  return out;
+}
+
 class ActivityItem {
   final String time;
   final String date;
@@ -3797,6 +3995,8 @@ class ActivityItem {
   final String? additionalNotes; // for incident activity
   final String? bathroomType; // for bathroom activity
   final String? bathroomSubType; // also for bathroom activity
+  /// Diaper size label from activity parameters (feed / detail), e.g. "2".
+  final String? bathroomDiaperSize;
   /// From feed row; used to load activity-type parameter definitions in edit flows.
   final String? activityTypeCode;
   /// `GET /api/v1/activities/code/{code}` / `PATCH /api/v1/activities/{code}`
@@ -3807,6 +4007,8 @@ class ActivityItem {
   final String? activityDateIso;
   /// Attachment rows from feed (or detail) snapshot; used by edit screens without GET-by-code.
   final List<Map<String, dynamic>>? snapshotAttachments;
+  /// One map per student on merged feed cards: `name`, `studentCode`, `activityCode`.
+  final List<Map<String, String>>? studentActivityRefs;
 
   const ActivityItem({
     required this.time,
@@ -3833,30 +4035,57 @@ class ActivityItem {
     this.additionalNotes,
     this.bathroomType,
     this.bathroomSubType,
+    this.bathroomDiaperSize,
     this.activityTypeCode,
     this.activityCode,
     this.studentCode,
     this.classroomCode,
     this.activityDateIso,
     this.snapshotAttachments,
+    this.studentActivityRefs,
   });
 }
 
 /// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.
-ActivityItem activityItemFromActivityDetail(ActivityDetail detail) {
-  return activityItemFromFeedRow(ActivityFeedRow.fromActivityDetail(detail));
+ActivityItem activityItemFromActivityDetail(
+  ActivityDetail detail, {
+  String? viewerDisplayName,
+}) {
+  return activityItemFromFeedRow(
+    ActivityFeedRow.fromActivityDetail(detail),
+    viewerDisplayName: viewerDisplayName,
+  );
 }
 
 /// Maps [ActivityItem] to student maps used by create/edit activity screens.
 List<Map<String, dynamic>> studentDataMapsForActivityEdit(ActivityItem activity) {
-  final code = activity.studentCode?.trim();
   final room = activity.classroomCode?.trim();
+  final refs = activity.studentActivityRefs;
+  if (refs != null && refs.isNotEmpty) {
+    return refs
+        .map(
+          (r) => <String, dynamic>{
+            'name': (r['name'] ?? '').trim().isEmpty
+                ? 'Student'
+                : (r['name'] ?? '').trim(),
+            if ((r['studentCode'] ?? '').trim().isNotEmpty)
+              'studentCode': r['studentCode']!.trim(),
+            if (room != null && room.isNotEmpty) 'classroomCode': room,
+            if ((r['activityCode'] ?? '').trim().isNotEmpty)
+              'activityCode': r['activityCode']!.trim(),
+          },
+        )
+        .toList();
+  }
+  final code = activity.studentCode?.trim();
   final maps = <Map<String, dynamic>>[];
   for (final name in activity.studentList) {
     maps.add({
       'name': name,
       if (code != null && code.isNotEmpty) 'studentCode': code,
       if (room != null && room.isNotEmpty) 'classroomCode': room,
+      if ((activity.activityCode ?? '').trim().isNotEmpty)
+        'activityCode': activity.activityCode!.trim(),
     });
   }
   if (maps.isEmpty && activity.studentList.isEmpty) {
@@ -3905,7 +4134,10 @@ String mapApiActivityTypeNameToUiLabel(String apiName) {
   return apiName.trim();
 }
 
-ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
+ActivityItem activityItemFromFeedRow(
+  ActivityFeedRow row, {
+  String? viewerDisplayName,
+}) {
   DateTime dt;
   try {
     dt = DateTime.parse(row.activityDateIso).toLocal();
@@ -3944,6 +4176,25 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
         'valueNumber',
         'valueTime',
         'valueDatetime',
+      ]) {
+        final v = (p[key] ?? '').toString().trim();
+        if (v.isNotEmpty) return v;
+      }
+    }
+    return null;
+  }
+
+  String? pickStaffPresentFromParameters() {
+    for (final p in row.parameterValues) {
+      final n = (p['parameterName'] ?? '').toString().toLowerCase();
+      if (!n.contains('staff')) continue;
+      final dt = (p['dataType'] ?? '').toString().toUpperCase();
+      if (dt == 'DATE' || dt == 'TIME') continue;
+      for (final key in <String>[
+        'selectedOptionLabel',
+        'optionLabel',
+        'valueText',
+        'valueNumber',
       ]) {
         final v = (p[key] ?? '').toString().trim();
         if (v.isNotEmpty) return v;
@@ -4123,10 +4374,37 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
   final bathroomSubType = pickParam((n) => n.contains('sub') && n.contains('type')) ??
       pickParam((n) => n.contains('subtype'));
 
+  String? pickBathroomDiaperSizeFromParams() {
+    for (final p in row.parameterValues) {
+      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
+      if (!pn.contains('size')) continue;
+      if (pn.contains('subtype')) continue;
+      if (pn.contains('sub type')) continue;
+      for (final key in <String>[
+        'selectedOptionLabel',
+        'optionLabel',
+        'valueText',
+        'valueNumber',
+      ]) {
+        final v = (p[key] ?? '').toString().trim();
+        if (v.isNotEmpty) return v;
+      }
+    }
+    return null;
+  }
+
+  final bathroomDiaperSizeLabel =
+      name == 'Bathroom' ? pickBathroomDiaperSizeFromParams() : null;
+
   final desc = row.description.trim();
   final studentName =
       row.studentDisplayName.isEmpty ? 'Student' : row.studentDisplayName;
-  final by = row.createdBy.trim().isEmpty ? 'Staff' : row.createdBy.trim();
+  final staffFromParams = pickStaffPresentFromParameters();
+  final by = resolveActivityCreatedByForUi(
+    rawCreatedBy: row.createdBy,
+    staffLabelFromParameters: staffFromParams,
+    viewerDisplayNameFallback: viewerDisplayName,
+  );
 
   /// Learning: API stores these in [parameterValues] (e.g. PM_054 Activity Name, PM_055 Categories).
   final String? learningActivityName = name == 'Learning'
@@ -4141,6 +4419,9 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
       : null;
   final String? learningCategory =
       name == 'Learning' ? pickParam((n) => n.contains('categor')) : null;
+
+  final sc = (row.studentCode ?? '').trim();
+  final ac = (row.activityCode ?? '').trim();
 
   return ActivityItem(
     time: time,
@@ -4173,15 +4454,12 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
     staffPresent: by,
     bathroomType: name == 'Bathroom' ? bathroomType : null,
     bathroomSubType: name == 'Bathroom' ? bathroomSubType : null,
+    bathroomDiaperSize: name == 'Bathroom' ? bathroomDiaperSizeLabel : null,
     activityTypeCode: row.activityTypeCode.trim().isEmpty
         ? null
         : row.activityTypeCode.trim(),
-    activityCode: (row.activityCode ?? '').trim().isEmpty
-        ? null
-        : row.activityCode!.trim(),
-    studentCode: (row.studentCode ?? '').trim().isEmpty
-        ? null
-        : row.studentCode!.trim(),
+    activityCode: ac.isEmpty ? null : ac,
+    studentCode: sc.isEmpty ? null : sc,
     classroomCode: (row.classroomCode ?? '').trim().isEmpty
         ? null
         : row.classroomCode!.trim(),
@@ -4192,5 +4470,12 @@ ActivityItem activityItemFromFeedRow(ActivityFeedRow row) {
         : row.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
+    studentActivityRefs: [
+      {
+        'name': studentName,
+        if (sc.isNotEmpty) 'studentCode': sc,
+        if (ac.isNotEmpty) 'activityCode': ac,
+      },
+    ],
   );
 }

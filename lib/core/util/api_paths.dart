@@ -319,6 +319,9 @@ class ApiPaths {
   /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`
   static String studentSiblings(String code) => '$studentList/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
+  /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
+  static const String studentTagsActivityFilter =
+      '/api/v1/student-tags/activity-filter';
   static String studentDeactivate(String code) =>
       '$studentList/$code/deactivate';
   static String studentReactivate(String code) =>

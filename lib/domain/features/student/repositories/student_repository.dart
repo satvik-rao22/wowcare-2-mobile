@@ -158,6 +158,15 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  /// Students in [classroomCode] matching [tagCodes] for activity feeds.
+  ///
+  /// `POST /api/v1/student-tags/activity-filter`
+  Future<List<String>> getStudentCodesForActivityTagFilter({
+    required String schoolCode,
+    required String classroomCode,
+    required List<String> tagCodes,
+  });
+
   /// Returns a mapping from guardian display name (as used in filters) to guardian
   /// code for a given school.
   ///

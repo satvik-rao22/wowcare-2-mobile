@@ -21,7 +21,9 @@ import '../../../../../domain/features/activity/usecases/get_classroom_activity_
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
+import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
@@ -62,6 +64,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   bool _isSubmitting = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
+  final Set<int> _scopedEditStudentIndices = {};
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
@@ -130,7 +133,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
-      final item = activityItemFromActivityDetail(detail);
+      final item = activityItemFromActivityDetail(
+        detail,
+        viewerDisplayName: _staffName,
+      );
       setState(() {
         _liveActivity = item;
         _selectedStudents = List<String>.from(item.studentList);
@@ -488,16 +494,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
 
-    final activityCode = _effectiveActivity.activityCode?.trim();
-    if (activityCode == null || activityCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing activity reference. Refresh the activity list and try again.',
-        isError: true,
-      );
-      return;
-    }
+    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -619,19 +616,38 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         _effectiveActivity.name,
       );
 
-      final message = await _updateActivityUseCase(
-        code: activityCode,
-        staffCode: staffCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: const [],
+      final targets = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
       );
+      String? lastMessage;
+      for (final m in targets) {
+        final code = (m['activityCode'] as String?)?.trim() ??
+            fallbackActivityCode;
+        if (code == null || code.isEmpty) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Missing activity reference for a student. Refresh the feed and try again.',
+            isError: true,
+          );
+          return;
+        }
+        lastMessage = await _updateActivityUseCase(
+          code: code,
+          staffCode: staffCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: const [],
+        );
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: lastMessage ?? 'Updated',
         isSuccess: true,
       );
       Navigator.of(context).popUntil((route) {
@@ -741,13 +757,31 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                   );
                 },
               ),
+            if (widget.isEdit && _selectedStudents.length > 1) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Divider(height: 24),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ActivityEditStudentScopeCheckboxes(
+                  studentNames: _selectedStudents,
+                  checkedIndices: _scopedEditStudentIndices,
+                  onChanged: (next) => setState(() {
+                    _scopedEditStudentIndices
+                      ..clear()
+                      ..addAll(next);
+                  }),
+                ),
+              ),
+            ],
             SizedBox(height: responsive.verticalSpacing),
             Row(
               children: [
                 Flexible(
                   child: _layoutAsEdit
                       ? DateWidget(
-                          isEditable: _canInteract,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: _effectiveActivity.date,
                           onDateChanged: (d) {
@@ -757,7 +791,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
                           onDateChanged: (d) {
                             setState(() {
@@ -795,9 +829,11 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             ),
             SizedBox(height: responsive.verticalSpacing),
             StaffPresentWidget(
-              staffName: _layoutAsEdit
-                  ? (_effectiveActivity.createdBy)
-                  : _staffName,
+              staffName: staffPresentLabelForActivity(
+                layoutAsEdit: _layoutAsEdit,
+                activityCreatedBy: _effectiveActivity.createdBy,
+                loggedInDisplayName: _staffName,
+              ),
               isEditable: _canInteract,
             ),
             SizedBox(height: responsive.verticalSpacing),

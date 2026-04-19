@@ -35,6 +35,19 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
   @override
   void initState(){
     super.initState();
+    _rebuildStaffSelection();
+    clickToSign = widget.isAlreadySigned;
+  }
+
+  @override
+  void didUpdateWidget(StaffPresentWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.staffName.trim() != widget.staffName.trim()) {
+      setState(_rebuildStaffSelection);
+    }
+  }
+
+  void _rebuildStaffSelection() {
     // Build staff list with the logged-in staff name (if provided) at the top,
     // followed by fallback demo names.
     const defaultStaff = ['Staff A', 'Staff B', 'Staff C'];
@@ -45,7 +58,6 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     ];
 
     selectedStaff = name.isNotEmpty ? name : staffList.first;
-    clickToSign = widget.isAlreadySigned;
   }
 
   @override
